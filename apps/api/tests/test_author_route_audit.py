@@ -77,6 +77,10 @@ AUTHORING = {
     ("POST", STAT_DEFINITION + "/enum-values"),
     ("PATCH", STAT_DEFINITION + "/enum-values/{enum_value_id}"),
     ("POST", T + "/stat-groups"),
+    ("POST", T + "/systems"),
+    ("PATCH", T + "/systems/{system_id}"),
+    ("POST", T + "/templates"),
+    ("PUT", T + "/templates/{template_id}"),
     ("PATCH", STAT_GROUP),
     ("PUT", T + "/stat-groups/order"),
     ("PUT", STAT_GROUP + "/order"),
@@ -92,6 +96,8 @@ ADMIN_UNLESS_DRY_RUN = {
 
 # An Owner or an Organizer: `get_tenant_admin_context`.
 ADMIN = {
+    ("DELETE", T + "/systems/{system_id}"),
+    ("DELETE", T + "/templates/{template_id}"),
     ("PATCH", T),
     ("GET", T + "/activity-log"),
     ("POST", T + "/campaigns"),

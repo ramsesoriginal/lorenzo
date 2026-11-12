@@ -392,6 +392,7 @@ class CalendarSummary(BaseModel):
 class CampaignCreate(BaseModel):
     name: str = Field(..., title="Name")
     game_system: str = Field(..., title="Game System")
+    system_id: UUID | None = Field(None, title="System Id")
     slug: str = Field(..., title="Slug")
     description: str = Field(..., title="Description")
     secret: bool | None = Field(False, title="Secret")
@@ -404,6 +405,7 @@ class CampaignOut(BaseModel):
     name: str = Field(..., title="Name")
     description: str = Field(..., title="Description")
     game_system: str = Field(..., title="Game System")
+    system_id: UUID | None = Field(..., title="System Id")
     secret: bool = Field(..., title="Secret")
     player_self_service: bool = Field(..., title="Player Self Service")
     gm_title: str = Field(..., title="Gm Title")
@@ -419,6 +421,7 @@ class CampaignSummaryOut(BaseModel):
     slug: str = Field(..., title="Slug")
     name: str = Field(..., title="Name")
     game_system: str = Field(..., title="Game System")
+    system_id: UUID | None = Field(..., title="System Id")
     secret: bool = Field(..., title="Secret")
     gm_title: str = Field(..., title="Gm Title")
     gm_title_plural: str = Field(..., title="Gm Title Plural")
@@ -427,6 +430,7 @@ class CampaignSummaryOut(BaseModel):
 class CampaignUpdate(BaseModel):
     name: str | None = Field(None, title="Name")
     game_system: str | None = Field(None, title="Game System")
+    system_id: UUID | None = Field(None, title="System Id")
     slug: str | None = Field(None, title="Slug")
     description: str | None = Field(None, title="Description")
     secret: bool | None = Field(None, title="Secret")
@@ -458,6 +462,12 @@ class CharacterSummaryOut(BaseModel):
 class CharacterUpdate(BaseModel):
     name: str | None = Field(None, title="Name")
     owner_player_id: UUID | None = Field(None, title="Owner Player Id")
+
+
+class ChosenStepExplanationOut(BaseModel):
+    position: int | None = Field(..., title="Position")
+    otherwise: bool = Field(..., title="Otherwise")
+    key: int | float | str | None = Field(..., title="Key")
 
 
 class Kind3(StrEnum):
@@ -548,6 +558,7 @@ class ClockRelationshipsOut(BaseModel):
 class Kind5(StrEnum):
     stat_group = "stat_group"
     stat_definition = "stat_definition"
+    stat_role = "stat_role"
     slug = "slug"
 
 
@@ -614,6 +625,11 @@ class Kind6(StrEnum):
     comparison = "comparison"
     sum = "sum"
     contents = "contents"
+    min = "min"
+    max = "max"
+    product = "product"
+    ratio = "ratio"
+    select = "select"
 
 
 class ComputedStatDependentOut(BaseModel):
@@ -680,14 +696,60 @@ class ConnectionPut(BaseModel):
 
 
 class ContentsExplanationOut(BaseModel):
-    source_stat_definition_id: UUID = Field(..., title="Source Stat Definition Id")
-    source_name: str = Field(..., title="Source Name")
+    source_stat_definition_id: UUID | None = Field(..., title="Source Stat Definition Id")
+    source_name: str | None = Field(..., title="Source Name")
     things: int = Field(..., title="Things")
 
 
-class ContentsFormulaBody(BaseModel):
+class Aggregate(StrEnum):
+    sum = "sum"
+    min = "min"
+    max = "max"
+    count = "count"
+
+
+class OnlyKindEnum(StrEnum):
+    item_instance = "item_instance"
+
+
+class OnlyKind(RootModel[OnlyKindEnum | None]):
+    root: OnlyKindEnum | None = Field(None, title="Only Kind")
+
+
+class ContentsFormulaBodyInput(BaseModel):
+    model_config = ConfigDict(
+        regex_engine="python-re",
+    )
     kind: Literal["contents"] = Field("contents", title="Kind")
-    source_stat_definition_id: UUID = Field(..., title="Source Stat Definition Id")
+    source_stat_definition_id: UUID | None = Field(None, title="Source Stat Definition Id")
+    aggregate: Aggregate | None = Field("sum", title="Aggregate")
+    only_active: bool | None = Field(False, title="Only Active")
+    only_kind: OnlyKind | None = Field(None, title="Only Kind")
+    where_stat_definition_id: UUID | None = Field(None, title="Where Stat Definition Id")
+    if_none: float | constr(pattern=r"^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$") | None = Field(
+        None, title="If None"
+    )
+
+
+class OnlyKind1Enum(StrEnum):
+    item_instance = "item_instance"
+
+
+class OnlyKind1(RootModel[OnlyKind1Enum | None]):
+    root: OnlyKind1Enum | None = Field(None, title="Only Kind")
+
+
+class ContentsFormulaBodyOutput(BaseModel):
+    model_config = ConfigDict(
+        regex_engine="python-re",
+    )
+    kind: Literal["contents"] = Field("contents", title="Kind")
+    source_stat_definition_id: UUID | None = Field(None, title="Source Stat Definition Id")
+    aggregate: Aggregate | None = Field("sum", title="Aggregate")
+    only_active: bool | None = Field(False, title="Only Active")
+    only_kind: OnlyKind1 | None = Field(None, title="Only Kind")
+    where_stat_definition_id: UUID | None = Field(None, title="Where Stat Definition Id")
+    if_none: constr(pattern=r"^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$") | None = Field(None, title="If None")
 
 
 class Status7(StrEnum):
@@ -1122,6 +1184,8 @@ class EventSummary(BaseModel):
     name: str = Field(..., title="Name")
     slug: str | None = Field(None, title="Slug")
     order_basis: OrderBasis | None = Field(None, title="Order Basis")
+    dates: list[str] | None = Field(None, title="Dates")
+    participants: list[str] | None = Field(None, title="Participants")
 
 
 class ExtractChapter(BaseModel):
@@ -1148,6 +1212,26 @@ class ExtractionCheckpoint(BaseModel):
     source_id: UUID = Field(..., title="Source Id")
     chapter_id: UUID = Field(..., title="Chapter Id")
     checkpoint: dict[str, Any] = Field(..., title="Checkpoint")
+
+
+class ExtremumInputBodyInput(BaseModel):
+    model_config = ConfigDict(
+        regex_engine="python-re",
+    )
+    stat_definition_id: UUID | None = Field(None, title="Stat Definition Id")
+    constant: float | constr(pattern=r"^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$") | None = Field(
+        None, title="Constant"
+    )
+
+
+class ExtremumInputBodyOutput(BaseModel):
+    model_config = ConfigDict(
+        regex_engine="python-re",
+    )
+    stat_definition_id: UUID | None = Field(None, title="Stat Definition Id")
+    constant: constr(pattern=r"^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$") | None = Field(
+        None, title="Constant"
+    )
 
 
 class FactUpdate(BaseModel):
@@ -1357,6 +1441,7 @@ class ItemCreate(BaseModel):
     name: str = Field(..., title="Name")
     prototype_ids: list[UUID] | None = Field([], title="Prototype Ids")
     in_public_catalog: bool | None = Field(False, title="In Public Catalog")
+    starts_inactive: bool | None = Field(None, title="Starts Inactive")
     slug: constr(pattern=r"^[A-Za-z0-9][A-Za-z0-9_-]*$", max_length=100) | None = Field(
         None, title="Slug"
     )
@@ -1372,16 +1457,19 @@ class ItemInstanceCreate(BaseModel):
     )
     quantity: conint(ge=1) | None = Field(1, title="Quantity")
     override: bool | None = Field(False, title="Override")
+    active: bool | None = Field(None, title="Active")
 
 
 class ItemInstanceUpdate(BaseModel):
     name: str | None = Field(None, title="Name")
     prototype_id: UUID | None = Field(None, title="Prototype Id")
+    active: bool | None = Field(None, title="Active")
 
 
 class ItemUpdate(BaseModel):
     name: str | None = Field(None, title="Name")
     in_public_catalog: bool | None = Field(None, title="In Public Catalog")
+    starts_inactive: bool | None = Field(None, title="Starts Inactive")
 
 
 class JoinAcknowledgement(BaseModel):
@@ -2372,6 +2460,13 @@ class PersonalTokenOut(BaseModel):
     is_expired: bool = Field(..., title="Is Expired")
 
 
+class PickedExplanationOut(BaseModel):
+    position: int = Field(..., title="Position")
+    stat_definition_id: UUID | None = Field(..., title="Stat Definition Id")
+    name: str | None = Field(..., title="Name")
+    value: int | float | str | bool | None = Field(..., title="Value")
+
+
 class PictureRefOut(BaseModel):
     url: str = Field(..., title="Url")
     file_type: str = Field(..., title="File Type")
@@ -3017,6 +3112,7 @@ class RepositorySummaryOut(BaseModel):
 class Kind35(StrEnum):
     stat_group = "stat_group"
     stat_definition = "stat_definition"
+    stat_role = "stat_role"
     slug = "slug"
 
 
@@ -3141,6 +3237,12 @@ class Kind40(StrEnum):
     stat_definition = "stat_definition"
 
 
+class ScaleOut(BaseModel):
+    unit: str | None = Field(..., title="Unit")
+    min_value: float | None = Field(..., title="Min Value")
+    max_value: float | None = Field(..., title="Max Value")
+
+
 class SceneCreate(BaseModel):
     id: UUID | None = Field(None, title="Id")
     name: constr(min_length=1, max_length=300) = Field(..., title="Name")
@@ -3202,6 +3304,55 @@ class SegmentPreview(BaseModel):
     kind: Kind41 = Field(..., title="Kind")
     month_ordinal: int | None = Field(..., title="Month Ordinal")
     days: list[DayPreview] = Field(..., title="Days")
+
+
+class Mode4(StrEnum):
+    threshold = "threshold"
+    match = "match"
+
+
+class SelectResultBodyInput(BaseModel):
+    model_config = ConfigDict(
+        regex_engine="python-re",
+    )
+    number: float | constr(pattern=r"^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$") | None = Field(
+        None, title="Number"
+    )
+    text: str | None = Field(None, title="Text")
+    flag: bool | None = Field(None, title="Flag")
+    stat_definition_id: UUID | None = Field(None, title="Stat Definition Id")
+
+
+class SelectResultBodyOutput(BaseModel):
+    model_config = ConfigDict(
+        regex_engine="python-re",
+    )
+    number: constr(pattern=r"^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$") | None = Field(None, title="Number")
+    text: str | None = Field(None, title="Text")
+    flag: bool | None = Field(None, title="Flag")
+    stat_definition_id: UUID | None = Field(None, title="Stat Definition Id")
+
+
+class SelectStepBodyInput(BaseModel):
+    model_config = ConfigDict(
+        regex_engine="python-re",
+    )
+    from_: float | constr(pattern=r"^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$") | None = Field(
+        None, alias="from", title="From"
+    )
+    value: str | None = Field(None, title="Value")
+    result: SelectResultBodyInput
+
+
+class SelectStepBodyOutput(BaseModel):
+    model_config = ConfigDict(
+        regex_engine="python-re",
+    )
+    from_: constr(pattern=r"^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$") | None = Field(
+        None, alias="from", title="From"
+    )
+    value: str | None = Field(None, title="Value")
+    result: SelectResultBodyOutput
 
 
 class SessionCreate(BaseModel):
@@ -3443,12 +3594,28 @@ class Spoke(BaseModel):
     name: constr(min_length=1, max_length=200) | None = Field(None, title="Name")
 
 
+class Role4(StrEnum):
+    weight = "weight"
+    height = "height"
+    price = "price"
+    rarity = "rarity"
+    hp = "hp"
+    armor = "armor"
+    size = "size"
+    carry_capacity = "carry_capacity"
+    containment_capacity = "containment_capacity"
+    max_item_size = "max_item_size"
+    binding = "binding"
+    is_container = "is_container"
+
+
 class StatDefinitionOrder(BaseModel):
     stat_definition_ids: list[UUID] = Field(..., title="Stat Definition Ids")
 
 
 class StatDefinitionUpdate(BaseModel):
     name: constr(min_length=1) | None = Field(None, title="Name")
+    role: Role4 | None = Field(None, title="Role")
     unit: constr(min_length=1, max_length=32) | None = Field(None, title="Unit")
     adjustable_in_play: bool | None = Field(None, title="Adjustable In Play")
     pin: bool | None = Field(None, title="Pin")
@@ -3459,6 +3626,12 @@ class StatDefinitionUpdate(BaseModel):
     resolved_hint_id: UUID | None = Field(None, title="Resolved Hint Id")
     min_value: float | None = Field(None, title="Min Value")
     max_value: float | None = Field(None, title="Max Value")
+    value_type: Any | None = Field(
+        None, description="Not editable: carrying it is a 422.", title="Value Type"
+    )
+    stat_group_id: Any | None = Field(
+        None, description="Not editable: carrying it is a 422.", title="Stat Group Id"
+    )
 
 
 class StatEnumOptionOut(BaseModel):
@@ -3477,11 +3650,21 @@ class StatEnumValueUpdate(BaseModel):
     sort_order: int | None = Field(None, title="Sort Order")
 
 
+class Role7(StrEnum):
+    physical = "physical"
+    economic = "economic"
+    destroyable = "destroyable"
+    damaging = "damaging"
+    tags = "tags"
+
+
 class StatGroupCreate(BaseModel):
     name: str = Field(..., title="Name")
     priority: int | None = Field(0, title="Priority")
     mandatory: bool | None = Field(False, title="Mandatory")
     position: int | None = Field(None, title="Position")
+    system_id: UUID | None = Field(None, title="System Id")
+    role: Role7 | None = Field(None, title="Role")
 
 
 class StatGroupOrder(BaseModel):
@@ -3494,6 +3677,8 @@ class StatGroupOut(BaseModel):
     priority: int = Field(..., title="Priority")
     mandatory: bool = Field(..., title="Mandatory")
     position: int = Field(..., title="Position")
+    system_id: UUID | None = Field(None, title="System Id")
+    role: Role7 | None = Field(None, title="Role")
     created_at: AwareDatetime = Field(..., title="Created At")
     updated_at: AwareDatetime = Field(..., title="Updated At")
 
@@ -3503,6 +3688,8 @@ class StatGroupUpdate(BaseModel):
     priority: int | None = Field(None, title="Priority")
     mandatory: bool | None = Field(None, title="Mandatory")
     position: int | None = Field(None, title="Position")
+    system_id: UUID | None = Field(None, title="System Id")
+    role: Role7 | None = Field(None, title="Role")
 
 
 class StatValueOut(BaseModel):
@@ -3592,9 +3779,119 @@ class SuspendUserRequest(BaseModel):
     reason: str | None = Field(None, title="Reason")
 
 
+class SystemCreate(BaseModel):
+    slug: constr(pattern=r"^[a-z][a-z0-9]{0,31}$") = Field(..., title="Slug")
+    name: constr(min_length=1, max_length=200) = Field(..., title="Name")
+    root_entry_id: UUID | None = Field(None, title="Root Entry Id")
+
+
+class SystemOut(BaseModel):
+    id: UUID = Field(..., title="Id")
+    slug: str = Field(..., title="Slug")
+    name: str = Field(..., title="Name")
+    root_entry_id: UUID | None = Field(..., title="Root Entry Id")
+    created_at: AwareDatetime = Field(..., title="Created At")
+    updated_at: AwareDatetime = Field(..., title="Updated At")
+
+
+class SystemUpdate(BaseModel):
+    slug: constr(pattern=r"^[a-z][a-z0-9]{0,31}$") | None = Field(None, title="Slug")
+    name: constr(min_length=1, max_length=200) | None = Field(None, title="Name")
+    root_entry_id: UUID | None = Field(None, title="Root Entry Id")
+
+
 class TagValueOut(BaseModel):
     name: str = Field(..., title="Name")
     value: bool | None = Field(..., title="Value")
+
+
+class TemplateCellOut(BaseModel):
+    stat_definition_id: UUID = Field(..., title="Stat Definition Id")
+    value: int | str | float | bool | None = Field(None, title="Value")
+
+
+class TemplateColumnOut(BaseModel):
+    stat_definition_id: UUID = Field(..., title="Stat Definition Id")
+    name: str = Field(..., title="Name")
+    label: str = Field(..., title="Label")
+    unit: str | None = Field(None, title="Unit")
+
+
+class TemplateHeldRowOut(BaseModel):
+    entity: EntitySummary
+    quantity: int | None = Field(..., title="Quantity")
+    cells: list[TemplateCellOut] = Field(..., title="Cells")
+
+
+class RequiredKind(StrEnum):
+    item = "item"
+    item_instance = "item_instance"
+    being = "being"
+    character = "character"
+    fact = "fact"
+    calendar = "calendar"
+    clock = "clock"
+    location = "location"
+    map = "map"
+    connection = "connection"
+    relationship = "relationship"
+    social_web = "social_web"
+    calendar_period = "calendar_period"
+    event = "event"
+    observance = "observance"
+    book = "book"
+    carrier = "carrier"
+    edition = "edition"
+    chapter = "chapter"
+    scene_telling = "scene_telling"
+    scene = "scene"
+    scene_appearance = "scene_appearance"
+    session = "session"
+
+
+class Kind45(StrEnum):
+    stats = "stats"
+    information = "information"
+    held = "held"
+    tags = "tags"
+
+
+class HeldOrder(StrEnum):
+    name = "name"
+    prototype = "prototype"
+
+
+class TemplateSlotStatOut(BaseModel):
+    stat_definition_id: UUID = Field(..., title="Stat Definition Id")
+    label: str | None = Field(..., title="Label")
+
+
+class TemplateStatIn(BaseModel):
+    stat_definition_id: UUID = Field(..., title="Stat Definition Id")
+    label: constr(min_length=1, max_length=200) | None = Field(None, title="Label")
+
+
+class TemplateStatOut(BaseModel):
+    stat_definition_id: UUID = Field(..., title="Stat Definition Id")
+    group_id: UUID = Field(..., title="Group Id")
+    system: str | None = Field(None, title="System")
+    name: str = Field(..., title="Name")
+    value: int | str | float | bool = Field(..., title="Value")
+    own: bool = Field(..., title="Own")
+    from_entity: EntitySummary | None = None
+    from_hidden: bool | None = Field(None, title="From Hidden")
+    computed: bool | None = Field(False, title="Computed")
+    label: str = Field(..., title="Label")
+    unit: str | None = Field(None, title="Unit")
+
+
+class TemplateSummaryOut(BaseModel):
+    id: UUID = Field(..., title="Id")
+    name: str = Field(..., title="Name")
+    system_id: UUID | None = Field(..., title="System Id")
+    system: str | None = Field(..., title="System")
+    required_kind: RequiredKind | None = Field(..., title="Required Kind")
+    required_ancestor_entry_id: UUID | None = Field(..., title="Required Ancestor Entry Id")
 
 
 class TenantInviteCreate(BaseModel):
@@ -3633,7 +3930,7 @@ class TenantOut(BaseModel):
     updated_by: UUID | None = Field(..., title="Updated By")
 
 
-class Role4(StrEnum):
+class Role10(StrEnum):
     owner = "owner"
     orga = "orga"
     author = "author"
@@ -3644,7 +3941,7 @@ class TenantSummaryOut(BaseModel):
     id: UUID = Field(..., title="Id")
     slug: str = Field(..., title="Slug")
     name: str = Field(..., title="Name")
-    role: Role4 = Field(..., title="Role")
+    role: Role10 = Field(..., title="Role")
     kind: TenantKind
 
 
@@ -3697,7 +3994,7 @@ class UnprovenKindOut(BaseModel):
     kinds: list[str] = Field(..., title="Kinds")
 
 
-class Kind45(StrEnum):
+class Kind48(StrEnum):
     entity = "entity"
     stat_group = "stat_group"
     stat_definition = "stat_definition"
@@ -3766,7 +4063,7 @@ class WhereaboutsOut(BaseModel):
     place: PlaceOut | None = None
 
 
-class Kind46(StrEnum):
+class Kind49(StrEnum):
     book = "book"
     edition = "edition"
     chapter = "chapter"
@@ -3779,7 +4076,7 @@ class Kind46(StrEnum):
 class WritingEntry(BaseModel):
     id: UUID = Field(..., title="Id")
     name: str = Field(..., title="Name")
-    kind: Kind46 = Field(..., title="Kind")
+    kind: Kind49 = Field(..., title="Kind")
     book_id: UUID | None = Field(None, title="Book Id")
     parent_id: UUID | None = Field(None, title="Parent Id")
     scene_id: UUID | None = Field(None, title="Scene Id")
@@ -4107,6 +4404,7 @@ class CopyRequest(BaseModel):
     resolutions: list[ResolutionIn] | None = Field(None, title="Resolutions")
     dry_run: bool | None = Field(None, title="Dry Run")
     again: Again | None = Field(None, title="Again")
+    strict_units: bool | None = Field(None, title="Strict Units")
 
 
 class CopyStepOut(BaseModel):
@@ -4120,9 +4418,21 @@ class CopyStepOut(BaseModel):
     entities: int = Field(..., title="Entities")
     stat_groups: int = Field(..., title="Stat Groups")
     stat_definitions: int = Field(..., title="Stat Definitions")
+    systems: int | None = Field(0, title="Systems")
+    templates: int | None = Field(0, title="Templates")
     information: int = Field(..., title="Information")
     attachments: int = Field(..., title="Attachments")
     dropped: list[DroppedOut] = Field(..., title="Dropped")
+
+
+class CopyWarningOut(BaseModel):
+    repository_id: UUID = Field(..., title="Repository Id")
+    kind: Literal["scale"] = Field("scale", title="Kind")
+    name: str = Field(..., title="Name")
+    source_id: UUID = Field(..., title="Source Id")
+    local_id: UUID = Field(..., title="Local Id")
+    library: ScaleOut
+    incoming: ScaleOut
 
 
 class DescriptionOut(BaseModel):
@@ -4139,6 +4449,7 @@ class DiscoverItemOut(BaseModel):
     summary: str = Field(..., title="Summary")
     tags: list[str] = Field(..., title="Tags")
     system: str | None = Field(..., title="System")
+    systems: list[str] | None = Field([], title="Systems")
     languages: list[str] = Field(..., title="Languages")
     has_cover: bool = Field(..., title="Has Cover")
     release: DiscoverReleaseOut
@@ -4169,6 +4480,8 @@ class DistanceOut(BaseModel):
 
 class EffectiveStatOut(BaseModel):
     stat_definition_id: UUID = Field(..., title="Stat Definition Id")
+    group_id: UUID = Field(..., title="Group Id")
+    system: str | None = Field(None, title="System")
     value: int | str | float | bool = Field(..., title="Value")
     own: bool = Field(..., title="Own")
     from_entity: EntitySummary | None = None
@@ -4177,6 +4490,9 @@ class EffectiveStatOut(BaseModel):
 
 
 class EntityStatValueOut(BaseModel):
+    stat_definition_id: UUID = Field(..., title="Stat Definition Id")
+    group_id: UUID = Field(..., title="Group Id")
+    system: str | None = Field(None, title="System")
     name: str = Field(..., title="Name")
     value: int | str | float | bool = Field(..., title="Value")
     own: bool = Field(..., title="Own")
@@ -4351,6 +4667,7 @@ class ItemInstanceOut(BaseModel):
     owner_entity_id: UUID | None = Field(..., title="Owner Entity Id")
     slug: str | None = Field(..., title="Slug")
     bound: bool = Field(..., title="Bound")
+    active: bool = Field(..., title="Active")
 
 
 class ItemOut(BaseModel):
@@ -4377,6 +4694,7 @@ class ItemOut(BaseModel):
     updated_by: UUID | None = Field(..., title="Updated By")
     updated_at: AwareDatetime = Field(..., title="Updated At")
     in_public_catalog: bool = Field(..., title="In Public Catalog")
+    starts_inactive: bool = Field(..., title="Starts Inactive")
 
 
 class LinearFormulaBodyInput(BaseModel):
@@ -4466,6 +4784,18 @@ class MapOut(BaseModel):
     is_public: bool | None = Field(None, title="Is Public")
 
 
+class MaxFormulaBodyInput(BaseModel):
+    inputs: list[ExtremumInputBodyInput] = Field(..., max_length=5, min_length=2, title="Inputs")
+    round_mode: RoundMode | None = "none"
+    kind: Literal["max"] = Field("max", title="Kind")
+
+
+class MaxFormulaBodyOutput(BaseModel):
+    inputs: list[ExtremumInputBodyOutput] = Field(..., max_length=5, min_length=2, title="Inputs")
+    round_mode: RoundMode | None = "none"
+    kind: Literal["max"] = Field("max", title="Kind")
+
+
 class MeOut(BaseModel):
     id: UUID = Field(..., title="Id")
     authgear_subject_id: str = Field(..., title="Authgear Subject Id")
@@ -4494,11 +4824,24 @@ class MemberProfileOut(BaseModel):
     languages: list[str] = Field(..., title="Languages")
     has_cover: bool = Field(..., title="Has Cover")
     updated_at: AwareDatetime = Field(..., title="Updated At")
+    systems: list[str] | None = Field([], title="Systems")
     listed: bool | None = Field(True, title="Listed")
     includes: list[IncludedSourceOut] | None = Field([], title="Includes", validate_default=True)
     delisted: DelistedOut | None = None
     deprecated: DeprecatedOut | None = None
     terms: TermsOut
+
+
+class MinFormulaBodyInput(BaseModel):
+    inputs: list[ExtremumInputBodyInput] = Field(..., max_length=5, min_length=2, title="Inputs")
+    round_mode: RoundMode | None = "none"
+    kind: Literal["min"] = Field("min", title="Kind")
+
+
+class MinFormulaBodyOutput(BaseModel):
+    inputs: list[ExtremumInputBodyOutput] = Field(..., max_length=5, min_length=2, title="Inputs")
+    round_mode: RoundMode | None = "none"
+    kind: Literal["min"] = Field("min", title="Kind")
 
 
 class ObservanceCreate(BaseModel):
@@ -4692,6 +5035,22 @@ class PageSubscriptionOut(BaseModel):
     pages: conint(ge=0) = Field(..., title="Pages")
 
 
+class PageSystemOut(BaseModel):
+    items: list[SystemOut] = Field(..., title="Items")
+    total: conint(ge=0) = Field(..., title="Total")
+    page: conint(ge=1) = Field(..., title="Page")
+    size: conint(ge=1) = Field(..., title="Size")
+    pages: conint(ge=0) = Field(..., title="Pages")
+
+
+class PageTemplateSummaryOut(BaseModel):
+    items: list[TemplateSummaryOut] = Field(..., title="Items")
+    total: conint(ge=0) = Field(..., title="Total")
+    page: conint(ge=1) = Field(..., title="Page")
+    size: conint(ge=1) = Field(..., title="Size")
+    pages: conint(ge=0) = Field(..., title="Pages")
+
+
 class PageTenantOut(BaseModel):
     items: list[TenantOut] = Field(..., title="Items")
     total: conint(ge=0) = Field(..., title="Total")
@@ -4727,6 +5086,74 @@ class PreviewInformationOut(BaseModel):
     type: str = Field(..., title="Type")
     descriptions: list[PreviewDescriptionOut] = Field(..., title="Descriptions")
     pictures: list[PreviewPictureOut] = Field(..., title="Pictures")
+
+
+class ProductFormulaBodyInput(BaseModel):
+    model_config = ConfigDict(
+        regex_engine="python-re",
+    )
+    kind: Literal["product"] = Field("product", title="Kind")
+    factors: list[UUID] = Field(..., max_length=5, min_length=2, title="Factors")
+    multiplier: float | constr(pattern=r"^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$") | None = Field(
+        "1", title="Multiplier"
+    )
+    offset: float | constr(pattern=r"^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$") | None = Field(
+        "0", title="Offset"
+    )
+    round_mode: RoundMode | None = "none"
+
+
+class ProductFormulaBodyOutput(BaseModel):
+    model_config = ConfigDict(
+        regex_engine="python-re",
+    )
+    kind: Literal["product"] = Field("product", title="Kind")
+    factors: list[UUID] = Field(..., max_length=5, min_length=2, title="Factors")
+    multiplier: constr(pattern=r"^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$") | None = Field(
+        "1", title="Multiplier"
+    )
+    offset: constr(pattern=r"^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$") | None = Field("0", title="Offset")
+    round_mode: RoundMode | None = "none"
+
+
+class RatioFormulaBodyInput(BaseModel):
+    model_config = ConfigDict(
+        regex_engine="python-re",
+    )
+    kind: Literal["ratio"] = Field("ratio", title="Kind")
+    numerator_stat_definition_id: UUID = Field(..., title="Numerator Stat Definition Id")
+    denominator_stat_definition_id: UUID | None = Field(
+        None, title="Denominator Stat Definition Id"
+    )
+    denominator_constant: float | constr(pattern=r"^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$") | None = Field(
+        None, title="Denominator Constant"
+    )
+    multiplier: float | constr(pattern=r"^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$") | None = Field(
+        "1", title="Multiplier"
+    )
+    offset: float | constr(pattern=r"^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$") | None = Field(
+        "0", title="Offset"
+    )
+    round_mode: RoundMode | None = "none"
+
+
+class RatioFormulaBodyOutput(BaseModel):
+    model_config = ConfigDict(
+        regex_engine="python-re",
+    )
+    kind: Literal["ratio"] = Field("ratio", title="Kind")
+    numerator_stat_definition_id: UUID = Field(..., title="Numerator Stat Definition Id")
+    denominator_stat_definition_id: UUID | None = Field(
+        None, title="Denominator Stat Definition Id"
+    )
+    denominator_constant: constr(pattern=r"^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$") | None = Field(
+        None, title="Denominator Constant"
+    )
+    multiplier: constr(pattern=r"^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$") | None = Field(
+        "1", title="Multiplier"
+    )
+    offset: constr(pattern=r"^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$") | None = Field("0", title="Offset")
+    round_mode: RoundMode | None = "none"
 
 
 class ReadingIn(BaseModel):
@@ -4828,6 +5255,7 @@ class RepositoryProfileOut(BaseModel):
     languages: list[str] = Field(..., title="Languages")
     has_cover: bool = Field(..., title="Has Cover")
     updated_at: AwareDatetime = Field(..., title="Updated At")
+    systems: list[str] | None = Field([], title="Systems")
     listed: bool | None = Field(True, title="Listed")
     includes: list[IncludedSourceOut] | None = Field([], title="Includes", validate_default=True)
 
@@ -4890,6 +5318,22 @@ class RowRefOut(BaseModel):
     breaking: list[BreakingNoteOut] = Field(..., title="Breaking")
 
 
+class SelectFormulaBodyInput(BaseModel):
+    kind: Literal["select"] = Field("select", title="Kind")
+    source_stat_definition_id: UUID = Field(..., title="Source Stat Definition Id")
+    mode: Mode4 = Field(..., title="Mode")
+    steps: list[SelectStepBodyInput] = Field(..., max_length=64, min_length=1, title="Steps")
+    otherwise: SelectResultBodyInput | None = None
+
+
+class SelectFormulaBodyOutput(BaseModel):
+    kind: Literal["select"] = Field("select", title="Kind")
+    source_stat_definition_id: UUID = Field(..., title="Source Stat Definition Id")
+    mode: Mode4 = Field(..., title="Mode")
+    steps: list[SelectStepBodyOutput] = Field(..., max_length=64, min_length=1, title="Steps")
+    otherwise: SelectResultBodyOutput | None = None
+
+
 class SheetWeaponOut(BaseModel):
     entity_id: UUID = Field(..., title="Entity Id")
     name: str = Field(..., title="Name")
@@ -4934,6 +5378,7 @@ class StatDefinitionCreate(BaseModel):
     name: str = Field(..., title="Name")
     stat_group_id: UUID = Field(..., title="Stat Group Id")
     value_type: StatValueType
+    role: Role4 | None = Field(None, title="Role")
     enum_values: list[str] | None = Field(None, title="Enum Values")
     unit: constr(min_length=1, max_length=32) | None = Field(None, title="Unit")
     adjustable_in_play: bool | None = Field(False, title="Adjustable In Play")
@@ -4952,6 +5397,7 @@ class StatDefinitionOut(BaseModel):
     name: str = Field(..., title="Name")
     stat_group_id: UUID = Field(..., title="Stat Group Id")
     value_type: StatValueType
+    role: Role4 | None = Field(None, title="Role")
     enum_values: list[str] = Field(..., title="Enum Values")
     enum_options: list[StatEnumOptionOut] = Field(..., title="Enum Options")
     unit: str | None = Field(..., title="Unit")
@@ -4997,6 +5443,41 @@ class SumFormulaBodyOutput(BaseModel):
     round_mode: RoundMode | None = "none"
 
 
+class TemplateSlotIn(BaseModel):
+    kind: Kind45 = Field(..., title="Kind")
+    label: constr(min_length=1, max_length=200) | None = Field(None, title="Label")
+    stat_group_id: UUID | None = Field(None, title="Stat Group Id")
+    stats: list[TemplateStatIn] | None = Field(None, max_length=200, title="Stats")
+    exclude: list[UUID] | None = Field(None, max_length=200, title="Exclude")
+    information_type: constr(min_length=1, max_length=200) | None = Field(
+        None, title="Information Type"
+    )
+    held_order: HeldOrder | None = Field(None, title="Held Order")
+
+
+class TemplateSlotOut(BaseModel):
+    id: UUID = Field(..., title="Id")
+    position: int = Field(..., title="Position")
+    kind: Kind45 = Field(..., title="Kind")
+    label: str | None = Field(..., title="Label")
+    stat_group_id: UUID | None = Field(..., title="Stat Group Id")
+    stats: list[TemplateSlotStatOut] = Field(..., title="Stats")
+    exclude: list[UUID] = Field(..., title="Exclude")
+    information_type: str | None = Field(..., title="Information Type")
+    held_order: HeldOrder | None = Field(..., title="Held Order")
+
+
+class TemplateViewSlotOut(BaseModel):
+    position: int = Field(..., title="Position")
+    kind: Kind45 = Field(..., title="Kind")
+    label: str | None = Field(..., title="Label")
+    stats: list[TemplateStatOut] | None = Field(None, title="Stats")
+    information: list[InformationOut] | None = Field(None, title="Information")
+    columns: list[TemplateColumnOut] | None = Field(None, title="Columns")
+    rows: list[TemplateHeldRowOut] | None = Field(None, title="Rows")
+    tags: list[TemplateStatOut] | None = Field(None, title="Tags")
+
+
 class TenantCreate(BaseModel):
     name: str = Field(..., title="Name")
     slug: constr(pattern=r"^[a-z0-9]+(-[a-z0-9]+)*$") | None = Field(None, title="Slug")
@@ -5005,7 +5486,7 @@ class TenantCreate(BaseModel):
 
 
 class UpdateActionIn(BaseModel):
-    kind: Kind45 = Field(..., title="Kind")
+    kind: Kind48 = Field(..., title="Kind")
     source_id: UUID = Field(..., title="Source Id")
     action: Action2 = Field(..., title="Action")
     keep_local: list[str] | None = Field(None, title="Keep Local")
@@ -5112,7 +5593,12 @@ class ComputedStatOut(BaseModel):
         LinearFormulaBodyOutput
         | ComparisonFormulaBodyOutput
         | SumFormulaBodyOutput
-        | ContentsFormulaBody
+        | ContentsFormulaBodyOutput
+        | MinFormulaBodyOutput
+        | MaxFormulaBodyOutput
+        | ProductFormulaBodyOutput
+        | RatioFormulaBodyOutput
+        | SelectFormulaBodyOutput
     ) = Field(..., discriminator="kind", title="Formula")
     updated_at: AwareDatetime = Field(..., title="Updated At")
 
@@ -5122,7 +5608,12 @@ class ComputedStatPreviewIn(BaseModel):
         LinearFormulaBodyInput
         | ComparisonFormulaBodyInput
         | SumFormulaBodyInput
-        | ContentsFormulaBody
+        | ContentsFormulaBodyInput
+        | MinFormulaBodyInput
+        | MaxFormulaBodyInput
+        | ProductFormulaBodyInput
+        | RatioFormulaBodyInput
+        | SelectFormulaBodyInput
         | None
     ) = Field(None, title="Formula")
 
@@ -5153,6 +5644,7 @@ class ControlledItemInstanceOut(BaseModel):
     owner_entity_id: UUID | None = Field(..., title="Owner Entity Id")
     slug: str | None = Field(..., title="Slug")
     bound: bool = Field(..., title="Bound")
+    active: bool = Field(..., title="Active")
     visible_to_characters: bool = Field(..., title="Visible To Characters")
 
 
@@ -5160,11 +5652,13 @@ class CopyOut(BaseModel):
     steps: list[CopyStepOut] = Field(..., title="Steps")
     dry_run: bool = Field(..., title="Dry Run")
     previous: PreviousCopyOut | None
+    warnings: list[CopyWarningOut] | None = Field([], title="Warnings", validate_default=True)
 
 
 class CopyPlanOut(BaseModel):
     steps: list[CopyStepOut] = Field(..., title="Steps")
     collisions: list[CollisionOut] = Field(..., title="Collisions")
+    warnings: list[CopyWarningOut] | None = Field([], title="Warnings", validate_default=True)
 
 
 class EntityDetailOut(BaseModel):
@@ -5339,10 +5833,14 @@ class SheetOut(BaseModel):
     abilities_configured: bool = Field(..., title="Abilities Configured")
     weapons: list[SheetWeaponOut] = Field(..., title="Weapons")
     abilities: list[InformationOut] = Field(..., title="Abilities")
+    template: TemplateSummaryOut | None = None
+    templates: list[TemplateSummaryOut] | None = Field([], title="Templates", validate_default=True)
 
 
 class StatExplanationOut(BaseModel):
     stat_definition_id: UUID = Field(..., title="Stat Definition Id")
+    group_id: UUID = Field(..., title="Group Id")
+    system: str | None = Field(None, title="System")
     name: str = Field(..., title="Name")
     value: int | float | str | bool = Field(..., title="Value")
     own: bool = Field(..., title="Own")
@@ -5353,11 +5851,45 @@ class StatExplanationOut(BaseModel):
         LinearFormulaBodyOutput
         | ComparisonFormulaBodyOutput
         | SumFormulaBodyOutput
-        | ContentsFormulaBody
+        | ContentsFormulaBodyOutput
+        | MinFormulaBodyOutput
+        | MaxFormulaBodyOutput
+        | ProductFormulaBodyOutput
+        | RatioFormulaBodyOutput
+        | SelectFormulaBodyOutput
         | None
     ) = Field(..., title="Formula")
     inputs: list[PreviewInputOut] = Field(..., title="Inputs")
     contents: ContentsExplanationOut | None
+    picked: PickedExplanationOut | None = None
+    division_rounded: bool | None = Field(None, title="Division Rounded")
+    chosen: ChosenStepExplanationOut | None = None
+
+
+class TemplateIn(BaseModel):
+    name: constr(min_length=1, max_length=200) = Field(..., title="Name")
+    system_id: UUID | None = Field(None, title="System Id")
+    required_kind: RequiredKind | None = Field(None, title="Required Kind")
+    required_ancestor_entry_id: UUID | None = Field(None, title="Required Ancestor Entry Id")
+    slots: list[TemplateSlotIn] | None = Field(None, max_length=50, title="Slots")
+
+
+class TemplateOut(BaseModel):
+    id: UUID = Field(..., title="Id")
+    name: str = Field(..., title="Name")
+    system_id: UUID | None = Field(..., title="System Id")
+    system: str | None = Field(..., title="System")
+    required_kind: RequiredKind | None = Field(..., title="Required Kind")
+    required_ancestor_entry_id: UUID | None = Field(..., title="Required Ancestor Entry Id")
+    slots: list[TemplateSlotOut] = Field(..., title="Slots")
+    created_at: AwareDatetime = Field(..., title="Created At")
+    updated_at: AwareDatetime = Field(..., title="Updated At")
+
+
+class TemplateViewOut(BaseModel):
+    template: TemplateSummaryOut
+    entity: EntitySummary
+    slots: list[TemplateViewSlotOut] = Field(..., title="Slots")
 
 
 class UpdatesOut(BaseModel):

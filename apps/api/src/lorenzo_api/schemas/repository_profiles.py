@@ -312,6 +312,9 @@ class RepositoryProfileOut(BaseModel):
     languages: list[str]
     has_cover: bool
     updated_at: datetime
+    # The game systems the current release carries (ADR 0453): the slugs of the systems its stat
+    # groups belong to, which Discover offers as a facet beside `system`.
+    systems: list[str] = []
     # Whether Discover lists it while it is public (ADR 0432): true unless its Owner left it off. A
     # repository that is not public is on no listing, and reads true here.
     listed: bool = True

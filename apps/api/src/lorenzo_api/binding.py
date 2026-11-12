@@ -92,7 +92,7 @@ def _view_binding(view: VItemInstance) -> str | None:
     """The binding `view` resolves to, from the stats it already loaded."""
     for stat in view.entity.effective_stats:
         definition = stat.stat_definition
-        if definition.name == BINDING and definition.value_type is StatValueType.ENUM:
+        if definition.role == BINDING and definition.value_type is StatValueType.ENUM:
             return _binds(view.resolved_stat_values().get(definition.id))
     return None
 
@@ -156,7 +156,7 @@ async def _definition(session: AsyncSession, *, tenant_id: uuid.UUID) -> StatDef
         select(StatDefinition)
         .where(
             StatDefinition.tenant_id == tenant_id,
-            StatDefinition.name == BINDING,
+            StatDefinition.role == BINDING,
             StatDefinition.value_type == StatValueType.ENUM,
         )
         .options(selectinload(StatDefinition.enum_values))
@@ -193,6 +193,7 @@ async def _bindings(
         .where(VEffectiveStat.entity_id.in_(candidates), VEffectiveStat.tenant_id == tenant_id)
         .options(
             selectinload(VEffectiveStat.stat_definition),
+            selectinload(VEffectiveStat.stat_definition).selectinload(StatDefinition.enum_values),
             *formula_load_options(selectinload(VEffectiveStat.computed_stat)),
         )
         # Read again within the write's transaction: a lift just changed it.
@@ -214,7 +215,7 @@ async def _bindings(
         if needing
         else Contents(stats={}, children={})
     )
-    contents = Contents(stats={**loaded.stats, **stats}, children=loaded.children)
+    contents = Contents(stats={**loaded.stats, **stats}, children=loaded.children, held=loaded.held)
     result: dict[uuid.UUID, str] = {}
     for entity_id in candidates:
         binding = _binds(

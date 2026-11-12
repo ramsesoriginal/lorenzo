@@ -42,10 +42,15 @@ from lorenzo_api.repository_content import (
     InformationData,
     Links,
     PayloadData,
+    SelectResultData,
+    SelectStepData,
     StatValue,
 )
+from lorenzo_api.roles import DEFINITION_ROLES, GROUP_ROLES
 
-FORMAT = 37
+FORMAT = 42
+_DEFINITION_ROLES = frozenset(DEFINITION_ROLES)
+_GROUP_ROLES = frozenset(GROUP_ROLES)
 
 Document = dict[str, Any]
 Files = dict[str, bytes]
@@ -156,6 +161,14 @@ _TEXT_SET = _Codec(lambda s, f: sorted(s), lambda s, f: set(s))
 _ID_LIST = _Codec(
     lambda items, f: [str(v) for v in items], lambda items, f: [uuid.UUID(v) for v in items]
 )
+
+
+def _list(value: _Codec) -> _Codec:
+    """A list of values, in order."""
+    return _Codec(
+        lambda items, f: [value.encode(v, f) for v in items],
+        lambda items, f: [value.decode(v, f) for v in items],
+    )
 
 
 def _keyed(value: _Codec) -> _Codec:
@@ -279,9 +292,34 @@ _STAT_VALUE = _dataclass(
     },
 )
 
+_SELECT_RESULT = _dataclass(
+    SelectResultData,
+    {"number": _optional(_DECIMAL), "text": _PLAIN, "flag": _PLAIN, "stat": _optional(_ID)},
+)
+
+_SELECT_STEP = _dataclass(
+    SelectStepData,
+    {"threshold": _optional(_DECIMAL), "match_value": _PLAIN, "result": _SELECT_RESULT},
+)
+
 _FORMULA = _dataclass(
     Formula,
     {
+        # A contents formula (ADR 0447): its aggregate, options and the stat it filters by.
+        "aggregate": _PLAIN,
+        "only_active": _PLAIN,
+        "only_kind": _PLAIN,
+        "where": _optional(_ID),
+        "if_none": _optional(_DECIMAL),
+        # A select (ADR 0446): its mode, its steps and the result when none applies.
+        "select_mode": _PLAIN,
+        "steps": _optional(
+            _Codec(
+                lambda steps, f: [_SELECT_STEP.encode(step, f) for step in steps],
+                lambda steps, f: [_SELECT_STEP.decode(step, f) for step in steps],
+            )
+        ),
+        "otherwise": _optional(_SELECT_RESULT),
         "kind": _PLAIN,
         "source": _optional(_ID),
         "multiplier": _optional(_DECIMAL),
@@ -297,6 +335,19 @@ _FORMULA = _dataclass(
             _Codec(
                 lambda terms, f: [[str(s), str(c)] for s, c in terms],
                 lambda terms, f: [(uuid.UUID(s), Decimal(c)) for s, c in terms],
+            )
+        ),
+        # A min, max or product's inputs: a stat or a constant each (ADR 0444, 0445).
+        "operands": _optional(
+            _Codec(
+                lambda operands, f: [
+                    [None if s is None else str(s), None if c is None else str(c)]
+                    for s, c in operands
+                ],
+                lambda operands, f: [
+                    (None if s is None else uuid.UUID(s), None if c is None else Decimal(c))
+                    for s, c in operands
+                ],
             )
         ),
     },
@@ -335,12 +386,49 @@ _CONTENT = _dataclass(
         "entities": _id_map(_PLAIN),
         "kinds": _id_map(_TEXT_SET),
         "in_public_catalog": _id_map(_PLAIN),
+        "starts_inactive": _id_map(_PLAIN),
         "slugs": _id_map(_PLAIN),
         "prototypes": _pairs(_ID, _ID),
         "groups": _id_map(
             _record(
-                {"name": _PLAIN, "priority": _PLAIN, "mandatory": _PLAIN},
+                {
+                    "name": _PLAIN,
+                    "priority": _PLAIN,
+                    "mandatory": _PLAIN,
+                    "role": _PLAIN,
+                    "system": _optional(_ID),
+                },
                 name="Content.groups",
+            )
+        ),
+        "systems": _id_map(
+            _record(
+                {"slug": _PLAIN, "name": _PLAIN, "root": _optional(_ID)}, name="Content.systems"
+            )
+        ),
+        "templates": _id_map(
+            _record(
+                {
+                    "name": _PLAIN,
+                    "system": _optional(_ID),
+                    "kind": _PLAIN,
+                    "ancestor": _optional(_ID),
+                    "slots": _list(
+                        _record(
+                            {
+                                "kind": _PLAIN,
+                                "label": _PLAIN,
+                                "group": _optional(_ID),
+                                "information_type": _PLAIN,
+                                "held_order": _PLAIN,
+                                "stats": _pairs(_ID, _PLAIN),
+                                "exclude": _ID_LIST,
+                            },
+                            name="Content.templates.slots",
+                        )
+                    ),
+                },
+                name="Content.templates",
             )
         ),
         "definitions": _id_map(
@@ -349,6 +437,7 @@ _CONTENT = _dataclass(
                     "name": _PLAIN,
                     "value_type": _VALUE_TYPE,
                     "group": _ID,
+                    "role": _PLAIN,
                     "unit": _PLAIN,
                     "adjustable_in_play": _PLAIN,
                     "pin": _PLAIN,
@@ -731,6 +820,72 @@ def _read_v36(document: Document, files: Mapping[str, bytes]) -> Content:
 
 
 def _read_v37(document: Document, files: Mapping[str, bytes]) -> Content:
+    # Before format 38 a formula had no list of operands: min, max and product came later
+    # (ADR 0444).
+    formulas = [
+        [entity, definition, {"operands": None, **record}]
+        for entity, definition, record in document["formulas"]
+    ]
+    return _read_v38({**document, "formulas": formulas}, files)
+
+
+def _read_v38(document: Document, files: Mapping[str, bytes]) -> Content:
+    # Before format 39 a formula had no select mode, steps or otherwise: select came later
+    # (ADR 0446).
+    formulas = [
+        [
+            entity,
+            definition,
+            {"select_mode": None, "steps": None, "otherwise": None, **record},
+        ]
+        for entity, definition, record in document["formulas"]
+    ]
+    return _read_v39({**document, "formulas": formulas}, files)
+
+
+def _read_v39(document: Document, files: Mapping[str, bytes]) -> Content:
+    # Before format 40 a contents formula had no options and an item no `starts_inactive`
+    # (ADR 0447): a contents formula is a sum of every thing inside, an item starts active.
+    formulas = [
+        [
+            entity,
+            definition,
+            {
+                "aggregate": "sum" if record["kind"] == "contents" else None,
+                "only_active": False if record["kind"] == "contents" else None,
+                "only_kind": None,
+                "where": None,
+                "if_none": None,
+                **record,
+            },
+        ]
+        for entity, definition, record in document["formulas"]
+    ]
+    return _read_v40({**document, "formulas": formulas, "starts_inactive": {}}, files)
+
+
+def _read_v40(document: Document, files: Mapping[str, bytes]) -> Content:
+    # Before format 41 a stat or a group had no role: the API read it by name, so a stat or a
+    # group with a role's name holds that role (ADR 0449), as the migration gave it.
+    groups = {
+        key: {"role": group["name"] if group["name"] in _GROUP_ROLES else None, **group}
+        for key, group in document["groups"].items()
+    }
+    definitions = {
+        key: {"role": d["name"] if d["name"] in _DEFINITION_ROLES else None, **d}
+        for key, d in document["definitions"].items()
+    }
+    return _read_v41({**document, "groups": groups, "definitions": definitions}, files)
+
+
+def _read_v41(document: Document, files: Mapping[str, bytes]) -> Content:
+    # Before format 42 a library had no game systems and no templates (ADR 0453): every group is
+    # neutral.
+    groups = {key: {**group, "system": None} for key, group in document["groups"].items()}
+    return _read_v42({**document, "groups": groups, "systems": {}, "templates": {}}, files)
+
+
+def _read_v42(document: Document, files: Mapping[str, bytes]) -> Content:
     content: Content = _CONTENT.decode(document, dict(files))
     return content
 
@@ -775,6 +930,11 @@ READERS: dict[int, Callable[[Document, Mapping[str, bytes]], Content]] = {
     35: _read_v35,
     36: _read_v36,
     37: _read_v37,
+    38: _read_v38,
+    39: _read_v39,
+    40: _read_v40,
+    41: _read_v41,
+    42: _read_v42,
 }
 
 

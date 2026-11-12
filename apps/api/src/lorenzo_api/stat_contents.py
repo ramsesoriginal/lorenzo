@@ -20,8 +20,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from lorenzo_api.entity_access import recursive_descendants_cte
-from lorenzo_api.models import Containment, Entity, VEffectiveStat, formula_load_options
-from lorenzo_api.stat_evaluation import Contents
+from lorenzo_api.models import (
+    Containment,
+    Entity,
+    ItemInstance,
+    StatDefinition,
+    VEffectiveStat,
+    formula_load_options,
+)
+from lorenzo_api.stat_evaluation import Contents, HeldThing
 
 
 def _has_contents_formula(entity: Entity) -> bool:
@@ -46,12 +53,27 @@ async def load_contents(
     loaded = roots | set(await session.scalars(select(descendants.c.child_entity_id)))
 
     children: dict[uuid.UUID, list[tuple[uuid.UUID, int]]] = defaultdict(list)
-    for parent, child, quantity in await session.execute(
-        select(Containment.parent_entity_id, Containment.child_entity_id, Containment.quantity)
+    # An item instance carries the `active` switch a contents formula may ask for (ADR 0447): it
+    # comes with the containment row, so a read costs the statement it did.
+    held: dict[uuid.UUID, HeldThing] = {}
+    for parent, child, quantity, instance_active in await session.execute(
+        select(
+            Containment.parent_entity_id,
+            Containment.child_entity_id,
+            Containment.quantity,
+            ItemInstance.active,
+        )
+        .outerjoin(
+            ItemInstance,
+            (ItemInstance.entity_id == Containment.child_entity_id)
+            & (ItemInstance.tenant_id == Containment.tenant_id),
+        )
         .where(Containment.parent_entity_id.in_(loaded), Containment.tenant_id == tenant_id)
         .order_by(Containment.child_entity_id)
     ):
         children[parent].append((child, quantity))
+        if instance_active is not None:
+            held[child] = HeldThing(kind="item_instance", active=instance_active)
 
     stats: dict[uuid.UUID, list[VEffectiveStat]] = defaultdict(list)
     for stat in await session.scalars(
@@ -59,11 +81,12 @@ async def load_contents(
         .where(VEffectiveStat.entity_id.in_(loaded - roots), VEffectiveStat.tenant_id == tenant_id)
         .options(
             selectinload(VEffectiveStat.stat_definition),
+            selectinload(VEffectiveStat.stat_definition).selectinload(StatDefinition.enum_values),
             *formula_load_options(selectinload(VEffectiveStat.computed_stat)),
         )
     ):
         stats[stat.entity_id].append(stat)
-    return Contents(stats=stats, children=children)
+    return Contents(stats=stats, children=children, held=held)
 
 
 async def attach_contents(
@@ -82,7 +105,9 @@ async def attach_contents(
     # A root inside another root's subtree is read with its own rows, which
     # evaluation already has; the others are what's below.
     root_stats = {entity.id: list(entity.effective_stats) for entity in needing}
-    merged = Contents(stats={**root_stats, **contents.stats}, children=contents.children)
+    merged = Contents(
+        stats={**root_stats, **contents.stats}, children=contents.children, held=contents.held
+    )
     for entity in needing:
         entity.stat_contents = merged
 
@@ -107,4 +132,4 @@ async def contents_for_rows(
     if not needing:
         return None
     loaded = await load_contents(session, tenant_id=tenant_id, root_ids=needing)
-    return Contents(stats={**loaded.stats, **stats}, children=loaded.children)
+    return Contents(stats={**loaded.stats, **stats}, children=loaded.children, held=loaded.held)

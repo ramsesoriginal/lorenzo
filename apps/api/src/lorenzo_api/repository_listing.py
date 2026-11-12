@@ -36,6 +36,13 @@ async def set_listing_facts(
     profile.released_at = release.created_at
     profile.entry_count = sum(public_entry(content, e) for e in content.entities)
     profile.stat_definition_count = len(content.definitions)
+    profile.systems = sorted(
+        {
+            content.systems[group["system"]]["slug"]
+            for group in content.groups.values()
+            if group["system"] in content.systems
+        }
+    )
     if documented:
         profile.release_sources = release_sources_of(content)
     await session.flush()

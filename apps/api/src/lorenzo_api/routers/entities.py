@@ -104,6 +104,7 @@ from lorenzo_api.models import (
     Relationship,
     SocialWeb,
     StatDefinition,
+    StatGroup,
     StoryEvent,
     User,
     VEffectiveStat,
@@ -143,6 +144,7 @@ from lorenzo_api.schemas.entities import (
 from lorenzo_api.schemas.knowledge import InformationAudience
 from lorenzo_api.schemas.library_counts import LibraryCountOut
 from lorenzo_api.stat_contents import attach_contents
+from lorenzo_api.system_filter import SystemFilter, only_system, require_system_slug
 
 # get_tenant_or_404 here, not get_tenant_context (ADR 0038/RFC 0011,
 # mirroring routers/item_instances.py's identical ADR 0032/RFC 0005
@@ -397,14 +399,17 @@ async def list_effective_stats(
     kind: KindFilter = None,
     parent_id: ParentFilter = None,
     recursive: RecursiveFilter = False,
+    system: SystemFilter = None,
 ) -> Page[EntryEffectiveStatsOut]:
     """The effective value of the stats asked for on a page of entries, formulas evaluated, with
     whether each entry holds it itself and the entry it comes from (ADR 0387, RFC 0041 §7): a
     compare grid is the list plus these columns in one request a page. The entries and their
     order are `GET /entities`'s, with the same filters (q, kind, parent_id, recursive). A stat an
-    entry has no value for is left out of its row. A stat definition that is not the library's is
-    a 404."""
+    entry has no value for is left out of its row. `system` (a slug) leaves out the stats of the
+    library's other game systems, formulas still evaluated (ADR 0450; an unknown slug is a 404).
+    A stat definition that is not the library's is a 404."""
     await require_tenant_participant(session, tenant_id=tenant_id, user=user)
+    await require_system_slug(session, tenant_id, system)
     wanted = list(dict.fromkeys(stat_definition_id))
     known = set(
         await session.scalars(
@@ -424,7 +429,12 @@ async def list_effective_stats(
 
     async def _rows(entities: Sequence[Entity]) -> list[EntryEffectiveStatsOut]:
         return await effective_stats_of(
-            session, tenant_id=tenant_id, entities=entities, wanted=wanted, visibility=visibility
+            session,
+            tenant_id=tenant_id,
+            entities=entities,
+            wanted=wanted,
+            visibility=visibility,
+            system=system,
         )
 
     page: Page[EntryEffectiveStatsOut] = await apaginate(session, stmt, params, transformer=_rows)
@@ -698,7 +708,12 @@ async def get_entity_detail_or_404(
             selectinload(Entity.stats),
             selectinload(Entity.effective_stats)
             .joinedload(VEffectiveStat.stat_definition)
-            .joinedload(StatDefinition.stat_group),
+            .joinedload(StatDefinition.stat_group)
+            .joinedload(StatGroup.system),
+            # The numbers of an enum stat's values, for a formula that reads it (ADR 0444).
+            selectinload(Entity.effective_stats)
+            .joinedload(VEffectiveStat.stat_definition)
+            .selectinload(StatDefinition.enum_values),
             # Where an inherited value comes from (ADR 0276).
             selectinload(Entity.effective_stats).joinedload(VEffectiveStat.source_entity),
             # A winning formula's parameters, for stat_evaluation (ADR 0104).
@@ -792,16 +807,20 @@ async def entity_detail_out(
     tenant_id: uuid.UUID,
     entity_id: uuid.UUID,
     user: CurrentUser,
+    system: str | None = None,
 ) -> EntityDetailOut:
     """What GET /{entity_id} and GET /by-slug/{slug} both return, the caller
     already past require_tenant_participant."""
+    await require_system_slug(session, tenant_id, system)
     await require_visible_entry(session, entity_id=entity_id, tenant_id=tenant_id, user_id=user.id)
     entity = await get_entity_detail_or_404(session, entity_id, tenant_id)
     # Who may read the entity's information, as far as `can_see` needs it (ADR 0285).
     reader = await entity_detail_reader(
         session, entity=entity, user_id=user.id, tenant_id=tenant_id
     )
-    return EntityDetailOut.from_entity(entity, request, visibility=reader)
+    out = EntityDetailOut.from_entity(entity, request, visibility=reader)
+    out.stats = only_system(out.stats, system)
+    return out
 
 
 # Registered before /{entity_id}: that route's path would otherwise match
@@ -899,6 +918,7 @@ async def get_entity_by_slug(
     response: Response,
     session: SessionDep,
     user: CurrentUser,
+    system: SystemFilter = None,
 ) -> EntityDetailOut:
     """GET /{entity_id}, addressed by slug (ADR 0107)."""
     await require_tenant_participant(session, tenant_id=tenant_id, user=user)
@@ -910,7 +930,7 @@ async def get_entity_by_slug(
     if entity_id is None:
         raise EntitySlugNotFoundError(detail=f"No entity with slug {slug!r} in tenant {tenant_id}")
     out = await entity_detail_out(
-        session, request, tenant_id=tenant_id, entity_id=entity_id, user=user
+        session, request, tenant_id=tenant_id, entity_id=entity_id, user=user, system=system
     )
     response.headers["ETag"] = etag_for(out.updated_at)
     return out
@@ -924,11 +944,14 @@ async def get_entity(
     response: Response,
     session: SessionDep,
     user: CurrentUser,
+    system: SystemFilter = None,
 ) -> EntityDetailOut:
-    """The full detail shape, with every relationship eager-loaded up front."""
+    """The full detail shape, with every relationship eager-loaded up front. `system` (a slug)
+    narrows `stats` to those of no game system and of that one (ADR 0450); the values are
+    resolved as without it, and an unknown slug is a 404."""
     await require_tenant_participant(session, tenant_id=tenant_id, user=user)
     out = await entity_detail_out(
-        session, request, tenant_id=tenant_id, entity_id=entity_id, user=user
+        session, request, tenant_id=tenant_id, entity_id=entity_id, user=user, system=system
     )
     response.headers["ETag"] = etag_for(out.updated_at)
     return out

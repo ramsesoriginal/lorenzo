@@ -4,7 +4,7 @@ import enum
 import uuid
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Enum, FetchedValue, UniqueConstraint, text
+from sqlalchemy import CheckConstraint, Enum, FetchedValue, Index, UniqueConstraint, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from lorenzo_api.db import Base, CreatedAt, TenantFk, UpdatedAt, UuidPk, same_tenant_fk
@@ -42,6 +42,20 @@ class StatDefinition(Base):
             ondelete="CASCADE",
         ),
         UniqueConstraint("tenant_id", "name"),
+        # ADR 0449: one definition holds a role in a library, from the closed list of `roles.py`.
+        Index(
+            "stat_definition_tenant_id_role_key",
+            "tenant_id",
+            "role",
+            unique=True,
+            postgresql_where=text("role IS NOT NULL"),
+        ),
+        CheckConstraint(
+            "role IS NULL OR role IN ('weight', 'height', 'price', 'rarity', 'hp', 'armor', "
+            "'size', 'carry_capacity', 'containment_capacity', 'max_item_size', 'binding', "
+            "'is_container')",
+            name="stat_definition_role",
+        ),
         # ADR 0279: a hint is a link to another definition of the same tenant. The database's key
         # is ON DELETE SET NULL (<the hint column>) (see the migration): SQLAlchemy only accepts
         # the plain keyword, which matters only for DDL, and migrations own that.
@@ -69,6 +83,9 @@ class StatDefinition(Base):
     tenant_id: Mapped[TenantFk]
     stat_group_id: Mapped[uuid.UUID] = mapped_column(index=True)
     name: Mapped[str]
+    # What the API reads this stat as, by role and not by name (ADR 0449): null for most. A role-
+    # holder belongs to no game system.
+    role: Mapped[str | None]
     value_type: Mapped[StatValueType] = mapped_column(
         Enum(
             StatValueType,

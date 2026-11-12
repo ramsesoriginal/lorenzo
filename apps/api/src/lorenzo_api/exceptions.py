@@ -454,11 +454,18 @@ class StatDefinitionNameTakenError(ConflictProblem):
     title = "A stat with this name already exists"
 
 
-class StatNameReservedError(ConflictProblem):
-    """PATCH of a stat the API reads by name, or of the value `none` of `binding` - renaming it
-    would change what the API does (ADR 0390)."""
+class StatDefinitionFieldImmutableError(UnprocessableProblem):
+    """PATCH /stat-definitions/{id} - the body carries `value_type` or `stat_group_id`, which a
+    stat cannot change once made (ADR 0443; it used to answer 200 and change nothing)."""
 
-    title = "The API reads this stat by name"
+    title = "That field of a stat cannot be changed"
+
+
+class StatNameReservedError(ConflictProblem):
+    """PATCH of the value `none` of a `binding` stat - renaming it would change what the API does
+    (ADR 0390, ADR 0449: reserved by role, no longer a stat by its name)."""
+
+    title = "The API writes this value"
 
 
 class InvalidStatHintError(UnprocessableProblem):
@@ -539,6 +546,13 @@ class InvalidComputedStatError(UnprocessableProblem):
     title = "Invalid formula"
 
 
+class FormulaChainTooDeepError(UnprocessableProblem):
+    """PUT/preview .../computed-stats/{id} - the formula would make a chain of more than 200
+    formulas, one reading the next (ADR 0443); `detail` names the length."""
+
+    title = "Formula chain too deep"
+
+
 class ComputedStatCycleError(UnprocessableProblem):
     """PUT/preview .../computed-stats/{id} - the formula would close a
     cycle in the tenant's formula dependencies (ADR 0104: checked at the
@@ -588,6 +602,16 @@ class StatEnumValueAlreadyExistsError(ConflictProblem):
     """
 
     title = "This value is already allowed for this stat"
+
+
+class StatEnumOrderReadByFormulaError(ConflictProblem):
+    """PATCH .../enum-values/{id} moving a value (`sort_order`), or DELETE removing one, while a
+    formula reads the enum as a number: an enum counts as the `sort_order` of the value it holds,
+    so a change of order or a removal would change what those formulas say (ADR 0444). The
+    detail names the formulas.
+    """
+
+    title = "A formula reads this enum as a number"
 
 
 class StatEnumValueInUseError(ConflictProblem):
@@ -1646,3 +1670,86 @@ class LocationTreeError(UnprocessableProblem):
     (ADR 0330)."""
 
     title = "A Location cannot be part of itself, however indirectly, or nest that deeply"
+
+
+class SystemNotFoundError(NotFoundProblem):
+    """.../systems/{id} - no such game system in this tenant (ADR 0448)."""
+
+    title = "System not found"
+
+
+class SystemSlugTakenError(ConflictProblem):
+    """POST or PATCH .../systems - another system of the tenant already has the slug
+    (UNIQUE(tenant_id, slug), ADR 0448)."""
+
+    title = "A system with this slug already exists"
+
+
+class SystemSlugInUseError(ConflictProblem):
+    """PATCH .../systems/{id} changing the slug while a stat group belongs to the system: the
+    names of its definitions start with it (ADR 0448)."""
+
+    title = "A stat group uses this slug"
+
+
+class SystemInUseError(ConflictProblem):
+    """DELETE .../systems/{id} while a stat group belongs to it (ADR 0448)."""
+
+    title = "This system is still in use"
+
+
+class InvalidSystemError(UnprocessableProblem):
+    """POST or PATCH .../systems, or a stat group's `system_id` - the root entry or the system
+    does not resolve in this tenant (ADR 0448)."""
+
+    title = "Invalid system"
+
+
+class StatNamePrefixError(UnprocessableProblem):
+    """A stat definition of a group that belongs to a game system must start with the system's
+    slug and an underscore: on create, on rename, and when a group takes a system whose prefix
+    its definitions do not carry (ADR 0448)."""
+
+    title = "A stat of a system starts with the system's slug"
+
+
+class StatRoleTakenError(ConflictProblem):
+    """A stat definition or a stat group takes a role another already holds in this library: one
+    holds each (ADR 0449)."""
+
+    title = "This role is already held"
+
+
+class InvalidStatRoleError(UnprocessableProblem):
+    """A role does not fit: the stat's type is not one the role is read as, a binding lacks its
+    `none` value, or the stat or group belongs to a game system, which a role-holder may not
+    (ADR 0449)."""
+
+    title = "This stat cannot hold this role"
+
+
+class TemplateNotFoundError(NotFoundProblem):
+    """.../templates/{id} - no such template in this tenant (ADR 0451)."""
+
+    title = "Template not found"
+
+
+class TemplateNameTakenError(ConflictProblem):
+    """POST or PUT .../templates - another template of the tenant has the name
+    (UNIQUE(tenant_id, name), ADR 0451)."""
+
+    title = "A template with this name already exists"
+
+
+class TemplateDoesNotMatchError(ConflictProblem):
+    """GET .../entities/{id}/templates/{template_id} - the entry is not one the template is for:
+    not of its kind, or not under its ancestor. The API does not guess another (ADR 0451)."""
+
+    title = "This template is not for this entry"
+
+
+class InvalidTemplateError(UnprocessableProblem):
+    """POST or PUT .../templates - a slot that does not fit its kind, or a system, entry, stat
+    group or stat that does not resolve in this tenant (ADR 0451)."""
+
+    title = "Invalid template"

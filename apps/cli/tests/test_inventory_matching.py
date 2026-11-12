@@ -35,6 +35,7 @@ def item(n: int, title: str) -> ItemOut:
             "updated_by": None,
             "updated_at": "2026-01-01T00:00:00Z",
             "in_public_catalog": True,
+            "starts_inactive": False,
         }
     )
 

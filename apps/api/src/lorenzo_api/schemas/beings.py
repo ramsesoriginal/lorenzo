@@ -7,6 +7,7 @@ from pydantic import BaseModel
 
 from lorenzo_api.models import Being
 from lorenzo_api.schemas.entities import EntityStatValueOut, InformationOut
+from lorenzo_api.schemas.templates import TemplateSummaryOut
 
 __all__ = ["BeingSummaryOut", "SheetOut", "SheetWeaponOut"]
 
@@ -57,9 +58,16 @@ class SheetOut(BaseModel):
     """GET /tenants/{id}/beings/{id}/sheet (ADR 0281): the datasheet's weapons and abilities in
     one read. A section whose setting the library has not made is empty and says so."""
 
-    # ADR 0296: tenant selection only; campaign overrides are not applied yet.
+    # ADR 0296: the library's setting, or the group of the first stats slot of the template the
+    # sheet was drawn from (ADR 0452).
     being_stat_group_id: uuid.UUID | None = None
     weapons_configured: bool
     abilities_configured: bool
     weapons: list[SheetWeaponOut]
     abilities: list[InformationOut]
+    # ADR 0452: the template the sheet was drawn from (its first stats slot's group, the columns of
+    # its first held slot and the type of its first information slot stand for the three
+    # settings), null when the library's own settings were used; and the templates of the
+    # campaign's game system that match the being, so a client can offer a choice.
+    template: TemplateSummaryOut | None = None
+    templates: list[TemplateSummaryOut] = []

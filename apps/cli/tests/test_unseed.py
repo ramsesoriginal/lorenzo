@@ -332,6 +332,7 @@ def _item() -> dict[str, Any]:
         "updated_by": None,
         "updated_at": "2026-10-04T00:00:00Z",
         "in_public_catalog": False,
+        "starts_inactive": False,
     }
 
 

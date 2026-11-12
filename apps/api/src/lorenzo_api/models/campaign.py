@@ -40,6 +40,8 @@ class Campaign(Base):
         # ADR 0117: what same-tenant keys into this table reference.
         UniqueConstraint("id", "tenant_id", name="campaign_id_tenant_id_key"),
         same_tenant_fk("campaign_entity_id_fkey", ["entity_id"], "entity", ondelete="RESTRICT"),
+        # Deleting a system a campaign names is refused by the API.
+        same_tenant_fk("campaign_system_id_fkey", ["system_id"], "system"),
         UniqueConstraint("tenant_id", "slug"),
     )
 
@@ -47,6 +49,9 @@ class Campaign(Base):
     tenant_id: Mapped[TenantFk]
     name: Mapped[str]
     game_system: Mapped[str]
+    # ADR 0452, RFC 0052: the one game system the campaign plays, one of the library's; the free
+    # text above stays its display name. Null until someone names one.
+    system_id: Mapped[uuid.UUID | None] = mapped_column(index=True)
     # Unlike Tenant, no server default for slug/description (ADR 0030) - a
     # create-campaign route (RFC 0006) always supplies
     # both explicitly, and unlike tenant.slug's global uniqueness, a shared

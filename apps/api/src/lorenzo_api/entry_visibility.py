@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import uuid
+from collections.abc import Iterable
 from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import ColumnElement, exists, or_, select, text, true
@@ -207,6 +208,26 @@ async def hidden_by_source(
                     RepositoryCopyLinkEntity.entity_id == entity_id,
                     RepositoryCopyLinkEntity.hidden.is_(True),
                 )
+            )
+        )
+    )
+
+
+async def hidden_among(
+    session: AsyncSession, *, tenant_id: uuid.UUID, entity_ids: Iterable[uuid.UUID]
+) -> set[uuid.UUID]:
+    """Which of these entries the repository they came with hides, for everyone (ADR 0437): one
+    statement, and none for a tenant that hides nothing. For a write that names entries by id in
+    its body, which the path-based gate (`refuse_hidden_entries`) cannot see."""
+    wanted = set(entity_ids)
+    if not wanted or session.info.get("sees_hidden") or not await hides_entries(session, tenant_id):
+        return set()
+    return set(
+        await session.scalars(
+            select(RepositoryCopyLinkEntity.entity_id).where(
+                RepositoryCopyLinkEntity.tenant_id == tenant_id,
+                RepositoryCopyLinkEntity.entity_id.in_(wanted),
+                RepositoryCopyLinkEntity.hidden.is_(True),
             )
         )
     )

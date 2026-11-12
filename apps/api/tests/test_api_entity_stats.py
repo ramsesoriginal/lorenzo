@@ -1,4 +1,5 @@
 import uuid
+from unittest.mock import ANY
 
 from _admin_db import admin_session_factory
 from conftest import delete_tenant, make_campaign, make_character, make_tenant
@@ -87,6 +88,9 @@ async def test_set_entity_stat_creates_a_value(
     assert body["id"] == str(entity_id)
     assert body["stats"] == [
         {
+            "stat_definition_id": ANY,
+            "group_id": ANY,
+            "system": None,
             "name": "weight",
             "value": 5,
             "own": True,
@@ -123,6 +127,9 @@ async def test_set_entity_stat_overwrites_an_existing_value(
     assert response.status_code == 200
     assert response.json()["stats"] == [
         {
+            "stat_definition_id": ANY,
+            "group_id": ANY,
+            "system": None,
             "name": "weight",
             "value": 9,
             "own": True,
@@ -167,6 +174,9 @@ async def test_set_entity_stat_on_own_character_directly(
     assert response.status_code == 200
     assert response.json()["stats"] == [
         {
+            "stat_definition_id": ANY,
+            "group_id": ANY,
+            "system": None,
             "name": "hp",
             "value": 12,
             "own": True,
@@ -537,6 +547,9 @@ async def test_effective_stats_resolve_through_prototype_chain_and_survive_conta
     assert override_response.status_code == 200
     assert override_response.json()["stats"] == [
         {
+            "stat_definition_id": ANY,
+            "group_id": ANY,
+            "system": None,
             "name": "weight",
             "value": 99,
             "own": True,

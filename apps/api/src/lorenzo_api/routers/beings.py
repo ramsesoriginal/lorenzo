@@ -33,6 +33,7 @@ from lorenzo_api.information_visibility import (
 )
 from lorenzo_api.models import (
     Being,
+    Campaign,
     Containment,
     Entity,
     Information,
@@ -44,6 +45,12 @@ from lorenzo_api.models import (
 from lorenzo_api.routers.entities import _INFORMATION_LOAD_OPTIONS
 from lorenzo_api.routers.item_instances import _owner_predicate_for, caller_reach
 from lorenzo_api.routers.items import eager_load_options
+from lorenzo_api.routers.templates import (
+    held_column_names,
+    pick_sheet_template,
+    system_slugs,
+    template_summary,
+)
 from lorenzo_api.schemas.beings import BeingSummaryOut, SheetOut, SheetWeaponOut
 from lorenzo_api.schemas.entities import InformationOut, _stats_out
 from lorenzo_api.stat_contents import attach_contents
@@ -126,8 +133,18 @@ async def get_being_sheet(
         uuid.UUID | None,
         Query(
             description=(
-                "A campaign of the tenant the caller can read. Accepted so a campaign can later "
-                "override the library's sheet settings; it changes nothing today."
+                "A campaign of the tenant the caller can read. When it names a game system, the "
+                "sheet is drawn from that system's template for the being, if exactly one "
+                "matches (ADR 0452)."
+            )
+        ),
+    ] = None,
+    template_id: Annotated[
+        uuid.UUID | None,
+        Query(
+            description=(
+                "A template of the library the being matches: the sheet is drawn from it, "
+                "whatever the campaign names (409 when it is not for the being)."
             )
         ),
     ] = None,
@@ -135,19 +152,46 @@ async def get_being_sheet(
     """The datasheet's weapons and abilities (ADR 0281). The weapons are the items the being
     holds directly (contained by it), with the stats of the tenant's weapon group; what the
     caller may see of them is ADR 0040's, so another player's being shows none. The abilities
-    are the being's information of the tenant's ability type, as the caller can see it."""
+    are the being's information of the tenant's ability type, as the caller can see it.
+
+    With a template (named by `template_id`, or the one of the campaign's game system that matches
+    the being) those three settings come from it instead: the first `stats` slot's group, the
+    columns of the first `held` slot and the type of the first `information` slot (ADR 0452). A
+    slot it has not is a section not configured. `templates` lists the matches of the campaign's
+    system, so a client can offer the choice when there are several."""
     await require_tenant_participant(session, tenant_id=tenant_id, user=user)
+    campaign_system_id: uuid.UUID | None = None
     if campaign_id is not None:
         await get_campaign_context(tenant_id, campaign_id, session, user)
+        campaign_system_id = await session.scalar(
+            select(Campaign.system_id).where(
+                Campaign.id == campaign_id, Campaign.tenant_id == tenant_id
+            )
+        )
     await get_entity_or_404(session, entity_id, tenant_id)
     if await session.get(Being, entity_id) is None:
         raise EntityNotFoundError(detail=f"No being with id {entity_id} in tenant {tenant_id}")
     tenant = await session.get_one(Tenant, tenant_id)
     visibility = await resolve_information_visibility(session, user_id=user.id, tenant_id=tenant_id)
 
-    weapons: list[SheetWeaponOut] = []
-    if tenant.weapon_stat_group_id is not None:
-        names = set(
+    chosen, candidates = await pick_sheet_template(
+        session, tenant_id, entity_id, system_id=campaign_system_id, template_id=template_id
+    )
+    being_group_id = tenant.being_stat_group_id
+    weapon_names: set[str] | None = None
+    ability_type = tenant.ability_information_type
+    if chosen is not None:
+        slots = chosen.slots
+        being_group_id = next(
+            (s.stat_group_id for s in slots if s.kind == "stats" and s.stat_group_id), None
+        )
+        held = next((s for s in slots if s.kind == "held"), None)
+        weapon_names = (
+            await held_column_names(session, tenant_id, held) if held is not None else None
+        )
+        ability_type = next((s.information_type for s in slots if s.kind == "information"), None)
+    elif tenant.weapon_stat_group_id is not None:
+        weapon_names = set(
             (
                 await session.scalars(
                     select(StatDefinition.name).where(
@@ -157,6 +201,10 @@ async def get_being_sheet(
                 )
             ).all()
         )
+
+    weapons: list[SheetWeaponOut] = []
+    if weapon_names is not None:
+        names = weapon_names
         reach = await caller_reach(session, tenant_id=tenant_id, user=user, visibility=visibility)
         views = (
             (
@@ -201,14 +249,14 @@ async def get_being_sheet(
                 )
 
     abilities: list[InformationOut] = []
-    if tenant.ability_information_type is not None:
+    if ability_type is not None:
         rows = (
             await session.scalars(
                 select(Information)
                 .where(
                     Information.entity_id == entity_id,
                     Information.tenant_id == tenant_id,
-                    Information.type == tenant.ability_information_type,
+                    Information.type == ability_type,
                     visible_information_clause(visibility),
                 )
                 .options(*_INFORMATION_LOAD_OPTIONS)
@@ -217,12 +265,15 @@ async def get_being_sheet(
         ).all()
         abilities = [InformationOut.from_information(row, request) for row in rows]
 
+    slugs = await system_slugs(session, tenant_id) if (chosen or candidates) else {}
     return SheetOut(
-        being_stat_group_id=tenant.being_stat_group_id,
-        weapons_configured=tenant.weapon_stat_group_id is not None,
-        abilities_configured=tenant.ability_information_type is not None,
+        being_stat_group_id=being_group_id,
+        weapons_configured=weapon_names is not None,
+        abilities_configured=ability_type is not None,
         weapons=weapons,
         abilities=abilities,
+        template=template_summary(chosen, slugs) if chosen is not None else None,
+        templates=[template_summary(t, slugs) for t in candidates],
     )
 
 

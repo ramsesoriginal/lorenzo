@@ -55,7 +55,12 @@ from lorenzo_api.models import (
     ComputedStat,
     ComputedStatComparison,
     ComputedStatContents,
+    ComputedStatExtremumInput,
     ComputedStatLinear,
+    ComputedStatProductFactor,
+    ComputedStatRatio,
+    ComputedStatSelect,
+    ComputedStatSelectStep,
     ComputedStatSumTerm,
     Containment,
     Entity,
@@ -94,6 +99,11 @@ from lorenzo_api.models import (
     StatDefinitionEnumValue,
     StatGroup,
     StorySession,
+    System,
+    Template,
+    TemplateSlot,
+    TemplateSlotExclusion,
+    TemplateSlotStat,
     Tenant,
     TenantKind,
 )
@@ -118,7 +128,7 @@ from lorenzo_api.repository_reach import PROTECTED_NAME
 from lorenzo_api.repository_upstream import load_upstream, upstream_copies, visibility_of
 from lorenzo_api.svg_lint import SvgRefused, check_svg
 
-CollisionKind = Literal["stat_group", "stat_definition", "slug"]
+CollisionKind = Literal["stat_group", "stat_definition", "stat_role", "slug"]
 Action = Literal["rename", "merge", "skip"]
 
 # ADR 0107's slug grammar (schemas.common.Slug).
@@ -152,6 +162,20 @@ class Collision:
             "local_id": str(self.local_id) if self.local_id else None,
             "choices": self.choices,
         }
+
+
+@dataclass
+class ScaleWarning:
+    """A stat the copy merges into the library's own whose unit or bounds differ: the library's
+    stay, so a value written in the other unit would be read as the library's (ADR 0453). `library`
+    and `incoming` are each {unit, min_value, max_value}."""
+
+    repository_id: uuid.UUID
+    source_id: uuid.UUID
+    local_id: uuid.UUID
+    name: str
+    library: dict[str, Any]
+    incoming: dict[str, Any]
 
 
 @dataclass
@@ -193,6 +217,9 @@ class Step:
     entities: int = 0
     stat_groups: int = 0
     stat_definitions: int = 0
+    # The game systems the library did not have and the templates this step makes (ADR 0453).
+    systems: int = 0
+    templates: int = 0
     information: int = 0
     # The attachment edges the step writes (ADR 0172).
     attachments: int = 0
@@ -230,6 +257,7 @@ class Plan:
     collisions: list[Collision] = field(default_factory=list)
     rows: dict[str, list[dict[str, Any]]] = field(default_factory=lambda: defaultdict(list))
     attachments: list[PlannedAttachment] = field(default_factory=list)
+    warnings: list[ScaleWarning] = field(default_factory=list)
 
     @property
     def missing(self) -> list[Step]:
@@ -418,8 +446,15 @@ class _Planner:
         user_id: uuid.UUID,
         links: Links,
         resolutions: dict[tuple[str, uuid.UUID], Resolution],
+        *,
+        strict_units: bool = False,
     ) -> None:
         self.tenant_id = tenant_id
+        # With `strict_units` a stat whose unit or bounds differ from the library's is not merged
+        # without being told: merge is not among its choices (ADR 0453).
+        self.strict_units = strict_units
+        self.warnings: list[ScaleWarning] = []
+        self.scales: dict[uuid.UUID, dict[str, Any]] = {}
         self.user_id = user_id
         self.resolutions = resolutions
         self.collisions: list[Collision] = []
@@ -430,7 +465,16 @@ class _Planner:
             kind: links.local_of(kind) for kind in ("entity", "stat_group", "stat_definition")
         }
         self.group_names: dict[str, uuid.UUID] = {}
+        # The library's game systems by slug, then every one this plan makes, and the names of its
+        # templates (ADR 0453).
+        self.system_ids: dict[str, uuid.UUID] = {}
+        self.template_names: set[str] = set()
         self.definitions: dict[str, tuple[uuid.UUID, Any, set[str]]] = {}
+        # Who holds each role in the library, and what the stat holders are (ADR 0449): the
+        # library's own, then every one this plan gives a role to.
+        self.group_roles: dict[str, uuid.UUID] = {}
+        self.definition_roles: dict[str, uuid.UUID] = {}
+        self.type_and_values: dict[uuid.UUID, tuple[Any, set[str]]] = {}
         self.slugs: set[str] = set()
         # The tenant's own row ids, per kind, for a repository that copied
         # this tenant (ADR 0120: the tenant's rows are then the origins).
@@ -452,10 +496,12 @@ class _Planner:
                 )
             )
         }
-        for group_id, name in await session.execute(
-            select(StatGroup.id, StatGroup.name).where(StatGroup.tenant_id == t)
+        for group_id, name, group_role in await session.execute(
+            select(StatGroup.id, StatGroup.name, StatGroup.role).where(StatGroup.tenant_id == t)
         ):
             self.group_names[name] = group_id
+            if group_role is not None:
+                self.group_roles[group_role] = group_id
         vocab: dict[uuid.UUID, set[str]] = defaultdict(set)
         for def_id, value in await session.execute(
             select(StatDefinitionEnumValue.stat_definition_id, StatDefinitionEnumValue.value).where(
@@ -463,14 +509,33 @@ class _Planner:
             )
         ):
             vocab[def_id].add(value)
-        for def_id, name, value_type in await session.execute(
-            select(StatDefinition.id, StatDefinition.name, StatDefinition.value_type).where(
-                StatDefinition.tenant_id == t
-            )
+        for def_id, name, value_type, definition_role, unit, low, high in await session.execute(
+            select(
+                StatDefinition.id,
+                StatDefinition.name,
+                StatDefinition.value_type,
+                StatDefinition.role,
+                StatDefinition.unit,
+                StatDefinition.min_value,
+                StatDefinition.max_value,
+            ).where(StatDefinition.tenant_id == t)
         ):
+            self.scales[def_id] = {"unit": unit, "min_value": low, "max_value": high}
             self.definitions[name] = (def_id, value_type, vocab[def_id])
+            self.type_and_values[def_id] = (value_type, vocab[def_id])
+            if definition_role is not None:
+                self.definition_roles[definition_role] = def_id
         self.slugs = set(
             await session.scalars(select(EntitySlug.slug).where(EntitySlug.tenant_id == t))
+        )
+        self.system_ids = {
+            slug: system_id
+            for system_id, slug in await session.execute(
+                select(System.id, System.slug).where(System.tenant_id == t)
+            )
+        }
+        self.template_names = set(
+            await session.scalars(select(Template.name).where(Template.tenant_id == t))
         )
         self.edges = {
             (entity_id, prototype_id)
@@ -541,6 +606,18 @@ class _Planner:
         def drop(kind: str, source_id: uuid.UUID, reason: str) -> None:
             step.dropped.append(Dropped(kind, source_id, reason))
 
+        # Game systems are joined by slug when the library has one (its name and root stay) and
+        # made when it has not; a repository added to by an update brings none (ADR 0453). The
+        # rows come once the entries have ids, since a system's root is an entry.
+        new_systems: list[tuple[uuid.UUID, dict[str, Any]]] = []
+        if only is None:
+            for system_id in sorted(c.systems, key=lambda s: c.systems[s]["slug"]):
+                system = c.systems[system_id]
+                if system["slug"] not in self.system_ids:
+                    self.system_ids[system["slug"]] = uuid.uuid4()
+                    new_systems.append((self.system_ids[system["slug"]], system))
+                    step.systems += 1
+
         # Stat groups.
         for g in sorted(
             (g for g in c.groups if copies("stat_group", g)), key=lambda g: c.groups[g]["name"]
@@ -574,6 +651,12 @@ class _Planner:
             new = uuid.uuid4()
             self.local["stat_group"][g] = new
             self.group_names[name] = new
+            # The role comes along when the library has no group holding it (ADR 0449).
+            group_role = group.get("role")
+            if group_role is not None and group_role in self.group_roles:
+                group_role = None
+            if group_role is not None:
+                self.group_roles[group_role] = new
             self.rows["stat_group"].append(
                 {
                     "id": new,
@@ -581,6 +664,8 @@ class _Planner:
                     "name": name,
                     "priority": group["priority"],
                     "mandatory": group["mandatory"],
+                    "role": group_role,
+                    "system_id": self._system_of(c, group),
                 }
             )
             self.rows["link_stat_group"].append(
@@ -605,7 +690,9 @@ class _Planner:
             if name in self.definitions:
                 existing, value_type, vocab = self.definitions[name]
                 choices: list[Action] = ["rename", "skip"]
-                if value_type is definition["value_type"]:
+                if value_type is definition["value_type"] and not self._blocked(
+                    existing, definition
+                ):
                     choices.insert(1, "merge")
                 choice = self._resolve(step, "stat_definition", d, name, existing, choices)
                 if choice is None:
@@ -615,6 +702,7 @@ class _Planner:
                     continue
                 if choice.action == "merge":
                     self.local["stat_definition"][d] = existing
+                    self._note_scale(step, d, name, existing, definition)
                     self.enum_additions[existing] |= values - vocab
                     vocab |= values
                     self.rows["link_stat_definition"].append(
@@ -628,15 +716,52 @@ class _Planner:
                     )
                     continue
                 name = self._new_name(choice, taken=self.definitions)
+            # A role is held once in a library (ADR 0449): a stat that holds one the library's
+            # own stat already holds is a collision of its own - merge into the holder when the
+            # types agree, or skip.
+            role = definition.get("role")
+            if role is not None and role in self.definition_roles:
+                holder = self.definition_roles[role]
+                holder_type, holder_vocab = self.type_and_values[holder]
+                role_choices: list[Action] = ["skip"]
+                if holder_type is definition["value_type"] and not self._blocked(
+                    holder, definition
+                ):
+                    role_choices.insert(0, "merge")
+                role_choice = self._resolve(step, "stat_role", d, name, holder, role_choices)
+                if role_choice is None:
+                    self.local["stat_definition"][d] = uuid.uuid4()
+                    continue
+                if role_choice.action == "skip":
+                    continue
+                self.local["stat_definition"][d] = holder
+                self._note_scale(step, d, name, holder, definition)
+                self.enum_additions[holder] |= values - holder_vocab
+                holder_vocab |= values
+                self.rows["link_stat_definition"].append(
+                    self._link(
+                        repository_id,
+                        d,
+                        holder,
+                        stat_definition_snapshot(c, d, namer),
+                        "merged",
+                    )
+                )
+                continue
             new = uuid.uuid4()
             self.local["stat_definition"][d] = new
             self.definitions[name] = (new, definition["value_type"], set(values))
+            self.type_and_values[new] = (definition["value_type"], set(values))
+            self.scales[new] = self._scale(definition)
+            if role is not None:
+                self.definition_roles[role] = new
             self.rows["stat_definition"].append(
                 {
                     "id": new,
                     "tenant_id": tenant_id,
                     "stat_group_id": local_group,
                     "name": name,
+                    "role": role,
                     "value_type": definition["value_type"],
                     "unit": definition["unit"],
                     "adjustable_in_play": definition["adjustable_in_play"],
@@ -680,6 +805,17 @@ class _Planner:
         own = [e for e in c.entities if copies("entity", e)]
         for e in own:
             self.local["entity"][e] = uuid.uuid4()
+        for system_id, system in new_systems:
+            root = system["root"]
+            self.rows["system"].append(
+                {
+                    "id": system_id,
+                    "tenant_id": tenant_id,
+                    "slug": system["slug"],
+                    "name": system["name"],
+                    "root_entry_id": self._local(c, "entity", root) if root else None,
+                }
+            )
         index = index_entities(c)
         for e in own:
             new = self.local["entity"][e]
@@ -699,10 +835,20 @@ class _Planner:
                         "entity_id": new,
                         "tenant_id": tenant_id,
                         "in_public_catalog": c.in_public_catalog.get(e, False),
+                        "starts_inactive": c.starts_inactive.get(e, False),
                     }
                 )
             if "item_instance" in kinds:
-                self.rows["item_instance"].append({"entity_id": new, "tenant_id": tenant_id})
+                # A copy makes a new instance, which starts as its prototypes say (ADR 0447).
+                self.rows["item_instance"].append(
+                    {
+                        "entity_id": new,
+                        "tenant_id": tenant_id,
+                        "active": not any(
+                            c.starts_inactive.get(p, False) for p in index.prototypes.get(e, [])
+                        ),
+                    }
+                )
             if "being" in kinds:
                 self.rows["being"].append({"entity_id": new, "tenant_id": tenant_id})
             if "character" in kinds:
@@ -875,7 +1021,82 @@ class _Planner:
             local_entity = self.local["entity"][e]
             key = {"entity_id": local_entity, "stat_definition_id": target, "tenant_id": tenant_id}
             self.rows["computed_stat"].append(dict(key))
-            if formula.kind == "linear":
+            if formula.kind == "select":
+                assert formula.source is not None and formula.steps is not None
+                other = formula.otherwise
+                self.rows["computed_stat_select"].append(
+                    key
+                    | {
+                        "source_stat_definition_id": inputs[formula.source],
+                        "mode": formula.select_mode,
+                        "otherwise_number": None if other is None else other.number,
+                        "otherwise_text": None if other is None else other.text,
+                        "otherwise_bool": None if other is None else other.flag,
+                        "otherwise_stat_definition_id": (
+                            inputs[other.stat] if other is not None and other.stat else None
+                        ),
+                    }
+                )
+                self.rows["computed_stat_select_step"].extend(
+                    key
+                    | {
+                        "position": position,
+                        "threshold": step.threshold,
+                        "match_value": step.match_value,
+                        "result_number": step.result.number,
+                        "result_text": step.result.text,
+                        "result_bool": step.result.flag,
+                        "result_stat_definition_id": (
+                            inputs[step.result.stat] if step.result.stat else None
+                        ),
+                    }
+                    for position, step in enumerate(formula.steps)
+                )
+            elif formula.kind == "product":
+                assert formula.operands is not None
+                self.rows["computed_stat_product"].append(
+                    key
+                    | {
+                        "multiplier": formula.multiplier,
+                        "offset": formula.offset,
+                        "round_mode": formula.round_mode,
+                    }
+                )
+                self.rows["computed_stat_product_factor"].extend(
+                    key | {"position": position, "source_stat_definition_id": inputs[stat]}
+                    for position, (stat, _) in enumerate(formula.operands)
+                    if stat is not None
+                )
+            elif formula.kind == "ratio":
+                assert formula.left is not None
+                self.rows["computed_stat_ratio"].append(
+                    key
+                    | {
+                        "numerator_stat_definition_id": inputs[formula.left],
+                        "denominator_stat_definition_id": (
+                            inputs[formula.right] if formula.right else None
+                        ),
+                        "denominator_constant": formula.right_constant,
+                        "multiplier": formula.multiplier,
+                        "offset": formula.offset,
+                        "round_mode": formula.round_mode,
+                    }
+                )
+            elif formula.kind in ("min", "max"):
+                assert formula.operands is not None
+                self.rows["computed_stat_extremum"].append(
+                    key | {"pick": formula.kind, "round_mode": formula.round_mode}
+                )
+                self.rows["computed_stat_extremum_input"].extend(
+                    key
+                    | {
+                        "position": position,
+                        "source_stat_definition_id": None if stat is None else inputs[stat],
+                        "constant": constant,
+                    }
+                    for position, (stat, constant) in enumerate(formula.operands)
+                )
+            elif formula.kind == "linear":
                 assert formula.source is not None
                 self.rows["computed_stat_linear"].append(
                     key
@@ -887,9 +1108,20 @@ class _Planner:
                     }
                 )
             elif formula.kind == "contents":
-                assert formula.source is not None
                 self.rows["computed_stat_contents"].append(
-                    key | {"source_stat_definition_id": inputs[formula.source]}
+                    key
+                    | {
+                        "source_stat_definition_id": (
+                            inputs[formula.source] if formula.source else None
+                        ),
+                        "aggregate": formula.aggregate or "sum",
+                        "only_active": bool(formula.only_active),
+                        "only_kind": formula.only_kind,
+                        "where_stat_definition_id": (
+                            inputs[formula.where] if formula.where else None
+                        ),
+                        "if_none": formula.if_none,
+                    }
                 )
             elif formula.kind == "sum":
                 assert formula.terms is not None
@@ -1594,6 +1826,7 @@ class _Planner:
             )
 
         if only is None:
+            self._plan_templates(step)
             self._plan_attachments(step)
 
         if record_copy:
@@ -1607,6 +1840,154 @@ class _Planner:
                     "carries": carries_of(c, repository_id, for_itself=step.head),
                 }
             )
+
+    @staticmethod
+    def _scale(definition: dict[str, Any]) -> dict[str, Any]:
+        return {
+            "unit": definition["unit"],
+            "min_value": definition["min_value"],
+            "max_value": definition["max_value"],
+        }
+
+    def _differs(self, local_id: uuid.UUID, definition: dict[str, Any]) -> bool:
+        scale = self._scale(definition)
+        return self.scales.get(local_id, scale) != scale
+
+    def _blocked(self, local_id: uuid.UUID, definition: dict[str, Any]) -> bool:
+        """Whether a merge into the library's stat is refused: its unit or bounds differ and the
+        copy is strict about them (ADR 0453)."""
+        return self.strict_units and self._differs(local_id, definition)
+
+    def _note_scale(
+        self,
+        step: Step,
+        source_id: uuid.UUID,
+        name: str,
+        local_id: uuid.UUID,
+        definition: dict[str, Any],
+    ) -> None:
+        """Reports a merge that keeps the library's unit or bounds where the repository's differ."""
+        if self._differs(local_id, definition):
+            self.warnings.append(
+                ScaleWarning(
+                    step.repository_id,
+                    source_id,
+                    local_id,
+                    name,
+                    dict(self.scales[local_id]),
+                    self._scale(definition),
+                )
+            )
+
+    def _system_of(self, c: Content, group: dict[str, Any]) -> uuid.UUID | None:
+        """The library's game system a repository's stat group belongs to, found by slug: none for a
+        neutral group, and for a system an update does not bring."""
+        group_system = group.get("system")
+        system = c.systems.get(group_system) if group_system is not None else None
+        return self.system_ids.get(system["slug"]) if system is not None else None
+
+    def _plan_templates(self, step: Step) -> None:
+        """Plans a repository's templates (ADR 0453), after its groups, stats and entries, whose
+        ids they are re-pointed to. A template is left out, and reported, when the library has one
+        of its name, or when its ancestor entry, a stat group or a stat it shows was not copied:
+        a template that shows less than it says would be a wrong one."""
+        c = step.content
+        assert c is not None
+        for template_id in sorted(c.templates, key=lambda t: c.templates[t]["name"]):
+            template = c.templates[template_id]
+            name = template["name"]
+
+            def drop(reason: str, template_id: uuid.UUID = template_id) -> None:
+                step.dropped.append(Dropped("template", template_id, reason))
+
+            if name in self.template_names:
+                drop(f"the library already has a template called {name!r}")
+                continue
+            ancestor = None
+            if template["ancestor"] is not None:
+                ancestor = self._local(c, "entity", template["ancestor"])
+                if ancestor is None:
+                    drop("its ancestor entry wasn't copied")
+                    continue
+            slots: list[
+                tuple[dict[str, Any], uuid.UUID | None, list[uuid.UUID], list[uuid.UUID]]
+            ] = []
+            missing = ""
+            for slot in template["slots"]:
+                group = None
+                if slot["group"] is not None:
+                    group = self._local(c, "stat_group", slot["group"])
+                    if group is None:
+                        missing = "a stat group it shows wasn't copied"
+                        break
+                listed = [self._local(c, "stat_definition", s) for s, _ in slot["stats"]]
+                if any(s is None for s in listed):
+                    missing = "a stat it lists wasn't copied"
+                    break
+                left_out = [self._local(c, "stat_definition", s) for s in slot["exclude"]]
+                slots.append(
+                    (
+                        slot,
+                        group,
+                        [s for s in listed if s is not None],
+                        [s for s in left_out if s is not None],
+                    )
+                )
+            if missing:
+                drop(missing)
+                continue
+            self.template_names.add(name)
+            system = c.systems.get(template["system"])
+            new = uuid.uuid4()
+            self.rows["template"].append(
+                {
+                    "id": new,
+                    "tenant_id": self.tenant_id,
+                    "name": name,
+                    "system_id": self.system_ids.get(system["slug"]) if system else None,
+                    "required_kind": template["kind"],
+                    "required_ancestor_entry_id": ancestor,
+                }
+            )
+            for position, (slot, group, listed_ids, left_out_ids) in enumerate(slots):
+                slot_id = uuid.uuid4()
+                self.rows["template_slot"].append(
+                    {
+                        "id": slot_id,
+                        "tenant_id": self.tenant_id,
+                        "template_id": new,
+                        "position": position,
+                        "kind": slot["kind"],
+                        "label": slot["label"],
+                        "stat_group_id": group,
+                        "information_type": slot["information_type"],
+                        "held_order": slot["held_order"],
+                    }
+                )
+                # Two stats merged into one in the library are listed once.
+                taken: set[uuid.UUID] = set()
+                for stat, (_, label) in zip(listed_ids, slot["stats"], strict=True):
+                    if stat in taken:
+                        continue
+                    taken.add(stat)
+                    self.rows["template_slot_stat"].append(
+                        {
+                            "slot_id": slot_id,
+                            "position": len(taken) - 1,
+                            "tenant_id": self.tenant_id,
+                            "stat_definition_id": stat,
+                            "label": label,
+                        }
+                    )
+                for stat in dict.fromkeys(left_out_ids):
+                    self.rows["template_slot_exclusion"].append(
+                        {
+                            "slot_id": slot_id,
+                            "stat_definition_id": stat,
+                            "tenant_id": self.tenant_id,
+                        }
+                    )
+            step.templates += 1
 
     def _plan_attachments(self, step: Step) -> None:
         """Plans the parents the repository added to its copies of other rows
@@ -1680,6 +2061,7 @@ async def plan_copy(
     repository_id: uuid.UUID,
     user_id: uuid.UUID,
     resolutions: list[Resolution],
+    strict_units: bool = False,
 ) -> Plan:
     """Everything a copy would do, without writing. Raises nothing about
     collisions or grants: the plan carries them, for `copy-plan` to show
@@ -1704,7 +2086,13 @@ async def plan_copy(
     if steps[-1].already_copied or plan.missing:
         return plan
     links = await load_links(session, tenant_id)
-    planner = _Planner(tenant_id, user_id, links, {(r.kind, r.source_id): r for r in resolutions})
+    planner = _Planner(
+        tenant_id,
+        user_id,
+        links,
+        {(r.kind, r.source_id): r for r in resolutions},
+        strict_units=strict_units,
+    )
     await planner.load_local_names(session)
     for step in plan.to_copy:
         # Every step but the head is read through the head, as the manifest read it (ADR 0434).
@@ -1716,6 +2104,7 @@ async def plan_copy(
             step.release_id = upstream.release.id if upstream.release else None
         planner.plan_step(step)
     plan.collisions = planner.collisions
+    plan.warnings = planner.warnings
     plan.rows = planner.rows
     plan.attachments = planner.attachments
     for definition_id, values in planner.enum_additions.items():
@@ -1893,6 +2282,58 @@ async def check_formula_cycles(session: AsyncSession, tenant_id: uuid.UUID) -> N
         ).where(ComputedStatSumTerm.tenant_id == tenant_id)
     ):
         edges[target].add(source)
+    for target, source in await session.execute(
+        select(
+            ComputedStatExtremumInput.stat_definition_id,
+            ComputedStatExtremumInput.source_stat_definition_id,
+        ).where(
+            ComputedStatExtremumInput.tenant_id == tenant_id,
+            ComputedStatExtremumInput.source_stat_definition_id.is_not(None),
+        )
+    ):
+        edges[target].add(source)
+    for target, source in await session.execute(
+        select(
+            ComputedStatProductFactor.stat_definition_id,
+            ComputedStatProductFactor.source_stat_definition_id,
+        ).where(ComputedStatProductFactor.tenant_id == tenant_id)
+    ):
+        edges[target].add(source)
+    for target, source in await session.execute(
+        select(
+            ComputedStatSelect.stat_definition_id, ComputedStatSelect.source_stat_definition_id
+        ).where(ComputedStatSelect.tenant_id == tenant_id)
+    ):
+        edges[target].add(source)
+    for target, source in await session.execute(
+        select(
+            ComputedStatSelect.stat_definition_id, ComputedStatSelect.otherwise_stat_definition_id
+        ).where(
+            ComputedStatSelect.tenant_id == tenant_id,
+            ComputedStatSelect.otherwise_stat_definition_id.is_not(None),
+        )
+    ):
+        edges[target].add(source)
+    for target, source in await session.execute(
+        select(
+            ComputedStatSelectStep.stat_definition_id,
+            ComputedStatSelectStep.result_stat_definition_id,
+        ).where(
+            ComputedStatSelectStep.tenant_id == tenant_id,
+            ComputedStatSelectStep.result_stat_definition_id.is_not(None),
+        )
+    ):
+        edges[target].add(source)
+    for target, numerator, denominator in await session.execute(
+        select(
+            ComputedStatRatio.stat_definition_id,
+            ComputedStatRatio.numerator_stat_definition_id,
+            ComputedStatRatio.denominator_stat_definition_id,
+        ).where(ComputedStatRatio.tenant_id == tenant_id)
+    ):
+        edges[target].add(numerator)
+        if denominator is not None:
+            edges[target].add(denominator)
     state: dict[uuid.UUID, int] = {}
     for start in list(edges):
         if state.get(start):
@@ -2256,9 +2697,43 @@ async def forget_copy(
                 ComputedStatSumTerm.source_stat_definition_id.in_(all_definitions),
             ),
             exists().where(
+                ComputedStatProductFactor.entity_id == ComputedStat.entity_id,
+                ComputedStatProductFactor.stat_definition_id == ComputedStat.stat_definition_id,
+                ComputedStatProductFactor.source_stat_definition_id.in_(all_definitions),
+            ),
+            exists().where(
+                ComputedStatSelect.entity_id == ComputedStat.entity_id,
+                ComputedStatSelect.stat_definition_id == ComputedStat.stat_definition_id,
+                or_(
+                    ComputedStatSelect.source_stat_definition_id.in_(all_definitions),
+                    ComputedStatSelect.otherwise_stat_definition_id.in_(all_definitions),
+                ),
+            ),
+            exists().where(
+                ComputedStatSelectStep.entity_id == ComputedStat.entity_id,
+                ComputedStatSelectStep.stat_definition_id == ComputedStat.stat_definition_id,
+                ComputedStatSelectStep.result_stat_definition_id.in_(all_definitions),
+            ),
+            exists().where(
+                ComputedStatRatio.entity_id == ComputedStat.entity_id,
+                ComputedStatRatio.stat_definition_id == ComputedStat.stat_definition_id,
+                or_(
+                    ComputedStatRatio.numerator_stat_definition_id.in_(all_definitions),
+                    ComputedStatRatio.denominator_stat_definition_id.in_(all_definitions),
+                ),
+            ),
+            exists().where(
+                ComputedStatExtremumInput.entity_id == ComputedStat.entity_id,
+                ComputedStatExtremumInput.stat_definition_id == ComputedStat.stat_definition_id,
+                ComputedStatExtremumInput.source_stat_definition_id.in_(all_definitions),
+            ),
+            exists().where(
                 ComputedStatContents.entity_id == ComputedStat.entity_id,
                 ComputedStatContents.stat_definition_id == ComputedStat.stat_definition_id,
-                ComputedStatContents.source_stat_definition_id.in_(all_definitions),
+                or_(
+                    ComputedStatContents.source_stat_definition_id.in_(all_definitions),
+                    ComputedStatContents.where_stat_definition_id.in_(all_definitions),
+                ),
             ),
         )
         own_formulas = (ComputedStat.tenant_id == t) & ComputedStat.entity_id.not_in(entities)
@@ -2505,6 +2980,29 @@ async def forget_copy(
             CarrierCoverage.tenant_id == t,
             CarrierCoverage.carrier_id.in_(entities),
         )
+        # A template that shows a purged group or stat, or is for a purged entry, goes with them:
+        # its slots would point at nothing (ADR 0453).
+        shows_purged = Template.id.in_(
+            select(TemplateSlot.template_id).where(
+                TemplateSlot.tenant_id == t,
+                or_(
+                    TemplateSlot.stat_group_id.in_(groups),
+                    TemplateSlot.id.in_(
+                        select(TemplateSlotStat.slot_id).where(
+                            TemplateSlotStat.tenant_id == t,
+                            TemplateSlotStat.stat_definition_id.in_(all_definitions),
+                        )
+                    ),
+                    TemplateSlot.id.in_(
+                        select(TemplateSlotExclusion.slot_id).where(
+                            TemplateSlotExclusion.tenant_id == t,
+                            TemplateSlotExclusion.stat_definition_id.in_(all_definitions),
+                        )
+                    ),
+                ),
+            )
+        ) | Template.required_ancestor_entry_id.in_(entities)
+        also["template"] = await _count(session, Template, Template.tenant_id == t, shows_purged)
         # The counts above are hand-written; the registry says which tables they are for.
         assert set(also) == PURGE_COUNTED, set(also) ^ PURGE_COUNTED
         previous.also_removed = {kind: n for kind, n in also.items() if n}
@@ -2512,6 +3010,7 @@ async def forget_copy(
         # formulas reading a purged definition go first; everything else
         # cascades from the rows themselves.
         await session.execute(delete(ComputedStat).where(own_formulas, uses_definition))
+        await session.execute(delete(Template).where(Template.tenant_id == t, shows_purged))
         if attached_edges:
             await session.execute(
                 delete(EntityPrototype).where(

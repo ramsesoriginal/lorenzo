@@ -17,6 +17,8 @@ describe('statLabel', () => {
 
 describe('tagState', () => {
   const stat = (value: boolean, own: boolean) => ({
+    stat_definition_id: 'sd-1',
+    group_id: 'g-1',
     name: 'is_magical',
     value,
     own,

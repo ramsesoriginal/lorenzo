@@ -59,6 +59,8 @@ function step(
     entities: 0,
     stat_groups: 0,
     stat_definitions: 0,
+    systems: 0,
+    templates: 0,
     information: 0,
     attachments: 0,
     dropped: [],
@@ -183,6 +185,7 @@ describe('outlineOf', () => {
       step({ repository_id: 'bridge', name: 'D&D 5e in Faerûn' }),
     ],
     collisions: [],
+    warnings: [],
   };
 
   it('puts the repository first and what it is built on after, with each one in words', () => {
@@ -217,6 +220,7 @@ describe('outlineOf', () => {
     const alone: CopyPlanOut = {
       steps: [step({ repository_id: 'core', name: 'Core' })],
       collisions: [],
+      warnings: [],
     };
 
     expect(outlineOf(alone, 'core')?.builtOn).toEqual([]);
@@ -231,6 +235,7 @@ describe('countsKnown', () => {
   const alone = (overrides: Partial<CopyStepOut> = {}): CopyPlanOut => ({
     steps: [step({ repository_id: 'r', name: 'R', ...overrides })],
     collisions: [],
+    warnings: [],
   });
 
   it('is true for a repository offered, published and not yet copied', () => {
@@ -248,6 +253,7 @@ describe('countsKnown', () => {
         step({ repository_id: 'r', name: 'R' }),
       ],
       collisions: [],
+      warnings: [],
     });
 
     expect(countsKnown(plan({ granted: false }), 'r')).toBe(false);

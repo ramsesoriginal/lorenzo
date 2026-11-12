@@ -33,6 +33,7 @@ from lorenzo_api.models import (
     Payload,
     PayloadPicture,
     StatDefinition,
+    StatGroup,
     VEffectiveStat,
     formula_load_options,
 )
@@ -97,7 +98,11 @@ async def get_entity_preview(
         .options(
             selectinload(Entity.effective_stats)
             .selectinload(VEffectiveStat.stat_definition)
-            .selectinload(StatDefinition.stat_group),
+            .selectinload(StatDefinition.stat_group)
+            .joinedload(StatGroup.system),
+            selectinload(Entity.effective_stats)
+            .selectinload(VEffectiveStat.stat_definition)
+            .selectinload(StatDefinition.enum_values),
             # Where an inherited value comes from (ADR 0276).
             selectinload(Entity.effective_stats).selectinload(VEffectiveStat.source_entity),
             *formula_load_options(
@@ -137,6 +142,11 @@ async def get_entity_preview(
     if template.inherits:
         sources += await ancestors_of(session, tenant_id=tenant_id, entity_id=entity.id)
     values = {stat.name: stat.value for stat in _stats_out(entity, visibility)}
+    roles = {
+        stat.stat_definition.role: stat.stat_definition.name
+        for stat in entity.effective_stats
+        if stat.stat_definition.role is not None
+    }
     return LinkPreviewOut(
         entity_id=entity.id,
         name=entity.name,
@@ -146,7 +156,7 @@ async def get_entity_preview(
         picture_url=_main_picture_url(sources, request, visibility),
         stats=[
             LinkPreviewStatOut(name=name, value=value)
-            for name, value in pick_stats(template, values)
+            for name, value in pick_stats(template, values, roles)
             if not isinstance(value, bool)
         ],
         excerpt=_excerpt(sources, template, visibility),

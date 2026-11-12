@@ -41,6 +41,7 @@ from lorenzo_api.models import (
     Ownership,
     StatDefinition,
     StatDefinitionEnumValue,
+    StatGroup,
     StatValueType,
     VEffectiveStat,
     formula_load_options,
@@ -48,7 +49,9 @@ from lorenzo_api.models import (
 from lorenzo_api.routers.entities import entity_detail_reader, get_entity_detail_or_404
 from lorenzo_api.schemas.common import EntitySummary
 from lorenzo_api.schemas.computed_stats import (
+    ChosenStepExplanationOut,
     ContentsExplanationOut,
+    PickedExplanationOut,
     PreviewInputOut,
     StatExplanationOut,
     formula_body_of,
@@ -56,7 +59,19 @@ from lorenzo_api.schemas.computed_stats import (
 from lorenzo_api.schemas.entities import EntityDetailOut, EntityStatWriteOut, PreviousOwnStat
 from lorenzo_api.schemas.stats import SetEntityStatRequest
 from lorenzo_api.stat_contents import load_contents
-from lorenzo_api.stat_evaluation import ContentsFormula, evaluate, formula_of, input_ids
+from lorenzo_api.stat_evaluation import (
+    ContentsFormula,
+    ExtremumFormula,
+    RatioFormula,
+    SelectFormula,
+    choose_step,
+    evaluate,
+    formula_of,
+    input_ids,
+    numeric_value,
+    picked_operand,
+    ratio_was_rounded,
+)
 
 # get_tenant_or_404 here, not get_tenant_context (mirrors
 # routers/item_instances.py's identical ADR 0032/RFC 0005 precedent) -
@@ -646,6 +661,12 @@ async def explain_entity_stat(
             .where(VEffectiveStat.entity_id == entity_id, VEffectiveStat.tenant_id == tenant_id)
             .options(
                 selectinload(VEffectiveStat.stat_definition),
+                selectinload(VEffectiveStat.stat_definition).selectinload(
+                    StatDefinition.enum_values
+                ),
+                selectinload(VEffectiveStat.stat_definition)
+                .joinedload(StatDefinition.stat_group)
+                .joinedload(StatGroup.system),
                 selectinload(VEffectiveStat.source_entity),
                 *formula_load_options(selectinload(VEffectiveStat.computed_stat)),
             )
@@ -657,7 +678,8 @@ async def explain_entity_stat(
         if any(s.computed_stat is not None and s.computed_stat.contents for s in stats)
         else None
     )
-    values = evaluate(stats, entity_id=entity_id, contents=contents)
+    counted: dict[tuple[uuid.UUID | None, ContentsFormula], int] = {}
+    values = evaluate(stats, entity_id=entity_id, contents=contents, counted=counted)
     winner = next((s for s in stats if s.stat_definition_id == definition.id), None)
     if winner is None or definition.id not in values:
         raise EntityStatNotFoundError(
@@ -672,7 +694,9 @@ async def explain_entity_stat(
     names = {s.stat_definition_id: s.stat_definition.name for s in stats}
     wanted = [] if formula is None else input_ids(formula)
     if isinstance(formula, ContentsFormula):
-        wanted = [formula.source_stat_definition_id]
+        wanted = (
+            [] if formula.source_stat_definition_id is None else [formula.source_stat_definition_id]
+        )
     missing = [i for i in wanted if i not in names]
     if missing:
         names |= {
@@ -685,8 +709,57 @@ async def explain_entity_stat(
         }
     visibility = await resolve_information_visibility(session, user_id=user.id, tenant_id=tenant_id)
     own = winner.source_entity_id == entity_id
+    picked = None
+    if isinstance(formula, ExtremumFormula):
+        definitions = {s.stat_definition_id: s.stat_definition for s in stats}
+        position = picked_operand(
+            formula, lambda i: numeric_value(values.get(i), definitions.get(i))
+        )
+        if position is not None:
+            operand = formula.inputs[position]
+            source = operand.stat_definition_id
+            constant = operand.constant
+            picked_value: int | float | str | bool | None
+            if source is not None:
+                picked_value = values.get(source)
+            elif constant is not None and constant == constant.to_integral_value():
+                picked_value = int(constant)
+            else:
+                picked_value = None if constant is None else float(constant)
+            picked = PickedExplanationOut(
+                position=position,
+                stat_definition_id=source,
+                name=None if source is None else names.get(source),
+                value=picked_value,
+            )
+    chosen = None
+    if isinstance(formula, SelectFormula):
+        chosen_definitions = {s.stat_definition_id: s.stat_definition for s in stats}
+        step = choose_step(
+            formula, values.get(formula.source), chosen_definitions.get(formula.source)
+        )
+        key: int | float | str | None = None
+        if step is not None:
+            threshold = formula.steps[step].threshold
+            if threshold is None:
+                key = formula.steps[step].match_value
+            else:
+                key = (
+                    int(threshold)
+                    if threshold == threshold.to_integral_value()
+                    else float(threshold)
+                )
+        chosen = ChosenStepExplanationOut(position=step, otherwise=step is None, key=key)
+    division_rounded = None
+    if isinstance(formula, RatioFormula):
+        definitions = {s.stat_definition_id: s.stat_definition for s in stats}
+        division_rounded = ratio_was_rounded(
+            formula, lambda i: numeric_value(values.get(i), definitions.get(i))
+        )
     return StatExplanationOut(
         stat_definition_id=definition.id,
+        group_id=definition.stat_group_id,
+        system=winner.system_slug(),
         name=definition.name,
         value=values[definition.id],
         own=own,
@@ -707,10 +780,17 @@ async def explain_entity_stat(
         contents=(
             ContentsExplanationOut(
                 source_stat_definition_id=formula.source_stat_definition_id,
-                source_name=names.get(formula.source_stat_definition_id, ""),
-                things=len(contents.children.get(entity_id, ())) if contents is not None else 0,
+                source_name=(
+                    None
+                    if formula.source_stat_definition_id is None
+                    else names.get(formula.source_stat_definition_id, "")
+                ),
+                things=counted.get((entity_id, formula), 0),
             )
             if isinstance(formula, ContentsFormula)
             else None
         ),
+        picked=picked,
+        division_rounded=division_rounded,
+        chosen=chosen,
     )

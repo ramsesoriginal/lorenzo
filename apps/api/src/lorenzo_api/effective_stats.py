@@ -14,7 +14,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from lorenzo_api.information_visibility import InformationVisibility
-from lorenzo_api.models import Entity, VEffectiveStat, formula_load_options
+from lorenzo_api.models import (
+    Entity,
+    StatDefinition,
+    StatGroup,
+    VEffectiveStat,
+    formula_load_options,
+)
 from lorenzo_api.schemas.common import EntitySummary
 from lorenzo_api.schemas.effective_stats import EffectiveStatOut, EntryEffectiveStatsOut
 from lorenzo_api.stat_contents import contents_for_rows
@@ -30,10 +36,13 @@ async def effective_stats_of(
     entities: Sequence[Entity],
     wanted: Sequence[uuid.UUID],
     visibility: InformationVisibility,
+    system: str | None = None,
 ) -> list[EntryEffectiveStatsOut]:
     """For each of `entities`, the effective value of each of `wanted` it has, in the order
     asked: whether it holds the value itself, which entry it comes from (null for a source the
-    caller may not see, as on the entry's own read), and whether a formula decided it."""
+    caller may not see, as on the entry's own read), and whether a formula decided it. With
+    `system`, a stat of another game system is left out (ADR 0450): after the evaluation, so a
+    formula still reads it."""
     ids = [entity.id for entity in entities]
     rows: dict[uuid.UUID, list[VEffectiveStat]] = {entity_id: [] for entity_id in ids}
     if ids:
@@ -42,6 +51,12 @@ async def effective_stats_of(
             .where(VEffectiveStat.entity_id.in_(ids), VEffectiveStat.tenant_id == tenant_id)
             .options(
                 selectinload(VEffectiveStat.stat_definition),
+                selectinload(VEffectiveStat.stat_definition).selectinload(
+                    StatDefinition.enum_values
+                ),
+                selectinload(VEffectiveStat.stat_definition)
+                .joinedload(StatDefinition.stat_group)
+                .joinedload(StatGroup.system),
                 selectinload(VEffectiveStat.source_entity),
                 *formula_load_options(selectinload(VEffectiveStat.computed_stat)),
             )
@@ -57,10 +72,14 @@ async def effective_stats_of(
             if stat_definition_id not in values:
                 continue
             winner = winners[stat_definition_id]
+            if system is not None and winner.system_slug() not in (None, system):
+                continue
             own = winner.source_entity_id == entity.id
             stats.append(
                 EffectiveStatOut(
                     stat_definition_id=stat_definition_id,
+                    group_id=winner.stat_definition.stat_group_id,
+                    system=winner.system_slug(),
                     value=values[stat_definition_id],
                     own=own,
                     from_entity=(

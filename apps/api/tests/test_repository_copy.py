@@ -18,6 +18,7 @@ from sqlalchemy import func, select
 from lorenzo_api.models import (
     AuditLog,
     ComputedStat,
+    ComputedStatContents,
     ComputedStatLinear,
     ContentReference,
     Entity,
@@ -25,6 +26,8 @@ from lorenzo_api.models import (
     EntitySlug,
     EntityStat,
     EntityStatGroup,
+    Item,
+    ItemInstance,
     RepositoryCopy,
     RepositoryCopyLinkEntity,
     RepositoryCopyLinkStatDefinition,
@@ -106,6 +109,29 @@ async def test_copying_a_repository(
         blade = (await gm.get(f"/tenants/{table}/entities/{mine['Blade']}")).json()
         assert [p["id"] for p in blade["prototypes"]] == [str(mine["Sword"])]
         assert blade["parent"]["id"] == str(mine["Chest"])
+        # ADR 0447: the Sword starts its instances inactive, so the copied Blade does, and the
+        # options of a contents formula came with it.
+        async with admin_session_factory() as session:
+            assert await session.scalar(
+                select(Item.starts_inactive).where(Item.entity_id == mine["Sword"])
+            )
+            assert not await session.scalar(
+                select(ItemInstance.active).where(ItemInstance.entity_id == mine["Blade"])
+            )
+            options = (
+                await session.execute(
+                    select(
+                        ComputedStatContents.aggregate,
+                        ComputedStatContents.only_active,
+                        ComputedStatContents.only_kind,
+                        ComputedStatContents.where_stat_definition_id,
+                        ComputedStatContents.if_none,
+                    ).where(ComputedStatContents.entity_id == mine["Harpers"])
+                )
+            ).one()
+            assert options[:3] == ("max", True, "item_instance")
+            assert options[3] is not None
+            assert options[4] == Decimal("5")
 
         # What was recorded: one link per copied row, with its origin and a
         # snapshot in origin ids, and the copy itself.
@@ -318,7 +344,14 @@ async def test_skipping_drops_what_depends_on_it(
         dropped = {d["kind"] for d in copied.json()["steps"][0]["dropped"]}
         # Skipping the group skips its definitions, and with them every
         # value, formula, and attachment that used them.
-        assert dropped == {"stat_definition", "entity_stat", "computed_stat", "entity_stat_group"}
+        # The template that shows the skipped group goes too (ADR 0453).
+        assert dropped == {
+            "stat_definition",
+            "entity_stat",
+            "computed_stat",
+            "entity_stat_group",
+            "template",
+        }
         assert copied.json()["steps"][0]["stat_definitions"] == 0
         assert await _count(StatDefinition, table) == 0
         assert await _count(Entity, table) == 27

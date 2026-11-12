@@ -102,7 +102,8 @@ SELECT e.id AS entity_id, e.tenant_id AS tenant_id,
     ownership.owner_character_id AS owner_entity_id, entity_slug.slug AS slug,
     description_info.id AS description_id, description_info.title AS title,
     {_REFERENCE_STAT_COLUMNS},
-    containment.parent_entity_id AS container_entity_id, containment.quantity AS quantity
+    containment.parent_entity_id AS container_entity_id, containment.quantity AS quantity,
+    st.active AS active
 FROM entity e
 JOIN item_instance st ON st.entity_id = e.id
 LEFT JOIN information description_info
@@ -141,9 +142,10 @@ async def _library(session: AsyncSession, entities: int, *, linked: bool) -> uui
     )
     await session.execute(
         text(
-            "INSERT INTO stat_definition (tenant_id, stat_group_id, name, value_type) "
+            "INSERT INTO stat_definition (tenant_id, stat_group_id, name, value_type, role) "
             "SELECT :tenant, (SELECT id FROM stat_group WHERE tenant_id = :tenant AND name = 'A'), "
-            "n, 'int' FROM unnest(CAST(:names AS text[])) n"
+            "n, 'int', CASE WHEN n IN ('weight', 'height', 'price', 'rarity', 'hp', 'armor') "
+            "THEN n END FROM unnest(CAST(:names AS text[])) n"
         ),
         {**parameters, "names": [*_INT_STATS, "dmg", "ac", "speed", "luck"]},
     )

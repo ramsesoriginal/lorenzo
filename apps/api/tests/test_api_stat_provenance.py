@@ -3,6 +3,7 @@ explanation read any participant may call, through the real API.
 """
 
 import uuid
+from unittest.mock import ANY
 
 from _admin_db import admin_session_factory
 from conftest import delete_tenant, make_plain_participant, make_tenant
@@ -182,6 +183,8 @@ async def test_explaining_a_stored_value(client: AsyncClient, test_user_id: uuid
     assert own.status_code == 200, own.text
     assert own.json() == {
         "stat_definition_id": str(ids["speed"]),
+        "group_id": ANY,
+        "system": None,
         "name": "speed",
         "value": 25,
         "own": True,
@@ -191,6 +194,9 @@ async def test_explaining_a_stored_value(client: AsyncClient, test_user_id: uuid
         "formula": None,
         "inputs": [],
         "contents": None,
+        "picked": None,
+        "division_rounded": None,
+        "chosen": None,
     }
     assert inherited.json()["from_entity"]["name"] == "Dwarf"
     assert inherited.json()["own"] is False

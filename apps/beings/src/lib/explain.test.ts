@@ -8,6 +8,7 @@ const names = new Map([
 
 const base = {
   stat_definition_id: 'x',
+  group_id: 'g',
   name: 'armour_class',
   value: 15,
   own: false,
@@ -65,11 +66,153 @@ describe('explain', () => {
     expect(out.text).toBe('Armour base + 2 × Dexterity − 1');
   });
 
+  it('says a select by the step it took, or that none applied', () => {
+    const select = {
+      kind: 'select',
+      source_stat_definition_id: 'dex',
+      mode: 'threshold',
+      steps: [
+        { from: '1', result: { number: '2' } },
+        { from: '5', result: { number: '3' } },
+      ],
+      otherwise: null,
+    };
+    const took = explain(
+      {
+        ...base,
+        formula: select,
+        inputs: [],
+        chosen: { position: 1, otherwise: false, key: 5 },
+      } as Explanation,
+      names,
+    );
+    const fell = explain(
+      {
+        ...base,
+        formula: select,
+        inputs: [],
+        chosen: { position: null, otherwise: true, key: null },
+      } as Explanation,
+      names,
+    );
+
+    expect(took.text).toBe('Dexterity looked up in a table of 2 steps');
+    expect(took.parts).toEqual([{ label: 'Step taken', value: 'step 2 (5)' }]);
+    expect(fell.parts).toEqual([{ label: 'Step taken', value: 'none matched, so the default' }]);
+  });
+
+  it('says a product by its factors and a ratio with its rounding', () => {
+    const product = explain(
+      {
+        ...base,
+        formula: {
+          kind: 'product',
+          factors: ['dex', 'armour'],
+          multiplier: '2',
+          offset: '1',
+          round_mode: 'none',
+        },
+        inputs: [],
+      } as Explanation,
+      names,
+    );
+    const ratio = explain(
+      {
+        ...base,
+        division_rounded: true,
+        formula: {
+          kind: 'ratio',
+          numerator_stat_definition_id: 'dex',
+          denominator_stat_definition_id: null,
+          denominator_constant: '3',
+          multiplier: '1',
+          offset: '0',
+          round_mode: 'floor',
+        },
+        inputs: [],
+      } as Explanation,
+      names,
+    );
+
+    expect(product.text).toBe('Dexterity × Armour base × 2 + 1');
+    expect(ratio.text).toBe('Dexterity ÷ 3, rounded down, the division rounded to 28 digits');
+  });
+
+  it('says a contents formula by its aggregate and what it keeps', () => {
+    const best = explain(
+      {
+        ...base,
+        formula: {
+          kind: 'contents',
+          source_stat_definition_id: 'armour',
+          aggregate: 'max',
+          only_active: true,
+        },
+        inputs: [],
+        contents: { source_stat_definition_id: 'armour', source_name: 'armour_base', things: 2 },
+      } as Explanation,
+      names,
+    );
+    const attuned = explain(
+      {
+        ...base,
+        formula: {
+          kind: 'contents',
+          source_stat_definition_id: null,
+          aggregate: 'count',
+          only_active: false,
+        },
+        inputs: [],
+        contents: { source_stat_definition_id: null, source_name: null, things: 3 },
+      } as Explanation,
+      names,
+    );
+
+    expect(best.text).toBe('The largest Armour base of what is inside that is switched on');
+    expect(attuned.text).toBe('How many things inside');
+    expect(attuned.parts).toEqual([{ label: 'Things inside', value: '3' }]);
+  });
+
+  it('says a cap and a floor by what they compare', () => {
+    const cap = explain(
+      {
+        ...base,
+        formula: {
+          kind: 'min',
+          inputs: [{ stat_definition_id: 'dex' }, { constant: '2' }],
+          round_mode: 'none',
+        },
+        inputs: [{ stat_definition_id: 'dex', name: 'dexterity', value: 4 }],
+      } as Explanation,
+      names,
+    );
+    const floor = explain(
+      {
+        ...base,
+        formula: {
+          kind: 'max',
+          inputs: [{ stat_definition_id: 'armour' }, { constant: '0' }],
+          round_mode: 'floor',
+        },
+        inputs: [],
+      } as Explanation,
+      names,
+    );
+
+    expect(cap.text).toBe('The smaller of Dexterity, 2');
+    expect(floor.text).toBe('The larger of Armour base, 0, rounded down');
+  });
+
   it('says what a contents formula counted', () => {
     const out = explain(
       {
         ...base,
-        formula: { kind: 'contents', source_stat_definition_id: 'dex' },
+        formula: {
+          kind: 'contents',
+          source_stat_definition_id: 'dex',
+          aggregate: 'sum',
+          only_active: false,
+        },
         inputs: [],
         contents: { source_stat_definition_id: 'dex', source_name: 'dexterity', things: 4 },
       } as Explanation,

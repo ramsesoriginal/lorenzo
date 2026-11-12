@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends, Header, Query, Request, Response
 from fastapi_pagination import Page
 from fastapi_pagination.ext.sqlalchemy import apaginate
 from fastapi_problem.error import Problem
-from sqlalchemy import ColumnElement, Select, and_, exists, or_, select, true
+from sqlalchemy import ColumnElement, Select, and_, exists, func, or_, select, true
 
 from lorenzo_api.activity_log import record_activity
 from lorenzo_api.binding import (
@@ -1212,7 +1212,7 @@ async def create_item_instance(
     user: CurrentUser,
 ) -> ItemInstanceOut:
     proto_stmt = (
-        select(Entity, Item.in_public_catalog)
+        select(Entity, Item.in_public_catalog, Item.starts_inactive)
         .join(Item, Item.entity_id == Entity.id)
         .where(Entity.id == body.prototype_id, Entity.tenant_id == tenant_id)
     )
@@ -1221,7 +1221,7 @@ async def create_item_instance(
         raise InvalidItemPrototypeError(
             detail=f"{body.prototype_id} is not a base item in tenant {tenant_id}"
         )
-    prototype_entity, prototype_is_public = proto_row
+    prototype_entity, prototype_is_public, prototype_starts_inactive = proto_row
 
     self_service = await _authorize_create_instance(
         session, tenant_id=tenant_id, user=user, owner_character_id=body.owner_character_id
@@ -1270,7 +1270,14 @@ async def create_item_instance(
     )
     session.add(entity)
     await session.flush()
-    session.add(ItemInstance(entity_id=entity.id, tenant_id=tenant_id))
+    # It starts as its prototype says unless the caller says (ADR 0447).
+    session.add(
+        ItemInstance(
+            entity_id=entity.id,
+            tenant_id=tenant_id,
+            active=body.active if body.active is not None else not prototype_starts_inactive,
+        )
+    )
     if body.slug is not None:
         session.add(EntitySlug(entity_id=entity.id, tenant_id=tenant_id, slug=body.slug))
     session.add(
@@ -1516,6 +1523,14 @@ async def update_item_instance(
     check_if_match(if_match, updated_at=entity.updated_at)
     await _authorize_instance_write(session, tenant_id=tenant_id, user=user, entity_id=entity_id)
     update = body.model_dump(exclude_unset=True)
+    if "active" in update:
+        # The holder flips the switch by the rule that lets them edit the instance (ADR 0447); it
+        # moves nothing and frees nothing.
+        instance = await session.get_one(ItemInstance, entity_id)
+        if instance.active != update["active"]:
+            instance.active = update["active"]
+            entity.updated_by = user.id
+            entity.updated_at = func.now()
     if "prototype_id" in update:
         await _change_prototype(
             session,
@@ -1616,6 +1631,12 @@ async def _set_down_pieces(
     is in a container; the caller removes the stack's own containment row.
     Returns the new pieces' ids."""
     stack = await session.get_one(Entity, stack_id)
+    # A piece is the stack's own kind of thing, its switch as it is (ADR 0447).
+    stack_active = await session.scalar(
+        select(ItemInstance.active).where(
+            ItemInstance.entity_id == stack_id, ItemInstance.tenant_id == tenant_id
+        )
+    )
     prototype_ids = (
         await session.scalars(
             select(EntityPrototype.prototype_id)
@@ -1645,7 +1666,9 @@ async def _set_down_pieces(
         )
         session.add(piece)
         await session.flush()
-        session.add(ItemInstance(entity_id=piece.id, tenant_id=tenant_id))
+        session.add(
+            ItemInstance(entity_id=piece.id, tenant_id=tenant_id, active=stack_active is not False)
+        )
         session.add_all(
             EntityPrototype(
                 entity_id=piece.id,
@@ -2389,6 +2412,12 @@ async def _perform_split(
     current_owner_id = await _current_owner_character_id(
         session, entity_id=entity_id, tenant_id=tenant_id
     )
+    # What changes hands keeps its switch (ADR 0447).
+    entity_active = await session.scalar(
+        select(ItemInstance.active).where(
+            ItemInstance.entity_id == entity_id, ItemInstance.tenant_id == tenant_id
+        )
+    )
     new_owner_id = owner_character_id if owner_character_id is not None else current_owner_id
     # The part changing hands is the bound stack's owner changing (ADR 0129).
     # Into its own owner's hands it stays under whatever binds it.
@@ -2406,7 +2435,11 @@ async def _perform_split(
     )
     session.add(new_entity)
     await session.flush()
-    session.add(ItemInstance(entity_id=new_entity.id, tenant_id=tenant_id))
+    session.add(
+        ItemInstance(
+            entity_id=new_entity.id, tenant_id=tenant_id, active=entity_active is not False
+        )
+    )
     for position, prototype_id in enumerate(prototype_ids):
         session.add(
             EntityPrototype(

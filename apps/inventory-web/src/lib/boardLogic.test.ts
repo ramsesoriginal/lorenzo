@@ -25,6 +25,7 @@ function makeItem(overrides: Partial<ItemInstance> = {}): ItemInstance {
     armor: null,
     is_container: null,
     bound: false,
+    active: true,
     descriptions: [],
     pictures: [],
     physical_stats: [],
