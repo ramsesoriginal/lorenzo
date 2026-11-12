@@ -99,6 +99,10 @@ from lorenzo_api.models import (
     StatValueType,
     StoryEvent,
     System,
+    Template,
+    TemplateSlot,
+    TemplateSlotExclusion,
+    TemplateSlotStat,
     WritingBiography,
 )
 from lorenzo_api.models.story_context import SceneBeing, SceneEvent, SceneFact
@@ -391,6 +395,45 @@ async def seed_every_content_table(
             ComputedStat(entity_id=chest.id, stat_definition_id=modifier.id, tenant_id=tenant_id),
             Containment(child_entity_id=blade.id, parent_entity_id=chest.id, tenant_id=tenant_id),
             Ownership(owned_entity_id=blade.id, owner_character_id=guild.id, tenant_id=tenant_id),
+        ]
+    )
+    await session.flush()
+    template = Template(
+        tenant_id=tenant_id,
+        name="Fixture template",
+        required_kind="item",
+        required_ancestor_entry_id=sword.id,
+    )
+    session.add(template)
+    await session.flush()
+    shown = TemplateSlot(
+        tenant_id=tenant_id,
+        template_id=template.id,
+        position=0,
+        kind="stats",
+        stat_group_id=group.id,
+    )
+    held = TemplateSlot(
+        tenant_id=tenant_id,
+        template_id=template.id,
+        position=1,
+        kind="held",
+        held_order="name",
+    )
+    session.add_all([shown, held])
+    await session.flush()
+    session.add_all(
+        [
+            TemplateSlotExclusion(
+                slot_id=shown.id, stat_definition_id=modifier.id, tenant_id=tenant_id
+            ),
+            TemplateSlotStat(
+                slot_id=held.id,
+                position=0,
+                tenant_id=tenant_id,
+                stat_definition_id=strength.id,
+                label="Str",
+            ),
         ]
     )
     await session.flush()
