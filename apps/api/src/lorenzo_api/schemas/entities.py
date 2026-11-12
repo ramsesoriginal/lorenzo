@@ -203,6 +203,11 @@ class EntityStatValueOut(BaseModel):
     for a computed one.
     """
 
+    # ADR 0448: which stat this is, the group it is in and the slug of that group's game system
+    # (null for a neutral one), so a client need not join to the definitions by name.
+    stat_definition_id: uuid.UUID
+    group_id: uuid.UUID
+    system: str | None = None
     name: str
     value: int | str | float | bool
     # ADR 0111: the entity holds the winning value itself, stored or
@@ -280,6 +285,9 @@ def _stats_out(entity: Entity, visibility: InformationReader) -> list[EntityStat
     values = evaluate(entity.effective_stats, entity_id=entity.id, contents=entity.stat_contents)
     return [
         EntityStatValueOut(
+            stat_definition_id=stat.stat_definition_id,
+            group_id=stat.stat_definition.stat_group_id,
+            system=stat.system_slug(),
             name=stat.stat_definition.name,
             value=values[stat.stat_definition_id],
             own=stat.source_entity_id == entity.id,

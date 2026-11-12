@@ -41,6 +41,7 @@ from lorenzo_api.models import (
     Ownership,
     StatDefinition,
     StatDefinitionEnumValue,
+    StatGroup,
     StatValueType,
     VEffectiveStat,
     formula_load_options,
@@ -663,6 +664,9 @@ async def explain_entity_stat(
                 selectinload(VEffectiveStat.stat_definition).selectinload(
                     StatDefinition.enum_values
                 ),
+                selectinload(VEffectiveStat.stat_definition)
+                .joinedload(StatDefinition.stat_group)
+                .joinedload(StatGroup.system),
                 selectinload(VEffectiveStat.source_entity),
                 *formula_load_options(selectinload(VEffectiveStat.computed_stat)),
             )
@@ -754,6 +758,8 @@ async def explain_entity_stat(
         )
     return StatExplanationOut(
         stat_definition_id=definition.id,
+        group_id=definition.stat_group_id,
+        system=winner.system_slug(),
         name=definition.name,
         value=values[definition.id],
         own=own,

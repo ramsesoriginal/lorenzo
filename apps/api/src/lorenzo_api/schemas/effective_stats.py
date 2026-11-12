@@ -14,6 +14,9 @@ class EffectiveStatOut(BaseModel):
     source) and whether a formula decided it."""
 
     stat_definition_id: uuid.UUID
+    # ADR 0448: the group of the stat and the slug of that group's game system, null when neutral.
+    group_id: uuid.UUID
+    system: str | None = None
     value: int | str | float | bool
     own: bool
     from_entity: EntitySummary | None = None

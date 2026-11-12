@@ -3627,6 +3627,7 @@ class StatGroupCreate(BaseModel):
     priority: int | None = Field(0, title="Priority")
     mandatory: bool | None = Field(False, title="Mandatory")
     position: int | None = Field(None, title="Position")
+    system_id: UUID | None = Field(None, title="System Id")
 
 
 class StatGroupOrder(BaseModel):
@@ -3639,6 +3640,7 @@ class StatGroupOut(BaseModel):
     priority: int = Field(..., title="Priority")
     mandatory: bool = Field(..., title="Mandatory")
     position: int = Field(..., title="Position")
+    system_id: UUID | None = Field(None, title="System Id")
     created_at: AwareDatetime = Field(..., title="Created At")
     updated_at: AwareDatetime = Field(..., title="Updated At")
 
@@ -3648,6 +3650,7 @@ class StatGroupUpdate(BaseModel):
     priority: int | None = Field(None, title="Priority")
     mandatory: bool | None = Field(None, title="Mandatory")
     position: int | None = Field(None, title="Position")
+    system_id: UUID | None = Field(None, title="System Id")
 
 
 class StatValueOut(BaseModel):
@@ -3735,6 +3738,27 @@ class SumTermBodyOutput(BaseModel):
 
 class SuspendUserRequest(BaseModel):
     reason: str | None = Field(None, title="Reason")
+
+
+class SystemCreate(BaseModel):
+    slug: constr(pattern=r"^[a-z][a-z0-9]{0,31}$") = Field(..., title="Slug")
+    name: constr(min_length=1, max_length=200) = Field(..., title="Name")
+    root_entry_id: UUID | None = Field(None, title="Root Entry Id")
+
+
+class SystemOut(BaseModel):
+    id: UUID = Field(..., title="Id")
+    slug: str = Field(..., title="Slug")
+    name: str = Field(..., title="Name")
+    root_entry_id: UUID | None = Field(..., title="Root Entry Id")
+    created_at: AwareDatetime = Field(..., title="Created At")
+    updated_at: AwareDatetime = Field(..., title="Updated At")
+
+
+class SystemUpdate(BaseModel):
+    slug: constr(pattern=r"^[a-z][a-z0-9]{0,31}$") | None = Field(None, title="Slug")
+    name: constr(min_length=1, max_length=200) | None = Field(None, title="Name")
+    root_entry_id: UUID | None = Field(None, title="Root Entry Id")
 
 
 class TagValueOut(BaseModel):
@@ -4314,6 +4338,8 @@ class DistanceOut(BaseModel):
 
 class EffectiveStatOut(BaseModel):
     stat_definition_id: UUID = Field(..., title="Stat Definition Id")
+    group_id: UUID = Field(..., title="Group Id")
+    system: str | None = Field(None, title="System")
     value: int | str | float | bool = Field(..., title="Value")
     own: bool = Field(..., title="Own")
     from_entity: EntitySummary | None = None
@@ -4322,6 +4348,9 @@ class EffectiveStatOut(BaseModel):
 
 
 class EntityStatValueOut(BaseModel):
+    stat_definition_id: UUID = Field(..., title="Stat Definition Id")
+    group_id: UUID = Field(..., title="Group Id")
+    system: str | None = Field(None, title="System")
     name: str = Field(..., title="Name")
     value: int | str | float | bool = Field(..., title="Value")
     own: bool = Field(..., title="Own")
@@ -4857,6 +4886,14 @@ class PageSubscriberOut(BaseModel):
 
 class PageSubscriptionOut(BaseModel):
     items: list[SubscriptionOut] = Field(..., title="Items")
+    total: conint(ge=0) = Field(..., title="Total")
+    page: conint(ge=1) = Field(..., title="Page")
+    size: conint(ge=1) = Field(..., title="Size")
+    pages: conint(ge=0) = Field(..., title="Pages")
+
+
+class PageSystemOut(BaseModel):
+    items: list[SystemOut] = Field(..., title="Items")
     total: conint(ge=0) = Field(..., title="Total")
     page: conint(ge=1) = Field(..., title="Page")
     size: conint(ge=1) = Field(..., title="Size")
@@ -5609,6 +5646,8 @@ class SheetOut(BaseModel):
 
 class StatExplanationOut(BaseModel):
     stat_definition_id: UUID = Field(..., title="Stat Definition Id")
+    group_id: UUID = Field(..., title="Group Id")
+    system: str | None = Field(None, title="System")
     name: str = Field(..., title="Name")
     value: int | float | str | bool = Field(..., title="Value")
     own: bool = Field(..., title="Own")

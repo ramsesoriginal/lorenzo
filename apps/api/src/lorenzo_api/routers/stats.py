@@ -25,6 +25,7 @@ from lorenzo_api.exceptions import (
     InvalidStatHintError,
     InvalidStatOrderError,
     InvalidStatScaleError,
+    InvalidSystemError,
     StatDefinitionFieldImmutableError,
     StatDefinitionInUseError,
     StatDefinitionNameTakenError,
@@ -36,6 +37,7 @@ from lorenzo_api.exceptions import (
     StatGroupInUseError,
     StatGroupNameTakenError,
     StatGroupNotFoundError,
+    StatNamePrefixError,
     StatNameReservedError,
     StatScaleBreaksValuesError,
 )
@@ -57,6 +59,7 @@ from lorenzo_api.models import (
     StatDefinitionEnumValue,
     StatGroup,
     StatValueType,
+    System,
 )
 from lorenzo_api.schemas.library_counts import LibraryCountOut
 from lorenzo_api.schemas.stats import (
@@ -141,6 +144,63 @@ async def _get_stat_definition_or_404(
 
 
 _NUMERIC = (StatValueType.INT, StatValueType.FLOAT)
+
+
+async def _require_system(
+    session: SessionDep, tenant_id: uuid.UUID, system_id: uuid.UUID
+) -> System:
+    system = (
+        await session.execute(
+            select(System).where(System.id == system_id, System.tenant_id == tenant_id)
+        )
+    ).scalar_one_or_none()
+    if system is None:
+        raise InvalidSystemError(detail=f"{system_id} is not a system of tenant {tenant_id}")
+    return system
+
+
+async def _check_definitions_carry(
+    session: SessionDep, tenant_id: uuid.UUID, stat_group_id: uuid.UUID, slug: str
+) -> None:
+    """A group takes a system only when its definitions already start with the slug and an
+    underscore (ADR 0448); the message names the first ones that do not."""
+    names = list(
+        await session.scalars(
+            select(StatDefinition.name)
+            .where(
+                StatDefinition.tenant_id == tenant_id,
+                StatDefinition.stat_group_id == stat_group_id,
+                ~StatDefinition.name.startswith(f"{slug}_", autoescape=True),
+            )
+            .order_by(StatDefinition.name)
+            .limit(5)
+        )
+    )
+    if names:
+        raise StatNamePrefixError(
+            detail=f"Stats of the group do not start with {slug}_: {', '.join(names)}"
+        )
+
+
+async def _system_slug_of_group(
+    session: SessionDep, tenant_id: uuid.UUID, stat_group_id: uuid.UUID
+) -> str | None:
+    """The slug of the game system a stat group belongs to, or None for a neutral group (ADR
+    0448)."""
+    slug: str | None = await session.scalar(
+        select(System.slug)
+        .join(StatGroup, StatGroup.system_id == System.id)
+        .where(StatGroup.id == stat_group_id, StatGroup.tenant_id == tenant_id)
+    )
+    return slug
+
+
+def _check_prefix(slug: str | None, name: str) -> None:
+    """A definition of a group with a system starts with the slug and an underscore (ADR 0448)."""
+    if slug is not None and not (name.startswith(f"{slug}_") and len(name) > len(slug) + 1):
+        raise StatNamePrefixError(
+            detail=f"A stat of system {slug!r} is named {slug}_ and then a name; {name!r} is not"
+        )
 
 
 def _check_scale(value_type: StatValueType, low: float | None, high: float | None) -> None:
@@ -241,8 +301,14 @@ async def create_stat_group(
         raise StatGroupNameTakenError(
             detail=f"Another stat group in tenant {tenant_id} is already called {body.name!r}"
         )
+    if body.system_id is not None:
+        await _require_system(session, tenant_id, body.system_id)
     stat_group = StatGroup(
-        tenant_id=tenant_id, name=body.name, priority=body.priority, mandatory=body.mandatory
+        tenant_id=tenant_id,
+        name=body.name,
+        priority=body.priority,
+        mandatory=body.mandatory,
+        system_id=body.system_id,
     )
     if body.position is not None:
         stat_group.position = body.position
@@ -321,6 +387,9 @@ async def update_stat_group(
                 detail=f"Another stat group in tenant {tenant_id} is already called "
                 f"{changes['name']!r}"
             )
+    if changes.get("system_id") is not None:
+        system = await _require_system(session, tenant_id, changes["system_id"])
+        await _check_definitions_carry(session, tenant_id, stat_group_id, system.slug)
     for field, value in changes.items():
         setattr(stat_group, field, value)
     await session.commit()
@@ -478,6 +547,7 @@ async def create_stat_definition(
         raise InvalidStatGroupError(
             detail=f"{body.stat_group_id} is not a stat group in tenant {tenant_id}"
         )
+    _check_prefix(await _system_slug_of_group(session, tenant_id, body.stat_group_id), body.name)
 
     if await session.scalar(
         select(StatDefinition.id).where(
@@ -620,6 +690,10 @@ async def update_stat_definition(
                 "breaking for the libraries that copied it (ADR 0443)"
             )
     if "name" in changes and changes["name"] != stat_definition.name:
+        _check_prefix(
+            await _system_slug_of_group(session, tenant_id, stat_definition.stat_group_id),
+            changes["name"],
+        )
         if stat_definition.name in RESERVED_STAT_NAMES:
             raise StatNameReservedError(
                 detail=f"The API reads {stat_definition.name!r} by name, so it cannot be renamed"

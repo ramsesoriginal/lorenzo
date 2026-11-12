@@ -130,6 +130,7 @@ from lorenzo_api.models import (
     StatDefinitionEnumValue,
     StatGroup,
     StoryEvent,
+    System,
     TenantAdminCampaignOptOut,
     TenantProfilePicture,
     WritingBiography,
@@ -202,6 +203,8 @@ def _link(model: type[Base], name: str, of: LinkOf) -> CopyableTable:
 
 # The order is the order a copy inserts its rows in: a table comes after every table it points to.
 REGISTRY: tuple[CopyableTable, ...] = (
+    # Not copied yet: a repository carries systems from ADR 0453 on (RFC 0052 Y6).
+    CopyableTable("system", System, True, "none"),
     _rows(StatGroup, "stat_group"),
     _rows(StatDefinition, "stat_definition", counted_on_purge=True),
     _rows(StatDefinitionEnumValue, "stat_definition_enum_value", carried_by="stat_definition"),

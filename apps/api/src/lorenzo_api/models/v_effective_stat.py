@@ -70,3 +70,9 @@ class VEffectiveStat(Base):
         uselist=False,
         lazy="raise_on_sql",
     )
+
+    def system_slug(self) -> str | None:
+        """The slug of the game system of this stat's group, or None when the group is neutral
+        (ADR 0448). Needs the stat's definition, its group and that group's system loaded."""
+        system = self.stat_definition.stat_group.system
+        return None if system is None else system.slug

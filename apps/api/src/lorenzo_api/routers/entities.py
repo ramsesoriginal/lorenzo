@@ -104,6 +104,7 @@ from lorenzo_api.models import (
     Relationship,
     SocialWeb,
     StatDefinition,
+    StatGroup,
     StoryEvent,
     User,
     VEffectiveStat,
@@ -698,7 +699,8 @@ async def get_entity_detail_or_404(
             selectinload(Entity.stats),
             selectinload(Entity.effective_stats)
             .joinedload(VEffectiveStat.stat_definition)
-            .joinedload(StatDefinition.stat_group),
+            .joinedload(StatDefinition.stat_group)
+            .joinedload(StatGroup.system),
             # The numbers of an enum stat's values, for a formula that reads it (ADR 0444).
             selectinload(Entity.effective_stats)
             .joinedload(VEffectiveStat.stat_definition)

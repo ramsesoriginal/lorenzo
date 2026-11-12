@@ -55,6 +55,7 @@ from lorenzo_api.models import (
     ItemInstance,
     Payload,
     StatDefinition,
+    StatGroup,
     VEffectiveStat,
     VItem,
     formula_load_options,
@@ -139,7 +140,8 @@ def eager_load_options(
         joinedload(view_entity_attr)
         .selectinload(Entity.effective_stats)
         .joinedload(VEffectiveStat.stat_definition)
-        .joinedload(StatDefinition.stat_group),
+        .joinedload(StatDefinition.stat_group)
+        .joinedload(StatGroup.system),
         # The numbers of an enum stat's values, for a formula that reads it (ADR 0444).
         joinedload(view_entity_attr)
         .selectinload(Entity.effective_stats)

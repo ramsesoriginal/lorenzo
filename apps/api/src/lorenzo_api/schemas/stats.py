@@ -43,6 +43,9 @@ class StatGroupCreate(BaseModel):
     mandatory: bool = False
     # Where it comes in the vocabulary (ADR 0278); omitted, it goes last.
     position: int | None = None
+    # The game system the group belongs to (ADR 0448), or none: a neutral group. The names of its
+    # definitions must start with the system's slug and an underscore.
+    system_id: uuid.UUID | None = None
 
 
 class StatGroupUpdate(BaseModel):
@@ -54,10 +57,13 @@ class StatGroupUpdate(BaseModel):
     priority: int | None = None
     mandatory: bool | None = None
     position: int | None = None
+    # ADR 0448: the one field that can be cleared (null makes the group neutral); every definition
+    # of the group must start with the new system's slug and an underscore.
+    system_id: uuid.UUID | None = None
 
     @model_validator(mode="after")
     def _no_nulls(self) -> StatGroupUpdate:
-        for field in self.model_fields_set:
+        for field in self.model_fields_set - {"system_id"}:
             if getattr(self, field) is None:
                 raise ValueError(f"{field} cannot be null")
         return self
@@ -90,6 +96,8 @@ class StatGroupOut(BaseModel):
     priority: int
     mandatory: bool
     position: int
+    # ADR 0448: the game system the group belongs to, null when it is neutral.
+    system_id: uuid.UUID | None = None
     created_at: datetime
     updated_at: datetime
 

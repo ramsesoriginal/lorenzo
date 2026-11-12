@@ -84,6 +84,7 @@ from lorenzo_api.routers.repository_preview import (
 from lorenzo_api.routers.repository_profiles import router as repository_profiles_router
 from lorenzo_api.routers.social_webs import router as social_webs_router
 from lorenzo_api.routers.stats import router as stats_router
+from lorenzo_api.routers.systems import router as systems_router
 from lorenzo_api.routers.tenant_invites import router as tenant_invites_router
 from lorenzo_api.routers.tenants import router as tenants_router
 from lorenzo_api.routers.users import router as users_router
@@ -226,6 +227,7 @@ def create_app() -> FastAPI:
     app.include_router(item_instances_router)
     app.include_router(knowledge_router)
     app.include_router(stats_router)
+    app.include_router(systems_router)
 
     Instrumentator().instrument(app).expose(app, endpoint="/metrics")
     # Stashed on app.state so tests can attach their own span processor

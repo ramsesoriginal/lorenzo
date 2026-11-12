@@ -1670,3 +1670,44 @@ class LocationTreeError(UnprocessableProblem):
     (ADR 0330)."""
 
     title = "A Location cannot be part of itself, however indirectly, or nest that deeply"
+
+
+class SystemNotFoundError(NotFoundProblem):
+    """.../systems/{id} - no such game system in this tenant (ADR 0448)."""
+
+    title = "System not found"
+
+
+class SystemSlugTakenError(ConflictProblem):
+    """POST or PATCH .../systems - another system of the tenant already has the slug
+    (UNIQUE(tenant_id, slug), ADR 0448)."""
+
+    title = "A system with this slug already exists"
+
+
+class SystemSlugInUseError(ConflictProblem):
+    """PATCH .../systems/{id} changing the slug while a stat group belongs to the system: the
+    names of its definitions start with it (ADR 0448)."""
+
+    title = "A stat group uses this slug"
+
+
+class SystemInUseError(ConflictProblem):
+    """DELETE .../systems/{id} while a stat group belongs to it (ADR 0448)."""
+
+    title = "This system is still in use"
+
+
+class InvalidSystemError(UnprocessableProblem):
+    """POST or PATCH .../systems, or a stat group's `system_id` - the root entry or the system
+    does not resolve in this tenant (ADR 0448)."""
+
+    title = "Invalid system"
+
+
+class StatNamePrefixError(UnprocessableProblem):
+    """A stat definition of a group that belongs to a game system must start with the system's
+    slug and an underscore: on create, on rename, and when a group takes a system whose prefix
+    its definitions do not carry (ADR 0448)."""
+
+    title = "A stat of a system starts with the system's slug"

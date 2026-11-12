@@ -33,6 +33,7 @@ from lorenzo_api.models import (
     Payload,
     PayloadPicture,
     StatDefinition,
+    StatGroup,
     VEffectiveStat,
     formula_load_options,
 )
@@ -97,7 +98,8 @@ async def get_entity_preview(
         .options(
             selectinload(Entity.effective_stats)
             .selectinload(VEffectiveStat.stat_definition)
-            .selectinload(StatDefinition.stat_group),
+            .selectinload(StatDefinition.stat_group)
+            .joinedload(StatGroup.system),
             selectinload(Entity.effective_stats)
             .selectinload(VEffectiveStat.stat_definition)
             .selectinload(StatDefinition.enum_values),
