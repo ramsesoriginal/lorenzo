@@ -59,6 +59,7 @@ _COUNT_KEY = {
 # copied the repository, and the one that only changes what an item is in it.
 REASONS = (
     "entity_removed",
+    "grant_rule_removed",
     "stat_definition_removed",
     "stat_definition_retyped",
     "stat_group_removed",
@@ -174,7 +175,22 @@ def live_rows(content: Content) -> dict[Key, Row]:
                 None,
                 hash_of(snapshot),
                 name,
-                {"kinds": snapshot["kinds"], "slug": snapshot["slug"]},
+                {
+                    "kinds": snapshot["kinds"],
+                    "slug": snapshot["slug"],
+                    # The label of each of its grant rules, or its place, so a removed one is seen
+                    # (ADR 0455); said only when it has any.
+                    **(
+                        {
+                            "grant_rules": [
+                                rule["label"] or f"#{place + 1}"
+                                for place, rule in enumerate(snapshot["grant_rules"])
+                            ]
+                        }
+                        if "grant_rules" in snapshot
+                        else {}
+                    ),
+                },
             )
     for a in attachments_of(content):
         rows[("attachment", a.child_source_id, a.parent_source_id)] = Row(
@@ -366,6 +382,18 @@ def detect(found: Comparison) -> list[Breaking]:
                     f"The kind of {_quoted(now.name)} changed from {', '.join(old) or 'none'} to "
                     f"{', '.join(new) or 'none'}. Libraries that copied it keep the old kind, and "
                     "new copies get the new one.",
+                )
+            old_rules = before.facts.get("grant_rules") or []
+            new_rules = now.facts.get("grant_rules") or []
+            if len(new_rules) < len(old_rules):
+                gone = [rule for rule in old_rules if rule not in new_rules]
+                hit(
+                    now,
+                    "grant_rule_removed",
+                    f"{_quoted(now.name)} lost a grant rule"
+                    + (f" ({', '.join(gone)})" if gone else "")
+                    + ". Libraries that copied it keep the rule, and holders there keep what it "
+                    "granted.",
                 )
             old_slug = before.facts.get("slug")
             if old_slug is not None and old_slug != now.facts.get("slug"):

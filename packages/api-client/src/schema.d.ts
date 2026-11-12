@@ -7437,6 +7437,231 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/tenants/{tenant_id}/features/prototypes/{feature_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Feature Columns
+         * @description The two columns of a feature, `repeatable` and `starts_inactive`, which `PUT
+         *     .../entities/{id}/kinds/feature` sets.
+         */
+        get: operations["get_feature_columns"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/features/{instance_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Held Feature
+         * @description One feature a holder has. `404` for an instance the caller does not reach: it is as
+         *     visible as what the holder holds (ADR 0040).
+         */
+        get: operations["get_held_feature"];
+        put?: never;
+        post?: never;
+        /**
+         * Remove Feature
+         * @description Takes the feature from its holder: the instance goes, with what it kept (its own stats).
+         *     The holder's manager only (`403`).
+         */
+        delete: operations["remove_feature"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/features/{instance_id}/active": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set Feature Active
+         * @description The switch a formula reads with `only_active` (ADR 0447), flipped by whoever reaches the
+         *     instance (ADR 0124) or manages its holder. It is no activity-log event, like an item's.
+         */
+        put: operations["set_feature_active"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/features/prototypes/{feature_id}/prerequisites": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Prerequisites
+         * @description What a holder needs to have the feature, in order; all of it must hold.
+         */
+        get: operations["get_prerequisites"];
+        /**
+         * Put Prerequisites
+         * @description Replaces the list (empty clears it): comparisons on the holder of the feature, which every
+         *     rule that offers it respects. 422 for a stat that is not the library's or is text.
+         */
+        put: operations["put_prerequisites"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/grant-rules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Grant Rules
+         * @description The library's rules by source entry (its name, then its id) and then in the order of the
+         *     source, or those of one source. A rule on an entry the library hides is not one it can know of
+         *     (ADR 0437).
+         */
+        get: operations["list_grant_rules"];
+        put?: never;
+        /**
+         * Create Grant Rule
+         * @description Makes a rule on a source entry (422 for an entry, option, category or stat that is not the
+         *     library's, an option that is no feature, or a comparison of a text stat).
+         */
+        post: operations["create_grant_rule"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/grant-rules/{rule_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Grant Rule */
+        get: operations["get_grant_rule"];
+        /**
+         * Replace Grant Rule
+         * @description Replaces the rule: everything but its source. A change reaches a holder at its next apply;
+         *     what was granted is not touched here (ADR 0456 decides what a grant outlives).
+         */
+        put: operations["replace_grant_rule"];
+        post?: never;
+        /** Delete Grant Rule */
+        delete: operations["delete_grant_rule"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/entities/{entity_id}/grants": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Grants
+         * @description What the holder has through rules and awards, what is due (automatic grants whose
+         *     conditions hold and that have no record), the open choices (a rule's minimum, maximum, what is
+         *     picked and the options that pass their prerequisites) and what is orphaned. A read never
+         *     writes. Readable as the holder's features are: whoever reaches it, and its managers.
+         */
+        get: operations["get_grants"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/entities/{entity_id}/grants/apply": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Apply Grants Route
+         * @description Makes the automatic grants that are due, records the picks and revokes what is orphaned,
+         *     and repeats until nothing more is due, since a granted feature is itself a source. A pick is
+         *     refused (`422`) outside the rule's options, with no open choice behind it, below the minimum
+         *     where the apply carries picks for it, above the maximum or past a prerequisite, and `409` for
+         *     a feature the holder has and that is not repeatable; a GM's `override` lifts the three limits.
+         *     `dry_run` reports what would happen and writes nothing. The holder's controller applies, and
+         *     any GM (`403` otherwise); `override` is a GM's alone.
+         */
+        post: operations["apply_grants_route"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/entities/{entity_id}/features": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Held Features
+         * @description What the holder has: each instance with its feature, the feature's types, its switch and
+         *     its effective stats, by name then id. The holder must be one the caller reaches (ADR 0040's
+         *     sets, as `held-by` has it), else `404` like an entry that does not exist; an instance a
+         *     library hides (ADR 0437) is left out. `422` for an entry that is not a being, an item instance
+         *     or a group.
+         */
+        get: operations["list_held_features"];
+        put?: never;
+        /**
+         * Award Feature
+         * @description An award (ADR 0454): the holder has the feature, with no rule behind it. An instance is a
+         *     new entry named as the feature, with the feature as its one prototype, contained by the holder,
+         *     switched on unless the feature starts its instances inactive or the body says. The holder's
+         *     manager only (`403`): a GM of its campaigns, an administrator for one in none, an Author in a
+         *     repository. `409` for a feature the holder has and that is not `repeatable`, `422` for an entry
+         *     that is no feature here (a hidden one included) or a holder that holds nothing.
+         */
+        post: operations["award_feature"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/metrics": {
         parameters: {
             query?: never;
@@ -7637,6 +7862,46 @@ export interface components {
         AppearanceUpdate: {
             /** Is Shared */
             is_shared: boolean;
+        };
+        /**
+         * ApplyIn
+         * @description POST .../grants/apply. `picks` fill open choices; `dry_run` reports what would happen and
+         *     writes nothing; `override` (a GM's) lets a pick go below the minimum, above the maximum or past
+         *     a prerequisite.
+         */
+        ApplyIn: {
+            /**
+             * Picks
+             * @default []
+             */
+            picks: components["schemas"]["PickIn"][];
+            /**
+             * Dry Run
+             * @default false
+             */
+            dry_run: boolean;
+            /**
+             * Override
+             * @default false
+             */
+            override: boolean;
+        };
+        /**
+         * ApplyOut
+         * @description What `apply` did (or, with `dry_run`, would do): the grants it made, the records it
+         *     revoked, the choices still open, and whether the chain of grants was cut at the depth cap.
+         */
+        ApplyOut: {
+            /** Created */
+            created: components["schemas"]["HeldGrantOut"][];
+            /** Revoked */
+            revoked: components["schemas"]["RevokedOut"][];
+            /** Open Choices */
+            open_choices: components["schemas"]["OpenChoiceOut"][];
+            /** Dry Run */
+            dry_run: boolean;
+            /** Truncated */
+            truncated: boolean;
         };
         /**
          * ApplyUpdatesOut
@@ -7898,7 +8163,7 @@ export interface components {
             /** Name */
             name: string;
             /** Kinds */
-            kinds: ("item" | "item_instance" | "being" | "character" | "fact" | "calendar" | "clock" | "location" | "map" | "connection" | "relationship" | "social_web" | "calendar_period" | "event" | "observance" | "book" | "carrier" | "edition" | "chapter" | "scene_telling" | "scene" | "scene_appearance" | "session")[];
+            kinds: ("item" | "item_instance" | "being" | "character" | "fact" | "calendar" | "clock" | "location" | "map" | "connection" | "relationship" | "social_web" | "feature" | "feature_instance" | "calendar_period" | "event" | "observance" | "book" | "carrier" | "edition" | "chapter" | "scene_telling" | "scene" | "scene_appearance" | "session")[];
             /**
              * Information Id
              * Format: uuid
@@ -8004,7 +8269,7 @@ export interface components {
              * Reason
              * @enum {string}
              */
-            reason: "entity_removed" | "stat_definition_removed" | "stat_definition_retyped" | "stat_group_removed" | "enum_value_removed" | "kinds_changed" | "slug_changed" | "attachment_added";
+            reason: "entity_removed" | "grant_rule_removed" | "stat_definition_removed" | "stat_definition_retyped" | "stat_group_removed" | "enum_value_removed" | "kinds_changed" | "slug_changed" | "attachment_added";
             /** Detail */
             detail: string;
             release: components["schemas"]["ReleaseRefOut"];
@@ -8036,7 +8301,7 @@ export interface components {
              * Reason
              * @enum {string}
              */
-            reason: "entity_removed" | "stat_definition_removed" | "stat_definition_retyped" | "stat_group_removed" | "enum_value_removed" | "kinds_changed" | "slug_changed" | "attachment_added";
+            reason: "entity_removed" | "grant_rule_removed" | "stat_definition_removed" | "stat_definition_retyped" | "stat_group_removed" | "enum_value_removed" | "kinds_changed" | "slug_changed" | "attachment_added";
             /** Detail */
             detail: string;
         };
@@ -9250,6 +9515,49 @@ export interface components {
             /** False Value */
             false_value?: string | null;
         };
+        /**
+         * ComparisonIn
+         * @description One comparison, `stat <comparator> right`, with right a constant or another stat of the
+         *     same entry (ADR 0455): a feature's prerequisite, read on the holder. The stat is a number, a
+         *     bool or an enum, read as a number as the `comparison` formula reads it (ADR 0444).
+         */
+        ComparisonIn: {
+            /**
+             * Stat Definition Id
+             * Format: uuid
+             */
+            stat_definition_id: string;
+            /**
+             * Comparator
+             * @enum {string}
+             */
+            comparator: "lt" | "le" | "eq" | "ne" | "ge" | "gt";
+            /** Right Constant */
+            right_constant?: number | string | null;
+            /** Right Stat Definition Id */
+            right_stat_definition_id?: string | null;
+        };
+        /** ComparisonOut */
+        ComparisonOut: {
+            /**
+             * Stat Definition Id
+             * Format: uuid
+             */
+            stat_definition_id: string;
+            /** Stat Name */
+            stat_name: string;
+            /**
+             * Comparator
+             * @enum {string}
+             */
+            comparator: "lt" | "le" | "eq" | "ne" | "ge" | "gt";
+            /** Right Constant */
+            right_constant: string | null;
+            /** Right Stat Definition Id */
+            right_stat_definition_id: string | null;
+            /** Right Stat Name */
+            right_stat_name: string | null;
+        };
         /** ComparisonRequest */
         ComparisonRequest: {
             /** Pairs */
@@ -9337,6 +9645,58 @@ export interface components {
             /** Inputs */
             inputs: components["schemas"]["PreviewInputOut"][];
         };
+        /**
+         * ConditionIn
+         * @description A condition of a rule: a comparison, read on the holder or on the source.
+         */
+        ConditionIn: {
+            /**
+             * Stat Definition Id
+             * Format: uuid
+             */
+            stat_definition_id: string;
+            /**
+             * Comparator
+             * @enum {string}
+             */
+            comparator: "lt" | "le" | "eq" | "ne" | "ge" | "gt";
+            /** Right Constant */
+            right_constant?: number | string | null;
+            /** Right Stat Definition Id */
+            right_stat_definition_id?: string | null;
+            /**
+             * Subject
+             * @default holder
+             * @enum {string}
+             */
+            subject: "holder" | "source";
+        };
+        /** ConditionOut */
+        ConditionOut: {
+            /**
+             * Stat Definition Id
+             * Format: uuid
+             */
+            stat_definition_id: string;
+            /** Stat Name */
+            stat_name: string;
+            /**
+             * Comparator
+             * @enum {string}
+             */
+            comparator: "lt" | "le" | "eq" | "ne" | "ge" | "gt";
+            /** Right Constant */
+            right_constant: string | null;
+            /** Right Stat Definition Id */
+            right_stat_definition_id: string | null;
+            /** Right Stat Name */
+            right_stat_name: string | null;
+            /**
+             * Subject
+             * @enum {string}
+             */
+            subject: "holder" | "source";
+        };
         /** ConnectionCreate */
         ConnectionCreate: {
             /** Id */
@@ -9384,7 +9744,7 @@ export interface components {
             /** Slug */
             slug?: string | null;
             /** Kinds */
-            kinds: ("item" | "item_instance" | "being" | "character" | "fact" | "calendar" | "clock" | "location" | "map" | "connection" | "relationship" | "social_web" | "calendar_period" | "event" | "observance" | "book" | "carrier" | "edition" | "chapter" | "scene_telling" | "scene" | "scene_appearance" | "session")[];
+            kinds: ("item" | "item_instance" | "being" | "character" | "fact" | "calendar" | "clock" | "location" | "map" | "connection" | "relationship" | "social_web" | "feature" | "feature_instance" | "calendar_period" | "event" | "observance" | "book" | "carrier" | "edition" | "chapter" | "scene_telling" | "scene" | "scene_appearance" | "session")[];
             end_a: components["schemas"]["EntryStub"];
             end_b: components["schemas"]["EntryStub"];
             /** One Way */
@@ -9438,7 +9798,8 @@ export interface components {
          *     inside's own weight, formulas included, times its stack count. `aggregate` may instead be
          *     `min`, `max` or `count`; `count` ignores the stat (leave it out), and `min`, `max` and `count`
          *     ignore the stack count. `only_active` skips a held thing whose `active` switch is off,
-         *     `only_kind` keeps one kind of held thing (`item_instance`), `where_stat_definition_id` is a
+         *     `only_kind` keeps one kind of held thing (`item_instance` or `feature_instance`, ADR 0454),
+         *     `where_stat_definition_id` is a
          *     `bool` stat that must be true on the held thing, and `if_none` is what `min` and `max` of
          *     nothing give (no value without it).
          */
@@ -9462,7 +9823,7 @@ export interface components {
              */
             only_active: boolean;
             /** Only Kind */
-            only_kind?: "item_instance" | null;
+            only_kind?: ("item_instance" | "feature_instance") | null;
             /** Where Stat Definition Id */
             where_stat_definition_id?: string | null;
             /** If None */
@@ -9475,7 +9836,8 @@ export interface components {
          *     inside's own weight, formulas included, times its stack count. `aggregate` may instead be
          *     `min`, `max` or `count`; `count` ignores the stat (leave it out), and `min`, `max` and `count`
          *     ignore the stack count. `only_active` skips a held thing whose `active` switch is off,
-         *     `only_kind` keeps one kind of held thing (`item_instance`), `where_stat_definition_id` is a
+         *     `only_kind` keeps one kind of held thing (`item_instance` or `feature_instance`, ADR 0454),
+         *     `where_stat_definition_id` is a
          *     `bool` stat that must be true on the held thing, and `if_none` is what `min` and `max` of
          *     nothing give (no value without it).
          */
@@ -9499,7 +9861,7 @@ export interface components {
              */
             only_active: boolean;
             /** Only Kind */
-            only_kind?: "item_instance" | null;
+            only_kind?: ("item_instance" | "feature_instance") | null;
             /** Where Stat Definition Id */
             where_stat_definition_id?: string | null;
             /** If None */
@@ -10225,6 +10587,21 @@ export interface components {
             reason: string;
         };
         /**
+         * DueGrantOut
+         * @description An automatic grant whose conditions hold and that has no record yet: what `apply` makes.
+         */
+        DueGrantOut: {
+            /**
+             * Rule Id
+             * Format: uuid
+             */
+            rule_id: string;
+            /** Label */
+            label: string | null;
+            source: components["schemas"]["GrantSourceOut"];
+            feature: components["schemas"]["RuleOptionOut"];
+        };
+        /**
          * DuplicateGroupRequest
          * @description POST /groups/{id}/duplicate - name defaults to the source group's
          *     own name when omitted.
@@ -10342,7 +10719,7 @@ export interface components {
              * Kinds
              * @default []
              */
-            kinds: ("item" | "being" | "fact" | "event")[];
+            kinds: ("item" | "being" | "fact" | "event" | "feature")[];
             /**
              * Parents
              * @default []
@@ -10350,6 +10727,10 @@ export interface components {
             parents: string[];
             /** In Public Catalog */
             in_public_catalog?: boolean | null;
+            /** Repeatable */
+            repeatable?: boolean | null;
+            /** Starts Inactive */
+            starts_inactive?: boolean | null;
             /** Visibility */
             visibility?: ("restricted" | "participants" | "library") | null;
         };
@@ -10387,7 +10768,7 @@ export interface components {
             /** Information */
             information: components["schemas"]["InformationOut"][];
             /** Kinds */
-            kinds: ("item" | "item_instance" | "being" | "character" | "fact" | "calendar" | "clock" | "location" | "map" | "connection" | "relationship" | "social_web" | "calendar_period" | "event" | "observance" | "book" | "carrier" | "edition" | "chapter" | "scene_telling" | "scene" | "scene_appearance" | "session")[];
+            kinds: ("item" | "item_instance" | "being" | "character" | "fact" | "calendar" | "clock" | "location" | "map" | "connection" | "relationship" | "social_web" | "feature" | "feature_instance" | "calendar_period" | "event" | "observance" | "book" | "carrier" | "edition" | "chapter" | "scene_telling" | "scene" | "scene_appearance" | "session")[];
             /** Prototypes */
             prototypes: components["schemas"]["EntitySummary"][];
             /** Instances */
@@ -10417,7 +10798,7 @@ export interface components {
             /** Slug */
             slug: string | null;
             /** Kinds */
-            kinds: ("item" | "item_instance" | "being" | "character" | "fact" | "calendar" | "clock" | "location" | "map" | "connection" | "relationship" | "social_web" | "calendar_period" | "event" | "observance" | "book" | "carrier" | "edition" | "chapter" | "scene_telling" | "scene" | "scene_appearance" | "session")[];
+            kinds: ("item" | "item_instance" | "being" | "character" | "fact" | "calendar" | "clock" | "location" | "map" | "connection" | "relationship" | "social_web" | "feature" | "feature_instance" | "calendar_period" | "event" | "observance" | "book" | "carrier" | "edition" | "chapter" | "scene_telling" | "scene" | "scene_appearance" | "session")[];
             /** Parent Ids */
             parent_ids: string[];
             /** Stat Group Ids */
@@ -10485,6 +10866,10 @@ export interface components {
             system?: {
                 [key: string]: unknown;
             } | null;
+            /** Repeatable */
+            repeatable?: boolean | null;
+            /** Starts Inactive */
+            starts_inactive?: boolean | null;
         };
         /**
          * EntityListOut
@@ -10504,7 +10889,7 @@ export interface components {
             /** Quantity */
             quantity?: number | null;
             /** Kinds */
-            kinds: ("item" | "item_instance" | "being" | "character" | "fact" | "calendar" | "clock" | "location" | "map" | "connection" | "relationship" | "social_web" | "calendar_period" | "event" | "observance" | "book" | "carrier" | "edition" | "chapter" | "scene_telling" | "scene" | "scene_appearance" | "session")[];
+            kinds: ("item" | "item_instance" | "being" | "character" | "fact" | "calendar" | "clock" | "location" | "map" | "connection" | "relationship" | "social_web" | "feature" | "feature_instance" | "calendar_period" | "event" | "observance" | "book" | "carrier" | "edition" | "chapter" | "scene_telling" | "scene" | "scene_appearance" | "session")[];
             /** Parent Ids */
             parent_ids: string[];
         };
@@ -10609,7 +10994,7 @@ export interface components {
             /** Information */
             information: components["schemas"]["InformationOut"][];
             /** Kinds */
-            kinds: ("item" | "item_instance" | "being" | "character" | "fact" | "calendar" | "clock" | "location" | "map" | "connection" | "relationship" | "social_web" | "calendar_period" | "event" | "observance" | "book" | "carrier" | "edition" | "chapter" | "scene_telling" | "scene" | "scene_appearance" | "session")[];
+            kinds: ("item" | "item_instance" | "being" | "character" | "fact" | "calendar" | "clock" | "location" | "map" | "connection" | "relationship" | "social_web" | "feature" | "feature_instance" | "calendar_period" | "event" | "observance" | "book" | "carrier" | "edition" | "chapter" | "scene_telling" | "scene" | "scene_appearance" | "session")[];
             /** Prototypes */
             prototypes: components["schemas"]["EntitySummary"][];
             /** Instances */
@@ -10713,7 +11098,7 @@ export interface components {
             /** Slug */
             slug?: string | null;
             /** Kinds */
-            kinds: ("item" | "item_instance" | "being" | "character" | "fact" | "calendar" | "clock" | "location" | "map" | "connection" | "relationship" | "social_web" | "calendar_period" | "event" | "observance" | "book" | "carrier" | "edition" | "chapter" | "scene_telling" | "scene" | "scene_appearance" | "session")[];
+            kinds: ("item" | "item_instance" | "being" | "character" | "fact" | "calendar" | "clock" | "location" | "map" | "connection" | "relationship" | "social_web" | "feature" | "feature_instance" | "calendar_period" | "event" | "observance" | "book" | "carrier" | "edition" | "chapter" | "scene_telling" | "scene" | "scene_appearance" | "session")[];
         };
         /** EventAccess */
         EventAccess: {
@@ -10878,6 +11263,45 @@ export interface components {
         FactUpdate: {
             /** Name */
             name: string;
+        };
+        /**
+         * FeatureActiveIn
+         * @description PUT .../features/{instance}/active - the switch (ADR 0447's `active`, on a feature).
+         */
+        FeatureActiveIn: {
+            /** Active */
+            active: boolean;
+        };
+        /**
+         * FeatureAwardIn
+         * @description POST .../entities/{holder}/features - an award (ADR 0454): the feature, and optionally the
+         *     switch the instance starts with (left out, it starts as its feature says).
+         */
+        FeatureAwardIn: {
+            /**
+             * Feature Id
+             * Format: uuid
+             */
+            feature_id: string;
+            /** Active */
+            active?: boolean | null;
+        };
+        /**
+         * FeatureColumnsOut
+         * @description GET .../features/prototypes/{feature_id} - the two columns of a feature (ADR 0454).
+         */
+        FeatureColumnsOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Repeatable */
+            repeatable: boolean;
+            /** Starts Inactive */
+            starts_inactive: boolean;
         };
         /**
          * FieldChangeOut
@@ -11102,6 +11526,220 @@ export interface components {
             campaign_id: string;
         };
         /**
+         * GrantRuleIn
+         * @description POST /grant-rules: a rule on a source entry, appended after the entry's others unless
+         *     `position` places it.
+         */
+        GrantRuleIn: {
+            /** Label */
+            label?: string | null;
+            /**
+             * Mode
+             * @enum {string}
+             */
+            mode: "all" | "choose";
+            /**
+             * Min Count
+             * @default 0
+             */
+            min_count: number;
+            /** Max Count */
+            max_count?: number | null;
+            /** Count Stat Definition Id */
+            count_stat_definition_id?: string | null;
+            /** Option Category Entry Id */
+            option_category_entry_id?: string | null;
+            /**
+             * Options
+             * @default []
+             */
+            options: string[];
+            /**
+             * Lasts
+             * @default while_source
+             * @enum {string}
+             */
+            lasts: "while_source" | "permanent";
+            /**
+             * Changeable
+             * @default false
+             */
+            changeable: boolean;
+            /**
+             * Conditions
+             * @default []
+             */
+            conditions: components["schemas"]["ConditionIn"][];
+            /**
+             * Entry Id
+             * Format: uuid
+             */
+            entry_id: string;
+            /** Position */
+            position?: number | null;
+        };
+        /**
+         * GrantRuleOut
+         * @description A rule as the vocabulary reads it (ADR 0455).
+         */
+        GrantRuleOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Entry Id
+             * Format: uuid
+             */
+            entry_id: string;
+            /** Entry Name */
+            entry_name: string;
+            /** Label */
+            label: string | null;
+            /** Position */
+            position: number;
+            /**
+             * Mode
+             * @enum {string}
+             */
+            mode: "all" | "choose";
+            /** Min Count */
+            min_count: number;
+            /** Max Count */
+            max_count: number | null;
+            /** Count Stat Definition Id */
+            count_stat_definition_id: string | null;
+            /** Count Stat Name */
+            count_stat_name: string | null;
+            option_category: components["schemas"]["RuleOptionOut"] | null;
+            /** Options */
+            options: components["schemas"]["RuleOptionOut"][];
+            /**
+             * Lasts
+             * @enum {string}
+             */
+            lasts: "while_source" | "permanent";
+            /** Changeable */
+            changeable: boolean;
+            /** Conditions */
+            conditions: components["schemas"]["ConditionOut"][];
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /**
+         * GrantRuleUpdate
+         * @description PUT /grant-rules/{id}: the rule replaced, its source kept; `position` moves it among the
+         *     source's rules (left out, it stays).
+         */
+        GrantRuleUpdate: {
+            /** Label */
+            label?: string | null;
+            /**
+             * Mode
+             * @enum {string}
+             */
+            mode: "all" | "choose";
+            /**
+             * Min Count
+             * @default 0
+             */
+            min_count: number;
+            /** Max Count */
+            max_count?: number | null;
+            /** Count Stat Definition Id */
+            count_stat_definition_id?: string | null;
+            /** Option Category Entry Id */
+            option_category_entry_id?: string | null;
+            /**
+             * Options
+             * @default []
+             */
+            options: string[];
+            /**
+             * Lasts
+             * @default while_source
+             * @enum {string}
+             */
+            lasts: "while_source" | "permanent";
+            /**
+             * Changeable
+             * @default false
+             */
+            changeable: boolean;
+            /**
+             * Conditions
+             * @default []
+             */
+            conditions: components["schemas"]["ConditionIn"][];
+            /** Position */
+            position?: number | null;
+        };
+        /**
+         * GrantSourceOut
+         * @description The source a rule applies through: an entry on the holder's prototype walk
+         *     (`ancestor`), or an active instance the holder holds (`instance`).
+         */
+        GrantSourceOut: {
+            /** Id */
+            id: string | null;
+            /** Name */
+            name: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "ancestor" | "instance";
+            /**
+             * Hidden
+             * @default false
+             */
+            hidden: boolean;
+        };
+        /**
+         * GrantedByOut
+         * @description What gave a feature to its holder (ADR 0456): the record, the rule (and its label), and the
+         *     source it was given from, an ancestor entry of the holder or an instance it holds.
+         */
+        GrantedByOut: {
+            /**
+             * Record Id
+             * Format: uuid
+             */
+            record_id: string;
+            /** Rule Id */
+            rule_id: string | null;
+            /** Label */
+            label: string | null;
+            source: components["schemas"]["RuleOptionOut"] | null;
+            /** Source Kind */
+            source_kind: ("ancestor" | "instance") | null;
+        };
+        /**
+         * GrantsOut
+         * @description GET .../entities/{holder}/grants - what is held through rules and awards, what is due,
+         *     the choices still open and what is orphaned (ADR 0456). A read never writes.
+         */
+        GrantsOut: {
+            holder: components["schemas"]["EntitySummary"];
+            /** Held */
+            held: components["schemas"]["HeldGrantOut"][];
+            /** Due */
+            due: components["schemas"]["DueGrantOut"][];
+            /** Open Choices */
+            open_choices: components["schemas"]["OpenChoiceOut"][];
+            /** Orphaned */
+            orphaned: components["schemas"]["OrphanOut"][];
+        };
+        /**
          * GroupCreate
          * @description POST /groups - see ADR 0064. Creates a fresh bare Entity to serve as
          *     the group, plus one GroupMember row per being id in the legacy member_character_ids
@@ -11169,6 +11807,65 @@ export interface components {
             groups: components["schemas"]["HeldGroupOut"][];
             /** Owners */
             owners: components["schemas"]["EntitySummary"][];
+        };
+        /**
+         * HeldFeatureOut
+         * @description One feature a holder has (ADR 0454): the instance, the feature it is of, the feature's
+         *     types (the category entries among its parents, as many as the caller may see), its switch and
+         *     its effective stats, the instance's own over the feature's, as an entry's read gives them.
+         */
+        HeldFeatureOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            feature: components["schemas"]["EntitySummary"];
+            /** Types */
+            types: components["schemas"]["EntitySummary"][];
+            /** Active */
+            active: boolean;
+            /** Stats */
+            stats: components["schemas"]["EntityStatValueOut"][];
+            granted_by?: components["schemas"]["GrantedByOut"] | null;
+        };
+        /**
+         * HeldFeaturesOut
+         * @description GET .../entities/{holder}/features - the holder and what it has, by name then id.
+         */
+        HeldFeaturesOut: {
+            holder: components["schemas"]["EntitySummary"];
+            /** Features */
+            features: components["schemas"]["HeldFeatureOut"][];
+        };
+        /**
+         * HeldGrantOut
+         * @description A feature the holder has through a rule (or, with no rule, by an award).
+         */
+        HeldGrantOut: {
+            /**
+             * Record Id
+             * Format: uuid
+             */
+            record_id: string;
+            /**
+             * Instance Id
+             * Format: uuid
+             */
+            instance_id: string;
+            feature: components["schemas"]["EntitySummary"];
+            /** Rule Id */
+            rule_id: string | null;
+            /** Label */
+            label: string | null;
+            source: components["schemas"]["GrantSourceOut"] | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
         };
         /**
          * HeldGroupOut
@@ -12184,7 +12881,7 @@ export interface components {
             /** Slug */
             slug: string | null;
             /** Kinds */
-            kinds: ("item" | "item_instance" | "being" | "character" | "fact" | "calendar" | "clock" | "location" | "map" | "connection" | "relationship" | "social_web" | "calendar_period" | "event" | "observance" | "book" | "carrier" | "edition" | "chapter" | "scene_telling" | "scene" | "scene_appearance" | "session")[];
+            kinds: ("item" | "item_instance" | "being" | "character" | "fact" | "calendar" | "clock" | "location" | "map" | "connection" | "relationship" | "social_web" | "feature" | "feature_instance" | "calendar_period" | "event" | "observance" | "book" | "carrier" | "edition" | "chapter" | "scene_telling" | "scene" | "scene_appearance" | "session")[];
             /** Template */
             template: string;
             /** Picture Url */
@@ -12319,7 +13016,7 @@ export interface components {
             /** Slug */
             slug?: string | null;
             /** Kinds */
-            kinds: ("item" | "item_instance" | "being" | "character" | "fact" | "calendar" | "clock" | "location" | "map" | "connection" | "relationship" | "social_web" | "calendar_period" | "event" | "observance" | "book" | "carrier" | "edition" | "chapter" | "scene_telling" | "scene" | "scene_appearance" | "session")[];
+            kinds: ("item" | "item_instance" | "being" | "character" | "fact" | "calendar" | "clock" | "location" | "map" | "connection" | "relationship" | "social_web" | "feature" | "feature_instance" | "calendar_period" | "event" | "observance" | "book" | "carrier" | "edition" | "chapter" | "scene_telling" | "scene" | "scene_appearance" | "session")[];
             /** Level Ordinal */
             level_ordinal?: string | null;
             /** Tie */
@@ -12337,7 +13034,7 @@ export interface components {
             /** Slug */
             slug?: string | null;
             /** Kinds */
-            kinds: ("item" | "item_instance" | "being" | "character" | "fact" | "calendar" | "clock" | "location" | "map" | "connection" | "relationship" | "social_web" | "calendar_period" | "event" | "observance" | "book" | "carrier" | "edition" | "chapter" | "scene_telling" | "scene" | "scene_appearance" | "session")[];
+            kinds: ("item" | "item_instance" | "being" | "character" | "fact" | "calendar" | "clock" | "location" | "map" | "connection" | "relationship" | "social_web" | "feature" | "feature_instance" | "calendar_period" | "event" | "observance" | "book" | "carrier" | "edition" | "chapter" | "scene_telling" | "scene" | "scene_appearance" | "session")[];
             /** Level Ordinal */
             level_ordinal?: string | null;
             within?: components["schemas"]["LocationStub"] | null;
@@ -12366,7 +13063,7 @@ export interface components {
             /** Slug */
             slug?: string | null;
             /** Kinds */
-            kinds: ("item" | "item_instance" | "being" | "character" | "fact" | "calendar" | "clock" | "location" | "map" | "connection" | "relationship" | "social_web" | "calendar_period" | "event" | "observance" | "book" | "carrier" | "edition" | "chapter" | "scene_telling" | "scene" | "scene_appearance" | "session")[];
+            kinds: ("item" | "item_instance" | "being" | "character" | "fact" | "calendar" | "clock" | "location" | "map" | "connection" | "relationship" | "social_web" | "feature" | "feature_instance" | "calendar_period" | "event" | "observance" | "book" | "carrier" | "edition" | "chapter" | "scene_telling" | "scene" | "scene_appearance" | "session")[];
             /** Level Ordinal */
             level_ordinal?: string | null;
         };
@@ -12626,7 +13323,7 @@ export interface components {
             /** Slug */
             slug?: string | null;
             /** Kinds */
-            kinds: ("item" | "item_instance" | "being" | "character" | "fact" | "calendar" | "clock" | "location" | "map" | "connection" | "relationship" | "social_web" | "calendar_period" | "event" | "observance" | "book" | "carrier" | "edition" | "chapter" | "scene_telling" | "scene" | "scene_appearance" | "session")[];
+            kinds: ("item" | "item_instance" | "being" | "character" | "fact" | "calendar" | "clock" | "location" | "map" | "connection" | "relationship" | "social_web" | "feature" | "feature_instance" | "calendar_period" | "event" | "observance" | "book" | "carrier" | "edition" | "chapter" | "scene_telling" | "scene" | "scene_appearance" | "session")[];
             /** Tie */
             tie?: ("tied" | "untied" | "other") | null;
         };
@@ -12642,7 +13339,7 @@ export interface components {
             /** Slug */
             slug?: string | null;
             /** Kinds */
-            kinds: ("item" | "item_instance" | "being" | "character" | "fact" | "calendar" | "clock" | "location" | "map" | "connection" | "relationship" | "social_web" | "calendar_period" | "event" | "observance" | "book" | "carrier" | "edition" | "chapter" | "scene_telling" | "scene" | "scene_appearance" | "session")[];
+            kinds: ("item" | "item_instance" | "being" | "character" | "fact" | "calendar" | "clock" | "location" | "map" | "connection" | "relationship" | "social_web" | "feature" | "feature_instance" | "calendar_period" | "event" | "observance" | "book" | "carrier" | "edition" | "chapter" | "scene_telling" | "scene" | "scene_appearance" | "session")[];
             /** System */
             system: {
                 [key: string]: unknown;
@@ -12695,7 +13392,7 @@ export interface components {
             /** Slug */
             slug?: string | null;
             /** Kinds */
-            kinds: ("item" | "item_instance" | "being" | "character" | "fact" | "calendar" | "clock" | "location" | "map" | "connection" | "relationship" | "social_web" | "calendar_period" | "event" | "observance" | "book" | "carrier" | "edition" | "chapter" | "scene_telling" | "scene" | "scene_appearance" | "session")[];
+            kinds: ("item" | "item_instance" | "being" | "character" | "fact" | "calendar" | "clock" | "location" | "map" | "connection" | "relationship" | "social_web" | "feature" | "feature_instance" | "calendar_period" | "event" | "observance" | "book" | "carrier" | "edition" | "chapter" | "scene_telling" | "scene" | "scene_appearance" | "session")[];
         };
         /**
          * MaxFormulaBody
@@ -13353,6 +14050,32 @@ export interface components {
             name: string;
             date: components["schemas"]["CalendarDate"];
         };
+        /**
+         * OpenChoiceOut
+         * @description A choose rule that holds and still has room (ADR 0456): how many the holder must and may
+         *     pick, what it has picked, and the options that pass their prerequisites. An option that does
+         *     not pass is left out; one the library hides is `a hidden entry`.
+         */
+        OpenChoiceOut: {
+            /**
+             * Rule Id
+             * Format: uuid
+             */
+            rule_id: string;
+            /** Label */
+            label: string | null;
+            source: components["schemas"]["GrantSourceOut"];
+            /** Minimum */
+            minimum: number;
+            /** Maximum */
+            maximum: number;
+            /** Picked */
+            picked: components["schemas"]["RuleOptionOut"][];
+            /** Options */
+            options: components["schemas"]["RuleOptionOut"][];
+            /** Changeable */
+            changeable: boolean;
+        };
         /** OrderedSession */
         OrderedSession: {
             /**
@@ -13364,6 +14087,30 @@ export interface components {
             name: string;
             /** Can Manage */
             can_manage: boolean;
+        };
+        /**
+         * OrphanOut
+         * @description An active record whose source is gone or inactive, or whose conditions no longer hold:
+         *     what the next request that checks, or an `apply`, revokes.
+         */
+        OrphanOut: {
+            /**
+             * Record Id
+             * Format: uuid
+             */
+            record_id: string;
+            /** Rule Id */
+            rule_id: string | null;
+            /** Label */
+            label: string | null;
+            feature: components["schemas"]["RuleOptionOut"];
+            /** Instance Id */
+            instance_id: string | null;
+            /**
+             * Reason
+             * @enum {string}
+             */
+            reason: "source" | "conditions" | "removed";
         };
         /** OutlineOrder */
         OutlineOrder: {
@@ -13661,6 +14408,19 @@ export interface components {
         Page_FrameOut_: {
             /** Items */
             items: components["schemas"]["FrameOut"][];
+            /** Total */
+            total: number;
+            /** Page */
+            page: number;
+            /** Size */
+            size: number;
+            /** Pages */
+            pages: number;
+        };
+        /** Page[GrantRuleOut] */
+        Page_GrantRuleOut_: {
+            /** Items */
+            items: components["schemas"]["GrantRuleOut"][];
             /** Total */
             total: number;
             /** Page */
@@ -14438,6 +15198,26 @@ export interface components {
             is_expired: boolean;
         };
         /**
+         * PickIn
+         * @description A holder's pick for one open choice of `apply` (ADR 0456): the rule, the source it is
+         *     open through (`source_id`, an ancestor entry or an instance the holder holds), and the
+         *     features chosen.
+         */
+        PickIn: {
+            /**
+             * Rule Id
+             * Format: uuid
+             */
+            rule_id: string;
+            /**
+             * Source Id
+             * Format: uuid
+             */
+            source_id: string;
+            /** Options */
+            options: string[];
+        };
+        /**
          * PickedExplanationOut
          * @description The input a `min` or a `max` took (ADR 0444): the stat (null for a constant) and the number
          *     it counted as, the first of several that tie.
@@ -14537,7 +15317,7 @@ export interface components {
             /** Slug */
             slug?: string | null;
             /** Kinds */
-            kinds: ("item" | "item_instance" | "being" | "character" | "fact" | "calendar" | "clock" | "location" | "map" | "connection" | "relationship" | "social_web" | "calendar_period" | "event" | "observance" | "book" | "carrier" | "edition" | "chapter" | "scene_telling" | "scene" | "scene_appearance" | "session")[];
+            kinds: ("item" | "item_instance" | "being" | "character" | "fact" | "calendar" | "clock" | "location" | "map" | "connection" | "relationship" | "social_web" | "feature" | "feature_instance" | "calendar_period" | "event" | "observance" | "book" | "carrier" | "edition" | "chapter" | "scene_telling" | "scene" | "scene_appearance" | "session")[];
             /** Geometry */
             geometry: {
                 [key: string]: unknown;
@@ -14780,6 +15560,31 @@ export interface components {
         PlayerUpdate: {
             /** Self Service */
             self_service?: boolean | null;
+        };
+        /**
+         * PrerequisitesIn
+         * @description PUT .../features/prototypes/{feature}/prerequisites: the complete list, in order; empty
+         *     clears it.
+         */
+        PrerequisitesIn: {
+            /**
+             * Prerequisites
+             * @default []
+             */
+            prerequisites: components["schemas"]["ComparisonIn"][];
+        };
+        /**
+         * PrerequisitesOut
+         * @description A feature's prerequisites, in order.
+         */
+        PrerequisitesOut: {
+            /**
+             * Feature Id
+             * Format: uuid
+             */
+            feature_id: string;
+            /** Prerequisites */
+            prerequisites: components["schemas"]["ComparisonOut"][];
         };
         /** PresentationCreate */
         PresentationCreate: {
@@ -15586,7 +16391,7 @@ export interface components {
             /** Slug */
             slug?: string | null;
             /** Kinds */
-            kinds: ("item" | "item_instance" | "being" | "character" | "fact" | "calendar" | "clock" | "location" | "map" | "connection" | "relationship" | "social_web" | "calendar_period" | "event" | "observance" | "book" | "carrier" | "edition" | "chapter" | "scene_telling" | "scene" | "scene_appearance" | "session")[];
+            kinds: ("item" | "item_instance" | "being" | "character" | "fact" | "calendar" | "clock" | "location" | "map" | "connection" | "relationship" | "social_web" | "feature" | "feature_instance" | "calendar_period" | "event" | "observance" | "book" | "carrier" | "edition" | "chapter" | "scene_telling" | "scene" | "scene_appearance" | "session")[];
             end_a: components["schemas"]["EntryStub"];
             end_b: components["schemas"]["EntryStub"];
             /** One Way */
@@ -15771,7 +16576,7 @@ export interface components {
             /** Slug */
             slug?: string | null;
             /** Kinds */
-            kinds: ("item" | "item_instance" | "being" | "character" | "fact" | "calendar" | "clock" | "location" | "map" | "connection" | "relationship" | "social_web" | "calendar_period" | "event" | "observance" | "book" | "carrier" | "edition" | "chapter" | "scene_telling" | "scene" | "scene_appearance" | "session")[];
+            kinds: ("item" | "item_instance" | "being" | "character" | "fact" | "calendar" | "clock" | "location" | "map" | "connection" | "relationship" | "social_web" | "feature" | "feature_instance" | "calendar_period" | "event" | "observance" | "book" | "carrier" | "edition" | "chapter" | "scene_telling" | "scene" | "scene_appearance" | "session")[];
             /** Parent Ids */
             parent_ids: string[];
             /** Directed */
@@ -16209,7 +17014,7 @@ export interface components {
             /** Name */
             name: string;
             /** Kinds */
-            kinds: ("item" | "item_instance" | "being" | "character" | "fact" | "calendar" | "clock" | "location" | "map" | "connection" | "relationship" | "social_web" | "calendar_period" | "event" | "observance" | "book" | "carrier" | "edition" | "chapter" | "scene_telling" | "scene" | "scene_appearance" | "session")[];
+            kinds: ("item" | "item_instance" | "being" | "character" | "fact" | "calendar" | "clock" | "location" | "map" | "connection" | "relationship" | "social_web" | "feature" | "feature_instance" | "calendar_period" | "event" | "observance" | "book" | "carrier" | "edition" | "chapter" | "scene_telling" | "scene" | "scene_appearance" | "session")[];
         };
         /** Review */
         Review: {
@@ -16292,6 +17097,29 @@ export interface components {
             name: string;
         };
         /**
+         * RevokedOut
+         * @description A record `apply` revoked: its instance is deleted.
+         */
+        RevokedOut: {
+            /**
+             * Record Id
+             * Format: uuid
+             */
+            record_id: string;
+            /** Rule Id */
+            rule_id: string | null;
+            /** Label */
+            label: string | null;
+            feature: components["schemas"]["RuleOptionOut"];
+            /** Instance Id */
+            instance_id: string | null;
+            /**
+             * Reason
+             * @enum {string}
+             */
+            reason: "source" | "conditions" | "removed";
+        };
+        /**
          * RoundMode
          * @description How a linear formula's result is rounded (ADR 0104). `floor` and
          *     `truncate` differ for negative results: floor((9 - 10) / 2) is -1 (the
@@ -16369,6 +17197,22 @@ export interface components {
             state: ("released" | "edited") | null;
             /** Breaking */
             breaking: components["schemas"]["BreakingNoteOut"][];
+        };
+        /**
+         * RuleOptionOut
+         * @description An option or a category of a rule. An entry the library hides (ADR 0437) is offered as `a
+         *     hidden entry`, with no id (ADR 0454).
+         */
+        RuleOptionOut: {
+            /** Id */
+            id: string | null;
+            /** Name */
+            name: string;
+            /**
+             * Hidden
+             * @default false
+             */
+            hidden: boolean;
         };
         /**
          * ScaleOut
@@ -16903,7 +17747,7 @@ export interface components {
             /** Slug */
             slug?: string | null;
             /** Kinds */
-            kinds: ("item" | "item_instance" | "being" | "character" | "fact" | "calendar" | "clock" | "location" | "map" | "connection" | "relationship" | "social_web" | "calendar_period" | "event" | "observance" | "book" | "carrier" | "edition" | "chapter" | "scene_telling" | "scene" | "scene_appearance" | "session")[];
+            kinds: ("item" | "item_instance" | "being" | "character" | "fact" | "calendar" | "clock" | "location" | "map" | "connection" | "relationship" | "social_web" | "feature" | "feature_instance" | "calendar_period" | "event" | "observance" | "book" | "carrier" | "edition" | "chapter" | "scene_telling" | "scene" | "scene_appearance" | "session")[];
             /** Layout */
             layout: string;
             /** Layout Seed */
@@ -16971,7 +17815,7 @@ export interface components {
             /** Slug */
             slug?: string | null;
             /** Kinds */
-            kinds: ("item" | "item_instance" | "being" | "character" | "fact" | "calendar" | "clock" | "location" | "map" | "connection" | "relationship" | "social_web" | "calendar_period" | "event" | "observance" | "book" | "carrier" | "edition" | "chapter" | "scene_telling" | "scene" | "scene_appearance" | "session")[];
+            kinds: ("item" | "item_instance" | "being" | "character" | "fact" | "calendar" | "clock" | "location" | "map" | "connection" | "relationship" | "social_web" | "feature" | "feature_instance" | "calendar_period" | "event" | "observance" | "book" | "carrier" | "edition" | "chapter" | "scene_telling" | "scene" | "scene_appearance" | "session")[];
             /** Layout */
             layout: string;
             /** Layout Seed */
@@ -17758,6 +18602,35 @@ export interface components {
             unit?: string | null;
         };
         /**
+         * TemplateFeatureGroupOut
+         * @description The features of one type (the first category entry among a feature's parents), by name; the
+         *     group of the features with no type has none, and comes last (ADR 0457).
+         */
+        TemplateFeatureGroupOut: {
+            type: components["schemas"]["EntitySummary"] | null;
+            /** Features */
+            features: components["schemas"]["TemplateFeatureRowOut"][];
+        };
+        /**
+         * TemplateFeatureRowOut
+         * @description One feature the entry has: the instance, the feature, its switch and a cell for each column
+         *     (ADR 0457).
+         */
+        TemplateFeatureRowOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            feature: components["schemas"]["EntitySummary"];
+            /** Active */
+            active: boolean;
+            /** Cells */
+            cells: components["schemas"]["TemplateCellOut"][];
+        };
+        /**
          * TemplateHeldRowOut
          * @description One thing the entry holds: it, its quantity and a cell for each column.
          */
@@ -17781,7 +18654,7 @@ export interface components {
             /** System Id */
             system_id?: string | null;
             /** Required Kind */
-            required_kind?: ("item" | "item_instance" | "being" | "character" | "fact" | "calendar" | "clock" | "location" | "map" | "connection" | "relationship" | "social_web" | "calendar_period" | "event" | "observance" | "book" | "carrier" | "edition" | "chapter" | "scene_telling" | "scene" | "scene_appearance" | "session") | null;
+            required_kind?: ("item" | "item_instance" | "being" | "character" | "fact" | "calendar" | "clock" | "location" | "map" | "connection" | "relationship" | "social_web" | "feature" | "feature_instance" | "calendar_period" | "event" | "observance" | "book" | "carrier" | "edition" | "chapter" | "scene_telling" | "scene" | "scene_appearance" | "session") | null;
             /** Required Ancestor Entry Id */
             required_ancestor_entry_id?: string | null;
             /** Slots */
@@ -17804,7 +18677,7 @@ export interface components {
             /** System */
             system: string | null;
             /** Required Kind */
-            required_kind: ("item" | "item_instance" | "being" | "character" | "fact" | "calendar" | "clock" | "location" | "map" | "connection" | "relationship" | "social_web" | "calendar_period" | "event" | "observance" | "book" | "carrier" | "edition" | "chapter" | "scene_telling" | "scene" | "scene_appearance" | "session") | null;
+            required_kind: ("item" | "item_instance" | "being" | "character" | "fact" | "calendar" | "clock" | "location" | "map" | "connection" | "relationship" | "social_web" | "feature" | "feature_instance" | "calendar_period" | "event" | "observance" | "book" | "carrier" | "edition" | "chapter" | "scene_telling" | "scene" | "scene_appearance" | "session") | null;
             /** Required Ancestor Entry Id */
             required_ancestor_entry_id: string | null;
             /** Slots */
@@ -17829,6 +18702,8 @@ export interface components {
          *     - `held`: the things the entry holds, a column for each stat of a group or a list, as `stats`;
          *       `held_order` is `name` (the default) or `prototype` (by the name of the thing's prototype,
          *       then its name).
+         *     - `features`: the features the entry holds, grouped by type, a column for each stat of a group
+         *       or a list, as `held` has them (ADR 0457).
          *     - `information`: the entry's notes of `information_type`.
          *     - `tags`: the `bool` stats that are true, of `stat_group_id` or, left out, of any group.
          */
@@ -17837,7 +18712,7 @@ export interface components {
              * Kind
              * @enum {string}
              */
-            kind: "stats" | "information" | "held" | "tags";
+            kind: "stats" | "information" | "held" | "tags" | "features";
             /** Label */
             label?: string | null;
             /** Stat Group Id */
@@ -17867,7 +18742,7 @@ export interface components {
              * Kind
              * @enum {string}
              */
-            kind: "stats" | "information" | "held" | "tags";
+            kind: "stats" | "information" | "held" | "tags" | "features";
             /** Label */
             label: string | null;
             /** Stat Group Id */
@@ -17958,7 +18833,7 @@ export interface components {
             /** System */
             system: string | null;
             /** Required Kind */
-            required_kind: ("item" | "item_instance" | "being" | "character" | "fact" | "calendar" | "clock" | "location" | "map" | "connection" | "relationship" | "social_web" | "calendar_period" | "event" | "observance" | "book" | "carrier" | "edition" | "chapter" | "scene_telling" | "scene" | "scene_appearance" | "session") | null;
+            required_kind: ("item" | "item_instance" | "being" | "character" | "fact" | "calendar" | "clock" | "location" | "map" | "connection" | "relationship" | "social_web" | "feature" | "feature_instance" | "calendar_period" | "event" | "observance" | "book" | "carrier" | "edition" | "chapter" | "scene_telling" | "scene" | "scene_appearance" | "session") | null;
             /** Required Ancestor Entry Id */
             required_ancestor_entry_id: string | null;
         };
@@ -17976,9 +18851,9 @@ export interface components {
         /**
          * TemplateViewSlotOut
          * @description A slot of the assembled view, in its position. Only the fields of its kind are filled:
-         *     `stats` for a stats slot, `columns` and `rows` for a held slot, `information` for an
-         *     information slot, `tags` for a tags slot. A slot the caller may not read is left out of the
-         *     view.
+         *     `stats` for a stats slot, `columns` and `rows` for a held slot, `columns` and `feature_groups`
+         *     for a features slot, `information` for an information slot, `tags` for a tags slot. A slot the
+         *     caller may not read is left out of the view.
          */
         TemplateViewSlotOut: {
             /** Position */
@@ -17987,7 +18862,7 @@ export interface components {
              * Kind
              * @enum {string}
              */
-            kind: "stats" | "information" | "held" | "tags";
+            kind: "stats" | "information" | "held" | "tags" | "features";
             /** Label */
             label: string | null;
             /** Stats */
@@ -17998,6 +18873,8 @@ export interface components {
             columns?: components["schemas"]["TemplateColumnOut"][] | null;
             /** Rows */
             rows?: components["schemas"]["TemplateHeldRowOut"][] | null;
+            /** Feature Groups */
+            feature_groups?: components["schemas"]["TemplateFeatureGroupOut"][] | null;
             /** Tags */
             tags?: components["schemas"]["TemplateStatOut"][] | null;
         };
@@ -39571,7 +40448,7 @@ export interface operations {
                 /** @description Case-insensitive substring match against the entry's name. */
                 q?: string | null;
                 /** @description Only entries of these kinds (repeatable): any of them, not all. */
-                kind?: ("item" | "item_instance" | "being" | "character" | "fact" | "calendar" | "clock" | "location" | "map" | "connection" | "relationship" | "social_web" | "calendar_period" | "event" | "observance" | "book" | "carrier" | "edition" | "chapter" | "scene_telling" | "scene" | "scene_appearance" | "session")[] | null;
+                kind?: ("item" | "item_instance" | "being" | "character" | "fact" | "calendar" | "clock" | "location" | "map" | "connection" | "relationship" | "social_web" | "feature" | "feature_instance" | "calendar_period" | "event" | "observance" | "book" | "carrier" | "edition" | "chapter" | "scene_telling" | "scene" | "scene_appearance" | "session")[] | null;
                 /** @description Only entries that have this entry as a parent. */
                 parent_id?: string | null;
                 /** @description With parent_id, also include entries that inherit from it transitively, not just directly. */
@@ -39718,7 +40595,7 @@ export interface operations {
                 /** @description Case-insensitive substring match against the entry's name. */
                 q?: string | null;
                 /** @description Only entries of these kinds (repeatable): any of them, not all. */
-                kind?: ("item" | "item_instance" | "being" | "character" | "fact" | "calendar" | "clock" | "location" | "map" | "connection" | "relationship" | "social_web" | "calendar_period" | "event" | "observance" | "book" | "carrier" | "edition" | "chapter" | "scene_telling" | "scene" | "scene_appearance" | "session")[] | null;
+                kind?: ("item" | "item_instance" | "being" | "character" | "fact" | "calendar" | "clock" | "location" | "map" | "connection" | "relationship" | "social_web" | "feature" | "feature_instance" | "calendar_period" | "event" | "observance" | "book" | "carrier" | "edition" | "chapter" | "scene_telling" | "scene" | "scene_appearance" | "session")[] | null;
                 /** @description Only entries that have this entry as a parent. */
                 parent_id?: string | null;
                 /** @description With parent_id, also include entries that inherit from it transitively, not just directly. */
@@ -39799,7 +40676,7 @@ export interface operations {
             path: {
                 tenant_id: string;
                 entity_id: string;
-                kind: "item" | "being" | "fact" | "event" | "location" | "map" | "connection" | "relationship" | "social_web";
+                kind: "item" | "being" | "fact" | "event" | "location" | "map" | "connection" | "relationship" | "social_web" | "feature";
             };
             cookie?: never;
         };
@@ -39872,7 +40749,7 @@ export interface operations {
             path: {
                 tenant_id: string;
                 entity_id: string;
-                kind: "item" | "being" | "fact" | "event" | "location" | "map" | "connection" | "relationship" | "social_web";
+                kind: "item" | "being" | "fact" | "event" | "location" | "map" | "connection" | "relationship" | "social_web" | "feature";
             };
             cookie?: never;
         };
@@ -48249,6 +49126,1018 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TemplateViewOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    get_feature_columns: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+                feature_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FeatureColumnsOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    get_held_feature: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+                instance_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HeldFeatureOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    remove_feature: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+                instance_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    set_feature_active: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+                instance_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FeatureActiveIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HeldFeatureOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    get_prerequisites: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+                feature_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PrerequisitesOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    put_prerequisites: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+                feature_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PrerequisitesIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PrerequisitesOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    list_grant_rules: {
+        parameters: {
+            query?: {
+                entry_id?: string | null;
+                page?: number;
+                size?: number;
+            };
+            header?: never;
+            path: {
+                tenant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_GrantRuleOut_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    create_grant_rule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GrantRuleIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GrantRuleOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    get_grant_rule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+                rule_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GrantRuleOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    replace_grant_rule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+                rule_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GrantRuleUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GrantRuleOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    delete_grant_rule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+                rule_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    get_grants: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+                entity_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GrantsOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    apply_grants_route: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+                entity_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ApplyIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApplyOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    list_held_features: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+                entity_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HeldFeaturesOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    award_feature: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+                entity_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FeatureAwardIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HeldFeatureOut"];
                 };
             };
             /** @description Validation Error */

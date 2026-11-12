@@ -81,6 +81,9 @@ AUTHORING = {
     ("PATCH", T + "/systems/{system_id}"),
     ("POST", T + "/templates"),
     ("PUT", T + "/templates/{template_id}"),
+    ("POST", T + "/grant-rules"),
+    ("PUT", T + "/grant-rules/{rule_id}"),
+    ("PUT", T + "/features/prototypes/{feature_id}/prerequisites"),
     ("PATCH", STAT_GROUP),
     ("PUT", T + "/stat-groups/order"),
     ("PUT", STAT_GROUP + "/order"),
@@ -98,6 +101,7 @@ ADMIN_UNLESS_DRY_RUN = {
 ADMIN = {
     ("DELETE", T + "/systems/{system_id}"),
     ("DELETE", T + "/templates/{template_id}"),
+    ("DELETE", T + "/grant-rules/{rule_id}"),
     ("PATCH", T),
     ("GET", T + "/activity-log"),
     ("POST", T + "/campaigns"),

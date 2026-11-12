@@ -19,7 +19,8 @@ from lorenzo_api.exceptions import (
     EntityPrototypeCycleError,
     InvalidPrototypeError,
 )
-from lorenzo_api.models import Entity, EntityPrototype
+from lorenzo_api.grants import revoke_orphans
+from lorenzo_api.models import Containment, Entity, EntityPrototype
 
 
 async def replace_parents(
@@ -127,4 +128,15 @@ async def replace_parents(
         raise EntityPrototypeCycleError(
             detail=f"Replacing entry {entity_id}'s parents would create an inheritance cycle"
         ) from exc
+    # What the entry gave while it had its old ancestors, or what it holds as a source, may no
+    # longer hold (ADR 0456): the entry itself, and whoever holds it.
+    above = await session.scalar(
+        select(Containment.parent_entity_id).where(Containment.child_entity_id == entity_id)
+    )
+    await revoke_orphans(
+        session,
+        tenant_id=tenant_id,
+        actor_id=user_id,
+        holder_ids={entity_id, *([above] if above else [])},
+    )
     return True

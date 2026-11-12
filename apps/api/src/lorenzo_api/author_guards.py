@@ -27,6 +27,7 @@ from lorenzo_api.models import EntityPrototype, Tenant, TenantKind
 LIBRARY_AUTHOR_KINDS = frozenset(
     {
         "item",
+        "feature",
         "fact",
         "calendar",
         "clock",

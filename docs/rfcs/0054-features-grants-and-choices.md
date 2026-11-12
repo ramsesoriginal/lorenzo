@@ -1,6 +1,10 @@
 # 0054 - Features: what an entry has, how it comes to have it, and what it may choose
 
-Status: accepted (2026-11-11), decided with the maintainer, not built; slices F1 to F4, each its own ADR. It builds on [RFC 0052](0052-game-systems-in-one-library.md) (a system as a thing, and
+Status: accepted (2026-11-11), decided with the maintainer; built 2026-11-12 as slices F1 to F4, each its own ADR
+([0454](../adr/0454-features-two-kinds-and-what-a-holder-has.md), [0455](../adr/0455-grant-rules-and-the-prerequisites-of-a-feature.md),
+[0456](../adr/0456-the-grants-read-apply-picks-and-revocation.md), [0457](../adr/0457-the-features-slot-of-a-template.md)). What is not built: an
+award by the holder's controller (section 2, "where the library allows": a setting nobody has asked for) and the stats a feature's link
+preview shows (a library's stat names are its own). It builds on [RFC 0052](0052-game-systems-in-one-library.md) (a system as a thing, and
 templates) and [RFC 0053](0053-formula-kinds-min-max-product-ratio-select-and-held-aggregation.md) (formula kinds, including aggregation over what an entry holds and the `active` switch), and on
 [RFC 0041](0041-entity-kinds-and-author-freedom.md) (kinds are marker tables) and
 [RFC 0030](0030-carrying-holding-binding-and-capacity.md) (holding, binding and capacity). It changes nothing decided about

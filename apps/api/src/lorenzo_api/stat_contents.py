@@ -23,6 +23,7 @@ from lorenzo_api.entity_access import recursive_descendants_cte
 from lorenzo_api.models import (
     Containment,
     Entity,
+    FeatureInstance,
     ItemInstance,
     StatDefinition,
     VEffectiveStat,
@@ -55,18 +56,25 @@ async def load_contents(
     children: dict[uuid.UUID, list[tuple[uuid.UUID, int]]] = defaultdict(list)
     # An item instance carries the `active` switch a contents formula may ask for (ADR 0447): it
     # comes with the containment row, so a read costs the statement it did.
+    # A feature instance carries one too (ADR 0454), from the same statement.
     held: dict[uuid.UUID, HeldThing] = {}
-    for parent, child, quantity, instance_active in await session.execute(
+    for parent, child, quantity, instance_active, feature_active in await session.execute(
         select(
             Containment.parent_entity_id,
             Containment.child_entity_id,
             Containment.quantity,
             ItemInstance.active,
+            FeatureInstance.active,
         )
         .outerjoin(
             ItemInstance,
             (ItemInstance.entity_id == Containment.child_entity_id)
             & (ItemInstance.tenant_id == Containment.tenant_id),
+        )
+        .outerjoin(
+            FeatureInstance,
+            (FeatureInstance.entity_id == Containment.child_entity_id)
+            & (FeatureInstance.tenant_id == Containment.tenant_id),
         )
         .where(Containment.parent_entity_id.in_(loaded), Containment.tenant_id == tenant_id)
         .order_by(Containment.child_entity_id)
@@ -74,6 +82,8 @@ async def load_contents(
         children[parent].append((child, quantity))
         if instance_active is not None:
             held[child] = HeldThing(kind="item_instance", active=instance_active)
+        elif feature_active is not None:
+            held[child] = HeldThing(kind="feature_instance", active=feature_active)
 
     stats: dict[uuid.UUID, list[VEffectiveStat]] = defaultdict(list)
     for stat in await session.scalars(

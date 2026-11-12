@@ -143,6 +143,7 @@ class InclusionChangeOut(BaseModel):
 ReleasedKindName = Literal["entity", "stat_group", "stat_definition", "attachment"]
 BreakingReason = Literal[
     "entity_removed",
+    "grant_rule_removed",
     "stat_definition_removed",
     "stat_definition_retyped",
     "stat_group_removed",
