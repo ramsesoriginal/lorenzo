@@ -102,6 +102,11 @@ from lorenzo_api.models import (
     StatDefinitionEnumValue,
     StatGroup,
     StoryEvent,
+    System,
+    Template,
+    TemplateSlot,
+    TemplateSlotExclusion,
+    TemplateSlotStat,
     WritingBiography,
 )
 from lorenzo_api.models.story_context import SceneBeing, SceneEvent, SceneFact
@@ -256,6 +261,13 @@ class Content:
     slugs: dict[uuid.UUID, str] = field(default_factory=dict)
     prototypes: list[tuple[uuid.UUID, uuid.UUID]] = field(default_factory=list)
     groups: dict[uuid.UUID, dict[str, Any]] = field(default_factory=dict)
+    # The game systems a stat group may belong to: id -> {slug, name, root} (ADR 0453); `root` is an
+    # entry id or none. A group says its own with `system`.
+    systems: dict[uuid.UUID, dict[str, Any]] = field(default_factory=dict)
+    # Templates (ADR 0451, 0453): id -> {name, system, kind, ancestor, slots}, each slot {kind,
+    # label, group, information_type, held_order, stats: [(stat, label)], exclude: [stat]}, in
+    # order.
+    templates: dict[uuid.UUID, dict[str, Any]] = field(default_factory=dict)
     definitions: dict[uuid.UUID, dict[str, Any]] = field(default_factory=dict)
     enum_values: dict[uuid.UUID, list[tuple[str, int]]] = field(
         default_factory=lambda: defaultdict(list)
@@ -390,6 +402,53 @@ async def load_links(session: AsyncSession, tenant_id: uuid.UUID) -> Links:
     ):
         links.attachments[source_tenant].add((child, parent))
     return links
+
+
+async def _load_templates(session: AsyncSession, c: Content, t: uuid.UUID) -> None:
+    """The tenant's templates with their slots, in the order written (ADR 0451)."""
+    listed: dict[uuid.UUID, list[tuple[uuid.UUID, str | None]]] = defaultdict(list)
+    for slot_id, stat_id, label in await session.execute(
+        select(
+            TemplateSlotStat.slot_id, TemplateSlotStat.stat_definition_id, TemplateSlotStat.label
+        )
+        .where(TemplateSlotStat.tenant_id == t)
+        .order_by(TemplateSlotStat.slot_id, TemplateSlotStat.position)
+    ):
+        listed[slot_id].append((stat_id, label))
+    left_out: dict[uuid.UUID, list[uuid.UUID]] = defaultdict(list)
+    for slot_id, stat_id in await session.execute(
+        select(TemplateSlotExclusion.slot_id, TemplateSlotExclusion.stat_definition_id)
+        .where(TemplateSlotExclusion.tenant_id == t)
+        .order_by(TemplateSlotExclusion.slot_id, TemplateSlotExclusion.stat_definition_id)
+    ):
+        left_out[slot_id].append(stat_id)
+    slots: dict[uuid.UUID, list[dict[str, Any]]] = defaultdict(list)
+    for slot in await session.scalars(
+        select(TemplateSlot)
+        .where(TemplateSlot.tenant_id == t)
+        .order_by(TemplateSlot.template_id, TemplateSlot.position)
+    ):
+        slots[slot.template_id].append(
+            {
+                "kind": slot.kind,
+                "label": slot.label,
+                "group": slot.stat_group_id,
+                "information_type": slot.information_type,
+                "held_order": slot.held_order,
+                "stats": listed[slot.id],
+                "exclude": left_out[slot.id],
+            }
+        )
+    for template in await session.scalars(
+        select(Template).where(Template.tenant_id == t).order_by(Template.name, Template.id)
+    ):
+        c.templates[template.id] = {
+            "name": template.name,
+            "system": template.system_id,
+            "kind": template.required_kind,
+            "ancestor": template.required_ancestor_entry_id,
+            "slots": slots[template.id],
+        }
 
 
 async def load_content(session: AsyncSession, tenant_id: uuid.UUID) -> Content:
@@ -561,12 +620,22 @@ async def load_content(session: AsyncSession, tenant_id: uuid.UUID) -> Content:
             )
         ).all()
     ]
-    for group_id, name, priority, mandatory, group_role in await rows(
+    for system_id, slug, system_name, root in await rows(
+        System.id,
+        System.slug,
+        System.name,
+        System.root_entry_id,
+        where=System.tenant_id == t,
+        order_by=(System.slug,),
+    ):
+        c.systems[system_id] = {"slug": slug, "name": system_name, "root": root}
+    for group_id, name, priority, mandatory, group_role, group_system in await rows(
         StatGroup.id,
         StatGroup.name,
         StatGroup.priority,
         StatGroup.mandatory,
         StatGroup.role,
+        StatGroup.system_id,
         where=StatGroup.tenant_id == t,
     ):
         c.groups[group_id] = {
@@ -574,7 +643,9 @@ async def load_content(session: AsyncSession, tenant_id: uuid.UUID) -> Content:
             "priority": priority,
             "mandatory": mandatory,
             "role": group_role,
+            "system": group_system,
         }
+    await _load_templates(session, c, t)
     for (
         def_id,
         name,

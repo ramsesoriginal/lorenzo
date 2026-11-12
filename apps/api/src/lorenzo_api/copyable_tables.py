@@ -207,18 +207,17 @@ def _link(model: type[Base], name: str, of: LinkOf) -> CopyableTable:
 
 # The order is the order a copy inserts its rows in: a table comes after every table it points to.
 REGISTRY: tuple[CopyableTable, ...] = (
-    # Not copied yet: a repository carries systems from ADR 0453 on (RFC 0052 Y6).
-    CopyableTable("system", System, True, "none"),
-    # Templates: not copied yet either; Y6 of RFC 0052 places them after the stat groups, stats and
-    # entries their slots and filters point to.
-    CopyableTable("template", Template, True, "none"),
-    CopyableTable("template_slot", TemplateSlot, True, "none"),
-    CopyableTable("template_slot_stat", TemplateSlotStat, True, "none"),
-    CopyableTable("template_slot_exclusion", TemplateSlotExclusion, True, "none"),
+    _rows(Entity, "entity"),
+    # A system's root is an entry, and a stat group belongs to a system (ADR 0453): the entries come
+    # first, then the systems, the groups and stats they hold, and the templates that show them.
+    _rows(System, "system"),
     _rows(StatGroup, "stat_group"),
     _rows(StatDefinition, "stat_definition", counted_on_purge=True),
     _rows(StatDefinitionEnumValue, "stat_definition_enum_value", carried_by="stat_definition"),
-    _rows(Entity, "entity"),
+    _rows(Template, "template", counted_on_purge=True),
+    _rows(TemplateSlot, "template_slot", carried_by="template"),
+    _rows(TemplateSlotStat, "template_slot_stat", carried_by="template_slot"),
+    _rows(TemplateSlotExclusion, "template_slot_exclusion", carried_by="template_slot"),
     _rows(Fact, "fact", carried_by="entity"),
     _rows(Calendar, "calendar", carried_by="entity"),
     _rows(Clock, "clock", carried_by="entity"),

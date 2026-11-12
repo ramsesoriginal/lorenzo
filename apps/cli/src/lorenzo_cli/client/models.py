@@ -3237,6 +3237,12 @@ class Kind40(StrEnum):
     stat_definition = "stat_definition"
 
 
+class ScaleOut(BaseModel):
+    unit: str | None = Field(..., title="Unit")
+    min_value: float | None = Field(..., title="Min Value")
+    max_value: float | None = Field(..., title="Max Value")
+
+
 class SceneCreate(BaseModel):
     id: UUID | None = Field(None, title="Id")
     name: constr(min_length=1, max_length=300) = Field(..., title="Name")
@@ -4398,6 +4404,7 @@ class CopyRequest(BaseModel):
     resolutions: list[ResolutionIn] | None = Field(None, title="Resolutions")
     dry_run: bool | None = Field(None, title="Dry Run")
     again: Again | None = Field(None, title="Again")
+    strict_units: bool | None = Field(None, title="Strict Units")
 
 
 class CopyStepOut(BaseModel):
@@ -4411,9 +4418,21 @@ class CopyStepOut(BaseModel):
     entities: int = Field(..., title="Entities")
     stat_groups: int = Field(..., title="Stat Groups")
     stat_definitions: int = Field(..., title="Stat Definitions")
+    systems: int | None = Field(0, title="Systems")
+    templates: int | None = Field(0, title="Templates")
     information: int = Field(..., title="Information")
     attachments: int = Field(..., title="Attachments")
     dropped: list[DroppedOut] = Field(..., title="Dropped")
+
+
+class CopyWarningOut(BaseModel):
+    repository_id: UUID = Field(..., title="Repository Id")
+    kind: Literal["scale"] = Field("scale", title="Kind")
+    name: str = Field(..., title="Name")
+    source_id: UUID = Field(..., title="Source Id")
+    local_id: UUID = Field(..., title="Local Id")
+    library: ScaleOut
+    incoming: ScaleOut
 
 
 class DescriptionOut(BaseModel):
@@ -4430,6 +4449,7 @@ class DiscoverItemOut(BaseModel):
     summary: str = Field(..., title="Summary")
     tags: list[str] = Field(..., title="Tags")
     system: str | None = Field(..., title="System")
+    systems: list[str] | None = Field([], title="Systems")
     languages: list[str] = Field(..., title="Languages")
     has_cover: bool = Field(..., title="Has Cover")
     release: DiscoverReleaseOut
@@ -4804,6 +4824,7 @@ class MemberProfileOut(BaseModel):
     languages: list[str] = Field(..., title="Languages")
     has_cover: bool = Field(..., title="Has Cover")
     updated_at: AwareDatetime = Field(..., title="Updated At")
+    systems: list[str] | None = Field([], title="Systems")
     listed: bool | None = Field(True, title="Listed")
     includes: list[IncludedSourceOut] | None = Field([], title="Includes", validate_default=True)
     delisted: DelistedOut | None = None
@@ -5234,6 +5255,7 @@ class RepositoryProfileOut(BaseModel):
     languages: list[str] = Field(..., title="Languages")
     has_cover: bool = Field(..., title="Has Cover")
     updated_at: AwareDatetime = Field(..., title="Updated At")
+    systems: list[str] | None = Field([], title="Systems")
     listed: bool | None = Field(True, title="Listed")
     includes: list[IncludedSourceOut] | None = Field([], title="Includes", validate_default=True)
 
@@ -5630,11 +5652,13 @@ class CopyOut(BaseModel):
     steps: list[CopyStepOut] = Field(..., title="Steps")
     dry_run: bool = Field(..., title="Dry Run")
     previous: PreviousCopyOut | None
+    warnings: list[CopyWarningOut] | None = Field([], title="Warnings", validate_default=True)
 
 
 class CopyPlanOut(BaseModel):
     steps: list[CopyStepOut] = Field(..., title="Steps")
     collisions: list[CollisionOut] = Field(..., title="Collisions")
+    warnings: list[CopyWarningOut] | None = Field([], title="Warnings", validate_default=True)
 
 
 class EntityDetailOut(BaseModel):

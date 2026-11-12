@@ -9732,6 +9732,11 @@ export interface components {
             /** Dry Run */
             dry_run: boolean;
             previous: components["schemas"]["PreviousCopyOut"] | null;
+            /**
+             * Warnings
+             * @default []
+             */
+            warnings: components["schemas"]["CopyWarningOut"][];
         };
         /**
          * CopyPlanOut
@@ -9742,6 +9747,11 @@ export interface components {
             steps: components["schemas"]["CopyStepOut"][];
             /** Collisions */
             collisions: components["schemas"]["CollisionOut"][];
+            /**
+             * Warnings
+             * @default []
+             */
+            warnings: components["schemas"]["CopyWarningOut"][];
         };
         /**
          * CopyRequest
@@ -9757,6 +9767,8 @@ export interface components {
             dry_run?: boolean | null;
             /** Again */
             again?: ("keep" | "purge") | null;
+            /** Strict Units */
+            strict_units?: boolean | null;
         };
         /**
          * CopyStepOut
@@ -9790,12 +9802,55 @@ export interface components {
             stat_groups: number;
             /** Stat Definitions */
             stat_definitions: number;
+            /**
+             * Systems
+             * @default 0
+             */
+            systems: number;
+            /**
+             * Templates
+             * @default 0
+             */
+            templates: number;
             /** Information */
             information: number;
             /** Attachments */
             attachments: number;
             /** Dropped */
             dropped: components["schemas"]["DroppedOut"][];
+        };
+        /**
+         * CopyWarningOut
+         * @description A stat the copy merges into the library's own whose unit or bounds differ: the library's
+         *     stay, so a value in the repository's unit would read as the library's (ADR 0453). Send
+         *     `strict_units` to be asked instead of told.
+         */
+        CopyWarningOut: {
+            /**
+             * Repository Id
+             * Format: uuid
+             */
+            repository_id: string;
+            /**
+             * Kind
+             * @default scale
+             * @constant
+             */
+            kind: "scale";
+            /** Name */
+            name: string;
+            /**
+             * Source Id
+             * Format: uuid
+             */
+            source_id: string;
+            /**
+             * Local Id
+             * Format: uuid
+             */
+            local_id: string;
+            library: components["schemas"]["ScaleOut"];
+            incoming: components["schemas"]["ScaleOut"];
         };
         /** CoverageElement */
         CoverageElement: {
@@ -10064,6 +10119,11 @@ export interface components {
             tags: string[];
             /** System */
             system: string | null;
+            /**
+             * Systems
+             * @default []
+             */
+            systems: string[];
             /** Languages */
             languages: string[];
             /** Has Cover */
@@ -12796,6 +12856,11 @@ export interface components {
              * Format: date-time
              */
             updated_at: string;
+            /**
+             * Systems
+             * @default []
+             */
+            systems: string[];
             /**
              * Listed
              * @default true
@@ -16009,6 +16074,11 @@ export interface components {
              */
             updated_at: string;
             /**
+             * Systems
+             * @default []
+             */
+            systems: string[];
+            /**
              * Listed
              * @default true
              */
@@ -16299,6 +16369,18 @@ export interface components {
             state: ("released" | "edited") | null;
             /** Breaking */
             breaking: components["schemas"]["BreakingNoteOut"][];
+        };
+        /**
+         * ScaleOut
+         * @description The unit and bounds of a stat.
+         */
+        ScaleOut: {
+            /** Unit */
+            unit: string | null;
+            /** Min Value */
+            min_value: number | null;
+            /** Max Value */
+            max_value: number | null;
         };
         /** SceneCreate */
         SceneCreate: {
@@ -24415,7 +24497,10 @@ export interface operations {
     };
     plan_repository_copy: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Plan as a copy that refuses to merge a stat into the library's own while their unit or bounds differ (ADR 0453): `merge` is not among its choices. */
+                strict_units?: boolean;
+            };
             header?: never;
             path: {
                 repository_id: string;

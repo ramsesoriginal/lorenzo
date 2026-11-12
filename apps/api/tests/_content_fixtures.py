@@ -44,8 +44,20 @@ def full_content() -> Content:
     c.slugs = {sword: "longsword", orc: "orc"}
     c.prototypes = [(dagger, sword), (sword, chest)]
     c.groups = {
-        group: {"name": "Abilities", "priority": 3, "mandatory": True, "role": None},
-        other_group: {"name": "Extras", "priority": 0, "mandatory": False, "role": None},
+        group: {
+            "name": "Abilities",
+            "priority": 3,
+            "mandatory": True,
+            "role": None,
+            "system": None,
+        },
+        other_group: {
+            "name": "Extras",
+            "priority": 0,
+            "mandatory": False,
+            "role": None,
+            "system": None,
+        },
     }
     c.definitions = {
         strength: {"name": "Strength", "value_type": StatValueType.INT, "group": group},

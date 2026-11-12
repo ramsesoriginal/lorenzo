@@ -540,6 +540,9 @@ class CopyRequest(BaseModel):
     resolutions: list[ResolutionIn] | None = None
     dry_run: bool | None = None
     again: Literal["keep", "purge"] | None = None
+    # ADR 0453: refuse to merge a stat into the library's own while their unit or bounds differ:
+    # `merge` is then not among the choices for it, so the copy asks until each is resolved.
+    strict_units: bool | None = None
 
 
 class CollisionOut(BaseModel):
@@ -552,6 +555,28 @@ class CollisionOut(BaseModel):
     name: str
     local_id: uuid.UUID | None
     choices: list[ActionName]
+
+
+class ScaleOut(BaseModel):
+    """The unit and bounds of a stat."""
+
+    unit: str | None
+    min_value: float | None
+    max_value: float | None
+
+
+class CopyWarningOut(BaseModel):
+    """A stat the copy merges into the library's own whose unit or bounds differ: the library's
+    stay, so a value in the repository's unit would read as the library's (ADR 0453). Send
+    `strict_units` to be asked instead of told."""
+
+    repository_id: uuid.UUID
+    kind: Literal["scale"] = "scale"
+    name: str
+    source_id: uuid.UUID
+    local_id: uuid.UUID
+    library: ScaleOut
+    incoming: ScaleOut
 
 
 class DroppedOut(BaseModel):
@@ -580,6 +605,9 @@ class CopyStepOut(BaseModel):
     entities: int
     stat_groups: int
     stat_definitions: int
+    # The game systems the library did not have and the templates this step makes (ADR 0453).
+    systems: int = 0
+    templates: int = 0
     information: int
     # Parents added to entities copied elsewhere, that this step writes (ADR 0172).
     attachments: int
@@ -591,6 +619,7 @@ class CopyPlanOut(BaseModel):
 
     steps: list[CopyStepOut]
     collisions: list[CollisionOut]
+    warnings: list[CopyWarningOut] = []
 
 
 class PreviousCopyOut(BaseModel):
@@ -611,6 +640,7 @@ class CopyOut(BaseModel):
     steps: list[CopyStepOut]
     dry_run: bool
     previous: PreviousCopyOut | None
+    warnings: list[CopyWarningOut] = []
 
 
 # --- Updates (ADR 0121) ---------------------------------------------------------

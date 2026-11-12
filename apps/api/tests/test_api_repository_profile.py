@@ -35,6 +35,8 @@ _DEFAULTS = {
     "credits": [],
     "tags": [],
     "system": None,
+    # The game systems the current release carries (ADR 0453): none before a release.
+    "systems": [],
     "languages": [],
     "has_cover": False,
     # Listed on Discover, until an Owner of a public repository says otherwise (ADR 0432).
@@ -216,6 +218,7 @@ async def test_an_owner_sets_the_whole_profile_and_it_is_kept_tidy(
             ],
             "tags": ["forgotten realms", "setting", "d&d 5e"],
             "system": "D&D 5e",
+            "systems": [],
             "languages": ["en", "de", "pt-br"],
             "has_cover": False,
             "listed": True,

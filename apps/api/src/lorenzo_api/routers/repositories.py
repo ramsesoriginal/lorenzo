@@ -13,7 +13,7 @@ import uuid
 from collections.abc import Callable, Sequence
 from typing import Annotated, Any, Literal, cast
 
-from fastapi import APIRouter, BackgroundTasks, Depends, Response
+from fastapi import APIRouter, BackgroundTasks, Depends, Query, Response
 from fastapi_pagination import Page, Params, paginate
 from fastapi_pagination.ext.sqlalchemy import apaginate
 from sqlalchemy import and_, exists, func, or_, select
@@ -140,6 +140,7 @@ from lorenzo_api.schemas.repositories import (
     CopyPlanOut,
     CopyRequest,
     CopyStepOut,
+    CopyWarningOut,
     DroppedOut,
     EntityKindName,
     FieldChangeOut,
@@ -167,6 +168,7 @@ from lorenzo_api.schemas.repositories import (
     RowChangeOut,
     RowNameOut,
     RowRefOut,
+    ScaleOut,
     SubscriberOut,
     SubscribersSummaryOut,
     SubscriptionOut,
@@ -1428,6 +1430,8 @@ def _step_out(step: Step, *, event_order_visible: bool = False) -> CopyStepOut:
         entities=step.entities,
         stat_groups=step.stat_groups,
         stat_definitions=step.stat_definitions,
+        systems=step.systems,
+        templates=step.templates,
         information=step.information,
         attachments=step.attachments,
         dropped=[
@@ -1440,9 +1444,24 @@ def _step_out(step: Step, *, event_order_visible: bool = False) -> CopyStepOut:
     )
 
 
+def _warnings_out(plan: Plan) -> list[CopyWarningOut]:
+    return [
+        CopyWarningOut(
+            repository_id=w.repository_id,
+            name=w.name,
+            source_id=w.source_id,
+            local_id=w.local_id,
+            library=ScaleOut(**w.library),
+            incoming=ScaleOut(**w.incoming),
+        )
+        for w in plan.warnings
+    ]
+
+
 def _plan_out(plan: Plan, *, event_order_visible: bool = False) -> CopyPlanOut:
     return CopyPlanOut(
         steps=[_step_out(s, event_order_visible=event_order_visible) for s in plan.steps],
+        warnings=_warnings_out(plan),
         collisions=[
             CollisionOut(
                 repository_id=c.repository_id,
@@ -1463,6 +1482,15 @@ async def plan_repository_copy(
     repository_id: uuid.UUID,
     session: SessionDep,
     user: CurrentUser,
+    strict_units: Annotated[
+        bool,
+        Query(
+            description=(
+                "Plan as a copy that refuses to merge a stat into the library's own while their "
+                "unit or bounds differ (ADR 0453): `merge` is not among its choices."
+            )
+        ),
+    ] = False,
 ) -> CopyPlanOut:
     """What copying a granted, published repository would do, writing
     nothing (ADR 0119): its manifest - dependencies first, each with
@@ -1470,7 +1498,12 @@ async def plan_repository_copy(
     how much each step brings in, and every collision that needs a choice.
     """
     plan = await plan_copy(
-        session, tenant_id=tenant_id, repository_id=repository_id, user_id=user.id, resolutions=[]
+        session,
+        tenant_id=tenant_id,
+        repository_id=repository_id,
+        user_id=user.id,
+        resolutions=[],
+        strict_units=strict_units,
     )
     visibility = await resolve_information_visibility(session, user_id=user.id, tenant_id=tenant_id)
     return _plan_out(plan, event_order_visible=visibility.is_admin)
@@ -1516,6 +1549,7 @@ async def copy_repository(
         repository_id=repository_id,
         user_id=user.id,
         resolutions=resolutions,
+        strict_units=bool(body and body.strict_units),
     )
     await apply_plan(session, plan, user_id=user.id)
     # A public repository is not granted to the library that copies it, so the copy grants it, and
@@ -1538,6 +1572,7 @@ async def copy_repository(
     return CopyOut(
         steps=[_step_out(s, event_order_visible=visibility.is_admin) for s in plan.to_copy],
         dry_run=dry_run,
+        warnings=_warnings_out(plan),
         previous=(
             PreviousCopyOut(
                 mode=previous.mode,

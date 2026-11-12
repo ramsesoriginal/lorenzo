@@ -344,7 +344,14 @@ async def test_skipping_drops_what_depends_on_it(
         dropped = {d["kind"] for d in copied.json()["steps"][0]["dropped"]}
         # Skipping the group skips its definitions, and with them every
         # value, formula, and attachment that used them.
-        assert dropped == {"stat_definition", "entity_stat", "computed_stat", "entity_stat_group"}
+        # The template that shows the skipped group goes too (ADR 0453).
+        assert dropped == {
+            "stat_definition",
+            "entity_stat",
+            "computed_stat",
+            "entity_stat_group",
+            "template",
+        }
         assert copied.json()["steps"][0]["stat_definitions"] == 0
         assert await _count(StatDefinition, table) == 0
         assert await _count(Entity, table) == 27

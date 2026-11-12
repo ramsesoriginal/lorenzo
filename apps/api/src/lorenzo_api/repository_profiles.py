@@ -72,6 +72,7 @@ def profile_out(
         ],
         tags=list(profile.tags),
         system=profile.system,
+        systems=list(profile.systems or []),
         languages=list(profile.languages),
         has_cover=profile.cover_picture_id is not None,
         updated_at=profile.updated_at,

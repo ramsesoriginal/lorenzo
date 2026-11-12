@@ -1,6 +1,6 @@
 # Well-known stats
 
-Stats are tenant data: a tenant defines its own stat groups and stat definitions, and the API doesn't hardcode a game system ([ADR 0014](../adr/0014-stats.md)). A few names are special anyway. The API reads them by name, so a tenant that defines one gets the behavior that goes with it, and one that doesn't define it simply doesn't.
+Stats are tenant data: a tenant defines its own stat groups and stat definitions, and the API doesn't hardcode a game system ([ADR 0014](../adr/0014-stats.md)). A few stats are special anyway. The API reads them by **role** ([ADR 0449](../adr/0449-roles-the-api-reads-a-stat-by-what-it-is-for.md)): a stat or a group holds a role from a closed list (the names in the table below are the roles), one holder per library, and the holder may have any name. A stat or group created with a role's name and no `role` takes it when it is free, so a tenant that names one that way gets the behavior that goes with it, and one that doesn't hold the role simply doesn't. A role-holder belongs to no game system.
 
 This page lists them, and the recipes built on formulas ([ADR 0104](../adr/0104-computed-stats.md)) that make them useful. [RFC 0030](../rfcs/0030-carrying-holding-binding-and-capacity.md) adds more names as its slices land.
 

@@ -9,6 +9,7 @@ belongs to.
 from __future__ import annotations
 
 import uuid
+from collections.abc import Sequence
 
 from fastapi import APIRouter, Depends, Request, Response
 from fastapi_pagination import Page
@@ -23,6 +24,7 @@ from lorenzo_api.dependencies import (
     get_tenant_admin_context,
     set_tenant_rls_context,
 )
+from lorenzo_api.entry_visibility import hidden_among
 from lorenzo_api.exceptions import (
     InvalidSystemError,
     SystemInUseError,
@@ -100,6 +102,23 @@ async def _campaigns_of(session: SessionDep, tenant_id: uuid.UUID, system_id: uu
     )
 
 
+async def _outs(
+    session: SessionDep, tenant_id: uuid.UUID, systems: Sequence[System]
+) -> list[SystemOut]:
+    """The systems as read: a root entry the library hides reads as none (ADR 0437)."""
+    hidden = await hidden_among(
+        session,
+        tenant_id=tenant_id,
+        entity_ids=[s.root_entry_id for s in systems if s.root_entry_id is not None],
+    )
+    return [
+        SystemOut.model_validate(s).model_copy(
+            update={"root_entry_id": None if s.root_entry_id in hidden else s.root_entry_id}
+        )
+        for s in systems
+    ]
+
+
 async def _groups_of(session: SessionDep, tenant_id: uuid.UUID, system_id: uuid.UUID) -> int:
     return (
         await session.scalar(
@@ -144,7 +163,9 @@ async def create_system(
     response.headers["Location"] = str(
         request.url_for("get_system", tenant_id=tenant_id, system_id=system.id)
     )
-    return SystemOut.model_validate(await _get_system_or_404(session, tenant_id, system.id))
+    return (
+        await _outs(session, tenant_id, [await _get_system_or_404(session, tenant_id, system.id)])
+    )[0]
 
 
 @router.get("")
@@ -152,18 +173,24 @@ async def list_systems(
     tenant_id: uuid.UUID, session: SessionDep, params: ParamsDep
 ) -> Page[SystemOut]:
     """The library's systems, by slug (ADR 0085's page)."""
+
+    async def _rows(rows: Sequence[System]) -> list[SystemOut]:
+        return await _outs(session, tenant_id, rows)
+
     page: Page[SystemOut] = await apaginate(
         session,
         select(System).where(System.tenant_id == tenant_id).order_by(System.slug, System.id),
         params,
-        transformer=lambda rows: [SystemOut.model_validate(row) for row in rows],
+        transformer=_rows,
     )
     return page
 
 
 @router.get("/{system_id}")
 async def get_system(tenant_id: uuid.UUID, system_id: uuid.UUID, session: SessionDep) -> SystemOut:
-    return SystemOut.model_validate(await _get_system_or_404(session, tenant_id, system_id))
+    return (
+        await _outs(session, tenant_id, [await _get_system_or_404(session, tenant_id, system_id)])
+    )[0]
 
 
 @router.patch("/{system_id}")
@@ -188,7 +215,9 @@ async def update_system(
         setattr(system, field, value)
     await session.commit()
     await set_tenant_rls_context(session, tenant_id)
-    return SystemOut.model_validate(await _get_system_or_404(session, tenant_id, system_id))
+    return (
+        await _outs(session, tenant_id, [await _get_system_or_404(session, tenant_id, system_id)])
+    )[0]
 
 
 @router.delete("/{system_id}", status_code=204, dependencies=[Depends(get_tenant_admin_context)])

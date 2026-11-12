@@ -29,7 +29,7 @@ from lorenzo_api.dependencies import (
     require_tenant_participant,
     set_tenant_rls_context,
 )
-from lorenzo_api.entry_visibility import require_visible_entry
+from lorenzo_api.entry_visibility import require_visible_entry, unhidden
 from lorenzo_api.exceptions import (
     EntityNotFoundError,
     InvalidTemplateError,
@@ -157,7 +157,11 @@ async def _get_or_404(
     template = (
         await session.execute(
             select(Template)
-            .where(Template.id == template_id, Template.tenant_id == tenant_id)
+            .where(
+                Template.id == template_id,
+                Template.tenant_id == tenant_id,
+                await unhidden(session, tenant_id, Template.required_ancestor_entry_id),
+            )
             .options(*_SLOT_LOAD)
             .execution_options(populate_existing=True)
         )
@@ -326,7 +330,11 @@ async def list_templates(
     (an unknown slug is a 404)."""
     await require_system_slug(session, tenant_id, system)
     slugs = await _slugs(session, tenant_id)
-    stmt = select(Template).where(Template.tenant_id == tenant_id)
+    # A template for an entry the library hides is not one it can know of (ADR 0437).
+    stmt = select(Template).where(
+        Template.tenant_id == tenant_id,
+        await unhidden(session, tenant_id, Template.required_ancestor_entry_id),
+    )
     if system is not None:
         stmt = stmt.where(
             or_(
@@ -444,7 +452,10 @@ async def matching_templates(
         raise EntityNotFoundError(detail=f"No entity with id {entity_id} in tenant {tenant_id}")
     kinds = (await kinds_of(session, [entity_id]))[entity_id]
     ancestors = await _prototype_ancestors(session, tenant_id, entity_id)
-    stmt = select(Template).where(Template.tenant_id == tenant_id)
+    stmt = select(Template).where(
+        Template.tenant_id == tenant_id,
+        await unhidden(session, tenant_id, Template.required_ancestor_entry_id),
+    )
     if system is not None:
         stmt = stmt.where(
             or_(
@@ -688,7 +699,11 @@ async def pick_sheet_template(
         found = (
             await session.scalars(
                 select(Template)
-                .where(Template.tenant_id == tenant_id, Template.system_id == system_id)
+                .where(
+                    Template.tenant_id == tenant_id,
+                    Template.system_id == system_id,
+                    await unhidden(session, tenant_id, Template.required_ancestor_entry_id),
+                )
                 .options(*_SLOT_LOAD)
                 .order_by(Template.name, Template.id)
             )

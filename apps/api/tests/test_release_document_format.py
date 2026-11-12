@@ -124,10 +124,14 @@ def test_version_one_is_read_as_it_was_written() -> None:
 
     assert differences(full_content(), rd.decode(golden, _files(), format=1)) == []
     # V3 adds calendars; V1 and V2 remain readable unchanged.
-    assert rd.FORMAT == 41
+    assert rd.FORMAT == 42
     assert rd.encode(full_content())[0] == {
         **golden,
-        "groups": {key: {"role": None, **group} for key, group in golden["groups"].items()},
+        "groups": {
+            key: {"role": None, "system": None, **group} for key, group in golden["groups"].items()
+        },
+        "systems": {},
+        "templates": {},
         "formulas": [
             [entity, definition, {**_NEW_FORMULA_FIELDS, **_contents_defaults(record), **record}]
             for entity, definition, record in golden["formulas"]
@@ -760,3 +764,56 @@ def test_a_role_of_a_stat_and_of_a_group_round_trips_and_an_old_document_derives
     assert old.definitions[stat]["role"] == "weight"
     assert old.groups[group]["role"] == "physical"
     assert all(d["role"] is None for key, d in old.definitions.items() if key != stat)
+
+
+def test_systems_and_templates_round_trip_and_an_old_document_has_none() -> None:
+    """ADR 0453: a library's game systems, the system each stat group belongs to and its templates
+    are in the document; a document of version 41, which had none, reads every group as neutral."""
+    content = full_content()
+    ds, template = uuid.UUID(int=80), uuid.UUID(int=81)
+    group = next(iter(content.groups))
+    stat = next(iter(content.definitions))
+    root = next(iter(content.entities))
+    content.systems = {ds: {"slug": "ds", "name": "Draw Steel", "root": root}}
+    content.groups[group]["system"] = ds
+    content.templates = {
+        template: {
+            "name": "Sheet",
+            "system": ds,
+            "kind": "being",
+            "ancestor": root,
+            "slots": [
+                {
+                    "kind": "stats",
+                    "label": "Abilities",
+                    "group": group,
+                    "information_type": None,
+                    "held_order": None,
+                    "stats": [],
+                    "exclude": [stat],
+                },
+                {
+                    "kind": "held",
+                    "label": None,
+                    "group": None,
+                    "information_type": None,
+                    "held_order": "prototype",
+                    "stats": [(stat, "Strength")],
+                    "exclude": [],
+                },
+            ],
+        }
+    }
+
+    document, files = rd.encode(content)
+    back = rd.decode(rd.loads(rd.dumps(document)), files)
+
+    assert differences(content, back) == []
+    v41 = {key: value for key, value in document.items() if key not in ("systems", "templates")}
+    v41["groups"] = {
+        key: {k: v for k, v in record.items() if k != "system"}
+        for key, record in document["groups"].items()
+    }
+    old = rd.decode(v41, files, format=41)
+    assert old.systems == {} and old.templates == {}
+    assert all(g["system"] is None for g in old.groups.values())

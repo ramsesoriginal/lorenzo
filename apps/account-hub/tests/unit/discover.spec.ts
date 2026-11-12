@@ -59,6 +59,7 @@ function item(overrides: Partial<DiscoverItemOut> = {}): DiscoverItemOut {
     summary: 'Every beast there is.',
     tags: ['monsters', 'srd'],
     system: 'D&D 5e',
+    systems: [],
     languages: ['en'],
     has_cover: false,
     release: { label: '1.2', released_at: '2026-10-14T09:00:00Z' },
