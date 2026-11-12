@@ -1014,290 +1014,290 @@ GET /tenants/{tenant_id}/repositories/{repository_id}/copy-plan added the new `s
 GET /tenants/{tenant_id}/repositories/{repository_id}/updates added the new `stat_role` enum value to the `added/items/collision/anyOf[subschema #1: CollisionOut]/kind` response property for the response status `200`
 
 # ADR 0454: an entry may be of the kinds `feature` and `feature_instance`, which every response that lists an entry's kinds can now carry.
-GET /tenants/{tenant_id}/beings/{entity_id}/sheet added the new `feature` enum value to the `template/anyOf[subschema #1: TemplateSummaryOut]/required_kind/anyOf[subschema #1]/` response property for the response status `200`
-GET /tenants/{tenant_id}/beings/{entity_id}/sheet added the new `feature` enum value to the `templates/items/required_kind/anyOf[subschema #1]/` response property for the response status `200`
-GET /tenants/{tenant_id}/beings/{entity_id}/sheet added the new `feature_instance` enum value to the `template/anyOf[subschema #1: TemplateSummaryOut]/required_kind/anyOf[subschema #1]/` response property for the response status `200`
-GET /tenants/{tenant_id}/beings/{entity_id}/sheet added the new `feature_instance` enum value to the `templates/items/required_kind/anyOf[subschema #1]/` response property for the response status `200`
-GET /tenants/{tenant_id}/connections added the new `feature` enum value to the `items/items/end_a/kinds/items/` response property for the response status `200`
-GET /tenants/{tenant_id}/connections added the new `feature` enum value to the `items/items/end_b/kinds/items/` response property for the response status `200`
-GET /tenants/{tenant_id}/connections added the new `feature` enum value to the `items/items/kinds/items/` response property for the response status `200`
-GET /tenants/{tenant_id}/connections added the new `feature_instance` enum value to the `items/items/end_a/kinds/items/` response property for the response status `200`
-GET /tenants/{tenant_id}/connections added the new `feature_instance` enum value to the `items/items/end_b/kinds/items/` response property for the response status `200`
-GET /tenants/{tenant_id}/connections added the new `feature_instance` enum value to the `items/items/kinds/items/` response property for the response status `200`
-POST /tenants/{tenant_id}/connections added the new `feature` enum value to the `end_a/kinds/items/` response property for the response status `201`
-POST /tenants/{tenant_id}/connections added the new `feature` enum value to the `end_b/kinds/items/` response property for the response status `201`
-POST /tenants/{tenant_id}/connections added the new `feature` enum value to the `kinds/items/` response property for the response status `201`
-POST /tenants/{tenant_id}/connections added the new `feature_instance` enum value to the `end_a/kinds/items/` response property for the response status `201`
-POST /tenants/{tenant_id}/connections added the new `feature_instance` enum value to the `end_b/kinds/items/` response property for the response status `201`
-POST /tenants/{tenant_id}/connections added the new `feature_instance` enum value to the `kinds/items/` response property for the response status `201`
-POST /tenants/{tenant_id}/connections/hub added the new `feature` enum value to the `items/end_a/kinds/items/` response property for the response status `201`
-POST /tenants/{tenant_id}/connections/hub added the new `feature` enum value to the `items/end_b/kinds/items/` response property for the response status `201`
-POST /tenants/{tenant_id}/connections/hub added the new `feature` enum value to the `items/kinds/items/` response property for the response status `201`
-POST /tenants/{tenant_id}/connections/hub added the new `feature_instance` enum value to the `items/end_a/kinds/items/` response property for the response status `201`
-POST /tenants/{tenant_id}/connections/hub added the new `feature_instance` enum value to the `items/end_b/kinds/items/` response property for the response status `201`
-POST /tenants/{tenant_id}/connections/hub added the new `feature_instance` enum value to the `items/kinds/items/` response property for the response status `201`
-GET /tenants/{tenant_id}/connections/{connection_id} added the new `feature` enum value to the `end_a/kinds/items/` response property for the response status `200`
-GET /tenants/{tenant_id}/connections/{connection_id} added the new `feature` enum value to the `end_b/kinds/items/` response property for the response status `200`
-GET /tenants/{tenant_id}/connections/{connection_id} added the new `feature` enum value to the `kinds/items/` response property for the response status `200`
-GET /tenants/{tenant_id}/connections/{connection_id} added the new `feature_instance` enum value to the `end_a/kinds/items/` response property for the response status `200`
-GET /tenants/{tenant_id}/connections/{connection_id} added the new `feature_instance` enum value to the `end_b/kinds/items/` response property for the response status `200`
-GET /tenants/{tenant_id}/connections/{connection_id} added the new `feature_instance` enum value to the `kinds/items/` response property for the response status `200`
-PUT /tenants/{tenant_id}/connections/{connection_id} added the new `feature` enum value to the `end_a/kinds/items/` response property for the response status `200`
-PUT /tenants/{tenant_id}/connections/{connection_id} added the new `feature` enum value to the `end_b/kinds/items/` response property for the response status `200`
-PUT /tenants/{tenant_id}/connections/{connection_id} added the new `feature` enum value to the `kinds/items/` response property for the response status `200`
-PUT /tenants/{tenant_id}/connections/{connection_id} added the new `feature_instance` enum value to the `end_a/kinds/items/` response property for the response status `200`
-PUT /tenants/{tenant_id}/connections/{connection_id} added the new `feature_instance` enum value to the `end_b/kinds/items/` response property for the response status `200`
-PUT /tenants/{tenant_id}/connections/{connection_id} added the new `feature_instance` enum value to the `kinds/items/` response property for the response status `200`
-GET /tenants/{tenant_id}/distance added the new `feature` enum value to the `map/anyOf[subschema #1: EntryStub]/kinds/items/` response property for the response status `200`
-GET /tenants/{tenant_id}/distance added the new `feature` enum value to the `route/items/connection/kinds/items/` response property for the response status `200`
-GET /tenants/{tenant_id}/distance added the new `feature` enum value to the `route/items/end/kinds/items/` response property for the response status `200`
-GET /tenants/{tenant_id}/distance added the new `feature` enum value to the `route/items/start/kinds/items/` response property for the response status `200`
-GET /tenants/{tenant_id}/distance added the new `feature_instance` enum value to the `map/anyOf[subschema #1: EntryStub]/kinds/items/` response property for the response status `200`
-GET /tenants/{tenant_id}/distance added the new `feature_instance` enum value to the `route/items/connection/kinds/items/` response property for the response status `200`
-GET /tenants/{tenant_id}/distance added the new `feature_instance` enum value to the `route/items/end/kinds/items/` response property for the response status `200`
-GET /tenants/{tenant_id}/distance added the new `feature_instance` enum value to the `route/items/start/kinds/items/` response property for the response status `200`
-GET /tenants/{tenant_id}/entities added the new `feature` enum value to the `items/items/kinds/items/` response property for the response status `200`
-GET /tenants/{tenant_id}/entities added the new `feature_instance` enum value to the `items/items/kinds/items/` response property for the response status `200`
-POST /tenants/{tenant_id}/entities added the new `feature` enum value to the `kinds/items/` response property for the response status `201`
-POST /tenants/{tenant_id}/entities added the new `feature_instance` enum value to the `kinds/items/` response property for the response status `201`
-GET /tenants/{tenant_id}/entities/by-slug/{slug} added the new `feature` enum value to the `kinds/items/` response property for the response status `200`
-GET /tenants/{tenant_id}/entities/by-slug/{slug} added the new `feature_instance` enum value to the `kinds/items/` response property for the response status `200`
-GET /tenants/{tenant_id}/entities/export added the new `feature` enum value to the `items/items/kinds/items/` response property for the response status `200`
-GET /tenants/{tenant_id}/entities/export added the new `feature_instance` enum value to the `items/items/kinds/items/` response property for the response status `200`
-GET /tenants/{tenant_id}/entities/resolve added the new `feature` enum value to the `items/kinds/items/` response property for the response status `200`
-GET /tenants/{tenant_id}/entities/resolve added the new `feature_instance` enum value to the `items/kinds/items/` response property for the response status `200`
-GET /tenants/{tenant_id}/entities/{entity_id} added the new `feature` enum value to the `kinds/items/` response property for the response status `200`
-GET /tenants/{tenant_id}/entities/{entity_id} added the new `feature_instance` enum value to the `kinds/items/` response property for the response status `200`
-PATCH /tenants/{tenant_id}/entities/{entity_id} added the new `feature` enum value to the `kinds/items/` response property for the response status `200`
-PATCH /tenants/{tenant_id}/entities/{entity_id} added the new `feature_instance` enum value to the `kinds/items/` response property for the response status `200`
-GET /tenants/{tenant_id}/entities/{entity_id}/backlinks added the new `feature` enum value to the `items/items/kinds/items/` response property for the response status `200`
-GET /tenants/{tenant_id}/entities/{entity_id}/backlinks added the new `feature_instance` enum value to the `items/items/kinds/items/` response property for the response status `200`
+GET /tenants/{tenant_id}/beings/{entity_id}/sheet added the new `feature` enum value to the `template/anyOf[subschema #1: TemplateSummaryOut]/required_kind/anyOf[subschema #1]` response property for the response status `200`
+GET /tenants/{tenant_id}/beings/{entity_id}/sheet added the new `feature` enum value to the `templates/items/required_kind/anyOf[subschema #1]` response property for the response status `200`
+GET /tenants/{tenant_id}/beings/{entity_id}/sheet added the new `feature_instance` enum value to the `template/anyOf[subschema #1: TemplateSummaryOut]/required_kind/anyOf[subschema #1]` response property for the response status `200`
+GET /tenants/{tenant_id}/beings/{entity_id}/sheet added the new `feature_instance` enum value to the `templates/items/required_kind/anyOf[subschema #1]` response property for the response status `200`
+GET /tenants/{tenant_id}/connections added the new `feature` enum value to the `items/items/end_a/kinds/items` response property for the response status `200`
+GET /tenants/{tenant_id}/connections added the new `feature` enum value to the `items/items/end_b/kinds/items` response property for the response status `200`
+GET /tenants/{tenant_id}/connections added the new `feature` enum value to the `items/items/kinds/items` response property for the response status `200`
+GET /tenants/{tenant_id}/connections added the new `feature_instance` enum value to the `items/items/end_a/kinds/items` response property for the response status `200`
+GET /tenants/{tenant_id}/connections added the new `feature_instance` enum value to the `items/items/end_b/kinds/items` response property for the response status `200`
+GET /tenants/{tenant_id}/connections added the new `feature_instance` enum value to the `items/items/kinds/items` response property for the response status `200`
+POST /tenants/{tenant_id}/connections added the new `feature` enum value to the `end_a/kinds/items` response property for the response status `201`
+POST /tenants/{tenant_id}/connections added the new `feature` enum value to the `end_b/kinds/items` response property for the response status `201`
+POST /tenants/{tenant_id}/connections added the new `feature` enum value to the `kinds/items` response property for the response status `201`
+POST /tenants/{tenant_id}/connections added the new `feature_instance` enum value to the `end_a/kinds/items` response property for the response status `201`
+POST /tenants/{tenant_id}/connections added the new `feature_instance` enum value to the `end_b/kinds/items` response property for the response status `201`
+POST /tenants/{tenant_id}/connections added the new `feature_instance` enum value to the `kinds/items` response property for the response status `201`
+POST /tenants/{tenant_id}/connections/hub added the new `feature` enum value to the `items/end_a/kinds/items` response property for the response status `201`
+POST /tenants/{tenant_id}/connections/hub added the new `feature` enum value to the `items/end_b/kinds/items` response property for the response status `201`
+POST /tenants/{tenant_id}/connections/hub added the new `feature` enum value to the `items/kinds/items` response property for the response status `201`
+POST /tenants/{tenant_id}/connections/hub added the new `feature_instance` enum value to the `items/end_a/kinds/items` response property for the response status `201`
+POST /tenants/{tenant_id}/connections/hub added the new `feature_instance` enum value to the `items/end_b/kinds/items` response property for the response status `201`
+POST /tenants/{tenant_id}/connections/hub added the new `feature_instance` enum value to the `items/kinds/items` response property for the response status `201`
+GET /tenants/{tenant_id}/connections/{connection_id} added the new `feature` enum value to the `end_a/kinds/items` response property for the response status `200`
+GET /tenants/{tenant_id}/connections/{connection_id} added the new `feature` enum value to the `end_b/kinds/items` response property for the response status `200`
+GET /tenants/{tenant_id}/connections/{connection_id} added the new `feature` enum value to the `kinds/items` response property for the response status `200`
+GET /tenants/{tenant_id}/connections/{connection_id} added the new `feature_instance` enum value to the `end_a/kinds/items` response property for the response status `200`
+GET /tenants/{tenant_id}/connections/{connection_id} added the new `feature_instance` enum value to the `end_b/kinds/items` response property for the response status `200`
+GET /tenants/{tenant_id}/connections/{connection_id} added the new `feature_instance` enum value to the `kinds/items` response property for the response status `200`
+PUT /tenants/{tenant_id}/connections/{connection_id} added the new `feature` enum value to the `end_a/kinds/items` response property for the response status `200`
+PUT /tenants/{tenant_id}/connections/{connection_id} added the new `feature` enum value to the `end_b/kinds/items` response property for the response status `200`
+PUT /tenants/{tenant_id}/connections/{connection_id} added the new `feature` enum value to the `kinds/items` response property for the response status `200`
+PUT /tenants/{tenant_id}/connections/{connection_id} added the new `feature_instance` enum value to the `end_a/kinds/items` response property for the response status `200`
+PUT /tenants/{tenant_id}/connections/{connection_id} added the new `feature_instance` enum value to the `end_b/kinds/items` response property for the response status `200`
+PUT /tenants/{tenant_id}/connections/{connection_id} added the new `feature_instance` enum value to the `kinds/items` response property for the response status `200`
+GET /tenants/{tenant_id}/distance added the new `feature` enum value to the `map/anyOf[subschema #1: EntryStub]/kinds/items` response property for the response status `200`
+GET /tenants/{tenant_id}/distance added the new `feature` enum value to the `route/items/connection/kinds/items` response property for the response status `200`
+GET /tenants/{tenant_id}/distance added the new `feature` enum value to the `route/items/end/kinds/items` response property for the response status `200`
+GET /tenants/{tenant_id}/distance added the new `feature` enum value to the `route/items/start/kinds/items` response property for the response status `200`
+GET /tenants/{tenant_id}/distance added the new `feature_instance` enum value to the `map/anyOf[subschema #1: EntryStub]/kinds/items` response property for the response status `200`
+GET /tenants/{tenant_id}/distance added the new `feature_instance` enum value to the `route/items/connection/kinds/items` response property for the response status `200`
+GET /tenants/{tenant_id}/distance added the new `feature_instance` enum value to the `route/items/end/kinds/items` response property for the response status `200`
+GET /tenants/{tenant_id}/distance added the new `feature_instance` enum value to the `route/items/start/kinds/items` response property for the response status `200`
+GET /tenants/{tenant_id}/entities added the new `feature` enum value to the `items/items/kinds/items` response property for the response status `200`
+GET /tenants/{tenant_id}/entities added the new `feature_instance` enum value to the `items/items/kinds/items` response property for the response status `200`
+POST /tenants/{tenant_id}/entities added the new `feature` enum value to the `kinds/items` response property for the response status `201`
+POST /tenants/{tenant_id}/entities added the new `feature_instance` enum value to the `kinds/items` response property for the response status `201`
+GET /tenants/{tenant_id}/entities/by-slug/{slug} added the new `feature` enum value to the `kinds/items` response property for the response status `200`
+GET /tenants/{tenant_id}/entities/by-slug/{slug} added the new `feature_instance` enum value to the `kinds/items` response property for the response status `200`
+GET /tenants/{tenant_id}/entities/export added the new `feature` enum value to the `items/items/kinds/items` response property for the response status `200`
+GET /tenants/{tenant_id}/entities/export added the new `feature_instance` enum value to the `items/items/kinds/items` response property for the response status `200`
+GET /tenants/{tenant_id}/entities/resolve added the new `feature` enum value to the `items/kinds/items` response property for the response status `200`
+GET /tenants/{tenant_id}/entities/resolve added the new `feature_instance` enum value to the `items/kinds/items` response property for the response status `200`
+GET /tenants/{tenant_id}/entities/{entity_id} added the new `feature` enum value to the `kinds/items` response property for the response status `200`
+GET /tenants/{tenant_id}/entities/{entity_id} added the new `feature_instance` enum value to the `kinds/items` response property for the response status `200`
+PATCH /tenants/{tenant_id}/entities/{entity_id} added the new `feature` enum value to the `kinds/items` response property for the response status `200`
+PATCH /tenants/{tenant_id}/entities/{entity_id} added the new `feature_instance` enum value to the `kinds/items` response property for the response status `200`
+GET /tenants/{tenant_id}/entities/{entity_id}/backlinks added the new `feature` enum value to the `items/items/kinds/items` response property for the response status `200`
+GET /tenants/{tenant_id}/entities/{entity_id}/backlinks added the new `feature_instance` enum value to the `items/items/kinds/items` response property for the response status `200`
 GET /tenants/{tenant_id}/entities/{entity_id}/computed-stats the `` response property const value `item_instance` was removed for the status `200`
-GET /tenants/{tenant_id}/entities/{entity_id}/computed-stats added the new `feature_instance` enum value to the `items/formula/oneOf[subschema #4: ContentsFormulaBody]/only_kind/anyOf[subschema #1]/` response property for the response status `200`
-GET /tenants/{tenant_id}/entities/{entity_id}/computed-stats added the new `item_instance` enum value to the `items/formula/oneOf[subschema #4: ContentsFormulaBody]/only_kind/anyOf[subschema #1]/` response property for the response status `200`
-PUT /tenants/{tenant_id}/entities/{entity_id}/computed-stats/{stat_definition_id} request property `anyOf[subschema #4: ContentsFormulaBody]/only_kind/anyOf[subschema #1]/` was restricted to a list of enum values
+GET /tenants/{tenant_id}/entities/{entity_id}/computed-stats added the new `feature_instance` enum value to the `items/formula/oneOf[subschema #4: ContentsFormulaBody]/only_kind/anyOf[subschema #1]` response property for the response status `200`
+GET /tenants/{tenant_id}/entities/{entity_id}/computed-stats added the new `item_instance` enum value to the `items/formula/oneOf[subschema #4: ContentsFormulaBody]/only_kind/anyOf[subschema #1]` response property for the response status `200`
+PUT /tenants/{tenant_id}/entities/{entity_id}/computed-stats/{stat_definition_id} request property `anyOf[subschema #4: ContentsFormulaBody]/only_kind/anyOf[subschema #1]` was restricted to a list of enum values
 PUT /tenants/{tenant_id}/entities/{entity_id}/computed-stats/{stat_definition_id} the `` response property const value `item_instance` was removed for the status `200`
-PUT /tenants/{tenant_id}/entities/{entity_id}/computed-stats/{stat_definition_id} added the new `feature_instance` enum value to the `formula/oneOf[subschema #4: ContentsFormulaBody]/only_kind/anyOf[subschema #1]/` response property for the response status `200`
-PUT /tenants/{tenant_id}/entities/{entity_id}/computed-stats/{stat_definition_id} added the new `item_instance` enum value to the `formula/oneOf[subschema #4: ContentsFormulaBody]/only_kind/anyOf[subschema #1]/` response property for the response status `200`
-POST /tenants/{tenant_id}/entities/{entity_id}/computed-stats/{stat_definition_id}/preview request property `anyOf[subschema #1: ComputedStatPreviewIn]/formula/anyOf[subschema #1]/oneOf[subschema #4: ContentsFormulaBody]/only_kind/anyOf[subschema #1]/` was restricted to a list of enum values
-GET /tenants/{tenant_id}/entities/{entity_id}/facts added the new `feature` enum value to the `items/items/kinds/items/` response property for the response status `200`
-GET /tenants/{tenant_id}/entities/{entity_id}/facts added the new `feature_instance` enum value to the `items/items/kinds/items/` response property for the response status `200`
-GET /tenants/{tenant_id}/entities/{entity_id}/frame-members added the new `feature` enum value to the `items/items/entry/kinds/items/` response property for the response status `200`
-GET /tenants/{tenant_id}/entities/{entity_id}/frame-members added the new `feature_instance` enum value to the `items/items/entry/kinds/items/` response property for the response status `200`
-GET /tenants/{tenant_id}/entities/{entity_id}/frames added the new `feature` enum value to the `frames/items/frame/kinds/items/` response property for the response status `200`
-GET /tenants/{tenant_id}/entities/{entity_id}/frames added the new `feature_instance` enum value to the `frames/items/frame/kinds/items/` response property for the response status `200`
-DELETE /tenants/{tenant_id}/entities/{entity_id}/kinds/{kind} added the new `feature` enum value to the `kinds/items/` response property for the response status `200`
-DELETE /tenants/{tenant_id}/entities/{entity_id}/kinds/{kind} added the new `feature_instance` enum value to the `kinds/items/` response property for the response status `200`
-PUT /tenants/{tenant_id}/entities/{entity_id}/kinds/{kind} added the new `feature` enum value to the `kinds/items/` response property for the response status `200`
-PUT /tenants/{tenant_id}/entities/{entity_id}/kinds/{kind} added the new `feature_instance` enum value to the `kinds/items/` response property for the response status `200`
-GET /tenants/{tenant_id}/entities/{entity_id}/matching-templates added the new `feature` enum value to the `items/required_kind/anyOf[subschema #1]/` response property for the response status `200`
-GET /tenants/{tenant_id}/entities/{entity_id}/matching-templates added the new `feature_instance` enum value to the `items/required_kind/anyOf[subschema #1]/` response property for the response status `200`
-PUT /tenants/{tenant_id}/entities/{entity_id}/parents added the new `feature` enum value to the `kinds/items/` response property for the response status `200`
-PUT /tenants/{tenant_id}/entities/{entity_id}/parents added the new `feature_instance` enum value to the `kinds/items/` response property for the response status `200`
-GET /tenants/{tenant_id}/entities/{entity_id}/preview added the new `feature` enum value to the `kinds/items/` response property for the response status `200`
-GET /tenants/{tenant_id}/entities/{entity_id}/preview added the new `feature_instance` enum value to the `kinds/items/` response property for the response status `200`
-DELETE /tenants/{tenant_id}/entities/{entity_id}/stats/{stat_definition_id} added the new `feature` enum value to the `kinds/items/` response property for the response status `200`
-DELETE /tenants/{tenant_id}/entities/{entity_id}/stats/{stat_definition_id} added the new `feature_instance` enum value to the `kinds/items/` response property for the response status `200`
-PUT /tenants/{tenant_id}/entities/{entity_id}/stats/{stat_definition_id} added the new `feature` enum value to the `kinds/items/` response property for the response status `200`
-PUT /tenants/{tenant_id}/entities/{entity_id}/stats/{stat_definition_id} added the new `feature_instance` enum value to the `kinds/items/` response property for the response status `200`
+PUT /tenants/{tenant_id}/entities/{entity_id}/computed-stats/{stat_definition_id} added the new `feature_instance` enum value to the `formula/oneOf[subschema #4: ContentsFormulaBody]/only_kind/anyOf[subschema #1]` response property for the response status `200`
+PUT /tenants/{tenant_id}/entities/{entity_id}/computed-stats/{stat_definition_id} added the new `item_instance` enum value to the `formula/oneOf[subschema #4: ContentsFormulaBody]/only_kind/anyOf[subschema #1]` response property for the response status `200`
+POST /tenants/{tenant_id}/entities/{entity_id}/computed-stats/{stat_definition_id}/preview request property `anyOf[subschema #1: ComputedStatPreviewIn]/formula/anyOf[subschema #1]/oneOf[subschema #4: ContentsFormulaBody]/only_kind/anyOf[subschema #1]` was restricted to a list of enum values
+GET /tenants/{tenant_id}/entities/{entity_id}/facts added the new `feature` enum value to the `items/items/kinds/items` response property for the response status `200`
+GET /tenants/{tenant_id}/entities/{entity_id}/facts added the new `feature_instance` enum value to the `items/items/kinds/items` response property for the response status `200`
+GET /tenants/{tenant_id}/entities/{entity_id}/frame-members added the new `feature` enum value to the `items/items/entry/kinds/items` response property for the response status `200`
+GET /tenants/{tenant_id}/entities/{entity_id}/frame-members added the new `feature_instance` enum value to the `items/items/entry/kinds/items` response property for the response status `200`
+GET /tenants/{tenant_id}/entities/{entity_id}/frames added the new `feature` enum value to the `frames/items/frame/kinds/items` response property for the response status `200`
+GET /tenants/{tenant_id}/entities/{entity_id}/frames added the new `feature_instance` enum value to the `frames/items/frame/kinds/items` response property for the response status `200`
+DELETE /tenants/{tenant_id}/entities/{entity_id}/kinds/{kind} added the new `feature` enum value to the `kinds/items` response property for the response status `200`
+DELETE /tenants/{tenant_id}/entities/{entity_id}/kinds/{kind} added the new `feature_instance` enum value to the `kinds/items` response property for the response status `200`
+PUT /tenants/{tenant_id}/entities/{entity_id}/kinds/{kind} added the new `feature` enum value to the `kinds/items` response property for the response status `200`
+PUT /tenants/{tenant_id}/entities/{entity_id}/kinds/{kind} added the new `feature_instance` enum value to the `kinds/items` response property for the response status `200`
+GET /tenants/{tenant_id}/entities/{entity_id}/matching-templates added the new `feature` enum value to the `items/required_kind/anyOf[subschema #1]` response property for the response status `200`
+GET /tenants/{tenant_id}/entities/{entity_id}/matching-templates added the new `feature_instance` enum value to the `items/required_kind/anyOf[subschema #1]` response property for the response status `200`
+PUT /tenants/{tenant_id}/entities/{entity_id}/parents added the new `feature` enum value to the `kinds/items` response property for the response status `200`
+PUT /tenants/{tenant_id}/entities/{entity_id}/parents added the new `feature_instance` enum value to the `kinds/items` response property for the response status `200`
+GET /tenants/{tenant_id}/entities/{entity_id}/preview added the new `feature` enum value to the `kinds/items` response property for the response status `200`
+GET /tenants/{tenant_id}/entities/{entity_id}/preview added the new `feature_instance` enum value to the `kinds/items` response property for the response status `200`
+DELETE /tenants/{tenant_id}/entities/{entity_id}/stats/{stat_definition_id} added the new `feature` enum value to the `kinds/items` response property for the response status `200`
+DELETE /tenants/{tenant_id}/entities/{entity_id}/stats/{stat_definition_id} added the new `feature_instance` enum value to the `kinds/items` response property for the response status `200`
+PUT /tenants/{tenant_id}/entities/{entity_id}/stats/{stat_definition_id} added the new `feature` enum value to the `kinds/items` response property for the response status `200`
+PUT /tenants/{tenant_id}/entities/{entity_id}/stats/{stat_definition_id} added the new `feature_instance` enum value to the `kinds/items` response property for the response status `200`
 GET /tenants/{tenant_id}/entities/{entity_id}/stats/{stat_definition_id}/explanation the `` response property const value `item_instance` was removed for the status `200`
-GET /tenants/{tenant_id}/entities/{entity_id}/stats/{stat_definition_id}/explanation added the new `feature_instance` enum value to the `formula/anyOf[subschema #1]/oneOf[subschema #4: ContentsFormulaBody]/only_kind/anyOf[subschema #1]/` response property for the response status `200`
-GET /tenants/{tenant_id}/entities/{entity_id}/stats/{stat_definition_id}/explanation added the new `item_instance` enum value to the `formula/anyOf[subschema #1]/oneOf[subschema #4: ContentsFormulaBody]/only_kind/anyOf[subschema #1]/` response property for the response status `200`
-DELETE /tenants/{tenant_id}/entities/{entity_id}/tags/{stat_definition_id} added the new `feature` enum value to the `kinds/items/` response property for the response status `200`
-DELETE /tenants/{tenant_id}/entities/{entity_id}/tags/{stat_definition_id} added the new `feature_instance` enum value to the `kinds/items/` response property for the response status `200`
-PATCH /tenants/{tenant_id}/entities/{entity_id}/tags/{stat_definition_id} added the new `feature` enum value to the `kinds/items/` response property for the response status `200`
-PATCH /tenants/{tenant_id}/entities/{entity_id}/tags/{stat_definition_id} added the new `feature_instance` enum value to the `kinds/items/` response property for the response status `200`
-PUT /tenants/{tenant_id}/entities/{entity_id}/tags/{stat_definition_id} added the new `feature` enum value to the `kinds/items/` response property for the response status `200`
-PUT /tenants/{tenant_id}/entities/{entity_id}/tags/{stat_definition_id} added the new `feature_instance` enum value to the `kinds/items/` response property for the response status `200`
-GET /tenants/{tenant_id}/entities/{entity_id}/templates/{template_id} added the new `feature` enum value to the `template/required_kind/anyOf[subschema #1]/` response property for the response status `200`
-GET /tenants/{tenant_id}/entities/{entity_id}/templates/{template_id} added the new `feature_instance` enum value to the `template/required_kind/anyOf[subschema #1]/` response property for the response status `200`
-GET /tenants/{tenant_id}/frames added the new `feature` enum value to the `items/items/entry/kinds/items/` response property for the response status `200`
-GET /tenants/{tenant_id}/frames added the new `feature_instance` enum value to the `items/items/entry/kinds/items/` response property for the response status `200`
-GET /tenants/{tenant_id}/locations added the new `feature` enum value to the `items/items/kinds/items/` response property for the response status `200`
-GET /tenants/{tenant_id}/locations added the new `feature_instance` enum value to the `items/items/kinds/items/` response property for the response status `200`
-POST /tenants/{tenant_id}/locations added the new `feature` enum value to the `kinds/items/` response property for the response status `201`
-POST /tenants/{tenant_id}/locations added the new `feature` enum value to the `within/anyOf[subschema #1: LocationStub]/kinds/items/` response property for the response status `201`
-POST /tenants/{tenant_id}/locations added the new `feature_instance` enum value to the `kinds/items/` response property for the response status `201`
-POST /tenants/{tenant_id}/locations added the new `feature_instance` enum value to the `within/anyOf[subschema #1: LocationStub]/kinds/items/` response property for the response status `201`
-GET /tenants/{tenant_id}/locations/{location_id} added the new `feature` enum value to the `kinds/items/` response property for the response status `200`
-GET /tenants/{tenant_id}/locations/{location_id} added the new `feature` enum value to the `within/anyOf[subschema #1: LocationStub]/kinds/items/` response property for the response status `200`
-GET /tenants/{tenant_id}/locations/{location_id} added the new `feature_instance` enum value to the `kinds/items/` response property for the response status `200`
-GET /tenants/{tenant_id}/locations/{location_id} added the new `feature_instance` enum value to the `within/anyOf[subschema #1: LocationStub]/kinds/items/` response property for the response status `200`
-PUT /tenants/{tenant_id}/locations/{location_id}/part-of added the new `feature` enum value to the `kinds/items/` response property for the response status `200`
-PUT /tenants/{tenant_id}/locations/{location_id}/part-of added the new `feature` enum value to the `within/anyOf[subschema #1: LocationStub]/kinds/items/` response property for the response status `200`
-PUT /tenants/{tenant_id}/locations/{location_id}/part-of added the new `feature_instance` enum value to the `kinds/items/` response property for the response status `200`
-PUT /tenants/{tenant_id}/locations/{location_id}/part-of added the new `feature_instance` enum value to the `within/anyOf[subschema #1: LocationStub]/kinds/items/` response property for the response status `200`
-GET /tenants/{tenant_id}/locations/{location_id}/parts added the new `feature` enum value to the `items/items/kinds/items/` response property for the response status `200`
-GET /tenants/{tenant_id}/locations/{location_id}/parts added the new `feature_instance` enum value to the `items/items/kinds/items/` response property for the response status `200`
-GET /tenants/{tenant_id}/maps added the new `feature` enum value to the `items/items/kinds/items/` response property for the response status `200`
-GET /tenants/{tenant_id}/maps added the new `feature_instance` enum value to the `items/items/kinds/items/` response property for the response status `200`
-POST /tenants/{tenant_id}/maps added the new `feature` enum value to the `kinds/items/` response property for the response status `201`
-POST /tenants/{tenant_id}/maps added the new `feature` enum value to the `subject/anyOf[subschema #1: MapStub]/kinds/items/` response property for the response status `201`
-POST /tenants/{tenant_id}/maps added the new `feature_instance` enum value to the `kinds/items/` response property for the response status `201`
-POST /tenants/{tenant_id}/maps added the new `feature_instance` enum value to the `subject/anyOf[subschema #1: MapStub]/kinds/items/` response property for the response status `201`
-GET /tenants/{tenant_id}/maps/{map_id} added the new `feature` enum value to the `kinds/items/` response property for the response status `200`
-GET /tenants/{tenant_id}/maps/{map_id} added the new `feature` enum value to the `subject/anyOf[subschema #1: MapStub]/kinds/items/` response property for the response status `200`
-GET /tenants/{tenant_id}/maps/{map_id} added the new `feature_instance` enum value to the `kinds/items/` response property for the response status `200`
-GET /tenants/{tenant_id}/maps/{map_id} added the new `feature_instance` enum value to the `subject/anyOf[subschema #1: MapStub]/kinds/items/` response property for the response status `200`
-PUT /tenants/{tenant_id}/maps/{map_id} added the new `feature` enum value to the `kinds/items/` response property for the response status `200`
-PUT /tenants/{tenant_id}/maps/{map_id} added the new `feature` enum value to the `subject/anyOf[subschema #1: MapStub]/kinds/items/` response property for the response status `200`
-PUT /tenants/{tenant_id}/maps/{map_id} added the new `feature_instance` enum value to the `kinds/items/` response property for the response status `200`
-PUT /tenants/{tenant_id}/maps/{map_id} added the new `feature_instance` enum value to the `subject/anyOf[subschema #1: MapStub]/kinds/items/` response property for the response status `200`
-PUT /tenants/{tenant_id}/maps/{map_id}/layers added the new `feature` enum value to the `kinds/items/` response property for the response status `200`
-PUT /tenants/{tenant_id}/maps/{map_id}/layers added the new `feature` enum value to the `subject/anyOf[subschema #1: MapStub]/kinds/items/` response property for the response status `200`
-PUT /tenants/{tenant_id}/maps/{map_id}/layers added the new `feature_instance` enum value to the `kinds/items/` response property for the response status `200`
-PUT /tenants/{tenant_id}/maps/{map_id}/layers added the new `feature_instance` enum value to the `subject/anyOf[subschema #1: MapStub]/kinds/items/` response property for the response status `200`
-GET /tenants/{tenant_id}/maps/{map_id}/links added the new `feature` enum value to the `items/items/connection/kinds/items/` response property for the response status `200`
-GET /tenants/{tenant_id}/maps/{map_id}/links added the new `feature` enum value to the `items/items/here/kinds/items/` response property for the response status `200`
-GET /tenants/{tenant_id}/maps/{map_id}/links added the new `feature` enum value to the `items/items/other/kinds/items/` response property for the response status `200`
-GET /tenants/{tenant_id}/maps/{map_id}/links added the new `feature` enum value to the `items/items/other_maps/items/kinds/items/` response property for the response status `200`
-GET /tenants/{tenant_id}/maps/{map_id}/links added the new `feature_instance` enum value to the `items/items/connection/kinds/items/` response property for the response status `200`
-GET /tenants/{tenant_id}/maps/{map_id}/links added the new `feature_instance` enum value to the `items/items/here/kinds/items/` response property for the response status `200`
-GET /tenants/{tenant_id}/maps/{map_id}/links added the new `feature_instance` enum value to the `items/items/other/kinds/items/` response property for the response status `200`
-GET /tenants/{tenant_id}/maps/{map_id}/links added the new `feature_instance` enum value to the `items/items/other_maps/items/kinds/items/` response property for the response status `200`
-GET /tenants/{tenant_id}/maps/{map_id}/placements added the new `feature` enum value to the `items/items/kinds/items/` response property for the response status `200`
-GET /tenants/{tenant_id}/maps/{map_id}/placements added the new `feature_instance` enum value to the `items/items/kinds/items/` response property for the response status `200`
-PUT /tenants/{tenant_id}/maps/{map_id}/placements/{entry_id} added the new `feature` enum value to the `kinds/items/` response property for the response status `200`
-PUT /tenants/{tenant_id}/maps/{map_id}/placements/{entry_id} added the new `feature_instance` enum value to the `kinds/items/` response property for the response status `200`
-GET /tenants/{tenant_id}/relationship-problems added the new `feature` enum value to the `items/items/relationship/kinds/items/` response property for the response status `200`
-GET /tenants/{tenant_id}/relationship-problems added the new `feature_instance` enum value to the `items/items/relationship/kinds/items/` response property for the response status `200`
-GET /tenants/{tenant_id}/relationship-types added the new `feature` enum value to the `items/items/kinds/items/` response property for the response status `200`
-GET /tenants/{tenant_id}/relationship-types added the new `feature_instance` enum value to the `items/items/kinds/items/` response property for the response status `200`
-GET /tenants/{tenant_id}/relationships added the new `feature` enum value to the `items/items/end_a/kinds/items/` response property for the response status `200`
-GET /tenants/{tenant_id}/relationships added the new `feature` enum value to the `items/items/end_b/kinds/items/` response property for the response status `200`
-GET /tenants/{tenant_id}/relationships added the new `feature` enum value to the `items/items/ends_at/anyOf[subschema #1: EntryStub]/kinds/items/` response property for the response status `200`
-GET /tenants/{tenant_id}/relationships added the new `feature` enum value to the `items/items/kinds/items/` response property for the response status `200`
-GET /tenants/{tenant_id}/relationships added the new `feature` enum value to the `items/items/starts_at/anyOf[subschema #1: EntryStub]/kinds/items/` response property for the response status `200`
-GET /tenants/{tenant_id}/relationships added the new `feature_instance` enum value to the `items/items/end_a/kinds/items/` response property for the response status `200`
-GET /tenants/{tenant_id}/relationships added the new `feature_instance` enum value to the `items/items/end_b/kinds/items/` response property for the response status `200`
-GET /tenants/{tenant_id}/relationships added the new `feature_instance` enum value to the `items/items/ends_at/anyOf[subschema #1: EntryStub]/kinds/items/` response property for the response status `200`
-GET /tenants/{tenant_id}/relationships added the new `feature_instance` enum value to the `items/items/kinds/items/` response property for the response status `200`
-GET /tenants/{tenant_id}/relationships added the new `feature_instance` enum value to the `items/items/starts_at/anyOf[subschema #1: EntryStub]/kinds/items/` response property for the response status `200`
-POST /tenants/{tenant_id}/relationships added the new `feature` enum value to the `end_a/kinds/items/` response property for the response status `201`
-POST /tenants/{tenant_id}/relationships added the new `feature` enum value to the `end_b/kinds/items/` response property for the response status `201`
-POST /tenants/{tenant_id}/relationships added the new `feature` enum value to the `ends_at/anyOf[subschema #1: EntryStub]/kinds/items/` response property for the response status `201`
-POST /tenants/{tenant_id}/relationships added the new `feature` enum value to the `kinds/items/` response property for the response status `201`
-POST /tenants/{tenant_id}/relationships added the new `feature` enum value to the `starts_at/anyOf[subschema #1: EntryStub]/kinds/items/` response property for the response status `201`
-POST /tenants/{tenant_id}/relationships added the new `feature_instance` enum value to the `end_a/kinds/items/` response property for the response status `201`
-POST /tenants/{tenant_id}/relationships added the new `feature_instance` enum value to the `end_b/kinds/items/` response property for the response status `201`
-POST /tenants/{tenant_id}/relationships added the new `feature_instance` enum value to the `ends_at/anyOf[subschema #1: EntryStub]/kinds/items/` response property for the response status `201`
-POST /tenants/{tenant_id}/relationships added the new `feature_instance` enum value to the `kinds/items/` response property for the response status `201`
-POST /tenants/{tenant_id}/relationships added the new `feature_instance` enum value to the `starts_at/anyOf[subschema #1: EntryStub]/kinds/items/` response property for the response status `201`
-POST /tenants/{tenant_id}/relationships/bulk added the new `feature` enum value to the `results/items/relationship/anyOf[subschema #1: RelationshipEntryOut]/end_a/kinds/items/` response property for the response status `200`
-POST /tenants/{tenant_id}/relationships/bulk added the new `feature` enum value to the `results/items/relationship/anyOf[subschema #1: RelationshipEntryOut]/end_b/kinds/items/` response property for the response status `200`
-POST /tenants/{tenant_id}/relationships/bulk added the new `feature` enum value to the `results/items/relationship/anyOf[subschema #1: RelationshipEntryOut]/ends_at/anyOf[subschema #1: EntryStub]/kinds/items/` response property for the response status `200`
-POST /tenants/{tenant_id}/relationships/bulk added the new `feature` enum value to the `results/items/relationship/anyOf[subschema #1: RelationshipEntryOut]/kinds/items/` response property for the response status `200`
-POST /tenants/{tenant_id}/relationships/bulk added the new `feature` enum value to the `results/items/relationship/anyOf[subschema #1: RelationshipEntryOut]/starts_at/anyOf[subschema #1: EntryStub]/kinds/items/` response property for the response status `200`
-POST /tenants/{tenant_id}/relationships/bulk added the new `feature_instance` enum value to the `results/items/relationship/anyOf[subschema #1: RelationshipEntryOut]/end_a/kinds/items/` response property for the response status `200`
-POST /tenants/{tenant_id}/relationships/bulk added the new `feature_instance` enum value to the `results/items/relationship/anyOf[subschema #1: RelationshipEntryOut]/end_b/kinds/items/` response property for the response status `200`
-POST /tenants/{tenant_id}/relationships/bulk added the new `feature_instance` enum value to the `results/items/relationship/anyOf[subschema #1: RelationshipEntryOut]/ends_at/anyOf[subschema #1: EntryStub]/kinds/items/` response property for the response status `200`
-POST /tenants/{tenant_id}/relationships/bulk added the new `feature_instance` enum value to the `results/items/relationship/anyOf[subschema #1: RelationshipEntryOut]/kinds/items/` response property for the response status `200`
-POST /tenants/{tenant_id}/relationships/bulk added the new `feature_instance` enum value to the `results/items/relationship/anyOf[subschema #1: RelationshipEntryOut]/starts_at/anyOf[subschema #1: EntryStub]/kinds/items/` response property for the response status `200`
-GET /tenants/{tenant_id}/relationships/{relationship_id} added the new `feature` enum value to the `end_a/kinds/items/` response property for the response status `200`
-GET /tenants/{tenant_id}/relationships/{relationship_id} added the new `feature` enum value to the `end_b/kinds/items/` response property for the response status `200`
-GET /tenants/{tenant_id}/relationships/{relationship_id} added the new `feature` enum value to the `ends_at/anyOf[subschema #1: EntryStub]/kinds/items/` response property for the response status `200`
-GET /tenants/{tenant_id}/relationships/{relationship_id} added the new `feature` enum value to the `kinds/items/` response property for the response status `200`
-GET /tenants/{tenant_id}/relationships/{relationship_id} added the new `feature` enum value to the `starts_at/anyOf[subschema #1: EntryStub]/kinds/items/` response property for the response status `200`
-GET /tenants/{tenant_id}/relationships/{relationship_id} added the new `feature_instance` enum value to the `end_a/kinds/items/` response property for the response status `200`
-GET /tenants/{tenant_id}/relationships/{relationship_id} added the new `feature_instance` enum value to the `end_b/kinds/items/` response property for the response status `200`
-GET /tenants/{tenant_id}/relationships/{relationship_id} added the new `feature_instance` enum value to the `ends_at/anyOf[subschema #1: EntryStub]/kinds/items/` response property for the response status `200`
-GET /tenants/{tenant_id}/relationships/{relationship_id} added the new `feature_instance` enum value to the `kinds/items/` response property for the response status `200`
-GET /tenants/{tenant_id}/relationships/{relationship_id} added the new `feature_instance` enum value to the `starts_at/anyOf[subschema #1: EntryStub]/kinds/items/` response property for the response status `200`
-PUT /tenants/{tenant_id}/relationships/{relationship_id} added the new `feature` enum value to the `end_a/kinds/items/` response property for the response status `200`
-PUT /tenants/{tenant_id}/relationships/{relationship_id} added the new `feature` enum value to the `end_b/kinds/items/` response property for the response status `200`
-PUT /tenants/{tenant_id}/relationships/{relationship_id} added the new `feature` enum value to the `ends_at/anyOf[subschema #1: EntryStub]/kinds/items/` response property for the response status `200`
-PUT /tenants/{tenant_id}/relationships/{relationship_id} added the new `feature` enum value to the `kinds/items/` response property for the response status `200`
-PUT /tenants/{tenant_id}/relationships/{relationship_id} added the new `feature` enum value to the `starts_at/anyOf[subschema #1: EntryStub]/kinds/items/` response property for the response status `200`
-PUT /tenants/{tenant_id}/relationships/{relationship_id} added the new `feature_instance` enum value to the `end_a/kinds/items/` response property for the response status `200`
-PUT /tenants/{tenant_id}/relationships/{relationship_id} added the new `feature_instance` enum value to the `end_b/kinds/items/` response property for the response status `200`
-PUT /tenants/{tenant_id}/relationships/{relationship_id} added the new `feature_instance` enum value to the `ends_at/anyOf[subschema #1: EntryStub]/kinds/items/` response property for the response status `200`
-PUT /tenants/{tenant_id}/relationships/{relationship_id} added the new `feature_instance` enum value to the `kinds/items/` response property for the response status `200`
-PUT /tenants/{tenant_id}/relationships/{relationship_id} added the new `feature_instance` enum value to the `starts_at/anyOf[subschema #1: EntryStub]/kinds/items/` response property for the response status `200`
-GET /tenants/{tenant_id}/relationships/{relationship_id}/through added the new `feature` enum value to the `via/items/end_a/kinds/items/` response property for the response status `200`
-GET /tenants/{tenant_id}/relationships/{relationship_id}/through added the new `feature` enum value to the `via/items/end_b/kinds/items/` response property for the response status `200`
-GET /tenants/{tenant_id}/relationships/{relationship_id}/through added the new `feature` enum value to the `via/items/ends_at/anyOf[subschema #1: EntryStub]/kinds/items/` response property for the response status `200`
-GET /tenants/{tenant_id}/relationships/{relationship_id}/through added the new `feature` enum value to the `via/items/kinds/items/` response property for the response status `200`
-GET /tenants/{tenant_id}/relationships/{relationship_id}/through added the new `feature` enum value to the `via/items/starts_at/anyOf[subschema #1: EntryStub]/kinds/items/` response property for the response status `200`
-GET /tenants/{tenant_id}/relationships/{relationship_id}/through added the new `feature_instance` enum value to the `via/items/end_a/kinds/items/` response property for the response status `200`
-GET /tenants/{tenant_id}/relationships/{relationship_id}/through added the new `feature_instance` enum value to the `via/items/end_b/kinds/items/` response property for the response status `200`
-GET /tenants/{tenant_id}/relationships/{relationship_id}/through added the new `feature_instance` enum value to the `via/items/ends_at/anyOf[subschema #1: EntryStub]/kinds/items/` response property for the response status `200`
-GET /tenants/{tenant_id}/relationships/{relationship_id}/through added the new `feature_instance` enum value to the `via/items/kinds/items/` response property for the response status `200`
-GET /tenants/{tenant_id}/relationships/{relationship_id}/through added the new `feature_instance` enum value to the `via/items/starts_at/anyOf[subschema #1: EntryStub]/kinds/items/` response property for the response status `200`
-PUT /tenants/{tenant_id}/relationships/{relationship_id}/through added the new `feature` enum value to the `via/items/end_a/kinds/items/` response property for the response status `200`
-PUT /tenants/{tenant_id}/relationships/{relationship_id}/through added the new `feature` enum value to the `via/items/end_b/kinds/items/` response property for the response status `200`
-PUT /tenants/{tenant_id}/relationships/{relationship_id}/through added the new `feature` enum value to the `via/items/ends_at/anyOf[subschema #1: EntryStub]/kinds/items/` response property for the response status `200`
-PUT /tenants/{tenant_id}/relationships/{relationship_id}/through added the new `feature` enum value to the `via/items/kinds/items/` response property for the response status `200`
-PUT /tenants/{tenant_id}/relationships/{relationship_id}/through added the new `feature` enum value to the `via/items/starts_at/anyOf[subschema #1: EntryStub]/kinds/items/` response property for the response status `200`
-PUT /tenants/{tenant_id}/relationships/{relationship_id}/through added the new `feature_instance` enum value to the `via/items/end_a/kinds/items/` response property for the response status `200`
-PUT /tenants/{tenant_id}/relationships/{relationship_id}/through added the new `feature_instance` enum value to the `via/items/end_b/kinds/items/` response property for the response status `200`
-PUT /tenants/{tenant_id}/relationships/{relationship_id}/through added the new `feature_instance` enum value to the `via/items/ends_at/anyOf[subschema #1: EntryStub]/kinds/items/` response property for the response status `200`
-PUT /tenants/{tenant_id}/relationships/{relationship_id}/through added the new `feature_instance` enum value to the `via/items/kinds/items/` response property for the response status `200`
-PUT /tenants/{tenant_id}/relationships/{relationship_id}/through added the new `feature_instance` enum value to the `via/items/starts_at/anyOf[subschema #1: EntryStub]/kinds/items/` response property for the response status `200`
-GET /tenants/{tenant_id}/social-webs added the new `feature` enum value to the `items/items/as_of_event/anyOf[subschema #1: EntryStub]/kinds/items/` response property for the response status `200`
-GET /tenants/{tenant_id}/social-webs added the new `feature` enum value to the `items/items/kinds/items/` response property for the response status `200`
-GET /tenants/{tenant_id}/social-webs added the new `feature_instance` enum value to the `items/items/as_of_event/anyOf[subschema #1: EntryStub]/kinds/items/` response property for the response status `200`
-GET /tenants/{tenant_id}/social-webs added the new `feature_instance` enum value to the `items/items/kinds/items/` response property for the response status `200`
-POST /tenants/{tenant_id}/social-webs added the new `feature` enum value to the `as_of_event/anyOf[subschema #1: EntryStub]/kinds/items/` response property for the response status `201`
-POST /tenants/{tenant_id}/social-webs added the new `feature` enum value to the `kinds/items/` response property for the response status `201`
-POST /tenants/{tenant_id}/social-webs added the new `feature` enum value to the `members/items/entry/kinds/items/` response property for the response status `201`
-POST /tenants/{tenant_id}/social-webs added the new `feature` enum value to the `types/items/kinds/items/` response property for the response status `201`
-POST /tenants/{tenant_id}/social-webs added the new `feature_instance` enum value to the `as_of_event/anyOf[subschema #1: EntryStub]/kinds/items/` response property for the response status `201`
-POST /tenants/{tenant_id}/social-webs added the new `feature_instance` enum value to the `kinds/items/` response property for the response status `201`
-POST /tenants/{tenant_id}/social-webs added the new `feature_instance` enum value to the `members/items/entry/kinds/items/` response property for the response status `201`
-POST /tenants/{tenant_id}/social-webs added the new `feature_instance` enum value to the `types/items/kinds/items/` response property for the response status `201`
-GET /tenants/{tenant_id}/social-webs/{web_id} added the new `feature` enum value to the `as_of_event/anyOf[subschema #1: EntryStub]/kinds/items/` response property for the response status `200`
-GET /tenants/{tenant_id}/social-webs/{web_id} added the new `feature` enum value to the `kinds/items/` response property for the response status `200`
-GET /tenants/{tenant_id}/social-webs/{web_id} added the new `feature` enum value to the `members/items/entry/kinds/items/` response property for the response status `200`
-GET /tenants/{tenant_id}/social-webs/{web_id} added the new `feature` enum value to the `types/items/kinds/items/` response property for the response status `200`
-GET /tenants/{tenant_id}/social-webs/{web_id} added the new `feature_instance` enum value to the `as_of_event/anyOf[subschema #1: EntryStub]/kinds/items/` response property for the response status `200`
-GET /tenants/{tenant_id}/social-webs/{web_id} added the new `feature_instance` enum value to the `kinds/items/` response property for the response status `200`
-GET /tenants/{tenant_id}/social-webs/{web_id} added the new `feature_instance` enum value to the `members/items/entry/kinds/items/` response property for the response status `200`
-GET /tenants/{tenant_id}/social-webs/{web_id} added the new `feature_instance` enum value to the `types/items/kinds/items/` response property for the response status `200`
-PUT /tenants/{tenant_id}/social-webs/{web_id} added the new `feature` enum value to the `as_of_event/anyOf[subschema #1: EntryStub]/kinds/items/` response property for the response status `200`
-PUT /tenants/{tenant_id}/social-webs/{web_id} added the new `feature` enum value to the `kinds/items/` response property for the response status `200`
-PUT /tenants/{tenant_id}/social-webs/{web_id} added the new `feature` enum value to the `members/items/entry/kinds/items/` response property for the response status `200`
-PUT /tenants/{tenant_id}/social-webs/{web_id} added the new `feature` enum value to the `types/items/kinds/items/` response property for the response status `200`
-PUT /tenants/{tenant_id}/social-webs/{web_id} added the new `feature_instance` enum value to the `as_of_event/anyOf[subschema #1: EntryStub]/kinds/items/` response property for the response status `200`
-PUT /tenants/{tenant_id}/social-webs/{web_id} added the new `feature_instance` enum value to the `kinds/items/` response property for the response status `200`
-PUT /tenants/{tenant_id}/social-webs/{web_id} added the new `feature_instance` enum value to the `members/items/entry/kinds/items/` response property for the response status `200`
-PUT /tenants/{tenant_id}/social-webs/{web_id} added the new `feature_instance` enum value to the `types/items/kinds/items/` response property for the response status `200`
-GET /tenants/{tenant_id}/social-webs/{web_id}/graph added the new `feature` enum value to the `edges/items/end_a/kinds/items/` response property for the response status `200`
-GET /tenants/{tenant_id}/social-webs/{web_id}/graph added the new `feature` enum value to the `edges/items/end_b/kinds/items/` response property for the response status `200`
-GET /tenants/{tenant_id}/social-webs/{web_id}/graph added the new `feature` enum value to the `edges/items/ends_at/anyOf[subschema #1: EntryStub]/kinds/items/` response property for the response status `200`
-GET /tenants/{tenant_id}/social-webs/{web_id}/graph added the new `feature` enum value to the `edges/items/kinds/items/` response property for the response status `200`
-GET /tenants/{tenant_id}/social-webs/{web_id}/graph added the new `feature` enum value to the `edges/items/starts_at/anyOf[subschema #1: EntryStub]/kinds/items/` response property for the response status `200`
-GET /tenants/{tenant_id}/social-webs/{web_id}/graph added the new `feature` enum value to the `members/items/entry/kinds/items/` response property for the response status `200`
-GET /tenants/{tenant_id}/social-webs/{web_id}/graph added the new `feature` enum value to the `web/as_of_event/anyOf[subschema #1: EntryStub]/kinds/items/` response property for the response status `200`
-GET /tenants/{tenant_id}/social-webs/{web_id}/graph added the new `feature` enum value to the `web/kinds/items/` response property for the response status `200`
-GET /tenants/{tenant_id}/social-webs/{web_id}/graph added the new `feature_instance` enum value to the `edges/items/end_a/kinds/items/` response property for the response status `200`
-GET /tenants/{tenant_id}/social-webs/{web_id}/graph added the new `feature_instance` enum value to the `edges/items/end_b/kinds/items/` response property for the response status `200`
-GET /tenants/{tenant_id}/social-webs/{web_id}/graph added the new `feature_instance` enum value to the `edges/items/ends_at/anyOf[subschema #1: EntryStub]/kinds/items/` response property for the response status `200`
-GET /tenants/{tenant_id}/social-webs/{web_id}/graph added the new `feature_instance` enum value to the `edges/items/kinds/items/` response property for the response status `200`
-GET /tenants/{tenant_id}/social-webs/{web_id}/graph added the new `feature_instance` enum value to the `edges/items/starts_at/anyOf[subschema #1: EntryStub]/kinds/items/` response property for the response status `200`
-GET /tenants/{tenant_id}/social-webs/{web_id}/graph added the new `feature_instance` enum value to the `members/items/entry/kinds/items/` response property for the response status `200`
-GET /tenants/{tenant_id}/social-webs/{web_id}/graph added the new `feature_instance` enum value to the `web/as_of_event/anyOf[subschema #1: EntryStub]/kinds/items/` response property for the response status `200`
-GET /tenants/{tenant_id}/social-webs/{web_id}/graph added the new `feature_instance` enum value to the `web/kinds/items/` response property for the response status `200`
-POST /tenants/{tenant_id}/social-webs/{web_id}/members/bulk added the new `feature` enum value to the `as_of_event/anyOf[subschema #1: EntryStub]/kinds/items/` response property for the response status `200`
-POST /tenants/{tenant_id}/social-webs/{web_id}/members/bulk added the new `feature` enum value to the `kinds/items/` response property for the response status `200`
-POST /tenants/{tenant_id}/social-webs/{web_id}/members/bulk added the new `feature` enum value to the `members/items/entry/kinds/items/` response property for the response status `200`
-POST /tenants/{tenant_id}/social-webs/{web_id}/members/bulk added the new `feature` enum value to the `types/items/kinds/items/` response property for the response status `200`
-POST /tenants/{tenant_id}/social-webs/{web_id}/members/bulk added the new `feature_instance` enum value to the `as_of_event/anyOf[subschema #1: EntryStub]/kinds/items/` response property for the response status `200`
-POST /tenants/{tenant_id}/social-webs/{web_id}/members/bulk added the new `feature_instance` enum value to the `kinds/items/` response property for the response status `200`
-POST /tenants/{tenant_id}/social-webs/{web_id}/members/bulk added the new `feature_instance` enum value to the `members/items/entry/kinds/items/` response property for the response status `200`
-POST /tenants/{tenant_id}/social-webs/{web_id}/members/bulk added the new `feature_instance` enum value to the `types/items/kinds/items/` response property for the response status `200`
-PUT /tenants/{tenant_id}/social-webs/{web_id}/types added the new `feature` enum value to the `as_of_event/anyOf[subschema #1: EntryStub]/kinds/items/` response property for the response status `200`
-PUT /tenants/{tenant_id}/social-webs/{web_id}/types added the new `feature` enum value to the `kinds/items/` response property for the response status `200`
-PUT /tenants/{tenant_id}/social-webs/{web_id}/types added the new `feature` enum value to the `members/items/entry/kinds/items/` response property for the response status `200`
-PUT /tenants/{tenant_id}/social-webs/{web_id}/types added the new `feature` enum value to the `types/items/kinds/items/` response property for the response status `200`
-PUT /tenants/{tenant_id}/social-webs/{web_id}/types added the new `feature_instance` enum value to the `as_of_event/anyOf[subschema #1: EntryStub]/kinds/items/` response property for the response status `200`
-PUT /tenants/{tenant_id}/social-webs/{web_id}/types added the new `feature_instance` enum value to the `kinds/items/` response property for the response status `200`
-PUT /tenants/{tenant_id}/social-webs/{web_id}/types added the new `feature_instance` enum value to the `members/items/entry/kinds/items/` response property for the response status `200`
-PUT /tenants/{tenant_id}/social-webs/{web_id}/types added the new `feature_instance` enum value to the `types/items/kinds/items/` response property for the response status `200`
-GET /tenants/{tenant_id}/templates added the new `feature` enum value to the `items/items/required_kind/anyOf[subschema #1]/` response property for the response status `200`
-GET /tenants/{tenant_id}/templates added the new `feature_instance` enum value to the `items/items/required_kind/anyOf[subschema #1]/` response property for the response status `200`
-POST /tenants/{tenant_id}/templates added the new `feature` enum value to the `required_kind/anyOf[subschema #1]/` response property for the response status `201`
-POST /tenants/{tenant_id}/templates added the new `feature_instance` enum value to the `required_kind/anyOf[subschema #1]/` response property for the response status `201`
-GET /tenants/{tenant_id}/templates/{template_id} added the new `feature` enum value to the `required_kind/anyOf[subschema #1]/` response property for the response status `200`
-GET /tenants/{tenant_id}/templates/{template_id} added the new `feature_instance` enum value to the `required_kind/anyOf[subschema #1]/` response property for the response status `200`
-PUT /tenants/{tenant_id}/templates/{template_id} added the new `feature` enum value to the `required_kind/anyOf[subschema #1]/` response property for the response status `200`
-PUT /tenants/{tenant_id}/templates/{template_id} added the new `feature_instance` enum value to the `required_kind/anyOf[subschema #1]/` response property for the response status `200`
+GET /tenants/{tenant_id}/entities/{entity_id}/stats/{stat_definition_id}/explanation added the new `feature_instance` enum value to the `formula/anyOf[subschema #1]/oneOf[subschema #4: ContentsFormulaBody]/only_kind/anyOf[subschema #1]` response property for the response status `200`
+GET /tenants/{tenant_id}/entities/{entity_id}/stats/{stat_definition_id}/explanation added the new `item_instance` enum value to the `formula/anyOf[subschema #1]/oneOf[subschema #4: ContentsFormulaBody]/only_kind/anyOf[subschema #1]` response property for the response status `200`
+DELETE /tenants/{tenant_id}/entities/{entity_id}/tags/{stat_definition_id} added the new `feature` enum value to the `kinds/items` response property for the response status `200`
+DELETE /tenants/{tenant_id}/entities/{entity_id}/tags/{stat_definition_id} added the new `feature_instance` enum value to the `kinds/items` response property for the response status `200`
+PATCH /tenants/{tenant_id}/entities/{entity_id}/tags/{stat_definition_id} added the new `feature` enum value to the `kinds/items` response property for the response status `200`
+PATCH /tenants/{tenant_id}/entities/{entity_id}/tags/{stat_definition_id} added the new `feature_instance` enum value to the `kinds/items` response property for the response status `200`
+PUT /tenants/{tenant_id}/entities/{entity_id}/tags/{stat_definition_id} added the new `feature` enum value to the `kinds/items` response property for the response status `200`
+PUT /tenants/{tenant_id}/entities/{entity_id}/tags/{stat_definition_id} added the new `feature_instance` enum value to the `kinds/items` response property for the response status `200`
+GET /tenants/{tenant_id}/entities/{entity_id}/templates/{template_id} added the new `feature` enum value to the `template/required_kind/anyOf[subschema #1]` response property for the response status `200`
+GET /tenants/{tenant_id}/entities/{entity_id}/templates/{template_id} added the new `feature_instance` enum value to the `template/required_kind/anyOf[subschema #1]` response property for the response status `200`
+GET /tenants/{tenant_id}/frames added the new `feature` enum value to the `items/items/entry/kinds/items` response property for the response status `200`
+GET /tenants/{tenant_id}/frames added the new `feature_instance` enum value to the `items/items/entry/kinds/items` response property for the response status `200`
+GET /tenants/{tenant_id}/locations added the new `feature` enum value to the `items/items/kinds/items` response property for the response status `200`
+GET /tenants/{tenant_id}/locations added the new `feature_instance` enum value to the `items/items/kinds/items` response property for the response status `200`
+POST /tenants/{tenant_id}/locations added the new `feature` enum value to the `kinds/items` response property for the response status `201`
+POST /tenants/{tenant_id}/locations added the new `feature` enum value to the `within/anyOf[subschema #1: LocationStub]/kinds/items` response property for the response status `201`
+POST /tenants/{tenant_id}/locations added the new `feature_instance` enum value to the `kinds/items` response property for the response status `201`
+POST /tenants/{tenant_id}/locations added the new `feature_instance` enum value to the `within/anyOf[subschema #1: LocationStub]/kinds/items` response property for the response status `201`
+GET /tenants/{tenant_id}/locations/{location_id} added the new `feature` enum value to the `kinds/items` response property for the response status `200`
+GET /tenants/{tenant_id}/locations/{location_id} added the new `feature` enum value to the `within/anyOf[subschema #1: LocationStub]/kinds/items` response property for the response status `200`
+GET /tenants/{tenant_id}/locations/{location_id} added the new `feature_instance` enum value to the `kinds/items` response property for the response status `200`
+GET /tenants/{tenant_id}/locations/{location_id} added the new `feature_instance` enum value to the `within/anyOf[subschema #1: LocationStub]/kinds/items` response property for the response status `200`
+PUT /tenants/{tenant_id}/locations/{location_id}/part-of added the new `feature` enum value to the `kinds/items` response property for the response status `200`
+PUT /tenants/{tenant_id}/locations/{location_id}/part-of added the new `feature` enum value to the `within/anyOf[subschema #1: LocationStub]/kinds/items` response property for the response status `200`
+PUT /tenants/{tenant_id}/locations/{location_id}/part-of added the new `feature_instance` enum value to the `kinds/items` response property for the response status `200`
+PUT /tenants/{tenant_id}/locations/{location_id}/part-of added the new `feature_instance` enum value to the `within/anyOf[subschema #1: LocationStub]/kinds/items` response property for the response status `200`
+GET /tenants/{tenant_id}/locations/{location_id}/parts added the new `feature` enum value to the `items/items/kinds/items` response property for the response status `200`
+GET /tenants/{tenant_id}/locations/{location_id}/parts added the new `feature_instance` enum value to the `items/items/kinds/items` response property for the response status `200`
+GET /tenants/{tenant_id}/maps added the new `feature` enum value to the `items/items/kinds/items` response property for the response status `200`
+GET /tenants/{tenant_id}/maps added the new `feature_instance` enum value to the `items/items/kinds/items` response property for the response status `200`
+POST /tenants/{tenant_id}/maps added the new `feature` enum value to the `kinds/items` response property for the response status `201`
+POST /tenants/{tenant_id}/maps added the new `feature` enum value to the `subject/anyOf[subschema #1: MapStub]/kinds/items` response property for the response status `201`
+POST /tenants/{tenant_id}/maps added the new `feature_instance` enum value to the `kinds/items` response property for the response status `201`
+POST /tenants/{tenant_id}/maps added the new `feature_instance` enum value to the `subject/anyOf[subschema #1: MapStub]/kinds/items` response property for the response status `201`
+GET /tenants/{tenant_id}/maps/{map_id} added the new `feature` enum value to the `kinds/items` response property for the response status `200`
+GET /tenants/{tenant_id}/maps/{map_id} added the new `feature` enum value to the `subject/anyOf[subschema #1: MapStub]/kinds/items` response property for the response status `200`
+GET /tenants/{tenant_id}/maps/{map_id} added the new `feature_instance` enum value to the `kinds/items` response property for the response status `200`
+GET /tenants/{tenant_id}/maps/{map_id} added the new `feature_instance` enum value to the `subject/anyOf[subschema #1: MapStub]/kinds/items` response property for the response status `200`
+PUT /tenants/{tenant_id}/maps/{map_id} added the new `feature` enum value to the `kinds/items` response property for the response status `200`
+PUT /tenants/{tenant_id}/maps/{map_id} added the new `feature` enum value to the `subject/anyOf[subschema #1: MapStub]/kinds/items` response property for the response status `200`
+PUT /tenants/{tenant_id}/maps/{map_id} added the new `feature_instance` enum value to the `kinds/items` response property for the response status `200`
+PUT /tenants/{tenant_id}/maps/{map_id} added the new `feature_instance` enum value to the `subject/anyOf[subschema #1: MapStub]/kinds/items` response property for the response status `200`
+PUT /tenants/{tenant_id}/maps/{map_id}/layers added the new `feature` enum value to the `kinds/items` response property for the response status `200`
+PUT /tenants/{tenant_id}/maps/{map_id}/layers added the new `feature` enum value to the `subject/anyOf[subschema #1: MapStub]/kinds/items` response property for the response status `200`
+PUT /tenants/{tenant_id}/maps/{map_id}/layers added the new `feature_instance` enum value to the `kinds/items` response property for the response status `200`
+PUT /tenants/{tenant_id}/maps/{map_id}/layers added the new `feature_instance` enum value to the `subject/anyOf[subschema #1: MapStub]/kinds/items` response property for the response status `200`
+GET /tenants/{tenant_id}/maps/{map_id}/links added the new `feature` enum value to the `items/items/connection/kinds/items` response property for the response status `200`
+GET /tenants/{tenant_id}/maps/{map_id}/links added the new `feature` enum value to the `items/items/here/kinds/items` response property for the response status `200`
+GET /tenants/{tenant_id}/maps/{map_id}/links added the new `feature` enum value to the `items/items/other/kinds/items` response property for the response status `200`
+GET /tenants/{tenant_id}/maps/{map_id}/links added the new `feature` enum value to the `items/items/other_maps/items/kinds/items` response property for the response status `200`
+GET /tenants/{tenant_id}/maps/{map_id}/links added the new `feature_instance` enum value to the `items/items/connection/kinds/items` response property for the response status `200`
+GET /tenants/{tenant_id}/maps/{map_id}/links added the new `feature_instance` enum value to the `items/items/here/kinds/items` response property for the response status `200`
+GET /tenants/{tenant_id}/maps/{map_id}/links added the new `feature_instance` enum value to the `items/items/other/kinds/items` response property for the response status `200`
+GET /tenants/{tenant_id}/maps/{map_id}/links added the new `feature_instance` enum value to the `items/items/other_maps/items/kinds/items` response property for the response status `200`
+GET /tenants/{tenant_id}/maps/{map_id}/placements added the new `feature` enum value to the `items/items/kinds/items` response property for the response status `200`
+GET /tenants/{tenant_id}/maps/{map_id}/placements added the new `feature_instance` enum value to the `items/items/kinds/items` response property for the response status `200`
+PUT /tenants/{tenant_id}/maps/{map_id}/placements/{entry_id} added the new `feature` enum value to the `kinds/items` response property for the response status `200`
+PUT /tenants/{tenant_id}/maps/{map_id}/placements/{entry_id} added the new `feature_instance` enum value to the `kinds/items` response property for the response status `200`
+GET /tenants/{tenant_id}/relationship-problems added the new `feature` enum value to the `items/items/relationship/kinds/items` response property for the response status `200`
+GET /tenants/{tenant_id}/relationship-problems added the new `feature_instance` enum value to the `items/items/relationship/kinds/items` response property for the response status `200`
+GET /tenants/{tenant_id}/relationship-types added the new `feature` enum value to the `items/items/kinds/items` response property for the response status `200`
+GET /tenants/{tenant_id}/relationship-types added the new `feature_instance` enum value to the `items/items/kinds/items` response property for the response status `200`
+GET /tenants/{tenant_id}/relationships added the new `feature` enum value to the `items/items/end_a/kinds/items` response property for the response status `200`
+GET /tenants/{tenant_id}/relationships added the new `feature` enum value to the `items/items/end_b/kinds/items` response property for the response status `200`
+GET /tenants/{tenant_id}/relationships added the new `feature` enum value to the `items/items/ends_at/anyOf[subschema #1: EntryStub]/kinds/items` response property for the response status `200`
+GET /tenants/{tenant_id}/relationships added the new `feature` enum value to the `items/items/kinds/items` response property for the response status `200`
+GET /tenants/{tenant_id}/relationships added the new `feature` enum value to the `items/items/starts_at/anyOf[subschema #1: EntryStub]/kinds/items` response property for the response status `200`
+GET /tenants/{tenant_id}/relationships added the new `feature_instance` enum value to the `items/items/end_a/kinds/items` response property for the response status `200`
+GET /tenants/{tenant_id}/relationships added the new `feature_instance` enum value to the `items/items/end_b/kinds/items` response property for the response status `200`
+GET /tenants/{tenant_id}/relationships added the new `feature_instance` enum value to the `items/items/ends_at/anyOf[subschema #1: EntryStub]/kinds/items` response property for the response status `200`
+GET /tenants/{tenant_id}/relationships added the new `feature_instance` enum value to the `items/items/kinds/items` response property for the response status `200`
+GET /tenants/{tenant_id}/relationships added the new `feature_instance` enum value to the `items/items/starts_at/anyOf[subschema #1: EntryStub]/kinds/items` response property for the response status `200`
+POST /tenants/{tenant_id}/relationships added the new `feature` enum value to the `end_a/kinds/items` response property for the response status `201`
+POST /tenants/{tenant_id}/relationships added the new `feature` enum value to the `end_b/kinds/items` response property for the response status `201`
+POST /tenants/{tenant_id}/relationships added the new `feature` enum value to the `ends_at/anyOf[subschema #1: EntryStub]/kinds/items` response property for the response status `201`
+POST /tenants/{tenant_id}/relationships added the new `feature` enum value to the `kinds/items` response property for the response status `201`
+POST /tenants/{tenant_id}/relationships added the new `feature` enum value to the `starts_at/anyOf[subschema #1: EntryStub]/kinds/items` response property for the response status `201`
+POST /tenants/{tenant_id}/relationships added the new `feature_instance` enum value to the `end_a/kinds/items` response property for the response status `201`
+POST /tenants/{tenant_id}/relationships added the new `feature_instance` enum value to the `end_b/kinds/items` response property for the response status `201`
+POST /tenants/{tenant_id}/relationships added the new `feature_instance` enum value to the `ends_at/anyOf[subschema #1: EntryStub]/kinds/items` response property for the response status `201`
+POST /tenants/{tenant_id}/relationships added the new `feature_instance` enum value to the `kinds/items` response property for the response status `201`
+POST /tenants/{tenant_id}/relationships added the new `feature_instance` enum value to the `starts_at/anyOf[subschema #1: EntryStub]/kinds/items` response property for the response status `201`
+POST /tenants/{tenant_id}/relationships/bulk added the new `feature` enum value to the `results/items/relationship/anyOf[subschema #1: RelationshipEntryOut]/end_a/kinds/items` response property for the response status `200`
+POST /tenants/{tenant_id}/relationships/bulk added the new `feature` enum value to the `results/items/relationship/anyOf[subschema #1: RelationshipEntryOut]/end_b/kinds/items` response property for the response status `200`
+POST /tenants/{tenant_id}/relationships/bulk added the new `feature` enum value to the `results/items/relationship/anyOf[subschema #1: RelationshipEntryOut]/ends_at/anyOf[subschema #1: EntryStub]/kinds/items` response property for the response status `200`
+POST /tenants/{tenant_id}/relationships/bulk added the new `feature` enum value to the `results/items/relationship/anyOf[subschema #1: RelationshipEntryOut]/kinds/items` response property for the response status `200`
+POST /tenants/{tenant_id}/relationships/bulk added the new `feature` enum value to the `results/items/relationship/anyOf[subschema #1: RelationshipEntryOut]/starts_at/anyOf[subschema #1: EntryStub]/kinds/items` response property for the response status `200`
+POST /tenants/{tenant_id}/relationships/bulk added the new `feature_instance` enum value to the `results/items/relationship/anyOf[subschema #1: RelationshipEntryOut]/end_a/kinds/items` response property for the response status `200`
+POST /tenants/{tenant_id}/relationships/bulk added the new `feature_instance` enum value to the `results/items/relationship/anyOf[subschema #1: RelationshipEntryOut]/end_b/kinds/items` response property for the response status `200`
+POST /tenants/{tenant_id}/relationships/bulk added the new `feature_instance` enum value to the `results/items/relationship/anyOf[subschema #1: RelationshipEntryOut]/ends_at/anyOf[subschema #1: EntryStub]/kinds/items` response property for the response status `200`
+POST /tenants/{tenant_id}/relationships/bulk added the new `feature_instance` enum value to the `results/items/relationship/anyOf[subschema #1: RelationshipEntryOut]/kinds/items` response property for the response status `200`
+POST /tenants/{tenant_id}/relationships/bulk added the new `feature_instance` enum value to the `results/items/relationship/anyOf[subschema #1: RelationshipEntryOut]/starts_at/anyOf[subschema #1: EntryStub]/kinds/items` response property for the response status `200`
+GET /tenants/{tenant_id}/relationships/{relationship_id} added the new `feature` enum value to the `end_a/kinds/items` response property for the response status `200`
+GET /tenants/{tenant_id}/relationships/{relationship_id} added the new `feature` enum value to the `end_b/kinds/items` response property for the response status `200`
+GET /tenants/{tenant_id}/relationships/{relationship_id} added the new `feature` enum value to the `ends_at/anyOf[subschema #1: EntryStub]/kinds/items` response property for the response status `200`
+GET /tenants/{tenant_id}/relationships/{relationship_id} added the new `feature` enum value to the `kinds/items` response property for the response status `200`
+GET /tenants/{tenant_id}/relationships/{relationship_id} added the new `feature` enum value to the `starts_at/anyOf[subschema #1: EntryStub]/kinds/items` response property for the response status `200`
+GET /tenants/{tenant_id}/relationships/{relationship_id} added the new `feature_instance` enum value to the `end_a/kinds/items` response property for the response status `200`
+GET /tenants/{tenant_id}/relationships/{relationship_id} added the new `feature_instance` enum value to the `end_b/kinds/items` response property for the response status `200`
+GET /tenants/{tenant_id}/relationships/{relationship_id} added the new `feature_instance` enum value to the `ends_at/anyOf[subschema #1: EntryStub]/kinds/items` response property for the response status `200`
+GET /tenants/{tenant_id}/relationships/{relationship_id} added the new `feature_instance` enum value to the `kinds/items` response property for the response status `200`
+GET /tenants/{tenant_id}/relationships/{relationship_id} added the new `feature_instance` enum value to the `starts_at/anyOf[subschema #1: EntryStub]/kinds/items` response property for the response status `200`
+PUT /tenants/{tenant_id}/relationships/{relationship_id} added the new `feature` enum value to the `end_a/kinds/items` response property for the response status `200`
+PUT /tenants/{tenant_id}/relationships/{relationship_id} added the new `feature` enum value to the `end_b/kinds/items` response property for the response status `200`
+PUT /tenants/{tenant_id}/relationships/{relationship_id} added the new `feature` enum value to the `ends_at/anyOf[subschema #1: EntryStub]/kinds/items` response property for the response status `200`
+PUT /tenants/{tenant_id}/relationships/{relationship_id} added the new `feature` enum value to the `kinds/items` response property for the response status `200`
+PUT /tenants/{tenant_id}/relationships/{relationship_id} added the new `feature` enum value to the `starts_at/anyOf[subschema #1: EntryStub]/kinds/items` response property for the response status `200`
+PUT /tenants/{tenant_id}/relationships/{relationship_id} added the new `feature_instance` enum value to the `end_a/kinds/items` response property for the response status `200`
+PUT /tenants/{tenant_id}/relationships/{relationship_id} added the new `feature_instance` enum value to the `end_b/kinds/items` response property for the response status `200`
+PUT /tenants/{tenant_id}/relationships/{relationship_id} added the new `feature_instance` enum value to the `ends_at/anyOf[subschema #1: EntryStub]/kinds/items` response property for the response status `200`
+PUT /tenants/{tenant_id}/relationships/{relationship_id} added the new `feature_instance` enum value to the `kinds/items` response property for the response status `200`
+PUT /tenants/{tenant_id}/relationships/{relationship_id} added the new `feature_instance` enum value to the `starts_at/anyOf[subschema #1: EntryStub]/kinds/items` response property for the response status `200`
+GET /tenants/{tenant_id}/relationships/{relationship_id}/through added the new `feature` enum value to the `via/items/end_a/kinds/items` response property for the response status `200`
+GET /tenants/{tenant_id}/relationships/{relationship_id}/through added the new `feature` enum value to the `via/items/end_b/kinds/items` response property for the response status `200`
+GET /tenants/{tenant_id}/relationships/{relationship_id}/through added the new `feature` enum value to the `via/items/ends_at/anyOf[subschema #1: EntryStub]/kinds/items` response property for the response status `200`
+GET /tenants/{tenant_id}/relationships/{relationship_id}/through added the new `feature` enum value to the `via/items/kinds/items` response property for the response status `200`
+GET /tenants/{tenant_id}/relationships/{relationship_id}/through added the new `feature` enum value to the `via/items/starts_at/anyOf[subschema #1: EntryStub]/kinds/items` response property for the response status `200`
+GET /tenants/{tenant_id}/relationships/{relationship_id}/through added the new `feature_instance` enum value to the `via/items/end_a/kinds/items` response property for the response status `200`
+GET /tenants/{tenant_id}/relationships/{relationship_id}/through added the new `feature_instance` enum value to the `via/items/end_b/kinds/items` response property for the response status `200`
+GET /tenants/{tenant_id}/relationships/{relationship_id}/through added the new `feature_instance` enum value to the `via/items/ends_at/anyOf[subschema #1: EntryStub]/kinds/items` response property for the response status `200`
+GET /tenants/{tenant_id}/relationships/{relationship_id}/through added the new `feature_instance` enum value to the `via/items/kinds/items` response property for the response status `200`
+GET /tenants/{tenant_id}/relationships/{relationship_id}/through added the new `feature_instance` enum value to the `via/items/starts_at/anyOf[subschema #1: EntryStub]/kinds/items` response property for the response status `200`
+PUT /tenants/{tenant_id}/relationships/{relationship_id}/through added the new `feature` enum value to the `via/items/end_a/kinds/items` response property for the response status `200`
+PUT /tenants/{tenant_id}/relationships/{relationship_id}/through added the new `feature` enum value to the `via/items/end_b/kinds/items` response property for the response status `200`
+PUT /tenants/{tenant_id}/relationships/{relationship_id}/through added the new `feature` enum value to the `via/items/ends_at/anyOf[subschema #1: EntryStub]/kinds/items` response property for the response status `200`
+PUT /tenants/{tenant_id}/relationships/{relationship_id}/through added the new `feature` enum value to the `via/items/kinds/items` response property for the response status `200`
+PUT /tenants/{tenant_id}/relationships/{relationship_id}/through added the new `feature` enum value to the `via/items/starts_at/anyOf[subschema #1: EntryStub]/kinds/items` response property for the response status `200`
+PUT /tenants/{tenant_id}/relationships/{relationship_id}/through added the new `feature_instance` enum value to the `via/items/end_a/kinds/items` response property for the response status `200`
+PUT /tenants/{tenant_id}/relationships/{relationship_id}/through added the new `feature_instance` enum value to the `via/items/end_b/kinds/items` response property for the response status `200`
+PUT /tenants/{tenant_id}/relationships/{relationship_id}/through added the new `feature_instance` enum value to the `via/items/ends_at/anyOf[subschema #1: EntryStub]/kinds/items` response property for the response status `200`
+PUT /tenants/{tenant_id}/relationships/{relationship_id}/through added the new `feature_instance` enum value to the `via/items/kinds/items` response property for the response status `200`
+PUT /tenants/{tenant_id}/relationships/{relationship_id}/through added the new `feature_instance` enum value to the `via/items/starts_at/anyOf[subschema #1: EntryStub]/kinds/items` response property for the response status `200`
+GET /tenants/{tenant_id}/social-webs added the new `feature` enum value to the `items/items/as_of_event/anyOf[subschema #1: EntryStub]/kinds/items` response property for the response status `200`
+GET /tenants/{tenant_id}/social-webs added the new `feature` enum value to the `items/items/kinds/items` response property for the response status `200`
+GET /tenants/{tenant_id}/social-webs added the new `feature_instance` enum value to the `items/items/as_of_event/anyOf[subschema #1: EntryStub]/kinds/items` response property for the response status `200`
+GET /tenants/{tenant_id}/social-webs added the new `feature_instance` enum value to the `items/items/kinds/items` response property for the response status `200`
+POST /tenants/{tenant_id}/social-webs added the new `feature` enum value to the `as_of_event/anyOf[subschema #1: EntryStub]/kinds/items` response property for the response status `201`
+POST /tenants/{tenant_id}/social-webs added the new `feature` enum value to the `kinds/items` response property for the response status `201`
+POST /tenants/{tenant_id}/social-webs added the new `feature` enum value to the `members/items/entry/kinds/items` response property for the response status `201`
+POST /tenants/{tenant_id}/social-webs added the new `feature` enum value to the `types/items/kinds/items` response property for the response status `201`
+POST /tenants/{tenant_id}/social-webs added the new `feature_instance` enum value to the `as_of_event/anyOf[subschema #1: EntryStub]/kinds/items` response property for the response status `201`
+POST /tenants/{tenant_id}/social-webs added the new `feature_instance` enum value to the `kinds/items` response property for the response status `201`
+POST /tenants/{tenant_id}/social-webs added the new `feature_instance` enum value to the `members/items/entry/kinds/items` response property for the response status `201`
+POST /tenants/{tenant_id}/social-webs added the new `feature_instance` enum value to the `types/items/kinds/items` response property for the response status `201`
+GET /tenants/{tenant_id}/social-webs/{web_id} added the new `feature` enum value to the `as_of_event/anyOf[subschema #1: EntryStub]/kinds/items` response property for the response status `200`
+GET /tenants/{tenant_id}/social-webs/{web_id} added the new `feature` enum value to the `kinds/items` response property for the response status `200`
+GET /tenants/{tenant_id}/social-webs/{web_id} added the new `feature` enum value to the `members/items/entry/kinds/items` response property for the response status `200`
+GET /tenants/{tenant_id}/social-webs/{web_id} added the new `feature` enum value to the `types/items/kinds/items` response property for the response status `200`
+GET /tenants/{tenant_id}/social-webs/{web_id} added the new `feature_instance` enum value to the `as_of_event/anyOf[subschema #1: EntryStub]/kinds/items` response property for the response status `200`
+GET /tenants/{tenant_id}/social-webs/{web_id} added the new `feature_instance` enum value to the `kinds/items` response property for the response status `200`
+GET /tenants/{tenant_id}/social-webs/{web_id} added the new `feature_instance` enum value to the `members/items/entry/kinds/items` response property for the response status `200`
+GET /tenants/{tenant_id}/social-webs/{web_id} added the new `feature_instance` enum value to the `types/items/kinds/items` response property for the response status `200`
+PUT /tenants/{tenant_id}/social-webs/{web_id} added the new `feature` enum value to the `as_of_event/anyOf[subschema #1: EntryStub]/kinds/items` response property for the response status `200`
+PUT /tenants/{tenant_id}/social-webs/{web_id} added the new `feature` enum value to the `kinds/items` response property for the response status `200`
+PUT /tenants/{tenant_id}/social-webs/{web_id} added the new `feature` enum value to the `members/items/entry/kinds/items` response property for the response status `200`
+PUT /tenants/{tenant_id}/social-webs/{web_id} added the new `feature` enum value to the `types/items/kinds/items` response property for the response status `200`
+PUT /tenants/{tenant_id}/social-webs/{web_id} added the new `feature_instance` enum value to the `as_of_event/anyOf[subschema #1: EntryStub]/kinds/items` response property for the response status `200`
+PUT /tenants/{tenant_id}/social-webs/{web_id} added the new `feature_instance` enum value to the `kinds/items` response property for the response status `200`
+PUT /tenants/{tenant_id}/social-webs/{web_id} added the new `feature_instance` enum value to the `members/items/entry/kinds/items` response property for the response status `200`
+PUT /tenants/{tenant_id}/social-webs/{web_id} added the new `feature_instance` enum value to the `types/items/kinds/items` response property for the response status `200`
+GET /tenants/{tenant_id}/social-webs/{web_id}/graph added the new `feature` enum value to the `edges/items/end_a/kinds/items` response property for the response status `200`
+GET /tenants/{tenant_id}/social-webs/{web_id}/graph added the new `feature` enum value to the `edges/items/end_b/kinds/items` response property for the response status `200`
+GET /tenants/{tenant_id}/social-webs/{web_id}/graph added the new `feature` enum value to the `edges/items/ends_at/anyOf[subschema #1: EntryStub]/kinds/items` response property for the response status `200`
+GET /tenants/{tenant_id}/social-webs/{web_id}/graph added the new `feature` enum value to the `edges/items/kinds/items` response property for the response status `200`
+GET /tenants/{tenant_id}/social-webs/{web_id}/graph added the new `feature` enum value to the `edges/items/starts_at/anyOf[subschema #1: EntryStub]/kinds/items` response property for the response status `200`
+GET /tenants/{tenant_id}/social-webs/{web_id}/graph added the new `feature` enum value to the `members/items/entry/kinds/items` response property for the response status `200`
+GET /tenants/{tenant_id}/social-webs/{web_id}/graph added the new `feature` enum value to the `web/as_of_event/anyOf[subschema #1: EntryStub]/kinds/items` response property for the response status `200`
+GET /tenants/{tenant_id}/social-webs/{web_id}/graph added the new `feature` enum value to the `web/kinds/items` response property for the response status `200`
+GET /tenants/{tenant_id}/social-webs/{web_id}/graph added the new `feature_instance` enum value to the `edges/items/end_a/kinds/items` response property for the response status `200`
+GET /tenants/{tenant_id}/social-webs/{web_id}/graph added the new `feature_instance` enum value to the `edges/items/end_b/kinds/items` response property for the response status `200`
+GET /tenants/{tenant_id}/social-webs/{web_id}/graph added the new `feature_instance` enum value to the `edges/items/ends_at/anyOf[subschema #1: EntryStub]/kinds/items` response property for the response status `200`
+GET /tenants/{tenant_id}/social-webs/{web_id}/graph added the new `feature_instance` enum value to the `edges/items/kinds/items` response property for the response status `200`
+GET /tenants/{tenant_id}/social-webs/{web_id}/graph added the new `feature_instance` enum value to the `edges/items/starts_at/anyOf[subschema #1: EntryStub]/kinds/items` response property for the response status `200`
+GET /tenants/{tenant_id}/social-webs/{web_id}/graph added the new `feature_instance` enum value to the `members/items/entry/kinds/items` response property for the response status `200`
+GET /tenants/{tenant_id}/social-webs/{web_id}/graph added the new `feature_instance` enum value to the `web/as_of_event/anyOf[subschema #1: EntryStub]/kinds/items` response property for the response status `200`
+GET /tenants/{tenant_id}/social-webs/{web_id}/graph added the new `feature_instance` enum value to the `web/kinds/items` response property for the response status `200`
+POST /tenants/{tenant_id}/social-webs/{web_id}/members/bulk added the new `feature` enum value to the `as_of_event/anyOf[subschema #1: EntryStub]/kinds/items` response property for the response status `200`
+POST /tenants/{tenant_id}/social-webs/{web_id}/members/bulk added the new `feature` enum value to the `kinds/items` response property for the response status `200`
+POST /tenants/{tenant_id}/social-webs/{web_id}/members/bulk added the new `feature` enum value to the `members/items/entry/kinds/items` response property for the response status `200`
+POST /tenants/{tenant_id}/social-webs/{web_id}/members/bulk added the new `feature` enum value to the `types/items/kinds/items` response property for the response status `200`
+POST /tenants/{tenant_id}/social-webs/{web_id}/members/bulk added the new `feature_instance` enum value to the `as_of_event/anyOf[subschema #1: EntryStub]/kinds/items` response property for the response status `200`
+POST /tenants/{tenant_id}/social-webs/{web_id}/members/bulk added the new `feature_instance` enum value to the `kinds/items` response property for the response status `200`
+POST /tenants/{tenant_id}/social-webs/{web_id}/members/bulk added the new `feature_instance` enum value to the `members/items/entry/kinds/items` response property for the response status `200`
+POST /tenants/{tenant_id}/social-webs/{web_id}/members/bulk added the new `feature_instance` enum value to the `types/items/kinds/items` response property for the response status `200`
+PUT /tenants/{tenant_id}/social-webs/{web_id}/types added the new `feature` enum value to the `as_of_event/anyOf[subschema #1: EntryStub]/kinds/items` response property for the response status `200`
+PUT /tenants/{tenant_id}/social-webs/{web_id}/types added the new `feature` enum value to the `kinds/items` response property for the response status `200`
+PUT /tenants/{tenant_id}/social-webs/{web_id}/types added the new `feature` enum value to the `members/items/entry/kinds/items` response property for the response status `200`
+PUT /tenants/{tenant_id}/social-webs/{web_id}/types added the new `feature` enum value to the `types/items/kinds/items` response property for the response status `200`
+PUT /tenants/{tenant_id}/social-webs/{web_id}/types added the new `feature_instance` enum value to the `as_of_event/anyOf[subschema #1: EntryStub]/kinds/items` response property for the response status `200`
+PUT /tenants/{tenant_id}/social-webs/{web_id}/types added the new `feature_instance` enum value to the `kinds/items` response property for the response status `200`
+PUT /tenants/{tenant_id}/social-webs/{web_id}/types added the new `feature_instance` enum value to the `members/items/entry/kinds/items` response property for the response status `200`
+PUT /tenants/{tenant_id}/social-webs/{web_id}/types added the new `feature_instance` enum value to the `types/items/kinds/items` response property for the response status `200`
+GET /tenants/{tenant_id}/templates added the new `feature` enum value to the `items/items/required_kind/anyOf[subschema #1]` response property for the response status `200`
+GET /tenants/{tenant_id}/templates added the new `feature_instance` enum value to the `items/items/required_kind/anyOf[subschema #1]` response property for the response status `200`
+POST /tenants/{tenant_id}/templates added the new `feature` enum value to the `required_kind/anyOf[subschema #1]` response property for the response status `201`
+POST /tenants/{tenant_id}/templates added the new `feature_instance` enum value to the `required_kind/anyOf[subschema #1]` response property for the response status `201`
+GET /tenants/{tenant_id}/templates/{template_id} added the new `feature` enum value to the `required_kind/anyOf[subschema #1]` response property for the response status `200`
+GET /tenants/{tenant_id}/templates/{template_id} added the new `feature_instance` enum value to the `required_kind/anyOf[subschema #1]` response property for the response status `200`
+PUT /tenants/{tenant_id}/templates/{template_id} added the new `feature` enum value to the `required_kind/anyOf[subschema #1]` response property for the response status `200`
+PUT /tenants/{tenant_id}/templates/{template_id} added the new `feature_instance` enum value to the `required_kind/anyOf[subschema #1]` response property for the response status `200`
