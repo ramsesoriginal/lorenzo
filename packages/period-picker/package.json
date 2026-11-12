@@ -17,7 +17,7 @@
     "@lorenzo/api-client": "workspace:*"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.6.4",
+    "@biomejs/biome": "^2.6.6",
     "@types/node": "^26.6.6",
     "typescript": "^6.0.3",
     "vitest": "^5.1.0"

@@ -29,12 +29,12 @@
     "@lorenzo/lorenzoscript": "workspace:*",
     "@lorenzo/lorenzoscript-editor": "workspace:*",
     "@lorenzo/repo-ui": "workspace:*",
-    "astro": "^7.4.5"
+    "astro": "^7.4.7"
   },
   "devDependencies": {
     "@astrojs/check": "^0.9.12",
-    "@biomejs/biome": "^2.6.4",
-    "@playwright/test": "^1.64.1",
+    "@biomejs/biome": "^2.6.6",
+    "@playwright/test": "^1.65.0",
     "prettier": "^3.9.10",
     "prettier-plugin-astro": "^1.1.2",
     "typescript": "^6.0.3",
