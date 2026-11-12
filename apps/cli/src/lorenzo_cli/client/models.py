@@ -1339,6 +1339,7 @@ class Code(StrEnum):
     formula_chain_depth = "formula-chain-depth"
     unset_input = "unset-input"
     own_value_shadows_formula = "own-value-shadows-formula"
+    tie = "tie"
 
 
 class Severity(StrEnum):

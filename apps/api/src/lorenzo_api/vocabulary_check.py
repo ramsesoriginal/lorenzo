@@ -13,7 +13,7 @@ from collections.abc import Collection, Sequence
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
-from sqlalchemy import select
+from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from lorenzo_api.effective_stats import load_effective_rows
@@ -22,7 +22,10 @@ from lorenzo_api.information_visibility import InformationVisibility
 from lorenzo_api.models import (
     ComputedStat,
     Entity,
+    EntityStat,
+    EntityStatGroup,
     StatDefinition,
+    StatGroup,
     VEffectiveStat,
     formula_load_options,
 )
@@ -34,6 +37,7 @@ Code = Literal[
     "formula-chain-depth",
     "unset-input",
     "own-value-shadows-formula",
+    "tie",
 ]
 Severity = Literal["warning", "info"]
 
@@ -45,6 +49,7 @@ SEVERITY: dict[str, Severity] = {
     "formula-chain-depth": "info",
     "unset-input": "warning",
     "own-value-shadows-formula": "warning",
+    "tie": "warning",
 }
 
 # A chain of formulas longer than this is reported; the write-time limit is MAX_FORMULA_CHAIN
@@ -319,3 +324,140 @@ async def vocabulary_findings(
         )
         for stat in sorted(tops, key=lambda s: (names.get(s, ""), str(s)))
     ]
+
+
+# --- a tie (ADR 0460) ---------------------------------------------------------------------------
+
+_TIE_WALK = text(
+    """
+    WITH RECURSIVE walk(ancestor_id, hops, path) AS (
+        SELECT CAST(:entity AS uuid), 0, ARRAY[]::integer[]
+        UNION ALL
+        SELECT ep.prototype_id, w.hops + 1, w.path || ep.position
+        FROM walk w
+        JOIN entity_prototype ep ON ep.entity_id = w.ancestor_id
+        WHERE w.hops < 50
+    )
+    SELECT ancestor_id, hops, path FROM walk
+    """
+)
+
+
+@dataclass(frozen=True)
+class _Candidate:
+    holder_id: uuid.UUID
+    hops: int
+    computed: bool
+    priority: int
+    path: tuple[int, ...]
+
+
+def _says(candidate: _Candidate, visibility: InformationVisibility) -> dict[str, Any]:
+    """A candidate as a finding names it: the entry (none when the caller may not see it), how far
+    it is and whether it holds a formula."""
+    seen = visibility.can_see_entry(candidate.holder_id)
+    return {
+        "entry_id": str(candidate.holder_id) if seen else None,
+        **({} if seen else {"hidden": True}),
+        "distance": candidate.hops,
+        "computed": candidate.computed,
+    }
+
+
+async def tie_findings(
+    session: AsyncSession,
+    *,
+    tenant_id: uuid.UUID,
+    entity: Entity,
+    visibility: InformationVisibility,
+    stat_definition_id: uuid.UUID | None,
+) -> list[Finding]:
+    """The ties of one entry (ADR 0460, RFC 0055 section 2): a stat that two or more entries on its
+    prototype walk set at the same distance, so that a rule had to choose. The candidates are read
+    as the effective-stat view orders them (distance, a stored value before a formula, the highest
+    priority of the groups the holder has acquired, the places taken from the entry down, the
+    id), in a walk of its own, since the view returns the winner only: four queries, however
+    many stats."""
+    # The view keeps the first way to an ancestor that its order finds, by hops and then path.
+    ways: dict[uuid.UUID, tuple[int, tuple[int, ...]]] = {}
+    for row in (await session.execute(_TIE_WALK, {"entity": entity.id})).all():
+        way = (row.hops, tuple(row.path))
+        if row.ancestor_id not in ways or way < ways[row.ancestor_id]:
+            ways[row.ancestor_id] = way
+    holders = list(ways)
+    priority = {
+        holder: int(top)
+        for holder, top in await session.execute(
+            select(EntityStatGroup.entity_id, func.max(StatGroup.priority))
+            .join(StatGroup, StatGroup.id == EntityStatGroup.stat_group_id)
+            .where(EntityStatGroup.tenant_id == tenant_id, EntityStatGroup.entity_id.in_(holders))
+            .group_by(EntityStatGroup.entity_id)
+        )
+    }
+    candidates: dict[uuid.UUID, list[_Candidate]] = {}
+    for model, computed in ((EntityStat, False), (ComputedStat, True)):
+        for holder_id, stat_id in await session.execute(
+            select(model.entity_id, model.stat_definition_id).where(
+                model.tenant_id == tenant_id, model.entity_id.in_(holders)
+            )
+        ):
+            if stat_definition_id is not None and stat_id != stat_definition_id:
+                continue
+            hops, path = ways[holder_id]
+            candidates.setdefault(stat_id, []).append(
+                _Candidate(holder_id, hops, computed, priority.get(holder_id, 0), path)
+            )
+    tied: dict[uuid.UUID, list[_Candidate]] = {}
+    for stat_id, found in candidates.items():
+        ordered = sorted(
+            found, key=lambda c: (c.hops, c.computed, -c.priority, c.path, str(c.holder_id))
+        )
+        winner = ordered[0]
+        same = [c for c in ordered if (c.hops, c.computed) == (winner.hops, winner.computed)]
+        if len(same) > 1:
+            tied[stat_id] = same
+    if not tied:
+        return []
+    names = await _names(session, tenant_id, tied)
+    entry_names = dict(
+        (
+            await session.execute(
+                select(Entity.id, Entity.name).where(
+                    Entity.tenant_id == tenant_id,
+                    Entity.id.in_({c.holder_id for same in tied.values() for c in same}),
+                )
+            )
+        )
+        .tuples()
+        .all()
+    )
+    out: list[Finding] = []
+    for stat_id in sorted(tied, key=lambda s: (names.get(s, ""), str(s))):
+        winner, *others = tied[stat_id]
+        runner_up = others[0]
+        if winner.priority != runner_up.priority:
+            reason = "group priority"
+        elif winner.path != runner_up.path:
+            reason = "parent order"
+        else:
+            reason = "id"
+        label = (
+            entry_names.get(winner.holder_id, "an entry")
+            if visibility.can_see_entry(winner.holder_id)
+            else "a hidden entry"
+        )
+        out.append(
+            Finding(
+                "tie",
+                entity.id,
+                stat_id,
+                f"{names.get(stat_id, stat_id)} is set by {len(others) + 1} entries at the same "
+                f"distance; {label} won by {reason}.",
+                {
+                    "winner": _says(winner, visibility),
+                    "others": [_says(c, visibility) for c in others],
+                    "reason": reason,
+                },
+            )
+        )
+    return out

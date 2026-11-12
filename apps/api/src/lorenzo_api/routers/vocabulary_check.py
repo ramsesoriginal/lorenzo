@@ -21,7 +21,7 @@ from lorenzo_api.dependencies import (
     SessionDep,
     get_entity_or_404,
 )
-from lorenzo_api.exceptions import StatDefinitionNotFoundError
+from lorenzo_api.exceptions import StatDefinitionNotFoundError, VocabularyCheckEntryRequiredError
 from lorenzo_api.information_visibility import resolve_information_visibility
 from lorenzo_api.models import Entity, StatDefinition
 from lorenzo_api.routers.entities import (
@@ -35,6 +35,7 @@ from lorenzo_api.schemas.vocabulary_check import CheckCode, FindingOut
 from lorenzo_api.vocabulary_check import (
     Finding,
     scan_entries,
+    tie_findings,
     vocabulary_findings,
 )
 
@@ -50,6 +51,7 @@ ALL_CODES: tuple[CheckCode, ...] = (
     "formula-chain-depth",
     "unset-input",
     "own-value-shadows-formula",
+    "tie",
 )
 
 
@@ -86,8 +88,19 @@ async def check_vocabulary(
     `recursive`, or the one `entry_id`); `total` and `pages` count entries, not findings. An entry
     the caller cannot read is not scanned. The findings about the library's formulas, which are
     no entry's, come on the first page, and only when no entry is asked for. `code` narrows the
-    findings, `stat_definition_id` the stat (404 for one that is not the library's)."""
-    codes = list(dict.fromkeys(code)) if code else list(ALL_CODES)
+    findings, `stat_definition_id` the stat (404 for one that is not the library's). `tie` is read
+    for one entry: it is in the default set only with `entry_id`, and a `code` that names it
+    without one is a 422."""
+    if code and "tie" in code and entry_id is None:
+        raise VocabularyCheckEntryRequiredError(
+            detail="A tie is read for one entry: give entry_id, or leave tie out of code."
+        )
+    # `tie` is for one entry, so the default set has it only when an entry is asked for.
+    codes = (
+        list(dict.fromkeys(code))
+        if code
+        else [c for c in ALL_CODES if c != "tie" or entry_id is not None]
+    )
     if stat_definition_id is not None and not await session.scalar(
         select(StatDefinition.id).where(
             StatDefinition.id == stat_definition_id, StatDefinition.tenant_id == tenant_id
@@ -120,6 +133,15 @@ async def check_vocabulary(
             codes=codes,
             stat_definition_id=stat_definition_id,
         )
+        if "tie" in codes and entry_id is not None:
+            for entity in entities:
+                found += await tie_findings(
+                    session,
+                    tenant_id=tenant_id,
+                    entity=entity,
+                    visibility=visibility,
+                    stat_definition_id=stat_definition_id,
+                )
         if about_the_library and params.page == 1:
             found += await vocabulary_findings(
                 session,

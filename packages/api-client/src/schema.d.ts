@@ -7407,7 +7407,9 @@ export interface paths {
          *     `recursive`, or the one `entry_id`); `total` and `pages` count entries, not findings. An entry
          *     the caller cannot read is not scanned. The findings about the library's formulas, which are
          *     no entry's, come on the first page, and only when no entry is asked for. `code` narrows the
-         *     findings, `stat_definition_id` the stat (404 for one that is not the library's).
+         *     findings, `stat_definition_id` the stat (404 for one that is not the library's). `tie` is read for one
+         *     entry: it is in the default set only with `entry_id`, and a `code` that names it without one
+         *     is a 422.
          */
         get: operations["check_vocabulary"];
         put?: never;
@@ -11373,7 +11375,7 @@ export interface components {
              * Code
              * @enum {string}
              */
-            code: "computed-outside-scale" | "above-hint" | "formula-chain-depth" | "unset-input" | "own-value-shadows-formula";
+            code: "computed-outside-scale" | "above-hint" | "formula-chain-depth" | "unset-input" | "own-value-shadows-formula" | "tie";
             /**
              * Severity
              * @enum {string}
@@ -49112,7 +49114,7 @@ export interface operations {
         parameters: {
             query?: {
                 /** @description Only these findings (repeatable); all by default. */
-                code?: ("computed-outside-scale" | "above-hint" | "formula-chain-depth" | "unset-input" | "own-value-shadows-formula")[] | null;
+                code?: ("computed-outside-scale" | "above-hint" | "formula-chain-depth" | "unset-input" | "own-value-shadows-formula" | "tie")[] | null;
                 /** @description Only this entry. */
                 entry_id?: string | null;
                 /** @description Only entries that have this entry as a parent. */

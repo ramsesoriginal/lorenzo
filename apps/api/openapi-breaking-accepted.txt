@@ -1366,3 +1366,6 @@ PUT /tenants/{tenant_id}/templates/{template_id} added the new `features` enum v
 # ADR 0459: the vocabulary check says two more things (`unset-input`, `own-value-shadows-formula`).
 GET /tenants/{tenant_id}/vocabulary-check added the new `own-value-shadows-formula` enum value to the `items/items/code` response property for the response status `200`
 GET /tenants/{tenant_id}/vocabulary-check added the new `unset-input` enum value to the `items/items/code` response property for the response status `200`
+
+# ADR 0460: the vocabulary check says a tie.
+GET /tenants/{tenant_id}/vocabulary-check added the new `tie` enum value to the `items/items/code` response property for the response status `200`

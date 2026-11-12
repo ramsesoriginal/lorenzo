@@ -11,6 +11,7 @@ CheckCode = Literal[
     "formula-chain-depth",
     "unset-input",
     "own-value-shadows-formula",
+    "tie",
 ]
 
 
