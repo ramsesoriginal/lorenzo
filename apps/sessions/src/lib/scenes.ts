@@ -1,5 +1,5 @@
 import { client, fetchAllPages, unwrap } from './api';
-import { referencePanel } from './context';
+import { kindName, referencePanel } from './context';
 import {
   actions,
   backLink,
@@ -9,6 +9,7 @@ import {
   empty,
   errorNotice,
   field,
+  icon,
   link,
   loading,
   pageHead,
@@ -55,12 +56,43 @@ export async function mountScenes() {
       }),
     );
     if (entries.length) {
-      const list = el('ul', '', 'list');
+      // Cards, as on the Sessions Home: the title, who can see it, where it is in the world and what
+      // it refers to. The details are read for each card and never held up on.
+      const list = el('ul', '', 'list home-list scene-list');
       for (const entry of entries) {
-        const row = el('li');
-        const name = link(entry.name, href(tenant, entry.id));
-        name.classList.add('grow');
-        row.append(name);
+        const row = el('li', '', 'row scene-card');
+        row.append(icon('kind-chapter'));
+        const text = el('div', '', 'stack-tight grow');
+        const meta = el('p', '', 'status-text');
+        text.append(link(entry.name, href(tenant, entry.id)), meta);
+        row.append(text);
+        const path = { tenant_id: tenant, scene_id: entry.id };
+        void Promise.all([
+          client.GET('/tenants/{tenant_id}/scenes/{scene_id}', { params: { path } }),
+          client.GET('/tenants/{tenant_id}/{source_kind}/{source_id}/references', {
+            params: { path: { tenant_id: tenant, source_kind: 'scenes', source_id: entry.id } },
+          }),
+        ])
+          .then(async ([scene, references]) => {
+            const parts: string[] = [];
+            if (scene.data?.period_entity_id) {
+              const period = await client.GET('/tenants/{tenant_id}/entities/{entity_id}', {
+                params: { path: { tenant_id: tenant, entity_id: scene.data.period_entity_id } },
+              });
+              if (period.data?.name) parts.push(period.data.name);
+            }
+            const counts = new Map<string, number>();
+            for (const r of references.data ?? [])
+              counts.set(r.kind, (counts.get(r.kind) ?? 0) + 1);
+            if (counts.size)
+              parts.push([...counts].map(([kind, n]) => `${n} ${kindName(kind)}`).join(', '));
+            meta.textContent = parts.join(' · ') || 'Not tied to a period, nothing referenced yet';
+            if (scene.data)
+              row.append(
+                el('span', scene.data.is_public ? 'Visible in this library' : 'Private', 'chip'),
+              );
+          })
+          .catch(() => {});
         list.append(row);
       }
       view.append(list);
