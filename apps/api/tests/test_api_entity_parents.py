@@ -249,6 +249,9 @@ async def test_a_being_inherits_stats_through_its_new_parents(
     await _put(client, tenant_id, grunt, [race])
     assert await stats() == [
         {
+            "stat_definition_id": ANY,
+            "group_id": ANY,
+            "system": None,
             "name": "hp",
             "value": 30,
             "own": False,
@@ -260,6 +263,9 @@ async def test_a_being_inherits_stats_through_its_new_parents(
     await _put(client, tenant_id, grunt, [other_race])
     assert await stats() == [
         {
+            "stat_definition_id": ANY,
+            "group_id": ANY,
+            "system": None,
             "name": "hp",
             "value": 12,
             "own": False,
@@ -297,6 +303,9 @@ async def test_a_value_the_entry_holds_itself_stays_when_parents_change(
     detail = await client.get(f"/tenants/{tenant_id}/entities/{grunt}")
     assert detail.json()["stats"] == [
         {
+            "stat_definition_id": ANY,
+            "group_id": ANY,
+            "system": None,
             "name": "hp",
             "value": 99,
             "own": True,

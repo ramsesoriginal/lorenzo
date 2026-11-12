@@ -98,6 +98,7 @@ from lorenzo_api.models import (
     StatGroup,
     StatValueType,
     StoryEvent,
+    System,
     WritingBiography,
 )
 from lorenzo_api.models.story_context import SceneBeing, SceneEvent, SceneFact
@@ -143,6 +144,8 @@ async def seed_every_content_table(
     web = entity("Fixture web")
     group = StatGroup(tenant_id=tenant_id, name="Abilities")
     session.add(group)
+    # A game system, which a repository holds as content (ADR 0448).
+    session.add(System(tenant_id=tenant_id, slug="fx", name="Fixture system"))
     await session.flush()
 
     session.add_all(

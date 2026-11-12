@@ -206,6 +206,9 @@ async def test_clearing_an_own_value_inherits_again_and_says_what_it_removed(
     assert body["previous"] == {"had_own_value": True, "value": 9}
     assert body["stats"] == [
         {
+            "stat_definition_id": ANY,
+            "group_id": ANY,
+            "system": None,
             "name": "damage",
             "value": 5,
             "own": False,
