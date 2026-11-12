@@ -37,6 +37,7 @@ from lorenzo_api.exceptions import (
     TemplateNameTakenError,
     TemplateNotFoundError,
 )
+from lorenzo_api.features import held_feature_outs, holder_kind, visible_instance_ids
 from lorenzo_api.information_visibility import (
     InformationVisibility,
     resolve_information_visibility,
@@ -62,6 +63,7 @@ from lorenzo_api.routers.entities import (
     get_entity_detail_or_404,
     kinds_of,
 )
+from lorenzo_api.routers.features import _may_read
 from lorenzo_api.routers.item_instances import _owner_predicate_for, caller_reach
 from lorenzo_api.routers.items import eager_load_options
 from lorenzo_api.routers.stats import _vocabulary_gate
@@ -71,6 +73,8 @@ from lorenzo_api.schemas.templates import (
     SlotKind,
     TemplateCellOut,
     TemplateColumnOut,
+    TemplateFeatureGroupOut,
+    TemplateFeatureRowOut,
     TemplateHeldRowOut,
     TemplateIn,
     TemplateOut,
@@ -479,6 +483,68 @@ def _stat_out(stat: EntityStatValueOut, label: str | None, unit: str | None) -> 
     return TemplateStatOut(**stat.model_dump(), label=label or stat.name, unit=unit)
 
 
+async def _feature_groups(
+    session: SessionDep,
+    *,
+    tenant_id: uuid.UUID,
+    entity_id: uuid.UUID,
+    user: CurrentUser,
+    visibility: InformationVisibility,
+    columns: Sequence[uuid.UUID],
+) -> list[TemplateFeatureGroupOut]:
+    """The features the entry holds, grouped by the first type among their feature's parents the
+    caller may see, with a cell for each column (ADR 0457). What a caller may read of them is what
+    `GET .../features` gives (ADR 0454): an entry the caller does not reach, or one that holds
+    nothing, has none, and a feature a library hides is left out. Groups by type name, the
+    features of no type last; features by name."""
+    kind = await holder_kind(session, tenant_id=tenant_id, entity_id=entity_id)
+    if kind is None or not await _may_read(
+        session,
+        tenant_id=tenant_id,
+        user=user,
+        visibility=visibility,
+        holder_id=entity_id,
+        kind=kind,
+    ):
+        return []
+    held = await held_feature_outs(
+        session,
+        tenant_id=tenant_id,
+        instance_ids=await visible_instance_ids(session, tenant_id=tenant_id, holder_id=entity_id),
+        visibility=visibility,
+    )
+    groups: dict[uuid.UUID | None, list[TemplateFeatureRowOut]] = {}
+    types: dict[uuid.UUID, EntitySummary] = {}
+    for out in held:
+        first = out.types[0] if out.types else None
+        if first is not None:
+            types[first.id] = first
+        values = {s.stat_definition_id: s.value for s in out.stats}
+        groups.setdefault(first.id if first is not None else None, []).append(
+            TemplateFeatureRowOut(
+                id=out.id,
+                name=out.name,
+                feature=out.feature,
+                active=out.active,
+                cells=[TemplateCellOut(stat_definition_id=c, value=values.get(c)) for c in columns],
+            )
+        )
+    typed = sorted(
+        (key for key in groups if key is not None),
+        key=lambda key: (types[key].name.casefold(), str(key)),
+    )
+    ordered: list[uuid.UUID | None] = [*typed]
+    if None in groups:
+        ordered.append(None)
+    return [
+        TemplateFeatureGroupOut(
+            type=types[key] if key is not None else None,
+            features=sorted(groups[key], key=lambda row: (row.name.casefold(), str(row.id))),
+        )
+        for key in ordered
+    ]
+
+
 async def _held_rows(
     session: SessionDep,
     *,
@@ -643,7 +709,7 @@ async def read_through_template(
                 )
             ).all()
             view.information = [InformationOut.from_information(row, request) for row in rows]
-        else:  # held
+        else:  # held, or features: the same columns
             if slot.stat_group_id is not None:
                 column_ids = [
                     d.id
@@ -661,15 +727,25 @@ async def read_through_template(
                 )
                 for c in column_ids
             ]
-            view.rows = await _held_rows(
-                session,
-                tenant_id=tenant_id,
-                entity_id=entity_id,
-                user=user,
-                visibility=visibility,
-                columns=column_ids,
-                order=slot.held_order or "name",
-            )
+            if slot.kind == "features":
+                view.feature_groups = await _feature_groups(
+                    session,
+                    tenant_id=tenant_id,
+                    entity_id=entity_id,
+                    user=user,
+                    visibility=visibility,
+                    columns=column_ids,
+                )
+            else:
+                view.rows = await _held_rows(
+                    session,
+                    tenant_id=tenant_id,
+                    entity_id=entity_id,
+                    user=user,
+                    visibility=visibility,
+                    columns=column_ids,
+                    order=slot.held_order or "name",
+                )
         slots.append(view)
     return TemplateViewOut(template=summary, entity=EntitySummary.from_entity(entity), slots=slots)
 

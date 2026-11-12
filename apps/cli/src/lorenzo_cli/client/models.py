@@ -4000,6 +4000,14 @@ class TemplateColumnOut(BaseModel):
     unit: str | None = Field(None, title="Unit")
 
 
+class TemplateFeatureRowOut(BaseModel):
+    id: UUID = Field(..., title="Id")
+    name: str = Field(..., title="Name")
+    feature: EntitySummary
+    active: bool = Field(..., title="Active")
+    cells: list[TemplateCellOut] = Field(..., title="Cells")
+
+
 class TemplateHeldRowOut(BaseModel):
     entity: EntitySummary
     quantity: int | None = Field(..., title="Quantity")
@@ -4039,6 +4047,7 @@ class Kind46(StrEnum):
     information = "information"
     held = "held"
     tags = "tags"
+    features = "features"
 
 
 class HeldOrder(StrEnum):
@@ -5721,6 +5730,11 @@ class SumFormulaBodyOutput(BaseModel):
     round_mode: RoundMode | None = "none"
 
 
+class TemplateFeatureGroupOut(BaseModel):
+    type: EntitySummary | None
+    features: list[TemplateFeatureRowOut] = Field(..., title="Features")
+
+
 class TemplateSlotIn(BaseModel):
     kind: Kind46 = Field(..., title="Kind")
     label: constr(min_length=1, max_length=200) | None = Field(None, title="Label")
@@ -5753,6 +5767,7 @@ class TemplateViewSlotOut(BaseModel):
     information: list[InformationOut] | None = Field(None, title="Information")
     columns: list[TemplateColumnOut] | None = Field(None, title="Columns")
     rows: list[TemplateHeldRowOut] | None = Field(None, title="Rows")
+    feature_groups: list[TemplateFeatureGroupOut] | None = Field(None, title="Feature Groups")
     tags: list[TemplateStatOut] | None = Field(None, title="Tags")
 
 

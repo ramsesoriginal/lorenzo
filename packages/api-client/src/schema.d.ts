@@ -18602,6 +18602,35 @@ export interface components {
             unit?: string | null;
         };
         /**
+         * TemplateFeatureGroupOut
+         * @description The features of one type (the first category entry among a feature's parents), by name; the
+         *     group of the features with no type has none, and comes last (ADR 0457).
+         */
+        TemplateFeatureGroupOut: {
+            type: components["schemas"]["EntitySummary"] | null;
+            /** Features */
+            features: components["schemas"]["TemplateFeatureRowOut"][];
+        };
+        /**
+         * TemplateFeatureRowOut
+         * @description One feature the entry has: the instance, the feature, its switch and a cell for each column
+         *     (ADR 0457).
+         */
+        TemplateFeatureRowOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            feature: components["schemas"]["EntitySummary"];
+            /** Active */
+            active: boolean;
+            /** Cells */
+            cells: components["schemas"]["TemplateCellOut"][];
+        };
+        /**
          * TemplateHeldRowOut
          * @description One thing the entry holds: it, its quantity and a cell for each column.
          */
@@ -18673,6 +18702,8 @@ export interface components {
          *     - `held`: the things the entry holds, a column for each stat of a group or a list, as `stats`;
          *       `held_order` is `name` (the default) or `prototype` (by the name of the thing's prototype,
          *       then its name).
+         *     - `features`: the features the entry holds, grouped by type, a column for each stat of a group
+         *       or a list, as `held` has them (ADR 0457).
          *     - `information`: the entry's notes of `information_type`.
          *     - `tags`: the `bool` stats that are true, of `stat_group_id` or, left out, of any group.
          */
@@ -18681,7 +18712,7 @@ export interface components {
              * Kind
              * @enum {string}
              */
-            kind: "stats" | "information" | "held" | "tags";
+            kind: "stats" | "information" | "held" | "tags" | "features";
             /** Label */
             label?: string | null;
             /** Stat Group Id */
@@ -18711,7 +18742,7 @@ export interface components {
              * Kind
              * @enum {string}
              */
-            kind: "stats" | "information" | "held" | "tags";
+            kind: "stats" | "information" | "held" | "tags" | "features";
             /** Label */
             label: string | null;
             /** Stat Group Id */
@@ -18820,9 +18851,9 @@ export interface components {
         /**
          * TemplateViewSlotOut
          * @description A slot of the assembled view, in its position. Only the fields of its kind are filled:
-         *     `stats` for a stats slot, `columns` and `rows` for a held slot, `information` for an
-         *     information slot, `tags` for a tags slot. A slot the caller may not read is left out of the
-         *     view.
+         *     `stats` for a stats slot, `columns` and `rows` for a held slot, `columns` and `feature_groups`
+         *     for a features slot, `information` for an information slot, `tags` for a tags slot. A slot the
+         *     caller may not read is left out of the view.
          */
         TemplateViewSlotOut: {
             /** Position */
@@ -18831,7 +18862,7 @@ export interface components {
              * Kind
              * @enum {string}
              */
-            kind: "stats" | "information" | "held" | "tags";
+            kind: "stats" | "information" | "held" | "tags" | "features";
             /** Label */
             label: string | null;
             /** Stats */
@@ -18842,6 +18873,8 @@ export interface components {
             columns?: components["schemas"]["TemplateColumnOut"][] | null;
             /** Rows */
             rows?: components["schemas"]["TemplateHeldRowOut"][] | null;
+            /** Feature Groups */
+            feature_groups?: components["schemas"]["TemplateFeatureGroupOut"][] | null;
             /** Tags */
             tags?: components["schemas"]["TemplateStatOut"][] | null;
         };

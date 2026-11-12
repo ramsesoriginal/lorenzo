@@ -327,6 +327,24 @@ async def delete_held_features(
     )
 
 
+async def visible_instance_ids(
+    session: AsyncSession, *, tenant_id: uuid.UUID, holder_id: uuid.UUID
+) -> list[uuid.UUID]:
+    """The feature instances a holder has directly that the library does not hide (ADR 0437)."""
+    ids = await held_instance_ids(session, tenant_id=tenant_id, holder_id=holder_id)
+    if not ids:
+        return []
+    return list(
+        await session.scalars(
+            select(FeatureInstance.entity_id).where(
+                FeatureInstance.entity_id.in_(ids),
+                FeatureInstance.tenant_id == tenant_id,
+                await unhidden(session, tenant_id, FeatureInstance.entity_id),
+            )
+        )
+    )
+
+
 async def holds_feature(
     session: AsyncSession, *, tenant_id: uuid.UUID, holder_id: uuid.UUID, feature_id: uuid.UUID
 ) -> bool:
