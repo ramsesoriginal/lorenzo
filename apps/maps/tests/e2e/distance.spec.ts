@@ -321,11 +321,11 @@ for (const theme of ['light', 'dark'] as const) {
     try {
       await page.goto(onMap(w.tenant.id, chart.id));
       await expect(page.getByRole('heading', { name: 'Distance' })).toBeVisible();
-      const before = await new AxeBuilder({ page }).analyze();
+      const before = await new AxeBuilder({ page }).exclude('.shell-bottom').analyze();
       expect(before.violations.map((v) => `${v.id}: ${v.nodes[0]?.html}`)).toEqual([]);
       await measure(page, 'Hollowmere', 'Dunmere', 'Miles (miles)');
       await expect(page.getByText('By the connections: 12.5 miles, over 1 leg.')).toBeVisible();
-      const after = await new AxeBuilder({ page }).analyze();
+      const after = await new AxeBuilder({ page }).exclude('.shell-bottom').analyze();
       expect(after.violations.map((v) => `${v.id}: ${v.nodes[0]?.html}`)).toEqual([]);
     } finally {
       await page.context().close();

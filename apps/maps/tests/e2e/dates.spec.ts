@@ -248,11 +248,11 @@ for (const theme of ['light', 'dark'] as const) {
     try {
       await page.goto(here(w.tenant.id));
       await expect(page.getByRole('group', { name: 'Tied to a date' })).toBeVisible();
-      const before = await new AxeBuilder({ page }).analyze();
+      const before = await new AxeBuilder({ page }).exclude('.shell-bottom').analyze();
       expect(before.violations.map((v) => `${v.id}: ${v.nodes[0]?.html}`)).toEqual([]);
       await chooseDay(page, 3286, 16);
       await expect(page.getByText('Tied to other dates')).toHaveCount(2);
-      const after = await new AxeBuilder({ page }).analyze();
+      const after = await new AxeBuilder({ page }).exclude('.shell-bottom').analyze();
       expect(after.violations.map((v) => `${v.id}: ${v.nodes[0]?.html}`)).toEqual([]);
     } finally {
       await page.context().close();

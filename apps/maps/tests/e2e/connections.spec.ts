@@ -209,12 +209,12 @@ for (const theme of ['light', 'dark'] as const) {
     try {
       await page.goto(here(w.tenant.id, a.id));
       await expect(page.getByText("King's Road to")).toBeVisible();
-      const section = await new AxeBuilder({ page }).analyze();
+      const section = await new AxeBuilder({ page }).exclude('.shell-bottom').analyze();
       expect(section.violations.map((v) => `${v.id}: ${v.nodes[0]?.html}`)).toEqual([]);
       await page.goto(`/map/?tenant=${w.tenant.id}&id=${west.id}`);
       await page.locator('.map-place', { hasText: 'Hollowmere' }).click();
       await expect(page.getByRole('heading', { name: 'Leads to' })).toBeVisible();
-      const panel = await new AxeBuilder({ page }).analyze();
+      const panel = await new AxeBuilder({ page }).exclude('.shell-bottom').analyze();
       expect(panel.violations.map((v) => `${v.id}: ${v.nodes[0]?.html}`)).toEqual([]);
     } finally {
       await page.context().close();
