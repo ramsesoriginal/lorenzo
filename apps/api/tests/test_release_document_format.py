@@ -124,9 +124,13 @@ def test_version_one_is_read_as_it_was_written() -> None:
 
     assert differences(full_content(), rd.decode(golden, _files(), format=1)) == []
     # V3 adds calendars; V1 and V2 remain readable unchanged.
-    assert rd.FORMAT == 42
+    assert rd.FORMAT == 45
     assert rd.encode(full_content())[0] == {
         **golden,
+        "repeatable": {},
+        "grant_rules": {},
+        "prerequisites": {},
+        "grant_records": {},
         "groups": {
             key: {"role": None, "system": None, **group} for key, group in golden["groups"].items()
         },
@@ -817,3 +821,118 @@ def test_systems_and_templates_round_trip_and_an_old_document_has_none() -> None
     old = rd.decode(v41, files, format=41)
     assert old.systems == {} and old.templates == {}
     assert all(g["system"] is None for g in old.groups.values())
+
+
+def test_features_round_trip_and_an_old_document_has_none() -> None:
+    """ADR 0454: an entry of the kind `feature` says whether it is `repeatable` and whether its
+    instances start inactive; a document of version 42, which had no features, reads none as
+    repeatable."""
+    content = full_content()
+    feature, instance = uuid.UUID(int=90), uuid.UUID(int=91)
+    content.entities[feature] = "Fireball"
+    content.entities[instance] = "Fireball"
+    content.kinds[feature] = {"feature"}
+    content.kinds[instance] = {"feature_instance"}
+    content.repeatable = {feature: True}
+    content.starts_inactive = {feature: True}
+
+    document, files = rd.encode(content)
+    back = rd.decode(rd.loads(rd.dumps(document)), files)
+
+    assert differences(content, back) == []
+    assert back.repeatable == {feature: True}
+    assert back.kinds[feature] == {"feature"} and back.kinds[instance] == {"feature_instance"}
+    v42 = {key: value for key, value in document.items() if key != "repeatable"}
+    old = rd.decode(v42, files, format=42)
+    assert old.repeatable == {}
+
+
+def test_grant_rules_and_prerequisites_round_trip_and_an_old_document_has_none() -> None:
+    """ADR 0455: a library's rules (conditions and options in order) and the prerequisites of its
+    features are in the document; a document of version 43, which had none, reads none."""
+    content = full_content()
+    source, feature, other, rule = (uuid.UUID(int=n) for n in (92, 93, 94, 95))
+    stat = next(iter(content.definitions))
+    content.entities.update({source: "Fighter", feature: "Second Wind", other: "Action Surge"})
+    content.kinds[feature] = {"feature"}
+    content.grant_rules = {
+        rule: {
+            "entry": source,
+            "label": "Level 1",
+            "position": 0,
+            "mode": "choose",
+            "min": 1,
+            "max": None,
+            "count_stat": stat,
+            "category": None,
+            "lasts": "permanent",
+            "changeable": True,
+            "conditions": [
+                {
+                    "subject": "source",
+                    "stat": stat,
+                    "comparator": "ge",
+                    "constant": Decimal("2.5"),
+                    "right_stat": None,
+                },
+                {
+                    "subject": "holder",
+                    "stat": stat,
+                    "comparator": "lt",
+                    "constant": None,
+                    "right_stat": stat,
+                },
+            ],
+            "options": [feature, other],
+        }
+    }
+    content.prerequisites = {
+        feature: [{"stat": stat, "comparator": "gt", "constant": Decimal("12"), "right_stat": None}]
+    }
+
+    document, files = rd.encode(content)
+    back = rd.decode(rd.loads(rd.dumps(document)), files)
+
+    assert differences(content, back) == []
+    assert back.grant_rules[rule]["conditions"][0]["constant"] == Decimal("2.5")
+    assert back.grant_rules[rule]["options"] == [feature, other]
+    assert back.prerequisites[feature][0]["constant"] == Decimal("12")
+    v43 = {k: v for k, v in document.items() if k not in ("grant_rules", "prerequisites")}
+    old = rd.decode(v43, files, format=43)
+    assert old.grant_rules == {} and old.prerequisites == {}
+
+
+def test_grant_records_round_trip_and_an_old_document_has_none() -> None:
+    """ADR 0456: how a holder came to have a feature (its rule and source, or an award) is in the
+    document; a document of version 44, which had none, reads none."""
+    content = full_content()
+    holder, feature, instance, rule, source, record, award = (
+        uuid.UUID(int=n) for n in (96, 97, 98, 99, 100, 101, 102)
+    )
+    content.entities.update(
+        {holder: "Hero", feature: "Second Wind", instance: "Second Wind", source: "Fighter"}
+    )
+    content.grant_records = {
+        record: {
+            "holder": holder,
+            "rule": rule,
+            "source": source,
+            "feature": feature,
+            "instance": instance,
+        },
+        award: {
+            "holder": holder,
+            "rule": None,
+            "source": None,
+            "feature": feature,
+            "instance": instance,
+        },
+    }
+
+    document, files = rd.encode(content)
+    back = rd.decode(rd.loads(rd.dumps(document)), files)
+
+    assert differences(content, back) == []
+    assert back.grant_records[award]["rule"] is None
+    v44 = {k: v for k, v in document.items() if k != "grant_records"}
+    assert rd.decode(v44, files, format=44).grant_records == {}

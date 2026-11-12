@@ -15,6 +15,8 @@ from lorenzo_api.campaign_access import (
 from lorenzo_api.change_feed import Change, holders, record_change
 from lorenzo_api.entity_access import controlled_character_entity_ids
 from lorenzo_api.exceptions import CharacterManagementForbiddenError
+from lorenzo_api.features import delete_held_features
+from lorenzo_api.grants import revoke_by_sources
 from lorenzo_api.models import (
     Being,
     Containment,
@@ -136,6 +138,10 @@ async def settle_inventory(
         )
     removed = carried_ids & owned_ids
     affected = carried_ids | owned_ids
+    # What the items that go with the being gave goes with them, and the features the being has,
+    # and those of the items, have no life of their own (ADR 0454, 0456).
+    await revoke_by_sources(session, tenant_id=tenant_id, actor_id=actor_id, source_ids=removed)
+    await delete_held_features(session, tenant_id=tenant_id, holder_ids=removed | {being_id})
     if not affected:
         return
     before = {

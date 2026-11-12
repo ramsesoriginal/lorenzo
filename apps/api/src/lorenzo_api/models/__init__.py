@@ -111,6 +111,13 @@ __all__ = [
     "SocialWeb",
     "SocialWebEntry",
     "SocialWebType",
+    "Feature",
+    "FeatureInstance",
+    "FeaturePrerequisite",
+    "GrantRecord",
+    "GrantRule",
+    "GrantRuleCondition",
+    "GrantRuleOption",
     "EntityFrame",
     "Frame",
     "Location",
@@ -241,7 +248,15 @@ from lorenzo_api.models.carrier import Carrier as Carrier
 from lorenzo_api.models.carrier import CarrierCoverage as CarrierCoverage
 from lorenzo_api.models.clock import CalendarReckoning, Clock, ClockRelationship, EventClockReading
 from lorenzo_api.models.connection import Connection
+from lorenzo_api.models.feature import Feature, FeatureInstance
 from lorenzo_api.models.frame import EntityFrame, Frame
+from lorenzo_api.models.grant_record import GrantRecord
+from lorenzo_api.models.grant_rule import (
+    FeaturePrerequisite,
+    GrantRule,
+    GrantRuleCondition,
+    GrantRuleOption,
+)
 from lorenzo_api.models.lived_order import LivedBefore
 from lorenzo_api.models.location import EntityLocation, Location, LocationPart
 from lorenzo_api.models.manuscript import Book as Book

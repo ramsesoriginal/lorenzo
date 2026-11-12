@@ -1753,3 +1753,72 @@ class InvalidTemplateError(UnprocessableProblem):
     group or stat that does not resolve in this tenant (ADR 0451)."""
 
     title = "Invalid template"
+
+
+class FeatureNotFoundError(NotFoundProblem):
+    """.../features/{id} - no such feature instance in this tenant, or none the caller reaches
+    (ADR 0454)."""
+
+    title = "Feature not found"
+
+
+class InvalidFeatureError(UnprocessableProblem):
+    """POST .../entities/{holder}/features - the entry named is not a feature of this tenant
+    (a hidden one is answered as an unknown one, ADR 0437)."""
+
+    title = "Invalid feature"
+
+
+class InvalidFeatureHolderError(UnprocessableProblem):
+    """.../entities/{holder}/features - the entry is not a being, an item instance or a group, the
+    three things that hold features (ADR 0454)."""
+
+    title = "Not a holder of features"
+
+
+class FeatureAlreadyHeldError(ConflictProblem):
+    """POST .../entities/{holder}/features - the holder has this feature and it is not
+    `repeatable` (ADR 0454)."""
+
+    title = "The holder already has this feature"
+
+
+class FeatureManagementForbiddenError(ForbiddenProblem):
+    """Awarding or removing a feature, or flipping its switch, by someone who does not manage
+    the holder (ADR 0454)."""
+
+    title = "Not allowed to manage this holder's features"
+
+
+class GrantRuleNotFoundError(NotFoundProblem):
+    """.../grant-rules/{id} - no such rule in this tenant (ADR 0455)."""
+
+    title = "Grant rule not found"
+
+
+class InvalidGrantRuleError(UnprocessableProblem):
+    """POST or PUT .../grant-rules and PUT .../prerequisites - an option that is no feature, an
+    entry, category, stat or count stat that does not resolve in this tenant (a hidden entry is
+    answered as an unknown one, ADR 0437), or a condition on a stat that is text (ADR 0455)."""
+
+    title = "Invalid grant rule"
+
+
+class InvalidGrantPickError(UnprocessableProblem):
+    """POST .../grants/apply - a pick outside what the rule offers, with no open choice behind it,
+    below its minimum, above its maximum, or of a feature whose prerequisites do not hold, where
+    no GM overrode it (ADR 0456)."""
+
+    title = "Invalid pick"
+
+
+class GrantApplyForbiddenError(ForbiddenProblem):
+    """POST .../grants/apply by someone who neither controls the holder nor manages it."""
+
+    title = "Not allowed to apply this holder's grants"
+
+
+class GrantOverrideForbiddenError(ForbiddenProblem):
+    """POST .../grants/apply with `override` by someone who is not a GM of the holder (ADR 0456)."""
+
+    title = "Only a GM can override a grant's limits"

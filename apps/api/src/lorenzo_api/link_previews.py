@@ -55,6 +55,10 @@ TEMPLATES: dict[str, PreviewTemplate] = {
     "relationship": PreviewTemplate(name="relationship", stats=(), max_stats=0),
     # ADR 0406: a social web shows what it is called and how it is described.
     "social_web": PreviewTemplate(name="social_web", stats=(), max_stats=0),
+    # ADR 0454: a feature, and one a holder has, show what they are called and how they are
+    # described; the stats a library gives them are its own names, so none is named here.
+    "feature": PreviewTemplate(name="feature", stats=(), max_stats=0),
+    "feature_instance": PreviewTemplate(name="feature_instance", stats=(), max_stats=0),
 }
 
 

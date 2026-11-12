@@ -48,7 +48,7 @@ from lorenzo_api.repository_content import (
 )
 from lorenzo_api.roles import DEFINITION_ROLES, GROUP_ROLES
 
-FORMAT = 42
+FORMAT = 45
 _DEFINITION_ROLES = frozenset(DEFINITION_ROLES)
 _GROUP_ROLES = frozenset(GROUP_ROLES)
 
@@ -387,6 +387,7 @@ _CONTENT = _dataclass(
         "kinds": _id_map(_TEXT_SET),
         "in_public_catalog": _id_map(_PLAIN),
         "starts_inactive": _id_map(_PLAIN),
+        "repeatable": _id_map(_PLAIN),
         "slugs": _id_map(_PLAIN),
         "prototypes": _pairs(_ID, _ID),
         "groups": _id_map(
@@ -429,6 +430,61 @@ _CONTENT = _dataclass(
                     ),
                 },
                 name="Content.templates",
+            )
+        ),
+        "grant_rules": _id_map(
+            _record(
+                {
+                    "entry": _ID,
+                    "label": _PLAIN,
+                    "position": _PLAIN,
+                    "mode": _PLAIN,
+                    "min": _PLAIN,
+                    "max": _PLAIN,
+                    "count_stat": _optional(_ID),
+                    "category": _optional(_ID),
+                    "lasts": _PLAIN,
+                    "changeable": _PLAIN,
+                    "conditions": _list(
+                        _record(
+                            {
+                                "subject": _PLAIN,
+                                "stat": _ID,
+                                "comparator": _PLAIN,
+                                "constant": _optional(_DECIMAL),
+                                "right_stat": _optional(_ID),
+                            },
+                            name="Content.grant_rules.conditions",
+                        )
+                    ),
+                    "options": _ID_LIST,
+                },
+                name="Content.grant_rules",
+            )
+        ),
+        "prerequisites": _id_map(
+            _list(
+                _record(
+                    {
+                        "stat": _ID,
+                        "comparator": _PLAIN,
+                        "constant": _optional(_DECIMAL),
+                        "right_stat": _optional(_ID),
+                    },
+                    name="Content.prerequisites",
+                )
+            )
+        ),
+        "grant_records": _id_map(
+            _record(
+                {
+                    "holder": _ID,
+                    "rule": _optional(_ID),
+                    "source": _optional(_ID),
+                    "feature": _ID,
+                    "instance": _ID,
+                },
+                name="Content.grant_records",
             )
         ),
         "definitions": _id_map(
@@ -886,6 +942,21 @@ def _read_v41(document: Document, files: Mapping[str, bytes]) -> Content:
 
 
 def _read_v42(document: Document, files: Mapping[str, bytes]) -> Content:
+    # Before format 43 there were no features (ADR 0454): no entry is one, and none is repeatable.
+    return _read_v43({**document, "repeatable": {}}, files)
+
+
+def _read_v43(document: Document, files: Mapping[str, bytes]) -> Content:
+    # Before format 44 there were no grant rules and no prerequisites (ADR 0455).
+    return _read_v44({**document, "grant_rules": {}, "prerequisites": {}}, files)
+
+
+def _read_v44(document: Document, files: Mapping[str, bytes]) -> Content:
+    # Before format 45 there were no grant records (ADR 0456): a feature instance has no record.
+    return _read_v45({**document, "grant_records": {}}, files)
+
+
+def _read_v45(document: Document, files: Mapping[str, bytes]) -> Content:
     content: Content = _CONTENT.decode(document, dict(files))
     return content
 
@@ -935,6 +1006,9 @@ READERS: dict[int, Callable[[Document, Mapping[str, bytes]], Content]] = {
     40: _read_v40,
     41: _read_v41,
     42: _read_v42,
+    43: _read_v43,
+    44: _read_v44,
+    45: _read_v45,
 }
 
 

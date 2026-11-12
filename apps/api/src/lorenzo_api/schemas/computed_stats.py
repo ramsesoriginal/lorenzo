@@ -138,7 +138,8 @@ class ContentsFormulaBody(BaseModel):
     inside's own weight, formulas included, times its stack count. `aggregate` may instead be
     `min`, `max` or `count`; `count` ignores the stat (leave it out), and `min`, `max` and `count`
     ignore the stack count. `only_active` skips a held thing whose `active` switch is off,
-    `only_kind` keeps one kind of held thing (`item_instance`), `where_stat_definition_id` is a
+    `only_kind` keeps one kind of held thing (`item_instance` or `feature_instance`, ADR 0454),
+    `where_stat_definition_id` is a
     `bool` stat that must be true on the held thing, and `if_none` is what `min` and `max` of
     nothing give (no value without it)."""
 
@@ -146,7 +147,7 @@ class ContentsFormulaBody(BaseModel):
     source_stat_definition_id: uuid.UUID | None = None
     aggregate: Literal["sum", "min", "max", "count"] = "sum"
     only_active: bool = False
-    only_kind: Literal["item_instance"] | None = None
+    only_kind: Literal["item_instance", "feature_instance"] | None = None
     where_stat_definition_id: uuid.UUID | None = None
     if_none: Decimal | None = None
 
