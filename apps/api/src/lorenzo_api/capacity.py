@@ -60,13 +60,15 @@ def _shown(number: float) -> str:
 
 
 async def _known(session: AsyncSession, tenant_id: uuid.UUID) -> dict[str, uuid.UUID]:
+    """The definitions that hold the capacity roles, by role (ADR 0449)."""
     return {
-        name: definition_id
-        for definition_id, name in await session.execute(
-            select(StatDefinition.id, StatDefinition.name).where(
-                StatDefinition.tenant_id == tenant_id, StatDefinition.name.in_(_NAMES)
+        role: definition_id
+        for definition_id, role in await session.execute(
+            select(StatDefinition.id, StatDefinition.role).where(
+                StatDefinition.tenant_id == tenant_id, StatDefinition.role.in_(_NAMES)
             )
         )
+        if role is not None
     }
 
 

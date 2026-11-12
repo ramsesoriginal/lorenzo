@@ -7,6 +7,7 @@ from typing import Annotated, Any
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from lorenzo_api.models import StatDefinition, StatValueType
+from lorenzo_api.roles import DefinitionRole, GroupRole
 
 __all__ = [
     "SetEntityStatRequest",
@@ -46,6 +47,10 @@ class StatGroupCreate(BaseModel):
     # The game system the group belongs to (ADR 0448), or none: a neutral group. The names of its
     # definitions must start with the system's slug and an underscore.
     system_id: uuid.UUID | None = None
+    # ADR 0449: what the API reads the group as (`physical`, `economic`, `destroyable`, `damaging`,
+    # `tags`), or none. Left out, a group called one of those names takes it when the role is free
+    # and the group has no system; `null` says none. A role-holder belongs to no system.
+    role: GroupRole | None = None
 
 
 class StatGroupUpdate(BaseModel):
@@ -60,10 +65,12 @@ class StatGroupUpdate(BaseModel):
     # ADR 0448: the one field that can be cleared (null makes the group neutral); every definition
     # of the group must start with the new system's slug and an underscore.
     system_id: uuid.UUID | None = None
+    # ADR 0449: set or clear the role; a role-holder belongs to no system.
+    role: GroupRole | None = None
 
     @model_validator(mode="after")
     def _no_nulls(self) -> StatGroupUpdate:
-        for field in self.model_fields_set - {"system_id"}:
+        for field in self.model_fields_set - {"system_id", "role"}:
             if getattr(self, field) is None:
                 raise ValueError(f"{field} cannot be null")
         return self
@@ -98,6 +105,8 @@ class StatGroupOut(BaseModel):
     position: int
     # ADR 0448: the game system the group belongs to, null when it is neutral.
     system_id: uuid.UUID | None = None
+    # ADR 0449: what the API reads the group as, null for most.
+    role: GroupRole | None = None
     created_at: datetime
     updated_at: datetime
 
@@ -111,6 +120,11 @@ class StatDefinitionCreate(BaseModel):
     name: str
     stat_group_id: uuid.UUID
     value_type: StatValueType
+    # ADR 0449: what the API reads the stat as (`weight`, `hp`, `binding`, ...), or none. Left out,
+    # a stat called one of those names takes it when the role is free, its type fits and its group
+    # has no system; `null` says none. The stat must fit the role's types, and belongs to no
+    # system.
+    role: DefinitionRole | None = None
     # Required and non-empty for value_type=enum, absent or empty otherwise
     # (ADR 0103). List position becomes each value's sort_order.
     enum_values: list[str] | None = None
@@ -136,6 +150,8 @@ class StatDefinitionUpdate(BaseModel):
     `name` is editable (ADR 0390); its type and group are not."""
 
     name: NameText | None = None
+    # ADR 0449: set or clear the role (a stat that fits it, in a group with no system).
+    role: DefinitionRole | None = None
     unit: UnitText | None = None
     adjustable_in_play: bool | None = None
     pin: bool | None = None
@@ -156,6 +172,7 @@ class StatDefinitionUpdate(BaseModel):
     @model_validator(mode="after")
     def _no_nulls(self) -> StatDefinitionUpdate:
         clearable = {
+            "role",
             "value_type",
             "stat_group_id",
             "unit",
@@ -189,6 +206,8 @@ class StatDefinitionOut(BaseModel):
     name: str
     stat_group_id: uuid.UUID
     value_type: StatValueType
+    # ADR 0449: what the API reads the stat as, null for most.
+    role: DefinitionRole | None = None
     # The allowed values of an enum stat, in display order; empty for any
     # other type (ADR 0103).
     enum_values: list[str]
@@ -217,6 +236,7 @@ class StatDefinitionOut(BaseModel):
             name=stat_definition.name,
             stat_group_id=stat_definition.stat_group_id,
             value_type=stat_definition.value_type,
+            role=stat_definition.role,
             enum_values=[row.value for row in stat_definition.enum_values],
             enum_options=[
                 StatEnumOptionOut(id=row.id, value=row.value, sort_order=row.sort_order)

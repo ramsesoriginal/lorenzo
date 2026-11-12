@@ -24,6 +24,7 @@ from lorenzo_api.exceptions import (
     InvalidStatGroupError,
     InvalidStatHintError,
     InvalidStatOrderError,
+    InvalidStatRoleError,
     InvalidStatScaleError,
     InvalidSystemError,
     StatDefinitionFieldImmutableError,
@@ -39,6 +40,7 @@ from lorenzo_api.exceptions import (
     StatGroupNotFoundError,
     StatNamePrefixError,
     StatNameReservedError,
+    StatRoleTakenError,
     StatScaleBreaksValuesError,
 )
 from lorenzo_api.library_counts import count_libraries, libraries_note
@@ -61,6 +63,7 @@ from lorenzo_api.models import (
     StatValueType,
     System,
 )
+from lorenzo_api.roles import DEFINITION_ROLES, GROUP_ROLES, RESERVED_ENUM_VALUES, role_fits
 from lorenzo_api.schemas.library_counts import LibraryCountOut
 from lorenzo_api.schemas.stats import (
     StatDefinitionCreate,
@@ -75,8 +78,6 @@ from lorenzo_api.schemas.stats import (
     StatGroupUpdate,
 )
 from lorenzo_api.stat_enum_values import (
-    RESERVED_ENUM_VALUES,
-    RESERVED_STAT_NAMES,
     enum_value_uses,
     formulas_reading_as_number,
     rename_enum_value_text,
@@ -195,6 +196,137 @@ async def _system_slug_of_group(
     return slug
 
 
+async def _role_holder(
+    session: SessionDep,
+    model: type[StatDefinition] | type[StatGroup],
+    tenant_id: uuid.UUID,
+    role: str,
+    *,
+    own_id: uuid.UUID | None = None,
+) -> uuid.UUID | None:
+    """The id of what holds `role` in this library, other than `own_id` (ADR 0449)."""
+    holder: uuid.UUID | None = await session.scalar(
+        select(model.id).where(
+            model.tenant_id == tenant_id,
+            model.role == role,
+            *([model.id != own_id] if own_id is not None else []),
+        )
+    )
+    return holder
+
+
+async def _group_has_system(
+    session: SessionDep, tenant_id: uuid.UUID, stat_group_id: uuid.UUID
+) -> bool:
+    return (
+        await session.scalar(
+            select(StatGroup.system_id).where(
+                StatGroup.id == stat_group_id, StatGroup.tenant_id == tenant_id
+            )
+        )
+        is not None
+    )
+
+
+async def _check_definition_role(
+    session: SessionDep,
+    tenant_id: uuid.UUID,
+    role: str,
+    *,
+    value_type: StatValueType,
+    enum_values: list[str],
+    stat_group_id: uuid.UUID,
+    own_id: uuid.UUID | None,
+) -> None:
+    """A stat takes a role when it fits it and nothing else holds it (ADR 0449): its type is one
+    the role is read as, a binding has its `none` value, its group has no game system, and the
+    role is free."""
+    if not role_fits(role, value_type):
+        raise InvalidStatRoleError(
+            detail=f"The role {role!r} is not read from a {value_type.value} stat"
+        )
+    if role == "binding" and "none" not in enum_values:
+        raise InvalidStatRoleError(detail="A binding stat needs the value 'none'")
+    if await _group_has_system(session, tenant_id, stat_group_id):
+        raise InvalidStatRoleError(
+            detail="A stat that holds a role belongs to no game system: its group has one"
+        )
+    if await _role_holder(session, StatDefinition, tenant_id, role, own_id=own_id) is not None:
+        raise StatRoleTakenError(
+            detail=f"Another stat of tenant {tenant_id} holds the role {role!r}"
+        )
+
+
+async def _default_definition_role(
+    session: SessionDep,
+    tenant_id: uuid.UUID,
+    name: str,
+    *,
+    value_type: StatValueType,
+    enum_values: list[str],
+    stat_group_id: uuid.UUID,
+) -> str | None:
+    """A new stat called after a role takes it when it can and the role is free, as every stat of
+    that name was read before roles (ADR 0449); otherwise it holds none."""
+    if name not in DEFINITION_ROLES:
+        return None
+    try:
+        await _check_definition_role(
+            session,
+            tenant_id,
+            name,
+            value_type=value_type,
+            enum_values=enum_values,
+            stat_group_id=stat_group_id,
+            own_id=None,
+        )
+    except InvalidStatRoleError, StatRoleTakenError:
+        return None
+    return name
+
+
+async def _check_group_role(
+    session: SessionDep,
+    tenant_id: uuid.UUID,
+    role: str,
+    *,
+    system_id: uuid.UUID | None,
+    own_id: uuid.UUID | None,
+) -> None:
+    """A group takes a role when it has no game system and nothing else holds the role (ADR
+    0449)."""
+    if system_id is not None:
+        raise InvalidStatRoleError(
+            detail="A group that holds a role belongs to no game system: it has one"
+        )
+    if await _role_holder(session, StatGroup, tenant_id, role, own_id=own_id) is not None:
+        raise StatRoleTakenError(
+            detail=f"Another stat group of tenant {tenant_id} holds the role {role!r}"
+        )
+
+
+async def _no_role_holders_in(
+    session: SessionDep, tenant_id: uuid.UUID, stat_group_id: uuid.UUID
+) -> None:
+    """A group takes a game system only when none of its stats holds a role (ADR 0449)."""
+    names = list(
+        await session.scalars(
+            select(StatDefinition.name)
+            .where(
+                StatDefinition.tenant_id == tenant_id,
+                StatDefinition.stat_group_id == stat_group_id,
+                StatDefinition.role.is_not(None),
+            )
+            .order_by(StatDefinition.name)
+            .limit(5)
+        )
+    )
+    if names:
+        raise InvalidStatRoleError(
+            detail=f"A stat that holds a role belongs to no game system: {', '.join(names)}"
+        )
+
+
 def _check_prefix(slug: str | None, name: str) -> None:
     """A definition of a group with a system starts with the slug and an underscore (ADR 0448)."""
     if slug is not None and not (name.startswith(f"{slug}_") and len(name) > len(slug) + 1):
@@ -303,12 +435,28 @@ async def create_stat_group(
         )
     if body.system_id is not None:
         await _require_system(session, tenant_id, body.system_id)
+    role: str | None
+    if "role" in body.model_fields_set:
+        role = body.role
+        if role is not None:
+            await _check_group_role(session, tenant_id, role, system_id=body.system_id, own_id=None)
+    else:
+        # A group called after a role takes it when it can, as every group of that name was read
+        # before roles.
+        role = None
+        if (
+            body.name in GROUP_ROLES
+            and body.system_id is None
+            and await _role_holder(session, StatGroup, tenant_id, body.name) is None
+        ):
+            role = body.name
     stat_group = StatGroup(
         tenant_id=tenant_id,
         name=body.name,
         priority=body.priority,
         mandatory=body.mandatory,
         system_id=body.system_id,
+        role=role,
     )
     if body.position is not None:
         stat_group.position = body.position
@@ -390,6 +538,19 @@ async def update_stat_group(
     if changes.get("system_id") is not None:
         system = await _require_system(session, tenant_id, changes["system_id"])
         await _check_definitions_carry(session, tenant_id, stat_group_id, system.slug)
+        if changes.get("role", stat_group.role) is not None:
+            raise InvalidStatRoleError(
+                detail="A group that holds a role belongs to no game system: clear the role first"
+            )
+        await _no_role_holders_in(session, tenant_id, stat_group_id)
+    if changes.get("role") is not None and changes["role"] != stat_group.role:
+        await _check_group_role(
+            session,
+            tenant_id,
+            changes["role"],
+            system_id=changes.get("system_id", stat_group.system_id),
+            own_id=stat_group_id,
+        )
     for field, value in changes.items():
         setattr(stat_group, field, value)
     await session.commit()
@@ -580,11 +741,34 @@ async def create_stat_definition(
         own_id=None,
     )
     _check_scale(body.value_type, body.min_value, body.max_value)
+    role: str | None
+    if "role" in body.model_fields_set:
+        role = body.role
+        if role is not None:
+            await _check_definition_role(
+                session,
+                tenant_id,
+                role,
+                value_type=body.value_type,
+                enum_values=enum_values,
+                stat_group_id=body.stat_group_id,
+                own_id=None,
+            )
+    else:
+        role = await _default_definition_role(
+            session,
+            tenant_id,
+            body.name,
+            value_type=body.value_type,
+            enum_values=enum_values,
+            stat_group_id=body.stat_group_id,
+        )
     stat_definition = StatDefinition(
         tenant_id=tenant_id,
         stat_group_id=body.stat_group_id,
         name=body.name,
         value_type=body.value_type,
+        role=role,
         unit=body.unit,
         adjustable_in_play=body.adjustable_in_play,
         pin=body.pin,
@@ -694,10 +878,6 @@ async def update_stat_definition(
             await _system_slug_of_group(session, tenant_id, stat_definition.stat_group_id),
             changes["name"],
         )
-        if stat_definition.name in RESERVED_STAT_NAMES:
-            raise StatNameReservedError(
-                detail=f"The API reads {stat_definition.name!r} by name, so it cannot be renamed"
-            )
         taken = await session.scalar(
             select(StatDefinition.id).where(
                 StatDefinition.tenant_id == tenant_id,
@@ -709,6 +889,16 @@ async def update_stat_definition(
             raise StatDefinitionNameTakenError(
                 detail=f"Another stat in tenant {tenant_id} is already called {changes['name']!r}"
             )
+    if changes.get("role") is not None and changes["role"] != stat_definition.role:
+        await _check_definition_role(
+            session,
+            tenant_id,
+            changes["role"],
+            value_type=stat_definition.value_type,
+            enum_values=[row.value for row in stat_definition.enum_values],
+            stat_group_id=stat_definition.stat_group_id,
+            own_id=stat_definition_id,
+        )
     await _check_hints(
         session,
         tenant_id,
@@ -966,7 +1156,7 @@ async def update_stat_enum_value(
             session, tenant_id, stat_definition_id, row.value, "moved"
         )
     if new != old:
-        if old in RESERVED_ENUM_VALUES.get(stat_definition.name, frozenset()):
+        if old in RESERVED_ENUM_VALUES.get(stat_definition.role or "", frozenset()):
             raise StatNameReservedError(
                 detail=f"The API writes {old!r} for stat {stat_definition.name!r}, so it "
                 "cannot be renamed"

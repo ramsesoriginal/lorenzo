@@ -1711,3 +1711,18 @@ class StatNamePrefixError(UnprocessableProblem):
     its definitions do not carry (ADR 0448)."""
 
     title = "A stat of a system starts with the system's slug"
+
+
+class StatRoleTakenError(ConflictProblem):
+    """A stat definition or a stat group takes a role another already holds in this library: one
+    holds each (ADR 0449)."""
+
+    title = "This role is already held"
+
+
+class InvalidStatRoleError(UnprocessableProblem):
+    """A role does not fit: the stat's type is not one the role is read as, a binding lacks its
+    `none` value, or the stat or group belongs to a game system, which a role-holder may not
+    (ADR 0449)."""
+
+    title = "This stat cannot hold this role"

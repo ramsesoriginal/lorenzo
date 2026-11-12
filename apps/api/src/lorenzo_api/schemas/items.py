@@ -211,7 +211,9 @@ def _title_out(title: str | None, *, name: str) -> str:
     return title or name
 
 
-def _is_container_out(tags: list[tuple[str, bool | None]], *, has_children: bool) -> bool | None:
+def _is_container_out(
+    container_tag: tuple[bool, bool | None], *, has_children: bool
+) -> bool | None:
     """`is_container` as a first-class field, mirroring whatever `tags`
     already carries for that name - see ADR 0066. Not a new stat_definition
     lookup of its own and not a new `v_item`/`v_item_instance` SQL column
@@ -231,9 +233,9 @@ def _is_container_out(tags: list[tuple[str, bool | None]], *, has_children: bool
     from "we don't know" under this heuristic, so it stays unset rather
     than being inferred `False`.
     """
-    for name, value in tags:
-        if name == "is_container":
-            return value
+    present, value = container_tag
+    if present:
+        return value
     return True if has_children else None
 
 
@@ -275,13 +277,13 @@ def _prototype_ids_out(entity: Entity, visibility: InformationReader) -> list[uu
     return [link.prototype_id for link in links if visibility.can_see_entry(link.prototype_id)]
 
 
-def _named_number(view: VItem | VItemInstance, name: str, column: int | None) -> int | float | None:
+def _named_number(view: VItem | VItemInstance, role: str, column: int | None) -> int | float | None:
     """A named v_item/v_item_instance column holds stored integers only - SQL can't
     evaluate a formula, and the view reads the integer column - so a computed winner (ADR 0104)
     or a stored float (ADR 0141) comes from the Python pass instead."""
     if column is not None:
         return column
-    value = view.resolved_value_by_name(name)
+    value = view.resolved_value_by_role(role)
     return value if isinstance(value, int | float) and not isinstance(value, bool) else None
 
 
@@ -311,7 +313,9 @@ def _common_item_fields(
         container_entity_id=view.container_entity_id,
         quantity=view.quantity,
         prototype_ids=_prototype_ids_out(view.entity, visibility),
-        is_container=_is_container_out(view.tags, has_children=bool(view.entity.contained_links)),
+        is_container=_is_container_out(
+            view.container_tag, has_children=bool(view.entity.contained_links)
+        ),
         **_described_out(view, request, visibility, ancestors),
         physical_stats=_stats_out(view.physical_stats),
         economic_stats=_stats_out(view.economic_stats),

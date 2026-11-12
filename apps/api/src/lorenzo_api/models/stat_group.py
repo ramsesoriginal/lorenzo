@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 from typing import TYPE_CHECKING
 
-from sqlalchemy import FetchedValue, Integer, UniqueConstraint, text
+from sqlalchemy import CheckConstraint, FetchedValue, Index, Integer, UniqueConstraint, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from lorenzo_api.db import Base, CreatedAt, TenantFk, UpdatedAt, UuidPk, same_tenant_fk
@@ -23,6 +23,18 @@ class StatGroup(Base):
         # ADR 0117: what same-tenant keys into this table reference.
         UniqueConstraint("id", "tenant_id", name="stat_group_id_tenant_id_key"),
         UniqueConstraint("tenant_id", "name"),
+        # ADR 0449: one group holds a role in a library, from the closed list of `roles.py`.
+        Index(
+            "stat_group_tenant_id_role_key",
+            "tenant_id",
+            "role",
+            unique=True,
+            postgresql_where=text("role IS NOT NULL"),
+        ),
+        CheckConstraint(
+            "role IS NULL OR role IN ('physical', 'economic', 'destroyable', 'damaging', 'tags')",
+            name="stat_group_role",
+        ),
         # RFC 0052: the system it belongs to, or none (neutral). Deleting a system is refused while
         # a group has it, so the key does not clear it.
         same_tenant_fk("stat_group_system_id_fkey", ["system_id"], "system"),
@@ -31,6 +43,9 @@ class StatGroup(Base):
     id: Mapped[UuidPk]
     tenant_id: Mapped[TenantFk]
     name: Mapped[str]
+    # What the API reads this group as, by role and not by name (ADR 0449): null for most. A
+    # role-holder belongs to no game system.
+    role: Mapped[str | None]
     # Inheritance tie-break (RFC 0001, ADR 0037): the effective-stat views prefer the
     # highest priority among inherited values at the same distance.
     priority: Mapped[int] = mapped_column(Integer, server_default=text("0"))

@@ -92,7 +92,7 @@ def _view_binding(view: VItemInstance) -> str | None:
     """The binding `view` resolves to, from the stats it already loaded."""
     for stat in view.entity.effective_stats:
         definition = stat.stat_definition
-        if definition.name == BINDING and definition.value_type is StatValueType.ENUM:
+        if definition.role == BINDING and definition.value_type is StatValueType.ENUM:
             return _binds(view.resolved_stat_values().get(definition.id))
     return None
 
@@ -156,7 +156,7 @@ async def _definition(session: AsyncSession, *, tenant_id: uuid.UUID) -> StatDef
         select(StatDefinition)
         .where(
             StatDefinition.tenant_id == tenant_id,
-            StatDefinition.name == BINDING,
+            StatDefinition.role == BINDING,
             StatDefinition.value_type == StatValueType.ENUM,
         )
         .options(selectinload(StatDefinition.enum_values))
