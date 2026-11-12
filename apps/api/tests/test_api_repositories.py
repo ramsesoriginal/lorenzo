@@ -67,6 +67,8 @@ async def test_granting_publishing_browsing_and_removing(
             "Fixture bond",
             "Fixture second bond",
             "Fixture web",
+            "Fixture feature",
+            "Fixture feature held",
             "Blade",
             "Chest",
             "Elminster",
