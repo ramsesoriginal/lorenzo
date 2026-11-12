@@ -1,4 +1,4 @@
-import { openMenu } from '@lorenzo/app-shell';
+import { openMenu, pageState } from '@lorenzo/app-shell';
 import { client, fetchAllPages, type Schema, unwrap } from './api';
 import { BRANDING_CSS_URL } from './config';
 import { coveragePanel, referencePanel } from './context';
@@ -177,15 +177,14 @@ export async function mountHome() {
     }
     if (!sessions.length) {
       // No Session yet (screen 24): what it means, and how one comes to be here.
-      const none = el('section', '', 'stack-tight home-empty');
-      none.append(
-        el('h2', 'No Session yet'),
-        el(
-          'p',
-          'You will see a Session here once a GM assigns you to it. An invite link from a GM adds you to a campaign.',
-          'status-text',
-        ),
-      );
+      // The mascot image (`empty-sessions`) is the brand's to deliver; until it is there the words stand.
+      const none = pageState(BRANDING_CSS_URL, {
+        art: 'empty-sessions',
+        level: 2,
+        title: 'No Session yet',
+        text: 'You will see a Session here once a GM assigns you to it. An invite link from a GM adds you to a campaign.',
+      });
+      none.classList.add('home-empty');
       view.append(none);
     }
     host.replaceChildren(view);

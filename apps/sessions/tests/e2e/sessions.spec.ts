@@ -245,6 +245,12 @@ test('reusable Scene context stays separate from session notes and sharing is ex
       }),
     );
     expect(refs.map((r) => r.id)).toEqual([fact.id]);
+    // The Scenes list shows a card with who sees the Scene and what it refers to.
+    await page.goto(`/scenes/?tenant=${w.tenant.id}`);
+    const card = page.locator('.scene-card', { hasText: 'At the lighthouse' });
+    await expect(card).toContainText('1 Fact');
+    await expect(card).toContainText('Visible in this library');
+    await page.goBack();
     await page.getByRole('button', { name: 'Remove reference', exact: true }).click();
     await expect(relationship(page, 'Shared')).toHaveCount(0);
   } finally {
