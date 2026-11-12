@@ -18,7 +18,7 @@ import '@lorenzo/period-picker/period-picker.css';
 
 type Source = 'scenes' | 'sessions';
 const KIND: Record<string, string> = { facts: 'Fact', events: 'Event', beings: 'Being' };
-const kindName = (kind: string) => KIND[kind] ?? kind;
+export const kindName = (kind: string) => KIND[kind] ?? kind;
 
 /** `level` is 2 for a section of the page and 4 for the group inside a Scene's card. */
 export async function referencePanel(
