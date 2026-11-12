@@ -6,6 +6,8 @@ const definition = (name: string, value_type: string, extra: Record<string, unkn
   ({ id: `id-${name}`, name, value_type, unit: null, ...extra }) as unknown as StatDefinition;
 
 const stat = (name: string, value: number | string | boolean, extra = {}) => ({
+  stat_definition_id: `sd-${name}`,
+  group_id: 'g-1',
   name,
   value,
   own: true,

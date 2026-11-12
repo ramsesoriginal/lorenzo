@@ -8,6 +8,7 @@ const names = new Map([
 
 const base = {
   stat_definition_id: 'x',
+  group_id: 'g',
   name: 'armour_class',
   value: 15,
   own: false,
