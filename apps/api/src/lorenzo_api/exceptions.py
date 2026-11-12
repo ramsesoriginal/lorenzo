@@ -1788,3 +1788,17 @@ class FeatureManagementForbiddenError(ForbiddenProblem):
     the holder (ADR 0454)."""
 
     title = "Not allowed to manage this holder's features"
+
+
+class GrantRuleNotFoundError(NotFoundProblem):
+    """.../grant-rules/{id} - no such rule in this tenant (ADR 0455)."""
+
+    title = "Grant rule not found"
+
+
+class InvalidGrantRuleError(UnprocessableProblem):
+    """POST or PUT .../grant-rules and PUT .../prerequisites - an option that is no feature, an
+    entry, category, stat or count stat that does not resolve in this tenant (a hidden entry is
+    answered as an unknown one, ADR 0437), or a condition on a stat that is text (ADR 0455)."""
+
+    title = "Invalid grant rule"

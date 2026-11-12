@@ -1301,3 +1301,37 @@ GET /tenants/{tenant_id}/templates/{template_id} added the new `feature` enum va
 GET /tenants/{tenant_id}/templates/{template_id} added the new `feature_instance` enum value to the `required_kind/anyOf[subschema #1]/` response property for the response status `200`
 PUT /tenants/{tenant_id}/templates/{template_id} added the new `feature` enum value to the `required_kind/anyOf[subschema #1]/` response property for the response status `200`
 PUT /tenants/{tenant_id}/templates/{template_id} added the new `feature_instance` enum value to the `required_kind/anyOf[subschema #1]/` response property for the response status `200`
+
+# ADR 0455: a release can say a grant rule was removed (`grant_rule_removed`), beside `entity_removed`.
+GET /repositories/{repository_id}/releases added the new `grant_rule_removed` enum value to the `items/items/breaking_rows/items/reason` response property for the response status `200`
+GET /repositories/{repository_id}/releases added the new `grant_rule_removed` enum value to the `items/items/warning_rows/items/reason` response property for the response status `200`
+PUT /tenants/{tenant_id}/protected added the new `grant_rule_removed` enum value to the `release/anyOf[subschema #1: ReleaseAuthoredOut]/breaking_rows/items/reason` response property for the response status `200`
+PUT /tenants/{tenant_id}/protected added the new `grant_rule_removed` enum value to the `release/anyOf[subschema #1: ReleaseAuthoredOut]/warning_rows/items/reason` response property for the response status `200`
+PUT /tenants/{tenant_id}/public added the new `grant_rule_removed` enum value to the `release/breaking_rows/items/reason` response property for the response status `200`
+PUT /tenants/{tenant_id}/public added the new `grant_rule_removed` enum value to the `release/warning_rows/items/reason` response property for the response status `200`
+PUT /tenants/{tenant_id}/published added the new `grant_rule_removed` enum value to the `release/breaking_rows/items/reason` response property for the response status `200`
+PUT /tenants/{tenant_id}/published added the new `grant_rule_removed` enum value to the `release/warning_rows/items/reason` response property for the response status `200`
+GET /tenants/{tenant_id}/release-preview added the new `grant_rule_removed` enum value to the `breaking/items/reason` response property for the response status `200`
+GET /tenants/{tenant_id}/release-preview added the new `grant_rule_removed` enum value to the `release/anyOf[subschema #1: ReleaseOut]/breaking_rows/items/reason` response property for the response status `200`
+GET /tenants/{tenant_id}/release-preview added the new `grant_rule_removed` enum value to the `release/anyOf[subschema #1: ReleaseOut]/warning_rows/items/reason` response property for the response status `200`
+GET /tenants/{tenant_id}/release-preview added the new `grant_rule_removed` enum value to the `warnings/items/reason` response property for the response status `200`
+GET /tenants/{tenant_id}/releases added the new `grant_rule_removed` enum value to the `items/items/breaking_rows/items/reason` response property for the response status `200`
+GET /tenants/{tenant_id}/releases added the new `grant_rule_removed` enum value to the `items/items/warning_rows/items/reason` response property for the response status `200`
+PATCH /tenants/{tenant_id}/releases/{release_id} added the new `grant_rule_removed` enum value to the `breaking_rows/items/reason` response property for the response status `200`
+PATCH /tenants/{tenant_id}/releases/{release_id} added the new `grant_rule_removed` enum value to the `warning_rows/items/reason` response property for the response status `200`
+PUT /tenants/{tenant_id}/releases/{release_id}/current added the new `grant_rule_removed` enum value to the `breaking_rows/items/reason` response property for the response status `200`
+PUT /tenants/{tenant_id}/releases/{release_id}/current added the new `grant_rule_removed` enum value to the `warning_rows/items/reason` response property for the response status `200`
+GET /tenants/{tenant_id}/repositories/{repository_id}/releases added the new `grant_rule_removed` enum value to the `items/items/breaking_rows/items/reason` response property for the response status `200`
+GET /tenants/{tenant_id}/repositories/{repository_id}/releases added the new `grant_rule_removed` enum value to the `items/items/warning_rows/items/reason` response property for the response status `200`
+GET /tenants/{tenant_id}/repositories/{repository_id}/updates added the new `grant_rule_removed` enum value to the `added/items/breaking/items/reason` response property for the response status `200`
+GET /tenants/{tenant_id}/repositories/{repository_id}/updates added the new `grant_rule_removed` enum value to the `attachments_added/items/breaking/items/reason` response property for the response status `200`
+GET /tenants/{tenant_id}/repositories/{repository_id}/updates added the new `grant_rule_removed` enum value to the `attachments_added/items/warnings/items/reason` response property for the response status `200`
+GET /tenants/{tenant_id}/repositories/{repository_id}/updates added the new `grant_rule_removed` enum value to the `attachments_deleted_locally/items/breaking/items/reason` response property for the response status `200`
+GET /tenants/{tenant_id}/repositories/{repository_id}/updates added the new `grant_rule_removed` enum value to the `attachments_deleted_locally/items/warnings/items/reason` response property for the response status `200`
+GET /tenants/{tenant_id}/repositories/{repository_id}/updates added the new `grant_rule_removed` enum value to the `attachments_removed/items/breaking/items/reason` response property for the response status `200`
+GET /tenants/{tenant_id}/repositories/{repository_id}/updates added the new `grant_rule_removed` enum value to the `attachments_removed/items/warnings/items/reason` response property for the response status `200`
+GET /tenants/{tenant_id}/repositories/{repository_id}/updates added the new `grant_rule_removed` enum value to the `changed/items/breaking/items/reason` response property for the response status `200`
+GET /tenants/{tenant_id}/repositories/{repository_id}/updates added the new `grant_rule_removed` enum value to the `deleted_locally/items/breaking/items/reason` response property for the response status `200`
+GET /tenants/{tenant_id}/repositories/{repository_id}/updates added the new `grant_rule_removed` enum value to the `release/anyOf[subschema #1: ReleaseOut]/breaking_rows/items/reason` response property for the response status `200`
+GET /tenants/{tenant_id}/repositories/{repository_id}/updates added the new `grant_rule_removed` enum value to the `release/anyOf[subschema #1: ReleaseOut]/warning_rows/items/reason` response property for the response status `200`
+GET /tenants/{tenant_id}/repositories/{repository_id}/updates added the new `grant_rule_removed` enum value to the `removed/items/breaking/items/reason` response property for the response status `200`

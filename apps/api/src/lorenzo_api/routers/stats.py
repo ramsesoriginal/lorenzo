@@ -57,6 +57,9 @@ from lorenzo_api.models import (
     ComputedStatSumTerm,
     EntityStat,
     EntityStatGroup,
+    FeaturePrerequisite,
+    GrantRule,
+    GrantRuleCondition,
     StatDefinition,
     StatDefinitionEnumValue,
     StatGroup,
@@ -1019,11 +1022,26 @@ async def delete_stat_definition(
     ) + await count(
         TemplateSlotExclusion, TemplateSlotExclusion.stat_definition_id == stat_definition_id
     )
+    # A grant rule counts with a stat, or a condition reads it; a feature needs it (ADR 0455).
+    ruled = (
+        await count(GrantRule, GrantRule.count_stat_definition_id == stat_definition_id)
+        + await count(
+            GrantRuleCondition,
+            (GrantRuleCondition.stat_definition_id == stat_definition_id)
+            | (GrantRuleCondition.right_stat_definition_id == stat_definition_id),
+        )
+        + await count(
+            FeaturePrerequisite,
+            (FeaturePrerequisite.stat_definition_id == stat_definition_id)
+            | (FeaturePrerequisite.right_stat_definition_id == stat_definition_id),
+        )
+    )
     in_use = _in_use_parts(
         (values, "value(s) held"),
         (formulas, "formula(s) for it"),
         (reads, "formula(s) reading it"),
         (shown, "template slot(s) naming it"),
+        (ruled, "grant rule(s) or prerequisite(s) reading it"),
     )
     if in_use:
         raise StatDefinitionInUseError(

@@ -7505,6 +7505,81 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/tenants/{tenant_id}/features/prototypes/{feature_id}/prerequisites": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Prerequisites
+         * @description What a holder needs to have the feature, in order; all of it must hold.
+         */
+        get: operations["get_prerequisites"];
+        /**
+         * Put Prerequisites
+         * @description Replaces the list (empty clears it): comparisons on the holder of the feature, which every
+         *     rule that offers it respects. 422 for a stat that is not the library's or is text.
+         */
+        put: operations["put_prerequisites"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/grant-rules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Grant Rules
+         * @description The library's rules by source entry (its name, then its id) and then in the order of the
+         *     source, or those of one source. A rule on an entry the library hides is not one it can know of
+         *     (ADR 0437).
+         */
+        get: operations["list_grant_rules"];
+        put?: never;
+        /**
+         * Create Grant Rule
+         * @description Makes a rule on a source entry (422 for an entry, option, category or stat that is not the
+         *     library's, an option that is no feature, or a comparison of a text stat).
+         */
+        post: operations["create_grant_rule"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/grant-rules/{rule_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Grant Rule */
+        get: operations["get_grant_rule"];
+        /**
+         * Replace Grant Rule
+         * @description Replaces the rule: everything but its source. A change reaches a holder at its next apply;
+         *     what was granted is not touched here (ADR 0456 decides what a grant outlives).
+         */
+        put: operations["replace_grant_rule"];
+        post?: never;
+        /** Delete Grant Rule */
+        delete: operations["delete_grant_rule"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/tenants/{tenant_id}/entities/{entity_id}/features": {
         parameters: {
             query?: never;
@@ -8105,7 +8180,7 @@ export interface components {
              * Reason
              * @enum {string}
              */
-            reason: "entity_removed" | "stat_definition_removed" | "stat_definition_retyped" | "stat_group_removed" | "enum_value_removed" | "kinds_changed" | "slug_changed" | "attachment_added";
+            reason: "entity_removed" | "grant_rule_removed" | "stat_definition_removed" | "stat_definition_retyped" | "stat_group_removed" | "enum_value_removed" | "kinds_changed" | "slug_changed" | "attachment_added";
             /** Detail */
             detail: string;
             release: components["schemas"]["ReleaseRefOut"];
@@ -8137,7 +8212,7 @@ export interface components {
              * Reason
              * @enum {string}
              */
-            reason: "entity_removed" | "stat_definition_removed" | "stat_definition_retyped" | "stat_group_removed" | "enum_value_removed" | "kinds_changed" | "slug_changed" | "attachment_added";
+            reason: "entity_removed" | "grant_rule_removed" | "stat_definition_removed" | "stat_definition_retyped" | "stat_group_removed" | "enum_value_removed" | "kinds_changed" | "slug_changed" | "attachment_added";
             /** Detail */
             detail: string;
         };
@@ -9351,6 +9426,49 @@ export interface components {
             /** False Value */
             false_value?: string | null;
         };
+        /**
+         * ComparisonIn
+         * @description One comparison, `stat <comparator> right`, with right a constant or another stat of the
+         *     same entry (ADR 0455): a feature's prerequisite, read on the holder. The stat is a number, a
+         *     bool or an enum, read as a number as the `comparison` formula reads it (ADR 0444).
+         */
+        ComparisonIn: {
+            /**
+             * Stat Definition Id
+             * Format: uuid
+             */
+            stat_definition_id: string;
+            /**
+             * Comparator
+             * @enum {string}
+             */
+            comparator: "lt" | "le" | "eq" | "ne" | "ge" | "gt";
+            /** Right Constant */
+            right_constant?: number | string | null;
+            /** Right Stat Definition Id */
+            right_stat_definition_id?: string | null;
+        };
+        /** ComparisonOut */
+        ComparisonOut: {
+            /**
+             * Stat Definition Id
+             * Format: uuid
+             */
+            stat_definition_id: string;
+            /** Stat Name */
+            stat_name: string;
+            /**
+             * Comparator
+             * @enum {string}
+             */
+            comparator: "lt" | "le" | "eq" | "ne" | "ge" | "gt";
+            /** Right Constant */
+            right_constant: string | null;
+            /** Right Stat Definition Id */
+            right_stat_definition_id: string | null;
+            /** Right Stat Name */
+            right_stat_name: string | null;
+        };
         /** ComparisonRequest */
         ComparisonRequest: {
             /** Pairs */
@@ -9437,6 +9555,58 @@ export interface components {
             source: "computed" | "direct" | "unset";
             /** Inputs */
             inputs: components["schemas"]["PreviewInputOut"][];
+        };
+        /**
+         * ConditionIn
+         * @description A condition of a rule: a comparison, read on the holder or on the source.
+         */
+        ConditionIn: {
+            /**
+             * Stat Definition Id
+             * Format: uuid
+             */
+            stat_definition_id: string;
+            /**
+             * Comparator
+             * @enum {string}
+             */
+            comparator: "lt" | "le" | "eq" | "ne" | "ge" | "gt";
+            /** Right Constant */
+            right_constant?: number | string | null;
+            /** Right Stat Definition Id */
+            right_stat_definition_id?: string | null;
+            /**
+             * Subject
+             * @default holder
+             * @enum {string}
+             */
+            subject: "holder" | "source";
+        };
+        /** ConditionOut */
+        ConditionOut: {
+            /**
+             * Stat Definition Id
+             * Format: uuid
+             */
+            stat_definition_id: string;
+            /** Stat Name */
+            stat_name: string;
+            /**
+             * Comparator
+             * @enum {string}
+             */
+            comparator: "lt" | "le" | "eq" | "ne" | "ge" | "gt";
+            /** Right Constant */
+            right_constant: string | null;
+            /** Right Stat Definition Id */
+            right_stat_definition_id: string | null;
+            /** Right Stat Name */
+            right_stat_name: string | null;
+            /**
+             * Subject
+             * @enum {string}
+             */
+            subject: "holder" | "source";
         };
         /** ConnectionCreate */
         ConnectionCreate: {
@@ -11250,6 +11420,164 @@ export interface components {
              * Format: uuid
              */
             campaign_id: string;
+        };
+        /**
+         * GrantRuleIn
+         * @description POST /grant-rules: a rule on a source entry, appended after the entry's others unless
+         *     `position` places it.
+         */
+        GrantRuleIn: {
+            /** Label */
+            label?: string | null;
+            /**
+             * Mode
+             * @enum {string}
+             */
+            mode: "all" | "choose";
+            /**
+             * Min Count
+             * @default 0
+             */
+            min_count: number;
+            /** Max Count */
+            max_count?: number | null;
+            /** Count Stat Definition Id */
+            count_stat_definition_id?: string | null;
+            /** Option Category Entry Id */
+            option_category_entry_id?: string | null;
+            /**
+             * Options
+             * @default []
+             */
+            options: string[];
+            /**
+             * Lasts
+             * @default while_source
+             * @enum {string}
+             */
+            lasts: "while_source" | "permanent";
+            /**
+             * Changeable
+             * @default false
+             */
+            changeable: boolean;
+            /**
+             * Conditions
+             * @default []
+             */
+            conditions: components["schemas"]["ConditionIn"][];
+            /**
+             * Entry Id
+             * Format: uuid
+             */
+            entry_id: string;
+            /** Position */
+            position?: number | null;
+        };
+        /**
+         * GrantRuleOut
+         * @description A rule as the vocabulary reads it (ADR 0455).
+         */
+        GrantRuleOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Entry Id
+             * Format: uuid
+             */
+            entry_id: string;
+            /** Entry Name */
+            entry_name: string;
+            /** Label */
+            label: string | null;
+            /** Position */
+            position: number;
+            /**
+             * Mode
+             * @enum {string}
+             */
+            mode: "all" | "choose";
+            /** Min Count */
+            min_count: number;
+            /** Max Count */
+            max_count: number | null;
+            /** Count Stat Definition Id */
+            count_stat_definition_id: string | null;
+            /** Count Stat Name */
+            count_stat_name: string | null;
+            option_category: components["schemas"]["RuleOptionOut"] | null;
+            /** Options */
+            options: components["schemas"]["RuleOptionOut"][];
+            /**
+             * Lasts
+             * @enum {string}
+             */
+            lasts: "while_source" | "permanent";
+            /** Changeable */
+            changeable: boolean;
+            /** Conditions */
+            conditions: components["schemas"]["ConditionOut"][];
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /**
+         * GrantRuleUpdate
+         * @description PUT /grant-rules/{id}: the rule replaced, its source kept; `position` moves it among the
+         *     source's rules (left out, it stays).
+         */
+        GrantRuleUpdate: {
+            /** Label */
+            label?: string | null;
+            /**
+             * Mode
+             * @enum {string}
+             */
+            mode: "all" | "choose";
+            /**
+             * Min Count
+             * @default 0
+             */
+            min_count: number;
+            /** Max Count */
+            max_count?: number | null;
+            /** Count Stat Definition Id */
+            count_stat_definition_id?: string | null;
+            /** Option Category Entry Id */
+            option_category_entry_id?: string | null;
+            /**
+             * Options
+             * @default []
+             */
+            options: string[];
+            /**
+             * Lasts
+             * @default while_source
+             * @enum {string}
+             */
+            lasts: "while_source" | "permanent";
+            /**
+             * Changeable
+             * @default false
+             */
+            changeable: boolean;
+            /**
+             * Conditions
+             * @default []
+             */
+            conditions: components["schemas"]["ConditionIn"][];
+            /** Position */
+            position?: number | null;
         };
         /**
          * GroupCreate
@@ -13851,6 +14179,19 @@ export interface components {
             /** Pages */
             pages: number;
         };
+        /** Page[GrantRuleOut] */
+        Page_GrantRuleOut_: {
+            /** Items */
+            items: components["schemas"]["GrantRuleOut"][];
+            /** Total */
+            total: number;
+            /** Page */
+            page: number;
+            /** Size */
+            size: number;
+            /** Pages */
+            pages: number;
+        };
         /** Page[InformationOut] */
         Page_InformationOut_: {
             /** Items */
@@ -14961,6 +15302,31 @@ export interface components {
         PlayerUpdate: {
             /** Self Service */
             self_service?: boolean | null;
+        };
+        /**
+         * PrerequisitesIn
+         * @description PUT .../features/prototypes/{feature}/prerequisites: the complete list, in order; empty
+         *     clears it.
+         */
+        PrerequisitesIn: {
+            /**
+             * Prerequisites
+             * @default []
+             */
+            prerequisites: components["schemas"]["ComparisonIn"][];
+        };
+        /**
+         * PrerequisitesOut
+         * @description A feature's prerequisites, in order.
+         */
+        PrerequisitesOut: {
+            /**
+             * Feature Id
+             * Format: uuid
+             */
+            feature_id: string;
+            /** Prerequisites */
+            prerequisites: components["schemas"]["ComparisonOut"][];
         };
         /** PresentationCreate */
         PresentationCreate: {
@@ -16550,6 +16916,22 @@ export interface components {
             state: ("released" | "edited") | null;
             /** Breaking */
             breaking: components["schemas"]["BreakingNoteOut"][];
+        };
+        /**
+         * RuleOptionOut
+         * @description An option or a category of a rule. An entry the library hides (ADR 0437) is offered as `a
+         *     hidden entry`, with no id (ADR 0454).
+         */
+        RuleOptionOut: {
+            /** Id */
+            id: string | null;
+            /** Name */
+            name: string;
+            /**
+             * Hidden
+             * @default false
+             */
+            hidden: boolean;
         };
         /**
          * ScaleOut
@@ -48697,6 +49079,480 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["HeldFeatureOut"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    get_prerequisites: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+                feature_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PrerequisitesOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    put_prerequisites: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+                feature_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PrerequisitesIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PrerequisitesOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    list_grant_rules: {
+        parameters: {
+            query?: {
+                entry_id?: string | null;
+                page?: number;
+                size?: number;
+            };
+            header?: never;
+            path: {
+                tenant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_GrantRuleOut_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    create_grant_rule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GrantRuleIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GrantRuleOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    get_grant_rule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+                rule_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GrantRuleOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    replace_grant_rule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+                rule_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GrantRuleUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GrantRuleOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    delete_grant_rule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+                rule_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {

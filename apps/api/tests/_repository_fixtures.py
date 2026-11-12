@@ -57,7 +57,11 @@ from lorenzo_api.models import (
     FactAbout,
     Feature,
     FeatureInstance,
+    FeaturePrerequisite,
     Frame,
+    GrantRule,
+    GrantRuleCondition,
+    GrantRuleOption,
     GroupMember,
     Information,
     Item,
@@ -372,6 +376,41 @@ async def seed_every_content_table(
             Being(entity_id=elminster.id, tenant_id=tenant_id),
             Feature(entity_id=feature.id, tenant_id=tenant_id, repeatable=True),
             FeatureInstance(entity_id=feature_held.id, tenant_id=tenant_id),
+        ]
+    )
+    await session.flush()
+    rule = GrantRule(
+        tenant_id=tenant_id,
+        entry_id=guild.id,
+        label="Fixture rule",
+        position=0,
+        mode="choose",
+        max_count=1,
+    )
+    session.add(rule)
+    await session.flush()
+    session.add_all(
+        [
+            GrantRuleCondition(
+                tenant_id=tenant_id,
+                rule_id=rule.id,
+                position=0,
+                subject="holder",
+                stat_definition_id=strength.id,
+                comparator="ge",
+                right_constant=Decimal(10),
+            ),
+            GrantRuleOption(
+                rule_id=rule.id, option_entry_id=feature.id, tenant_id=tenant_id, position=0
+            ),
+            FeaturePrerequisite(
+                tenant_id=tenant_id,
+                feature_id=feature.id,
+                position=0,
+                stat_definition_id=strength.id,
+                comparator="ge",
+                right_constant=Decimal(10),
+            ),
         ]
     )
     await session.flush()

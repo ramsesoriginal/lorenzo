@@ -75,6 +75,9 @@ from lorenzo_api.models import (
     EventLearning,
     EventParticipant,
     EventRelationship,
+    FeaturePrerequisite,
+    GrantRule,
+    GrantRuleCondition,
     GroupMember,
     Information,
     Knowledge,
@@ -1845,6 +1848,7 @@ class _Planner:
                 {"tenant_id": tenant_id, "knower_entity_id": target, "information_id": known}
             )
 
+        self._plan_grant_rules(step)
         if only is None:
             self._plan_templates(step)
             self._plan_attachments(step)
@@ -2008,6 +2012,138 @@ class _Planner:
                         }
                     )
             step.templates += 1
+
+    def _plan_grant_rules(self, step: Step) -> None:
+        """Plans a repository's grant rules and the prerequisites of its features (ADR 0455), after
+        its entries and stats, whose ids they are re-pointed to. A rule is left out, and reported,
+        when its source or its category was not copied, when a stat it reads was not, or when none
+        of its options was (a rule that grants less than it says is a wrong one, but one whose
+        every option is gone grants nothing: an option that was not copied is left out of a rule
+        with others). A prerequisite on a stat that was not copied is left out with the feature's
+        others."""
+        c = step.content
+        assert c is not None
+        # Only the entries this plan makes get rules and prerequisites: an entry the library
+        # already had (a merge) keeps its own, and an update that adds an entry brings its rules.
+        created = {row["id"] for row in self.rows["entity"]}
+        for rule_id in sorted(
+            c.grant_rules,
+            key=lambda r: (str(c.grant_rules[r]["entry"]), c.grant_rules[r]["position"], str(r)),
+        ):
+            rule = c.grant_rules[rule_id]
+
+            def drop(reason: str, rule_id: uuid.UUID = rule_id) -> None:
+                step.dropped.append(Dropped("grant_rule", rule_id, reason))
+
+            entry = self._local(c, "entity", rule["entry"])
+            if entry is None or entry not in created:
+                continue
+            category = None
+            if rule["category"] is not None:
+                category = self._local(c, "entity", rule["category"])
+                if category is None:
+                    drop("its category entry wasn't copied")
+                    continue
+            count_stat = None
+            if rule["count_stat"] is not None:
+                count_stat = self._local(c, "stat_definition", rule["count_stat"])
+                if count_stat is None:
+                    drop("the stat it counts with wasn't copied")
+                    continue
+            options = [self._local(c, "entity", o) for o in rule["options"]]
+            kept_options = list(dict.fromkeys(o for o in options if o is not None))
+            if rule["category"] is None and not kept_options:
+                drop("none of its options was copied")
+                continue
+            conditions: list[dict[str, Any]] = []
+            missing = False
+            for position, condition in enumerate(rule["conditions"]):
+                stat = self._local(c, "stat_definition", condition["stat"])
+                right = (
+                    None
+                    if condition["right_stat"] is None
+                    else self._local(c, "stat_definition", condition["right_stat"])
+                )
+                if stat is None or (condition["right_stat"] is not None and right is None):
+                    missing = True
+                    break
+                conditions.append(
+                    {
+                        "position": position,
+                        "subject": condition["subject"],
+                        "stat_definition_id": stat,
+                        "comparator": condition["comparator"],
+                        "right_constant": condition["constant"],
+                        "right_stat_definition_id": right,
+                    }
+                )
+            if missing:
+                drop("a stat one of its conditions reads wasn't copied")
+                continue
+            new = uuid.uuid4()
+            self.rows["grant_rule"].append(
+                {
+                    "id": new,
+                    "tenant_id": self.tenant_id,
+                    "entry_id": entry,
+                    "label": rule["label"],
+                    "position": rule["position"],
+                    "mode": rule["mode"],
+                    "min_count": rule["min"],
+                    "max_count": rule["max"],
+                    "count_stat_definition_id": count_stat,
+                    "option_category_entry_id": category,
+                    "lasts": rule["lasts"],
+                    "changeable": rule["changeable"],
+                }
+            )
+            for condition in conditions:
+                self.rows["grant_rule_condition"].append(
+                    {"id": uuid.uuid4(), "tenant_id": self.tenant_id, "rule_id": new, **condition}
+                )
+            for position, option in enumerate(kept_options):
+                self.rows["grant_rule_option"].append(
+                    {
+                        "rule_id": new,
+                        "option_entry_id": option,
+                        "tenant_id": self.tenant_id,
+                        "position": position,
+                    }
+                )
+        for feature_id in sorted(c.prerequisites, key=str):
+            feature = self._local(c, "entity", feature_id)
+            if feature is None or feature not in created:
+                continue
+            position = 0
+            for prerequisite in c.prerequisites[feature_id]:
+                stat = self._local(c, "stat_definition", prerequisite["stat"])
+                right = (
+                    None
+                    if prerequisite["right_stat"] is None
+                    else self._local(c, "stat_definition", prerequisite["right_stat"])
+                )
+                if stat is None or (prerequisite["right_stat"] is not None and right is None):
+                    step.dropped.append(
+                        Dropped(
+                            "feature_prerequisite",
+                            feature_id,
+                            "a stat it reads wasn't copied",
+                        )
+                    )
+                    continue
+                self.rows["feature_prerequisite"].append(
+                    {
+                        "id": uuid.uuid4(),
+                        "tenant_id": self.tenant_id,
+                        "feature_id": feature,
+                        "position": position,
+                        "stat_definition_id": stat,
+                        "comparator": prerequisite["comparator"],
+                        "right_constant": prerequisite["constant"],
+                        "right_stat_definition_id": right,
+                    }
+                )
+                position += 1
 
     def _plan_attachments(self, step: Step) -> None:
         """Plans the parents the repository added to its copies of other rows
@@ -3023,6 +3159,41 @@ async def forget_copy(
             )
         ) | Template.required_ancestor_entry_id.in_(entities)
         also["template"] = await _count(session, Template, Template.tenant_id == t, shows_purged)
+        # A grant rule that reads a purged stat, or is on or for a purged entry, goes with them, and
+        # so does a prerequisite on a purged stat or feature (ADR 0455); a stat key cascades not.
+        reads_purged_stat = GrantRule.id.in_(
+            select(GrantRule.id).where(
+                GrantRule.tenant_id == t,
+                or_(
+                    GrantRule.count_stat_definition_id.in_(all_definitions),
+                    GrantRule.id.in_(
+                        select(GrantRuleCondition.rule_id).where(
+                            GrantRuleCondition.tenant_id == t,
+                            or_(
+                                GrantRuleCondition.stat_definition_id.in_(all_definitions),
+                                GrantRuleCondition.right_stat_definition_id.in_(all_definitions),
+                            ),
+                        )
+                    ),
+                ),
+            )
+        )
+        rules_purged = (
+            reads_purged_stat
+            | GrantRule.entry_id.in_(entities)
+            | GrantRule.option_category_entry_id.in_(entities)
+        )
+        also["grant_rule"] = await _count(
+            session, GrantRule, GrantRule.tenant_id == t, rules_purged
+        )
+        prerequisites_purged = (
+            FeaturePrerequisite.stat_definition_id.in_(all_definitions)
+            | FeaturePrerequisite.right_stat_definition_id.in_(all_definitions)
+            | FeaturePrerequisite.feature_id.in_(entities)
+        )
+        also["feature_prerequisite"] = await _count(
+            session, FeaturePrerequisite, FeaturePrerequisite.tenant_id == t, prerequisites_purged
+        )
         # The counts above are hand-written; the registry says which tables they are for.
         assert set(also) == PURGE_COUNTED, set(also) ^ PURGE_COUNTED
         previous.also_removed = {kind: n for kind, n in also.items() if n}
@@ -3031,6 +3202,12 @@ async def forget_copy(
         # cascades from the rows themselves.
         await session.execute(delete(ComputedStat).where(own_formulas, uses_definition))
         await session.execute(delete(Template).where(Template.tenant_id == t, shows_purged))
+        await session.execute(delete(GrantRule).where(GrantRule.tenant_id == t, rules_purged))
+        await session.execute(
+            delete(FeaturePrerequisite).where(
+                FeaturePrerequisite.tenant_id == t, prerequisites_purged
+            )
+        )
         if attached_edges:
             await session.execute(
                 delete(EntityPrototype).where(

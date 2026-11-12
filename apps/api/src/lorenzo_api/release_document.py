@@ -48,7 +48,7 @@ from lorenzo_api.repository_content import (
 )
 from lorenzo_api.roles import DEFINITION_ROLES, GROUP_ROLES
 
-FORMAT = 43
+FORMAT = 44
 _DEFINITION_ROLES = frozenset(DEFINITION_ROLES)
 _GROUP_ROLES = frozenset(GROUP_ROLES)
 
@@ -430,6 +430,49 @@ _CONTENT = _dataclass(
                     ),
                 },
                 name="Content.templates",
+            )
+        ),
+        "grant_rules": _id_map(
+            _record(
+                {
+                    "entry": _ID,
+                    "label": _PLAIN,
+                    "position": _PLAIN,
+                    "mode": _PLAIN,
+                    "min": _PLAIN,
+                    "max": _PLAIN,
+                    "count_stat": _optional(_ID),
+                    "category": _optional(_ID),
+                    "lasts": _PLAIN,
+                    "changeable": _PLAIN,
+                    "conditions": _list(
+                        _record(
+                            {
+                                "subject": _PLAIN,
+                                "stat": _ID,
+                                "comparator": _PLAIN,
+                                "constant": _optional(_DECIMAL),
+                                "right_stat": _optional(_ID),
+                            },
+                            name="Content.grant_rules.conditions",
+                        )
+                    ),
+                    "options": _ID_LIST,
+                },
+                name="Content.grant_rules",
+            )
+        ),
+        "prerequisites": _id_map(
+            _list(
+                _record(
+                    {
+                        "stat": _ID,
+                        "comparator": _PLAIN,
+                        "constant": _optional(_DECIMAL),
+                        "right_stat": _optional(_ID),
+                    },
+                    name="Content.prerequisites",
+                )
             )
         ),
         "definitions": _id_map(
@@ -892,6 +935,11 @@ def _read_v42(document: Document, files: Mapping[str, bytes]) -> Content:
 
 
 def _read_v43(document: Document, files: Mapping[str, bytes]) -> Content:
+    # Before format 44 there were no grant rules and no prerequisites (ADR 0455).
+    return _read_v44({**document, "grant_rules": {}, "prerequisites": {}}, files)
+
+
+def _read_v44(document: Document, files: Mapping[str, bytes]) -> Content:
     content: Content = _CONTENT.decode(document, dict(files))
     return content
 
@@ -942,6 +990,7 @@ READERS: dict[int, Callable[[Document, Mapping[str, bytes]], Content]] = {
     41: _read_v41,
     42: _read_v42,
     43: _read_v43,
+    44: _read_v44,
 }
 
 

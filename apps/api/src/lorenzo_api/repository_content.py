@@ -67,7 +67,11 @@ from lorenzo_api.models import (
     FactAbout,
     Feature,
     FeatureInstance,
+    FeaturePrerequisite,
     Frame,
+    GrantRule,
+    GrantRuleCondition,
+    GrantRuleOption,
     GroupMember,
     Information,
     Item,
@@ -274,6 +278,12 @@ class Content:
     # label, group, information_type, held_order, stats: [(stat, label)], exclude: [stat]}, in
     # order.
     templates: dict[uuid.UUID, dict[str, Any]] = field(default_factory=dict)
+    # Grant rules (ADR 0455): id -> {entry, label, position, mode, min, max, count_stat, category,
+    # lasts, changeable, conditions: [{subject, stat, comparator, constant, right_stat}], options:
+    # [entry]}, and the prerequisites of a feature (its id -> [{stat, comparator, constant,
+    # right_stat}], in order).
+    grant_rules: dict[uuid.UUID, dict[str, Any]] = field(default_factory=dict)
+    prerequisites: dict[uuid.UUID, list[dict[str, Any]]] = field(default_factory=dict)
     definitions: dict[uuid.UUID, dict[str, Any]] = field(default_factory=dict)
     enum_values: dict[uuid.UUID, list[tuple[str, int]]] = field(
         default_factory=lambda: defaultdict(list)
@@ -455,6 +465,65 @@ async def _load_templates(session: AsyncSession, c: Content, t: uuid.UUID) -> No
             "ancestor": template.required_ancestor_entry_id,
             "slots": slots[template.id],
         }
+
+
+async def _load_grant_rules(session: AsyncSession, c: Content, t: uuid.UUID) -> None:
+    """The tenant's grant rules with their conditions and options, and the prerequisites of its
+    features, each in the order written (ADR 0455)."""
+    conditions: dict[uuid.UUID, list[dict[str, Any]]] = defaultdict(list)
+    for condition in await session.scalars(
+        select(GrantRuleCondition)
+        .where(GrantRuleCondition.tenant_id == t)
+        .order_by(GrantRuleCondition.rule_id, GrantRuleCondition.position)
+    ):
+        conditions[condition.rule_id].append(
+            {
+                "subject": condition.subject,
+                "stat": condition.stat_definition_id,
+                "comparator": condition.comparator,
+                "constant": condition.right_constant,
+                "right_stat": condition.right_stat_definition_id,
+            }
+        )
+    options: dict[uuid.UUID, list[uuid.UUID]] = defaultdict(list)
+    for rule_id, option_id in await session.execute(
+        select(GrantRuleOption.rule_id, GrantRuleOption.option_entry_id)
+        .where(GrantRuleOption.tenant_id == t)
+        .order_by(GrantRuleOption.rule_id, GrantRuleOption.position)
+    ):
+        options[rule_id].append(option_id)
+    for rule in await session.scalars(
+        select(GrantRule)
+        .where(GrantRule.tenant_id == t)
+        .order_by(GrantRule.entry_id, GrantRule.position, GrantRule.id)
+    ):
+        c.grant_rules[rule.id] = {
+            "entry": rule.entry_id,
+            "label": rule.label,
+            "position": rule.position,
+            "mode": rule.mode,
+            "min": rule.min_count,
+            "max": rule.max_count,
+            "count_stat": rule.count_stat_definition_id,
+            "category": rule.option_category_entry_id,
+            "lasts": rule.lasts,
+            "changeable": rule.changeable,
+            "conditions": conditions[rule.id],
+            "options": options[rule.id],
+        }
+    for prerequisite in await session.scalars(
+        select(FeaturePrerequisite)
+        .where(FeaturePrerequisite.tenant_id == t)
+        .order_by(FeaturePrerequisite.feature_id, FeaturePrerequisite.position)
+    ):
+        c.prerequisites.setdefault(prerequisite.feature_id, []).append(
+            {
+                "stat": prerequisite.stat_definition_id,
+                "comparator": prerequisite.comparator,
+                "constant": prerequisite.right_constant,
+                "right_stat": prerequisite.right_stat_definition_id,
+            }
+        )
 
 
 async def load_content(session: AsyncSession, tenant_id: uuid.UUID) -> Content:
@@ -662,6 +731,7 @@ async def load_content(session: AsyncSession, tenant_id: uuid.UUID) -> Content:
             "system": group_system,
         }
     await _load_templates(session, c, t)
+    await _load_grant_rules(session, c, t)
     for (
         def_id,
         name,
@@ -1510,6 +1580,8 @@ class EntityIndex:
     stats: dict[uuid.UUID, dict[uuid.UUID, StatValue]]
     formulas: dict[uuid.UUID, dict[uuid.UUID, Formula]]
     clock_records: dict[uuid.UUID, list[tuple[str, uuid.UUID, dict[str, Any]]]]
+    # The grant rules of each source entry, in their order (ADR 0455).
+    rules: dict[uuid.UUID, list[dict[str, Any]]]
 
 
 def index_entities(content: Content) -> EntityIndex:
@@ -1519,7 +1591,12 @@ def index_entities(content: Content) -> EntityIndex:
         defaultdict(dict),
         defaultdict(dict),
         defaultdict(list),
+        defaultdict(list),
     )
+    for rule in sorted(
+        content.grant_rules.values(), key=lambda r: (str(r["entry"]), r["position"])
+    ):
+        index.rules[rule["entry"]].append(rule)
     for e, p in content.prototypes:
         index.prototypes[e].append(p)
     for e, g in content.entity_groups:
@@ -1544,6 +1621,40 @@ def index_entities(content: Content) -> EntityIndex:
             )
         )
     return index
+
+
+def _comparison_json(record: dict[str, Any], name: Namer) -> dict[str, Any]:
+    """A comparison of a rule or a prerequisite as a snapshot says it: its stats by name, its
+    constant as the text of the number."""
+    return {
+        "stat": name("stat_definition", record["stat"]),
+        "comparator": record["comparator"],
+        "constant": None if record["constant"] is None else str(record["constant"]),
+        "right_stat": (
+            None if record["right_stat"] is None else name("stat_definition", record["right_stat"])
+        ),
+    }
+
+
+def _rule_json(rule: dict[str, Any], name: Namer) -> dict[str, Any]:
+    """A grant rule as a snapshot says it, in the order its conditions and options were written
+    (ADR 0455): by name, so the source's copy and the repository's compare."""
+    return {
+        "label": rule["label"],
+        "mode": rule["mode"],
+        "min": rule["min"],
+        "max": rule["max"],
+        "count_stat": (
+            None if rule["count_stat"] is None else name("stat_definition", rule["count_stat"])
+        ),
+        "category": None if rule["category"] is None else name("entity", rule["category"]),
+        "lasts": rule["lasts"],
+        "changeable": rule["changeable"],
+        "conditions": [
+            {**_comparison_json(c, name), "subject": c["subject"]} for c in rule["conditions"]
+        ],
+        "options": [name("entity", option) for option in rule["options"]],
+    }
 
 
 def entity_snapshot(
@@ -1655,6 +1766,21 @@ def entity_snapshot(
         **(
             {"place": {"location": name("entity", content.entity_locations[entity_id])}}
             if entity_id in content.entity_locations
+            else {}
+        ),
+        **(
+            {"grant_rules": [_rule_json(rule, name) for rule in index.rules[entity_id]]}
+            if entity_id in index.rules
+            else {}
+        ),
+        **(
+            {
+                "prerequisites": [
+                    _comparison_json(prerequisite, name)
+                    for prerequisite in content.prerequisites[entity_id]
+                ]
+            }
+            if entity_id in content.prerequisites
             else {}
         ),
         **({"frame_axes": list(content.frames[entity_id])} if entity_id in content.frames else {}),

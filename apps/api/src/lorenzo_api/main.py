@@ -49,6 +49,8 @@ from lorenzo_api.routers.events import router as events_router
 from lorenzo_api.routers.features import entry_router as feature_entry_router
 from lorenzo_api.routers.features import router as features_router
 from lorenzo_api.routers.frames import router as frames_router
+from lorenzo_api.routers.grant_rules import prerequisites_router as prerequisites_router
+from lorenzo_api.routers.grant_rules import router as grant_rules_router
 from lorenzo_api.routers.groups import router as groups_router
 from lorenzo_api.routers.information import router as information_router
 from lorenzo_api.routers.invites import router as invites_router
@@ -235,6 +237,8 @@ def create_app() -> FastAPI:
     app.include_router(templates_router)
     app.include_router(template_entry_router)
     app.include_router(features_router)
+    app.include_router(prerequisites_router)
+    app.include_router(grant_rules_router)
     app.include_router(feature_entry_router)
 
     Instrumentator().instrument(app).expose(app, endpoint="/metrics")

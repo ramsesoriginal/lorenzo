@@ -231,6 +231,7 @@ class BodyUploadTenantPicture(BaseModel):
 
 class Reason(StrEnum):
     entity_removed = "entity_removed"
+    grant_rule_removed = "grant_rule_removed"
     stat_definition_removed = "stat_definition_removed"
     stat_definition_retyped = "stat_definition_retyped"
     stat_group_removed = "stat_group_removed"
@@ -618,6 +619,32 @@ class ComparisonFormulaBodyOutput(BaseModel):
     false_value: str | None = Field(None, title="False Value")
 
 
+class ComparisonIn(BaseModel):
+    model_config = ConfigDict(
+        regex_engine="python-re",
+    )
+    stat_definition_id: UUID = Field(..., title="Stat Definition Id")
+    comparator: Comparator = Field(..., title="Comparator")
+    right_constant: float | constr(pattern=r"^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$") | None = Field(
+        None, title="Right Constant"
+    )
+    right_stat_definition_id: UUID | None = Field(None, title="Right Stat Definition Id")
+
+
+class ComparisonOut(BaseModel):
+    model_config = ConfigDict(
+        regex_engine="python-re",
+    )
+    stat_definition_id: UUID = Field(..., title="Stat Definition Id")
+    stat_name: str = Field(..., title="Stat Name")
+    comparator: Comparator = Field(..., title="Comparator")
+    right_constant: constr(pattern=r"^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$") | None = Field(
+        ..., title="Right Constant"
+    )
+    right_stat_definition_id: UUID | None = Field(..., title="Right Stat Definition Id")
+    right_stat_name: str | None = Field(..., title="Right Stat Name")
+
+
 class Composition(BaseModel):
     elements: list[UUID] = Field(..., title="Elements")
 
@@ -644,6 +671,39 @@ class Source(StrEnum):
     computed = "computed"
     direct = "direct"
     unset = "unset"
+
+
+class Subject(StrEnum):
+    holder = "holder"
+    source = "source"
+
+
+class ConditionIn(BaseModel):
+    model_config = ConfigDict(
+        regex_engine="python-re",
+    )
+    stat_definition_id: UUID = Field(..., title="Stat Definition Id")
+    comparator: Comparator = Field(..., title="Comparator")
+    right_constant: float | constr(pattern=r"^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$") | None = Field(
+        None, title="Right Constant"
+    )
+    right_stat_definition_id: UUID | None = Field(None, title="Right Stat Definition Id")
+    subject: Subject | None = Field("holder", title="Subject")
+
+
+class ConditionOut(BaseModel):
+    model_config = ConfigDict(
+        regex_engine="python-re",
+    )
+    stat_definition_id: UUID = Field(..., title="Stat Definition Id")
+    stat_name: str = Field(..., title="Stat Name")
+    comparator: Comparator = Field(..., title="Comparator")
+    right_constant: constr(pattern=r"^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$") | None = Field(
+        ..., title="Right Constant"
+    )
+    right_stat_definition_id: UUID | None = Field(..., title="Right Stat Definition Id")
+    right_stat_name: str | None = Field(..., title="Right Stat Name")
+    subject: Subject = Field(..., title="Subject")
 
 
 class ConnectionCreate(BaseModel):
@@ -1334,6 +1394,45 @@ class GmRosterEntryOut(BaseModel):
     campaign_id: UUID = Field(..., title="Campaign Id")
 
 
+class Mode2(StrEnum):
+    all = "all"
+    choose = "choose"
+
+
+class Lasts(StrEnum):
+    while_source = "while_source"
+    permanent = "permanent"
+
+
+class GrantRuleIn(BaseModel):
+    label: str | None = Field(None, title="Label")
+    mode: Mode2 = Field(..., title="Mode")
+    min_count: conint(ge=0) | None = Field(0, title="Min Count")
+    max_count: conint(ge=1) | None = Field(None, title="Max Count")
+    count_stat_definition_id: UUID | None = Field(None, title="Count Stat Definition Id")
+    option_category_entry_id: UUID | None = Field(None, title="Option Category Entry Id")
+    options: list[UUID] | None = Field([], title="Options")
+    lasts: Lasts | None = Field("while_source", title="Lasts")
+    changeable: bool | None = Field(False, title="Changeable")
+    conditions: list[ConditionIn] | None = Field([], title="Conditions", validate_default=True)
+    entry_id: UUID = Field(..., title="Entry Id")
+    position: conint(ge=0) | None = Field(None, title="Position")
+
+
+class GrantRuleUpdate(BaseModel):
+    label: str | None = Field(None, title="Label")
+    mode: Mode2 = Field(..., title="Mode")
+    min_count: conint(ge=0) | None = Field(0, title="Min Count")
+    max_count: conint(ge=1) | None = Field(None, title="Max Count")
+    count_stat_definition_id: UUID | None = Field(None, title="Count Stat Definition Id")
+    option_category_entry_id: UUID | None = Field(None, title="Option Category Entry Id")
+    options: list[UUID] | None = Field([], title="Options")
+    lasts: Lasts | None = Field("while_source", title="Lasts")
+    changeable: bool | None = Field(False, title="Changeable")
+    conditions: list[ConditionIn] | None = Field([], title="Conditions", validate_default=True)
+    position: conint(ge=0) | None = Field(None, title="Position")
+
+
 class GroupCreate(BaseModel):
     name: str = Field(..., title="Name")
     member_character_ids: list[UUID] | None = Field([], title="Member Character Ids")
@@ -1496,13 +1595,13 @@ class JoinAcknowledgement(BaseModel):
     destination_id: UUID = Field(..., title="Destination Id")
 
 
-class Mode2(StrEnum):
+class Mode5(StrEnum):
     previous = "previous"
     parent = "parent"
 
 
 class JoinChapters(BaseModel):
-    mode: Mode2 | None = Field("previous", title="Mode")
+    mode: Mode5 | None = Field("previous", title="Mode")
     destination_id: UUID = Field(..., title="Destination Id")
     parent_id: UUID = Field(..., title="Parent Id")
     destination_version: str = Field(..., title="Destination Version")
@@ -2616,6 +2715,17 @@ class PlayerUpdate(BaseModel):
     self_service: bool | None = Field(None, title="Self Service")
 
 
+class PrerequisitesIn(BaseModel):
+    prerequisites: list[ComparisonIn] | None = Field(
+        [], title="Prerequisites", validate_default=True
+    )
+
+
+class PrerequisitesOut(BaseModel):
+    feature_id: UUID = Field(..., title="Feature Id")
+    prerequisites: list[ComparisonOut] = Field(..., title="Prerequisites")
+
+
 class PresentationCreate(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
@@ -2687,13 +2797,13 @@ class PreviewStatOut(BaseModel):
     value: Any = Field(..., title="Value")
 
 
-class Mode3(StrEnum):
+class Mode6(StrEnum):
     keep = "keep"
     purge = "purge"
 
 
 class PreviousCopyOut(BaseModel):
-    mode: Mode3 = Field(..., title="Mode")
+    mode: Mode6 = Field(..., title="Mode")
     entities: int = Field(..., title="Entities")
     stat_groups: int = Field(..., title="Stat Groups")
     stat_definitions: int = Field(..., title="Stat Definitions")
@@ -3263,6 +3373,12 @@ class Kind40(StrEnum):
     stat_definition = "stat_definition"
 
 
+class RuleOptionOut(BaseModel):
+    id: UUID | None = Field(..., title="Id")
+    name: str = Field(..., title="Name")
+    hidden: bool | None = Field(False, title="Hidden")
+
+
 class ScaleOut(BaseModel):
     unit: str | None = Field(..., title="Unit")
     min_value: float | None = Field(..., title="Min Value")
@@ -3332,7 +3448,7 @@ class SegmentPreview(BaseModel):
     days: list[DayPreview] = Field(..., title="Days")
 
 
-class Mode4(StrEnum):
+class Mode7(StrEnum):
     threshold = "threshold"
     match = "match"
 
@@ -4569,6 +4685,26 @@ class FlipCheckOut(BaseModel):
     deprecated: DeprecatedOut | None = None
 
 
+class GrantRuleOut(BaseModel):
+    id: UUID = Field(..., title="Id")
+    entry_id: UUID = Field(..., title="Entry Id")
+    entry_name: str = Field(..., title="Entry Name")
+    label: str | None = Field(..., title="Label")
+    position: int = Field(..., title="Position")
+    mode: Mode2 = Field(..., title="Mode")
+    min_count: int = Field(..., title="Min Count")
+    max_count: int | None = Field(..., title="Max Count")
+    count_stat_definition_id: UUID | None = Field(..., title="Count Stat Definition Id")
+    count_stat_name: str | None = Field(..., title="Count Stat Name")
+    option_category: RuleOptionOut | None
+    options: list[RuleOptionOut] = Field(..., title="Options")
+    lasts: Lasts = Field(..., title="Lasts")
+    changeable: bool = Field(..., title="Changeable")
+    conditions: list[ConditionOut] = Field(..., title="Conditions")
+    created_at: AwareDatetime = Field(..., title="Created At")
+    updated_at: AwareDatetime = Field(..., title="Updated At")
+
+
 class GroupMemberResultItem(BaseModel):
     character_entity_id: UUID = Field(..., title="Character Entity Id")
     status: Status8 = Field(..., title="Status")
@@ -4945,6 +5081,14 @@ class PageConnectionOut(BaseModel):
 
 class PageEntryEffectiveStatsOut(BaseModel):
     items: list[EntryEffectiveStatsOut] = Field(..., title="Items")
+    total: conint(ge=0) = Field(..., title="Total")
+    page: conint(ge=1) = Field(..., title="Page")
+    size: conint(ge=1) = Field(..., title="Size")
+    pages: conint(ge=0) = Field(..., title="Pages")
+
+
+class PageGrantRuleOut(BaseModel):
+    items: list[GrantRuleOut] = Field(..., title="Items")
     total: conint(ge=0) = Field(..., title="Total")
     page: conint(ge=1) = Field(..., title="Page")
     size: conint(ge=1) = Field(..., title="Size")
@@ -5365,7 +5509,7 @@ class RowRefOut(BaseModel):
 class SelectFormulaBodyInput(BaseModel):
     kind: Literal["select"] = Field("select", title="Kind")
     source_stat_definition_id: UUID = Field(..., title="Source Stat Definition Id")
-    mode: Mode4 = Field(..., title="Mode")
+    mode: Mode7 = Field(..., title="Mode")
     steps: list[SelectStepBodyInput] = Field(..., max_length=64, min_length=1, title="Steps")
     otherwise: SelectResultBodyInput | None = None
 
@@ -5373,7 +5517,7 @@ class SelectFormulaBodyInput(BaseModel):
 class SelectFormulaBodyOutput(BaseModel):
     kind: Literal["select"] = Field("select", title="Kind")
     source_stat_definition_id: UUID = Field(..., title="Source Stat Definition Id")
-    mode: Mode4 = Field(..., title="Mode")
+    mode: Mode7 = Field(..., title="Mode")
     steps: list[SelectStepBodyOutput] = Field(..., max_length=64, min_length=1, title="Steps")
     otherwise: SelectResultBodyOutput | None = None
 

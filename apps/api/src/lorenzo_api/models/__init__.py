@@ -113,6 +113,10 @@ __all__ = [
     "SocialWebType",
     "Feature",
     "FeatureInstance",
+    "FeaturePrerequisite",
+    "GrantRule",
+    "GrantRuleCondition",
+    "GrantRuleOption",
     "EntityFrame",
     "Frame",
     "Location",
@@ -245,6 +249,12 @@ from lorenzo_api.models.clock import CalendarReckoning, Clock, ClockRelationship
 from lorenzo_api.models.connection import Connection
 from lorenzo_api.models.feature import Feature, FeatureInstance
 from lorenzo_api.models.frame import EntityFrame, Frame
+from lorenzo_api.models.grant_rule import (
+    FeaturePrerequisite,
+    GrantRule,
+    GrantRuleCondition,
+    GrantRuleOption,
+)
 from lorenzo_api.models.lived_order import LivedBefore
 from lorenzo_api.models.location import EntityLocation, Location, LocationPart
 from lorenzo_api.models.manuscript import Book as Book

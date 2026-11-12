@@ -58,6 +58,10 @@ from lorenzo_api.models import (
     EntityStat,
     EntityStatGroup,
     Feature,
+    FeaturePrerequisite,
+    GrantRule,
+    GrantRuleCondition,
+    GrantRuleOption,
     Item,
     ItemInstance,
     Location,
@@ -1357,6 +1361,55 @@ class _Applier:
                 .values(repeatable=bool(change.upstream))
             )
             return True
+        if name == "grant_rules":
+            # The entry's rules are replaced by the repository's, in its order (ADR 0455); one
+            # that needs an entry or a stat not copied here is left out and said.
+            await s.execute(
+                delete(GrantRule).where(GrantRule.entry_id == e, GrantRule.tenant_id == t)
+            )
+            complete = True
+            for position, up in enumerate(change.upstream or []):
+                complete = await self._make_rule(e, position, up) and complete
+            if not complete:
+                self.skip(row, name, "a rule needs an entry or a stat that isn't copied here")
+            return complete
+        if name == "prerequisites":
+            if await s.get(Feature, e) is None:
+                self.skip(row, name, "The local entry is no longer a feature")
+                return False
+            await s.execute(
+                delete(FeaturePrerequisite).where(
+                    FeaturePrerequisite.feature_id == e, FeaturePrerequisite.tenant_id == t
+                )
+            )
+            complete = True
+            position = 0
+            for up in change.upstream or []:
+                stat = self.resolve("stat_definition", up["stat"])
+                right = (
+                    self.resolve("stat_definition", up["right_stat"]) if up["right_stat"] else None
+                )
+                if stat is None or (up["right_stat"] and right is None):
+                    complete = False
+                    continue
+                s.add(
+                    FeaturePrerequisite(
+                        tenant_id=t,
+                        feature_id=e,
+                        position=position,
+                        stat_definition_id=stat,
+                        comparator=up["comparator"],
+                        right_constant=(
+                            None if up["constant"] is None else Decimal(up["constant"])
+                        ),
+                        right_stat_definition_id=right,
+                    )
+                )
+                position += 1
+            await s.flush()
+            if not complete:
+                self.skip(row, name, "a prerequisite reads a stat that isn't copied here")
+            return complete
         if name == "in_public_catalog":
             if change.upstream is None:
                 # The entry stopped being an item upstream: the kind is what is removed, or
@@ -1650,6 +1703,72 @@ class _Applier:
                     false_value=formula["false_value"],
                 )
             )
+        return True
+
+    async def _make_rule(self, entry: uuid.UUID, position: int, up: dict[str, Any]) -> bool:
+        """One of the repository's rules for a library entry, its references found among what is
+        copied here; `False` (nothing written) when the category, a stat it reads, or every one
+        of its options is not. An option that is not here is left out of a rule that has others."""
+        t, s = self.tenant_id, self.session
+        category = self.resolve("entity", up["category"]) if up["category"] else None
+        count_stat = self.resolve("stat_definition", up["count_stat"]) if up["count_stat"] else None
+        kept = list(
+            dict.fromkeys(
+                o for o in (self.resolve("entity", name) for name in up["options"]) if o is not None
+            )
+        )
+        if (
+            (up["category"] and category is None)
+            or (up["count_stat"] and count_stat is None)
+            or (not up["category"] and not kept)
+        ):
+            return False
+        conditions: list[dict[str, Any]] = []
+        for index, condition in enumerate(up["conditions"]):
+            stat = self.resolve("stat_definition", condition["stat"])
+            right = (
+                self.resolve("stat_definition", condition["right_stat"])
+                if condition["right_stat"]
+                else None
+            )
+            if stat is None or (condition["right_stat"] and right is None):
+                return False
+            conditions.append(
+                {
+                    "position": index,
+                    "subject": condition["subject"],
+                    "stat_definition_id": stat,
+                    "comparator": condition["comparator"],
+                    "right_constant": (
+                        None if condition["constant"] is None else Decimal(condition["constant"])
+                    ),
+                    "right_stat_definition_id": right,
+                }
+            )
+        rule = GrantRule(
+            tenant_id=t,
+            entry_id=entry,
+            label=up["label"],
+            position=position,
+            mode=up["mode"],
+            min_count=up["min"],
+            max_count=up["max"],
+            count_stat_definition_id=count_stat,
+            option_category_entry_id=category,
+            lasts=up["lasts"],
+            changeable=up["changeable"],
+        )
+        s.add(rule)
+        await s.flush()
+        for condition in conditions:
+            s.add(GrantRuleCondition(tenant_id=t, rule_id=rule.id, **condition))
+        for index, option in enumerate(kept):
+            s.add(
+                GrantRuleOption(
+                    rule_id=rule.id, option_entry_id=option, tenant_id=t, position=index
+                )
+            )
+        await s.flush()
         return True
 
     async def _kinds(self, row: RowChange, change: FieldChange) -> bool:
