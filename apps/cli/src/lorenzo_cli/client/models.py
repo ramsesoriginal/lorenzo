@@ -554,6 +554,7 @@ class ClockRelationshipsOut(BaseModel):
 class Kind5(StrEnum):
     stat_group = "stat_group"
     stat_definition = "stat_definition"
+    stat_role = "stat_role"
     slug = "slug"
 
 
@@ -3107,6 +3108,7 @@ class RepositorySummaryOut(BaseModel):
 class Kind35(StrEnum):
     stat_group = "stat_group"
     stat_definition = "stat_definition"
+    stat_role = "stat_role"
     slug = "slug"
 
 
@@ -3582,12 +3584,28 @@ class Spoke(BaseModel):
     name: constr(min_length=1, max_length=200) | None = Field(None, title="Name")
 
 
+class Role4(StrEnum):
+    weight = "weight"
+    height = "height"
+    price = "price"
+    rarity = "rarity"
+    hp = "hp"
+    armor = "armor"
+    size = "size"
+    carry_capacity = "carry_capacity"
+    containment_capacity = "containment_capacity"
+    max_item_size = "max_item_size"
+    binding = "binding"
+    is_container = "is_container"
+
+
 class StatDefinitionOrder(BaseModel):
     stat_definition_ids: list[UUID] = Field(..., title="Stat Definition Ids")
 
 
 class StatDefinitionUpdate(BaseModel):
     name: constr(min_length=1) | None = Field(None, title="Name")
+    role: Role4 | None = Field(None, title="Role")
     unit: constr(min_length=1, max_length=32) | None = Field(None, title="Unit")
     adjustable_in_play: bool | None = Field(None, title="Adjustable In Play")
     pin: bool | None = Field(None, title="Pin")
@@ -3622,12 +3640,21 @@ class StatEnumValueUpdate(BaseModel):
     sort_order: int | None = Field(None, title="Sort Order")
 
 
+class Role7(StrEnum):
+    physical = "physical"
+    economic = "economic"
+    destroyable = "destroyable"
+    damaging = "damaging"
+    tags = "tags"
+
+
 class StatGroupCreate(BaseModel):
     name: str = Field(..., title="Name")
     priority: int | None = Field(0, title="Priority")
     mandatory: bool | None = Field(False, title="Mandatory")
     position: int | None = Field(None, title="Position")
     system_id: UUID | None = Field(None, title="System Id")
+    role: Role7 | None = Field(None, title="Role")
 
 
 class StatGroupOrder(BaseModel):
@@ -3641,6 +3668,7 @@ class StatGroupOut(BaseModel):
     mandatory: bool = Field(..., title="Mandatory")
     position: int = Field(..., title="Position")
     system_id: UUID | None = Field(None, title="System Id")
+    role: Role7 | None = Field(None, title="Role")
     created_at: AwareDatetime = Field(..., title="Created At")
     updated_at: AwareDatetime = Field(..., title="Updated At")
 
@@ -3651,6 +3679,7 @@ class StatGroupUpdate(BaseModel):
     mandatory: bool | None = Field(None, title="Mandatory")
     position: int | None = Field(None, title="Position")
     system_id: UUID | None = Field(None, title="System Id")
+    role: Role7 | None = Field(None, title="Role")
 
 
 class StatValueOut(BaseModel):
@@ -3802,7 +3831,7 @@ class TenantOut(BaseModel):
     updated_by: UUID | None = Field(..., title="Updated By")
 
 
-class Role4(StrEnum):
+class Role10(StrEnum):
     owner = "owner"
     orga = "orga"
     author = "author"
@@ -3813,7 +3842,7 @@ class TenantSummaryOut(BaseModel):
     id: UUID = Field(..., title="Id")
     slug: str = Field(..., title="Slug")
     name: str = Field(..., title="Name")
-    role: Role4 = Field(..., title="Role")
+    role: Role10 = Field(..., title="Role")
     kind: TenantKind
 
 
@@ -5226,6 +5255,7 @@ class StatDefinitionCreate(BaseModel):
     name: str = Field(..., title="Name")
     stat_group_id: UUID = Field(..., title="Stat Group Id")
     value_type: StatValueType
+    role: Role4 | None = Field(None, title="Role")
     enum_values: list[str] | None = Field(None, title="Enum Values")
     unit: constr(min_length=1, max_length=32) | None = Field(None, title="Unit")
     adjustable_in_play: bool | None = Field(False, title="Adjustable In Play")
@@ -5244,6 +5274,7 @@ class StatDefinitionOut(BaseModel):
     name: str = Field(..., title="Name")
     stat_group_id: UUID = Field(..., title="Stat Group Id")
     value_type: StatValueType
+    role: Role4 | None = Field(None, title="Role")
     enum_values: list[str] = Field(..., title="Enum Values")
     enum_options: list[StatEnumOptionOut] = Field(..., title="Enum Options")
     unit: str | None = Field(..., title="Unit")

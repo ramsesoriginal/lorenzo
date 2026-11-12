@@ -123,7 +123,7 @@ from lorenzo_api.repository_reach import PROTECTED_NAME
 from lorenzo_api.repository_upstream import load_upstream, upstream_copies, visibility_of
 from lorenzo_api.svg_lint import SvgRefused, check_svg
 
-CollisionKind = Literal["stat_group", "stat_definition", "slug"]
+CollisionKind = Literal["stat_group", "stat_definition", "stat_role", "slug"]
 Action = Literal["rename", "merge", "skip"]
 
 # ADR 0107's slug grammar (schemas.common.Slug).
@@ -436,6 +436,11 @@ class _Planner:
         }
         self.group_names: dict[str, uuid.UUID] = {}
         self.definitions: dict[str, tuple[uuid.UUID, Any, set[str]]] = {}
+        # Who holds each role in the library, and what the stat holders are (ADR 0449): the
+        # library's own, then every one this plan gives a role to.
+        self.group_roles: dict[str, uuid.UUID] = {}
+        self.definition_roles: dict[str, uuid.UUID] = {}
+        self.type_and_values: dict[uuid.UUID, tuple[Any, set[str]]] = {}
         self.slugs: set[str] = set()
         # The tenant's own row ids, per kind, for a repository that copied
         # this tenant (ADR 0120: the tenant's rows are then the origins).
@@ -457,10 +462,12 @@ class _Planner:
                 )
             )
         }
-        for group_id, name in await session.execute(
-            select(StatGroup.id, StatGroup.name).where(StatGroup.tenant_id == t)
+        for group_id, name, group_role in await session.execute(
+            select(StatGroup.id, StatGroup.name, StatGroup.role).where(StatGroup.tenant_id == t)
         ):
             self.group_names[name] = group_id
+            if group_role is not None:
+                self.group_roles[group_role] = group_id
         vocab: dict[uuid.UUID, set[str]] = defaultdict(set)
         for def_id, value in await session.execute(
             select(StatDefinitionEnumValue.stat_definition_id, StatDefinitionEnumValue.value).where(
@@ -468,12 +475,18 @@ class _Planner:
             )
         ):
             vocab[def_id].add(value)
-        for def_id, name, value_type in await session.execute(
-            select(StatDefinition.id, StatDefinition.name, StatDefinition.value_type).where(
-                StatDefinition.tenant_id == t
-            )
+        for def_id, name, value_type, definition_role in await session.execute(
+            select(
+                StatDefinition.id,
+                StatDefinition.name,
+                StatDefinition.value_type,
+                StatDefinition.role,
+            ).where(StatDefinition.tenant_id == t)
         ):
             self.definitions[name] = (def_id, value_type, vocab[def_id])
+            self.type_and_values[def_id] = (value_type, vocab[def_id])
+            if definition_role is not None:
+                self.definition_roles[definition_role] = def_id
         self.slugs = set(
             await session.scalars(select(EntitySlug.slug).where(EntitySlug.tenant_id == t))
         )
@@ -579,6 +592,12 @@ class _Planner:
             new = uuid.uuid4()
             self.local["stat_group"][g] = new
             self.group_names[name] = new
+            # The role comes along when the library has no group holding it (ADR 0449).
+            group_role = group.get("role")
+            if group_role is not None and group_role in self.group_roles:
+                group_role = None
+            if group_role is not None:
+                self.group_roles[group_role] = new
             self.rows["stat_group"].append(
                 {
                     "id": new,
@@ -586,6 +605,7 @@ class _Planner:
                     "name": name,
                     "priority": group["priority"],
                     "mandatory": group["mandatory"],
+                    "role": group_role,
                 }
             )
             self.rows["link_stat_group"].append(
@@ -633,15 +653,48 @@ class _Planner:
                     )
                     continue
                 name = self._new_name(choice, taken=self.definitions)
+            # A role is held once in a library (ADR 0449): a stat that holds one the library's
+            # own stat already holds is a collision of its own - merge into the holder when the
+            # types agree, or skip.
+            role = definition.get("role")
+            if role is not None and role in self.definition_roles:
+                holder = self.definition_roles[role]
+                holder_type, holder_vocab = self.type_and_values[holder]
+                role_choices: list[Action] = ["skip"]
+                if holder_type is definition["value_type"]:
+                    role_choices.insert(0, "merge")
+                role_choice = self._resolve(step, "stat_role", d, name, holder, role_choices)
+                if role_choice is None:
+                    self.local["stat_definition"][d] = uuid.uuid4()
+                    continue
+                if role_choice.action == "skip":
+                    continue
+                self.local["stat_definition"][d] = holder
+                self.enum_additions[holder] |= values - holder_vocab
+                holder_vocab |= values
+                self.rows["link_stat_definition"].append(
+                    self._link(
+                        repository_id,
+                        d,
+                        holder,
+                        stat_definition_snapshot(c, d, namer),
+                        "merged",
+                    )
+                )
+                continue
             new = uuid.uuid4()
             self.local["stat_definition"][d] = new
             self.definitions[name] = (new, definition["value_type"], set(values))
+            self.type_and_values[new] = (definition["value_type"], set(values))
+            if role is not None:
+                self.definition_roles[role] = new
             self.rows["stat_definition"].append(
                 {
                     "id": new,
                     "tenant_id": tenant_id,
                     "stat_group_id": local_group,
                     "name": name,
+                    "role": role,
                     "value_type": definition["value_type"],
                     "unit": definition["unit"],
                     "adjustable_in_play": definition["adjustable_in_play"],

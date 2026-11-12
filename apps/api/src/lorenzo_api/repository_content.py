@@ -561,14 +561,20 @@ async def load_content(session: AsyncSession, tenant_id: uuid.UUID) -> Content:
             )
         ).all()
     ]
-    for group_id, name, priority, mandatory in await rows(
+    for group_id, name, priority, mandatory, group_role in await rows(
         StatGroup.id,
         StatGroup.name,
         StatGroup.priority,
         StatGroup.mandatory,
+        StatGroup.role,
         where=StatGroup.tenant_id == t,
     ):
-        c.groups[group_id] = {"name": name, "priority": priority, "mandatory": mandatory}
+        c.groups[group_id] = {
+            "name": name,
+            "priority": priority,
+            "mandatory": mandatory,
+            "role": group_role,
+        }
     for (
         def_id,
         name,
@@ -584,6 +590,7 @@ async def load_content(session: AsyncSession, tenant_id: uuid.UUID) -> Content:
         resolved_hint,
         min_value,
         max_value,
+        definition_role,
     ) in await rows(
         StatDefinition.id,
         StatDefinition.name,
@@ -599,12 +606,14 @@ async def load_content(session: AsyncSession, tenant_id: uuid.UUID) -> Content:
         StatDefinition.resolved_hint_id,
         StatDefinition.min_value,
         StatDefinition.max_value,
+        StatDefinition.role,
         where=StatDefinition.tenant_id == t,
     ):
         c.definitions[def_id] = {
             "name": name,
             "value_type": value_type,
             "group": group_id,
+            "role": definition_role,
             "unit": unit,
             "adjustable_in_play": adjustable,
             "pin": pin,

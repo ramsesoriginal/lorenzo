@@ -462,10 +462,10 @@ class StatDefinitionFieldImmutableError(UnprocessableProblem):
 
 
 class StatNameReservedError(ConflictProblem):
-    """PATCH of a stat the API reads by name, or of the value `none` of `binding` - renaming it
-    would change what the API does (ADR 0390)."""
+    """PATCH of the value `none` of a `binding` stat - renaming it would change what the API does
+    (ADR 0390, ADR 0449: reserved by role, no longer a stat by its name)."""
 
-    title = "The API reads this stat by name"
+    title = "The API writes this value"
 
 
 class InvalidStatHintError(UnprocessableProblem):

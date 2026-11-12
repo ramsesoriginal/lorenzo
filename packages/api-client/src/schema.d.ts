@@ -9067,7 +9067,7 @@ export interface components {
              * Kind
              * @enum {string}
              */
-            kind: "stat_group" | "stat_definition" | "slug";
+            kind: "stat_group" | "stat_definition" | "stat_role" | "slug";
             /**
              * Source Id
              * Format: uuid
@@ -15984,7 +15984,7 @@ export interface components {
              * Kind
              * @enum {string}
              */
-            kind: "stat_group" | "stat_definition" | "slug";
+            kind: "stat_group" | "stat_definition" | "stat_role" | "slug";
             /**
              * Source Id
              * Format: uuid
@@ -16931,6 +16931,8 @@ export interface components {
              */
             stat_group_id: string;
             value_type: components["schemas"]["StatValueType"];
+            /** Role */
+            role?: ("weight" | "height" | "price" | "rarity" | "hp" | "armor" | "size" | "carry_capacity" | "containment_capacity" | "max_item_size" | "binding" | "is_container") | null;
             /** Enum Values */
             enum_values?: string[] | null;
             /** Unit */
@@ -16992,6 +16994,8 @@ export interface components {
              */
             stat_group_id: string;
             value_type: components["schemas"]["StatValueType"];
+            /** Role */
+            role?: ("weight" | "height" | "price" | "rarity" | "hp" | "armor" | "size" | "carry_capacity" | "containment_capacity" | "max_item_size" | "binding" | "is_container") | null;
             /** Enum Values */
             enum_values: string[];
             /** Enum Options */
@@ -17036,6 +17040,8 @@ export interface components {
         StatDefinitionUpdate: {
             /** Name */
             name?: string | null;
+            /** Role */
+            role?: ("weight" | "height" | "price" | "rarity" | "hp" | "armor" | "size" | "carry_capacity" | "containment_capacity" | "max_item_size" | "binding" | "is_container") | null;
             /** Unit */
             unit?: string | null;
             /** Adjustable In Play */
@@ -17171,6 +17177,8 @@ export interface components {
             position?: number | null;
             /** System Id */
             system_id?: string | null;
+            /** Role */
+            role?: ("physical" | "economic" | "destroyable" | "damaging" | "tags") | null;
         };
         /**
          * StatGroupOrder
@@ -17203,6 +17211,8 @@ export interface components {
             position: number;
             /** System Id */
             system_id?: string | null;
+            /** Role */
+            role?: ("physical" | "economic" | "destroyable" | "damaging" | "tags") | null;
             /**
              * Created At
              * Format: date-time
@@ -17231,6 +17241,8 @@ export interface components {
             position?: number | null;
             /** System Id */
             system_id?: string | null;
+            /** Role */
+            role?: ("physical" | "economic" | "destroyable" | "damaging" | "tags") | null;
         };
         /**
          * StatValueOut

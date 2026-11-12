@@ -28,36 +28,11 @@ from lorenzo_api.models import (
 )
 
 __all__ = [
-    "RESERVED_ENUM_VALUES",
-    "RESERVED_STAT_NAMES",
     "EnumValueUses",
     "enum_value_uses",
     "formulas_reading_as_number",
     "rename_enum_value_text",
 ]
-
-# The stats the API reads by name, tenant data it looks up rather than a column of its own: the
-# item views' six (`v_item`, `v_item_instance`), the capacity checks (capacity.py), the binding
-# stat (binding.py) and the container tag (schemas/items.py). Renaming one would change what the
-# API does without a word, so it is refused.
-RESERVED_STAT_NAMES = frozenset(
-    {
-        "weight",
-        "height",
-        "price",
-        "rarity",
-        "hp",
-        "armor",
-        "size",
-        "carry_capacity",
-        "containment_capacity",
-        "max_item_size",
-        "binding",
-        "is_container",
-    }
-)
-# The values of those stats the API writes or reads as text.
-RESERVED_ENUM_VALUES = {"binding": frozenset({"none"})}
 
 
 class EnumValueUses:

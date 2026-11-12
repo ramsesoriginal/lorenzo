@@ -46,8 +46,11 @@ from lorenzo_api.repository_content import (
     SelectStepData,
     StatValue,
 )
+from lorenzo_api.roles import DEFINITION_ROLES, GROUP_ROLES
 
-FORMAT = 40
+FORMAT = 41
+_DEFINITION_ROLES = frozenset(DEFINITION_ROLES)
+_GROUP_ROLES = frozenset(GROUP_ROLES)
 
 Document = dict[str, Any]
 Files = dict[str, bytes]
@@ -380,7 +383,7 @@ _CONTENT = _dataclass(
         "prototypes": _pairs(_ID, _ID),
         "groups": _id_map(
             _record(
-                {"name": _PLAIN, "priority": _PLAIN, "mandatory": _PLAIN},
+                {"name": _PLAIN, "priority": _PLAIN, "mandatory": _PLAIN, "role": _PLAIN},
                 name="Content.groups",
             )
         ),
@@ -390,6 +393,7 @@ _CONTENT = _dataclass(
                     "name": _PLAIN,
                     "value_type": _VALUE_TYPE,
                     "group": _ID,
+                    "role": _PLAIN,
                     "unit": _PLAIN,
                     "adjustable_in_play": _PLAIN,
                     "pin": _PLAIN,
@@ -817,6 +821,20 @@ def _read_v39(document: Document, files: Mapping[str, bytes]) -> Content:
 
 
 def _read_v40(document: Document, files: Mapping[str, bytes]) -> Content:
+    # Before format 41 a stat or a group had no role: the API read it by name, so a stat or a
+    # group with a role's name holds that role (ADR 0449), as the migration gave it.
+    groups = {
+        key: {"role": group["name"] if group["name"] in _GROUP_ROLES else None, **group}
+        for key, group in document["groups"].items()
+    }
+    definitions = {
+        key: {"role": d["name"] if d["name"] in _DEFINITION_ROLES else None, **d}
+        for key, d in document["definitions"].items()
+    }
+    return _read_v41({**document, "groups": groups, "definitions": definitions}, files)
+
+
+def _read_v41(document: Document, files: Mapping[str, bytes]) -> Content:
     content: Content = _CONTENT.decode(document, dict(files))
     return content
 
@@ -864,6 +882,7 @@ READERS: dict[int, Callable[[Document, Mapping[str, bytes]], Content]] = {
     38: _read_v38,
     39: _read_v39,
     40: _read_v40,
+    41: _read_v41,
 }
 
 

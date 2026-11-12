@@ -517,7 +517,7 @@ class RepositoryStatGroupOut(BaseModel):
     definitions: list[RepositoryStatDefinitionOut]
 
 
-CollisionKindName = Literal["stat_group", "stat_definition", "slug"]
+CollisionKindName = Literal["stat_group", "stat_definition", "stat_role", "slug"]
 ActionName = Literal["rename", "merge", "skip"]
 
 
