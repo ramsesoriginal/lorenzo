@@ -5,7 +5,7 @@ Status: accepted, built (2026-11-12). Slice F2 of [RFC 0054](../rfcs/0054-featur
 [ADR 0451](0451-templates-a-sheet-as-data.md) (authoring at the vocabulary's tier, and how a row of content is copied),
 [ADR 0104](0104-computed-stats.md) (the comparators), [ADR 0218](0218-the-copyable-table-registry.md) (the registry)
 and [ADR 0208](0208-the-release-digest-and-the-breaking-change-detector.md) (the breaking reasons). Nothing is granted by this slice:
-that is the apply of [ADR 0456](0456-the-grants-read-apply-picks-and-revocation.md).
+that is the apply of ADR 0456.
 
 ## Context
 
