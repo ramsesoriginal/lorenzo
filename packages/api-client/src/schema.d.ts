@@ -7392,6 +7392,32 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/tenants/{tenant_id}/vocabulary-check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Check Vocabulary
+         * @description What a library's stats get wrong without saying so, without refusing, writing or recording
+         *     anything (ADR 0458, RFC 0055). `items` are the findings of a page of the entries scanned (the
+         *     entries and their order are `GET /entities`'s, with the same `kind`, `parent_id` and
+         *     `recursive`, or the one `entry_id`); `total` and `pages` count entries, not findings. An entry
+         *     the caller cannot read is not scanned. The findings about the library's formulas, which are
+         *     no entry's, come on the first page, and only when no entry is asked for. `code` narrows the
+         *     findings, `stat_definition_id` the stat (404 for one that is not the library's).
+         */
+        get: operations["check_vocabulary"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/tenants/{tenant_id}/entities/{entity_id}/matching-templates": {
         parameters: {
             query?: never;
@@ -11336,6 +11362,38 @@ export interface components {
             removed: unknown[] | null;
         };
         /**
+         * FindingOut
+         * @description One thing a library's stats got wrong without saying so (ADR 0458, RFC 0055). It names the
+         *     stat, and the entry unless the finding is about the library's formulas; `message` is a
+         *     sentence, `details` the numbers and ids behind it. `warning` is what an author most likely did
+         *     not mean, `info` what the rules produce on purpose.
+         */
+        FindingOut: {
+            /**
+             * Code
+             * @enum {string}
+             */
+            code: "computed-outside-scale" | "above-hint" | "formula-chain-depth";
+            /**
+             * Severity
+             * @enum {string}
+             */
+            severity: "warning" | "info";
+            /** Entry Id */
+            entry_id: string | null;
+            /**
+             * Stat Definition Id
+             * Format: uuid
+             */
+            stat_definition_id: string;
+            /** Message */
+            message: string;
+            /** Details */
+            details: {
+                [key: string]: unknown;
+            };
+        };
+        /**
          * FlipCheckOut
          * @description `GET .../flip-check` (ADR 0290): what a flip of this repository would run into, for the
          *     dialog to say before the Owner asks. `available` is false while the deployment does not
@@ -14395,6 +14453,19 @@ export interface components {
         Page_EventSummary_: {
             /** Items */
             items: components["schemas"]["EventSummary"][];
+            /** Total */
+            total: number;
+            /** Page */
+            page: number;
+            /** Size */
+            size: number;
+            /** Pages */
+            pages: number;
+        };
+        /** Page[FindingOut] */
+        Page_FindingOut_: {
+            /** Items */
+            items: components["schemas"]["FindingOut"][];
             /** Total */
             total: number;
             /** Page */
@@ -48991,6 +49062,86 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    check_vocabulary: {
+        parameters: {
+            query?: {
+                /** @description Only these findings (repeatable); all by default. */
+                code?: ("computed-outside-scale" | "above-hint" | "formula-chain-depth")[] | null;
+                /** @description Only this entry. */
+                entry_id?: string | null;
+                /** @description Only entries that have this entry as a parent. */
+                parent_id?: string | null;
+                /** @description With parent_id, also include entries that inherit from it transitively, not just directly. */
+                recursive?: boolean;
+                /** @description Only entries of these kinds (repeatable): any of them, not all. */
+                kind?: ("item" | "item_instance" | "being" | "character" | "fact" | "calendar" | "clock" | "location" | "map" | "connection" | "relationship" | "social_web" | "feature" | "feature_instance" | "calendar_period" | "event" | "observance" | "book" | "carrier" | "edition" | "chapter" | "scene_telling" | "scene" | "scene_appearance" | "session")[] | null;
+                /** @description Only this stat. */
+                stat_definition_id?: string | null;
+                page?: number;
+                size?: number;
+            };
+            header?: never;
+            path: {
+                tenant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_FindingOut_"];
+                };
             };
             /** @description Validation Error */
             422: {
