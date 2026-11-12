@@ -124,10 +124,12 @@ def test_version_one_is_read_as_it_was_written() -> None:
 
     assert differences(full_content(), rd.decode(golden, _files(), format=1)) == []
     # V3 adds calendars; V1 and V2 remain readable unchanged.
-    assert rd.FORMAT == 43
+    assert rd.FORMAT == 44
     assert rd.encode(full_content())[0] == {
         **golden,
         "repeatable": {},
+        "grant_rules": {},
+        "prerequisites": {},
         "groups": {
             key: {"role": None, "system": None, **group} for key, group in golden["groups"].items()
         },
@@ -842,3 +844,58 @@ def test_features_round_trip_and_an_old_document_has_none() -> None:
     v42 = {key: value for key, value in document.items() if key != "repeatable"}
     old = rd.decode(v42, files, format=42)
     assert old.repeatable == {}
+
+
+def test_grant_rules_and_prerequisites_round_trip_and_an_old_document_has_none() -> None:
+    """ADR 0455: a library's rules (conditions and options in order) and the prerequisites of its
+    features are in the document; a document of version 43, which had none, reads none."""
+    content = full_content()
+    source, feature, other, rule = (uuid.UUID(int=n) for n in (92, 93, 94, 95))
+    stat = next(iter(content.definitions))
+    content.entities.update({source: "Fighter", feature: "Second Wind", other: "Action Surge"})
+    content.kinds[feature] = {"feature"}
+    content.grant_rules = {
+        rule: {
+            "entry": source,
+            "label": "Level 1",
+            "position": 0,
+            "mode": "choose",
+            "min": 1,
+            "max": None,
+            "count_stat": stat,
+            "category": None,
+            "lasts": "permanent",
+            "changeable": True,
+            "conditions": [
+                {
+                    "subject": "source",
+                    "stat": stat,
+                    "comparator": "ge",
+                    "constant": Decimal("2.5"),
+                    "right_stat": None,
+                },
+                {
+                    "subject": "holder",
+                    "stat": stat,
+                    "comparator": "lt",
+                    "constant": None,
+                    "right_stat": stat,
+                },
+            ],
+            "options": [feature, other],
+        }
+    }
+    content.prerequisites = {
+        feature: [{"stat": stat, "comparator": "gt", "constant": Decimal("12"), "right_stat": None}]
+    }
+
+    document, files = rd.encode(content)
+    back = rd.decode(rd.loads(rd.dumps(document)), files)
+
+    assert differences(content, back) == []
+    assert back.grant_rules[rule]["conditions"][0]["constant"] == Decimal("2.5")
+    assert back.grant_rules[rule]["options"] == [feature, other]
+    assert back.prerequisites[feature][0]["constant"] == Decimal("12")
+    v43 = {k: v for k, v in document.items() if k not in ("grant_rules", "prerequisites")}
+    old = rd.decode(v43, files, format=43)
+    assert old.grant_rules == {} and old.prerequisites == {}
