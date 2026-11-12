@@ -46,8 +46,11 @@ from lorenzo_api.repository_content import (
     SelectStepData,
     StatValue,
 )
+from lorenzo_api.roles import DEFINITION_ROLES, GROUP_ROLES
 
-FORMAT = 40
+FORMAT = 42
+_DEFINITION_ROLES = frozenset(DEFINITION_ROLES)
+_GROUP_ROLES = frozenset(GROUP_ROLES)
 
 Document = dict[str, Any]
 Files = dict[str, bytes]
@@ -158,6 +161,14 @@ _TEXT_SET = _Codec(lambda s, f: sorted(s), lambda s, f: set(s))
 _ID_LIST = _Codec(
     lambda items, f: [str(v) for v in items], lambda items, f: [uuid.UUID(v) for v in items]
 )
+
+
+def _list(value: _Codec) -> _Codec:
+    """A list of values, in order."""
+    return _Codec(
+        lambda items, f: [value.encode(v, f) for v in items],
+        lambda items, f: [value.decode(v, f) for v in items],
+    )
 
 
 def _keyed(value: _Codec) -> _Codec:
@@ -380,8 +391,44 @@ _CONTENT = _dataclass(
         "prototypes": _pairs(_ID, _ID),
         "groups": _id_map(
             _record(
-                {"name": _PLAIN, "priority": _PLAIN, "mandatory": _PLAIN},
+                {
+                    "name": _PLAIN,
+                    "priority": _PLAIN,
+                    "mandatory": _PLAIN,
+                    "role": _PLAIN,
+                    "system": _optional(_ID),
+                },
                 name="Content.groups",
+            )
+        ),
+        "systems": _id_map(
+            _record(
+                {"slug": _PLAIN, "name": _PLAIN, "root": _optional(_ID)}, name="Content.systems"
+            )
+        ),
+        "templates": _id_map(
+            _record(
+                {
+                    "name": _PLAIN,
+                    "system": _optional(_ID),
+                    "kind": _PLAIN,
+                    "ancestor": _optional(_ID),
+                    "slots": _list(
+                        _record(
+                            {
+                                "kind": _PLAIN,
+                                "label": _PLAIN,
+                                "group": _optional(_ID),
+                                "information_type": _PLAIN,
+                                "held_order": _PLAIN,
+                                "stats": _pairs(_ID, _PLAIN),
+                                "exclude": _ID_LIST,
+                            },
+                            name="Content.templates.slots",
+                        )
+                    ),
+                },
+                name="Content.templates",
             )
         ),
         "definitions": _id_map(
@@ -390,6 +437,7 @@ _CONTENT = _dataclass(
                     "name": _PLAIN,
                     "value_type": _VALUE_TYPE,
                     "group": _ID,
+                    "role": _PLAIN,
                     "unit": _PLAIN,
                     "adjustable_in_play": _PLAIN,
                     "pin": _PLAIN,
@@ -817,6 +865,27 @@ def _read_v39(document: Document, files: Mapping[str, bytes]) -> Content:
 
 
 def _read_v40(document: Document, files: Mapping[str, bytes]) -> Content:
+    # Before format 41 a stat or a group had no role: the API read it by name, so a stat or a
+    # group with a role's name holds that role (ADR 0449), as the migration gave it.
+    groups = {
+        key: {"role": group["name"] if group["name"] in _GROUP_ROLES else None, **group}
+        for key, group in document["groups"].items()
+    }
+    definitions = {
+        key: {"role": d["name"] if d["name"] in _DEFINITION_ROLES else None, **d}
+        for key, d in document["definitions"].items()
+    }
+    return _read_v41({**document, "groups": groups, "definitions": definitions}, files)
+
+
+def _read_v41(document: Document, files: Mapping[str, bytes]) -> Content:
+    # Before format 42 a library had no game systems and no templates (ADR 0453): every group is
+    # neutral.
+    groups = {key: {**group, "system": None} for key, group in document["groups"].items()}
+    return _read_v42({**document, "groups": groups, "systems": {}, "templates": {}}, files)
+
+
+def _read_v42(document: Document, files: Mapping[str, bytes]) -> Content:
     content: Content = _CONTENT.decode(document, dict(files))
     return content
 
@@ -864,6 +933,8 @@ READERS: dict[int, Callable[[Document, Mapping[str, bytes]], Content]] = {
     38: _read_v38,
     39: _read_v39,
     40: _read_v40,
+    41: _read_v41,
+    42: _read_v42,
 }
 
 

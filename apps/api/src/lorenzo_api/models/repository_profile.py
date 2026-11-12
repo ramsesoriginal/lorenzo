@@ -68,6 +68,9 @@ class RepositoryProfile(Base):
     credits: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, server_default=text("'[]'::jsonb"))
     tags: Mapped[list[str]] = mapped_column(ARRAY(Text), server_default=text("'{}'"))
     system: Mapped[str | None]
+    # The slugs of the game systems the current release carries, from its stat groups (ADR 0453);
+    # written with the listing facts, and what Discover's `system` facet and filter also read.
+    systems: Mapped[list[str]] = mapped_column(ARRAY(Text), server_default=text("'{}'"))
     languages: Mapped[list[str]] = mapped_column(ARRAY(Text), server_default=text("'{}'"))
     cover_picture_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("profile_picture.id", ondelete="SET NULL"), unique=True

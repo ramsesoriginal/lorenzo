@@ -1,6 +1,11 @@
 # 0052 - Several game systems in one library: a system as a thing, with its own vocabulary, templates and root
 
-Status: accepted (2026-11-11), decided with the maintainer, not built; slices Y1 to Y6, each its own ADR. It takes up what
+Status: accepted (2026-11-11), decided with the maintainer; built 2026-11-12 as slices Y1 to Y6, each its own ADR
+([0448](../adr/0448-a-game-system-as-a-row.md), [0449](../adr/0449-roles-the-api-reads-a-stat-by-what-it-is-for.md),
+[0450](../adr/0450-the-system-filter-on-the-stat-reads.md), [0451](../adr/0451-templates-a-sheet-as-data.md),
+[0452](../adr/0452-a-campaign-names-a-system-and-the-sheet-reads-a-template.md),
+[0453](../adr/0453-repositories-carry-systems-and-templates.md)). One part of section 7 is not built: the update engine does not
+track systems and templates (ADR 0453, "Not in scope"). It takes up what
 [RFC 0033](0033-item-repositories-common-equipment-rules-and-bridge.md) section 9 leaves as "a follow-up RFC" (resolving
 through the system a campaign names), what [ADR 0037](../adr/0037-effective-stat-resolution.md) names as not built
 (`game_system` as a modelled concept), the three sheet settings of

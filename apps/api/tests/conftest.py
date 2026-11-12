@@ -11,7 +11,7 @@ from _fake_jwks import FakeJwksServer
 from asgi_lifespan import LifespanManager
 from httpx import ASGITransport, AsyncClient
 from jwt import PyJWKClient
-from sqlalchemy import text
+from sqlalchemy import event, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from lorenzo_api.config import get_settings
@@ -30,10 +30,28 @@ from lorenzo_api.models import (
     Membership,
     MembershipRole,
     Player,
+    StatDefinition,
+    StatGroup,
     Tenant,
     TenantAdminCampaignOptOut,
     User,
 )
+from lorenzo_api.roles import DEFINITION_ROLES, GROUP_ROLES
+
+
+@event.listens_for(StatDefinition, "before_insert")
+@event.listens_for(StatGroup, "before_insert")
+def _role_of_a_named_stat(
+    _mapper: object, _connection: object, target: StatDefinition | StatGroup
+) -> None:
+    """A row a test builds by hand with a role's name and no `role` takes the role, as the API does
+    for a new stat named after a free role (ADR 0449): the fixtures predate roles. A row that sets
+    `role` itself, even to None, is left alone."""
+    if "role" in target.__dict__:
+        return
+    roles = DEFINITION_ROLES if isinstance(target, StatDefinition) else GROUP_ROLES
+    if target.name in roles:
+        target.role = target.name
 
 
 def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:

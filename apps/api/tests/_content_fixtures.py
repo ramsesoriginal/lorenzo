@@ -44,8 +44,20 @@ def full_content() -> Content:
     c.slugs = {sword: "longsword", orc: "orc"}
     c.prototypes = [(dagger, sword), (sword, chest)]
     c.groups = {
-        group: {"name": "Abilities", "priority": 3, "mandatory": True},
-        other_group: {"name": "Extras", "priority": 0, "mandatory": False},
+        group: {
+            "name": "Abilities",
+            "priority": 3,
+            "mandatory": True,
+            "role": None,
+            "system": None,
+        },
+        other_group: {
+            "name": "Extras",
+            "priority": 0,
+            "mandatory": False,
+            "role": None,
+            "system": None,
+        },
     }
     c.definitions = {
         strength: {"name": "Strength", "value_type": StatValueType.INT, "group": group},
@@ -60,6 +72,7 @@ def full_content() -> Content:
     # The display fields of a definition (ADR 0278, 0279): every one filled somewhere, hints too.
     for position, definition in enumerate(c.definitions.values()):
         definition.update(
+            role=None,
             unit="kg" if position % 2 else None,
             adjustable_in_play=bool(position % 2),
             pin=bool(position % 3),

@@ -67,16 +67,20 @@ def template_for(kinds: Sequence[str]) -> PreviewTemplate:
 
 
 def pick_stats(
-    template: PreviewTemplate, values: Mapping[str, int | float | str | bool]
+    template: PreviewTemplate,
+    values: Mapping[str, int | float | str | bool],
+    roles: Mapping[str, str] | None = None,
 ) -> list[tuple[str, int | float | str | bool]]:
     """The template's stats that `values` (by stat name) holds, in the template's order, as
-    (name as the library spells it, value), at most `max_stats`. Tags (booleans) are left out:
+    (name as the library spells it, value), at most `max_stats`. A stat that holds the role a
+    template names is picked whatever it is called (`roles` maps a role to the name of the stat
+    that holds it, ADR 0449); any other is matched by name. Tags (booleans) are left out:
     a card says what a thing is worth or weighs, not that it is flagged."""
     by_lower = {name.lower(): name for name in values}
     picked: list[tuple[str, int | float | str | bool]] = []
     for wanted in template.stats:
-        name = by_lower.get(wanted.lower())
-        if name is None or isinstance(values[name], bool):
+        name = (roles or {}).get(wanted.lower()) or by_lower.get(wanted.lower())
+        if name is None or name not in values or isinstance(values[name], bool):
             continue
         picked.append((name, values[name]))
         if len(picked) == template.max_stats:

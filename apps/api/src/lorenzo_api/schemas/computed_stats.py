@@ -536,6 +536,9 @@ class StatExplanationOut(BaseModel):
     input it took in `picked`."""
 
     stat_definition_id: uuid.UUID
+    # ADR 0448: the group of the stat and the slug of that group's game system, null when neutral.
+    group_id: uuid.UUID
+    system: str | None = None
     name: str
     value: int | float | str | bool
     own: bool

@@ -230,6 +230,9 @@ async def test_a_stat_says_whether_it_is_the_entitys_own(
 
     assert inherited == [
         {
+            "stat_definition_id": ANY,
+            "group_id": ANY,
+            "system": None,
             "name": "is_magical",
             "value": True,
             "own": False,
@@ -240,6 +243,9 @@ async def test_a_stat_says_whether_it_is_the_entitys_own(
     ]
     assert off.json()["stats"] == [
         {
+            "stat_definition_id": ANY,
+            "group_id": ANY,
+            "system": None,
             "name": "is_magical",
             "value": False,
             "own": True,
@@ -250,6 +256,9 @@ async def test_a_stat_says_whether_it_is_the_entitys_own(
     ]
     assert back.json()["stats"] == [
         {
+            "stat_definition_id": ANY,
+            "group_id": ANY,
+            "system": None,
             "name": "is_magical",
             "value": True,
             "own": False,

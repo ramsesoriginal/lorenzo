@@ -51,6 +51,8 @@ function step(overrides: Partial<CopyStepOut> = {}): CopyStepOut {
     entities: 0,
     stat_groups: 0,
     stat_definitions: 0,
+    systems: 0,
+    templates: 0,
     information: 0,
     attachments: 0,
     dropped: [],
@@ -63,6 +65,7 @@ function copy(overrides: Partial<CopyOut> = {}): CopyOut {
     steps: [step({ entities: 309, stat_groups: 2, stat_definitions: 12 })],
     dry_run: true,
     previous: null,
+    warnings: [],
     ...overrides,
   };
 }

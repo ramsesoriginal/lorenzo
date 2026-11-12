@@ -124,16 +124,21 @@ def test_version_one_is_read_as_it_was_written() -> None:
 
     assert differences(full_content(), rd.decode(golden, _files(), format=1)) == []
     # V3 adds calendars; V1 and V2 remain readable unchanged.
-    assert rd.FORMAT == 40
+    assert rd.FORMAT == 42
     assert rd.encode(full_content())[0] == {
         **golden,
+        "groups": {
+            key: {"role": None, "system": None, **group} for key, group in golden["groups"].items()
+        },
+        "systems": {},
+        "templates": {},
         "formulas": [
             [entity, definition, {**_NEW_FORMULA_FIELDS, **_contents_defaults(record), **record}]
             for entity, definition, record in golden["formulas"]
         ],
         "starts_inactive": {},
         "definitions": {
-            key: {"min_value": None, "max_value": None, **definition}
+            key: {"min_value": None, "max_value": None, "role": None, **definition}
             for key, definition in golden["definitions"].items()
         },
         "calendars": {},
@@ -728,3 +733,87 @@ def test_the_options_of_a_contents_formula_and_an_items_switch_round_trip() -> N
     contents = [f for f in old.formulas.values() if f.kind == "contents"]
     assert contents and all(f.aggregate == "sum" and f.only_active is False for f in contents)
     assert old.starts_inactive == {}
+
+
+def test_a_role_of_a_stat_and_of_a_group_round_trips_and_an_old_document_derives_it() -> None:
+    """ADR 0449: a stat and a group carry the role they hold; a document of version 40, which had
+    none, reads a stat or a group with a role's name as holding it, as the migration gave it."""
+    content = full_content()
+    stat, group = next(iter(content.definitions)), next(iter(content.groups))
+    content.definitions[stat]["role"] = "weight"
+    content.groups[group]["role"] = "tags"
+
+    document, files = rd.encode(content)
+    back = rd.decode(rd.loads(rd.dumps(document)), files)
+
+    assert back.definitions[stat]["role"] == "weight" and back.groups[group]["role"] == "tags"
+    v40 = {
+        **document,
+        "groups": {
+            key: {k: v for k, v in record.items() if k != "role"}
+            for key, record in document["groups"].items()
+        },
+        "definitions": {
+            key: {k: v for k, v in record.items() if k != "role"}
+            for key, record in document["definitions"].items()
+        },
+    }
+    v40["definitions"][str(stat)]["name"] = "weight"
+    v40["groups"][str(group)]["name"] = "physical"
+    old = rd.decode(v40, files, format=40)
+    assert old.definitions[stat]["role"] == "weight"
+    assert old.groups[group]["role"] == "physical"
+    assert all(d["role"] is None for key, d in old.definitions.items() if key != stat)
+
+
+def test_systems_and_templates_round_trip_and_an_old_document_has_none() -> None:
+    """ADR 0453: a library's game systems, the system each stat group belongs to and its templates
+    are in the document; a document of version 41, which had none, reads every group as neutral."""
+    content = full_content()
+    ds, template = uuid.UUID(int=80), uuid.UUID(int=81)
+    group = next(iter(content.groups))
+    stat = next(iter(content.definitions))
+    root = next(iter(content.entities))
+    content.systems = {ds: {"slug": "ds", "name": "Draw Steel", "root": root}}
+    content.groups[group]["system"] = ds
+    content.templates = {
+        template: {
+            "name": "Sheet",
+            "system": ds,
+            "kind": "being",
+            "ancestor": root,
+            "slots": [
+                {
+                    "kind": "stats",
+                    "label": "Abilities",
+                    "group": group,
+                    "information_type": None,
+                    "held_order": None,
+                    "stats": [],
+                    "exclude": [stat],
+                },
+                {
+                    "kind": "held",
+                    "label": None,
+                    "group": None,
+                    "information_type": None,
+                    "held_order": "prototype",
+                    "stats": [(stat, "Strength")],
+                    "exclude": [],
+                },
+            ],
+        }
+    }
+
+    document, files = rd.encode(content)
+    back = rd.decode(rd.loads(rd.dumps(document)), files)
+
+    assert differences(content, back) == []
+    v41 = {key: value for key, value in document.items() if key not in ("systems", "templates")}
+    v41["groups"] = {
+        key: {k: v for k, v in record.items() if k != "system"}
+        for key, record in document["groups"].items()
+    }
+    old = rd.decode(v41, files, format=41)
+    assert old.systems == {} and old.templates == {}
+    assert all(g["system"] is None for g in old.groups.values())

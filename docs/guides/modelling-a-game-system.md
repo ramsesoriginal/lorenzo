@@ -24,15 +24,16 @@ Everything here is as the API behaves today. It was checked against a local API;
 
 A formula can use another formula's stat, so a longer rule is a chain of named intermediate stats. A preview shows a candidate formula's value with its inputs before it is saved, and an explanation shows a stored one.
 
-## Names that let systems share a library
+## Several systems in one library
 
-A library has one definition per name, whatever the system. Two systems that both define `speed` share it, with one type and one unit.
+A library holds the stats of several game systems by giving each a **system** ([RFC 0052](../rfcs/0052-game-systems-in-one-library.md), [ADR 0448](../adr/0448-a-game-system-as-a-row.md)): a row with a short lowercase slug (`ds`, `pf`, `bitd`), a name and an optional root entry. Nothing is seeded and no system is special.
 
-- Keep a system's own stats under a prefix: `dnd_armor_class`, not `armor_class`. Two systems then sit side by side on one entry, and each system's prototype chain brings its own stats and formulas.
-- Names the API reads keep one type and one unit for the whole library: `weight`, `height`, `price`, `rarity`, `hp`, `armor`, `size`, `carry_capacity`, `containment_capacity`, `max_item_size`, `binding`, `is_container` ([well-known stats](../reference/well-known-stats.md), [ADR 0390](../adr/0390-renaming-a-stat-and-an-enum-value.md)). They cannot be renamed. Choose their unit once.
-- A unit is a string on the definition. Lorenzo does not convert between units; the same measure in two units is two stats, the second a `linear` formula of the first (see below).
+- **A stat group belongs to a system, or to none.** The names of the stats in a system's group start with its slug and an underscore (`ds_stamina`), checked on create and rename, so two systems never collide on a name; a stat of no system takes any name. A definition stays in the group it was made in, so its system is permanent.
+- **A stat row says where it is from.** The entry read, the bulk read and the explanation give each stat its `group_id` and `system`; `?system=ds` on the reads narrows `stats` to those of no system and of `ds`. Values are still resolved over the whole prototype graph, so a formula of one system may read another's ([ADR 0450](../adr/0450-the-system-filter-on-the-stat-reads.md)).
+- **What the API reads is a role, not a name** ([ADR 0449](../adr/0449-roles-the-api-reads-a-stat-by-what-it-is-for.md)): `weight`, `height`, `price`, `rarity`, `hp`, `armor`, `size`, `carry_capacity`, `containment_capacity`, `max_item_size`, `binding` and `is_container` for a stat, `physical`, `economic`, `destroyable`, `damaging` and `tags` for a group ([well-known stats](../reference/well-known-stats.md)). One stat holds each in a library, it must fit the types the role is read as, and it belongs to no system. A stat or group called after a free role takes it by default (`role: null` says none), and a holder can be renamed.
+- A unit is a string on the definition. Lorenzo does not convert between units; the same measure in two units is two stats, the second a `linear` formula of the first (see below). A copy that merges a stat into the library's own with another unit or bounds says so (`warnings`), or asks first with `strict_units` ([ADR 0453](../adr/0453-repositories-carry-systems-and-templates.md)).
 - Changing a type or group is not possible, and a stat in use cannot be deleted. In a repository that others copy, settle types, groups and units before the first release.
-- Put the stats that a weapons table should show in one group, and name that group in the library's sheet settings ([ADR 0281](../adr/0281-sheet-settings-and-the-sheet-read.md)); the table draws one column per stat of that group.
+- A repository carries its systems, the system of each group and its templates; a copy joins a system by slug and keeps the library's name for it. Updates do not carry them yet.
 
 ## Recipes
 
@@ -130,4 +131,6 @@ Left to the author: a `text` stat as input to arithmetic (a `comparison` reads o
 
 ## What the sheet draws
 
-Per stat group of the being, one line of cells (a `bool` is a chip only in the group named `tags`); a weapons table of the held items with a stat in the weapon group; the abilities of the library's ability type. Labels come from the stat name, and every stat with a value is shown, including the intermediate ones a chain makes. See [RFC 0043](../rfcs/0043-the-being-sheet.md), [ADR 0296](../adr/0296-being-stat-group.md) and [ADR 0283](../adr/0283-beings-sheet-play-stats-and-undo.md).
+A **template** says which stats and notes a sheet shows, under which labels and in what order, as data ([ADR 0451](../adr/0451-templates-a-sheet-as-data.md)): slots of `stats` (a group, or a list), `held` (a table of what the entry holds), `information` and `tags`, and a filter of a kind and an ancestor entry. A campaign names its game system, and the sheet read draws from that system's template for the being when exactly one matches, or from the one asked for with `template_id` ([ADR 0452](../adr/0452-a-campaign-names-a-system-and-the-sheet-reads-a-template.md)).
+
+Without a template, the library's own settings: per stat group of the being, one line of cells (a `bool` is a chip only in the group with the role `tags`); a weapons table of the held items with a stat in the weapon group; the abilities of the library's ability type. Labels come from the stat name, and every stat with a value is shown, including the intermediate ones a chain makes. See [RFC 0043](../rfcs/0043-the-being-sheet.md), [ADR 0296](../adr/0296-being-stat-group.md) and [ADR 0283](../adr/0283-beings-sheet-play-stats-and-undo.md).

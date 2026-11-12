@@ -28,6 +28,7 @@ const played: CampaignSummaryOut = {
   name: 'My table',
   slug: 'played',
   game_system: 'test',
+  system_id: null,
   secret: false,
   gm_title: 'GM',
   gm_title_plural: 'GMs',

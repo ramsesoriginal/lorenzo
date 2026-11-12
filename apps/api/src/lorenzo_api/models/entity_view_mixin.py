@@ -72,23 +72,23 @@ class EntityViewMixin:
             contents=self.entity.stat_contents,
         )
 
-    def resolved_value_by_name(self, name: str) -> Value | None:
-        """The value of the effective stat called `name` - how the named
+    def resolved_value_by_role(self, role: str) -> Value | None:
+        """The value of the effective stat that holds `role` - how the named
         ItemOut columns (`weight`, ...) pick up a computed value their SQL
-        view column can't carry (ADR 0104)."""
+        view column can't carry (ADR 0104). By role, not name (ADR 0449)."""
         values = self.resolved_stat_values()
         for stat in self.entity.effective_stats:
-            if stat.stat_definition.name == name:
+            if stat.stat_definition.role == role:
                 return values.get(stat.stat_definition_id)
         return None
 
-    def _stats_for_group(self, group_name: str) -> list[tuple[str, int | float | None]]:
+    def _stats_for_group(self, group_role: str) -> list[tuple[str, int | float | None]]:
         # Numbers only (ADR 0141: a float reads as a float, no longer None): a stat of any
         # other type in the group still appears, with None (ADR 0039's shape, unchanged).
         values = self.resolved_stat_values()
         pairs: list[tuple[str, int | float | None]] = []
         for stat in sorted(self.entity.effective_stats, key=_by_position):
-            if stat.stat_definition.stat_group.name != group_name:
+            if stat.stat_definition.stat_group.role != group_role:
                 continue
             value = values.get(stat.stat_definition_id)
             if isinstance(value, bool) or not isinstance(value, int | float):
@@ -117,11 +117,24 @@ class EntityViewMixin:
         values = self.resolved_stat_values()
         pairs: list[tuple[str, bool | None]] = []
         for stat in sorted(self.entity.effective_stats, key=_by_position):
-            if stat.stat_definition.stat_group.name != "tags":
+            if stat.stat_definition.stat_group.role != "tags":
                 continue
             value = values.get(stat.stat_definition_id)
             pairs.append((stat.stat_definition.name, value if isinstance(value, bool) else None))
         return pairs
+
+    @property
+    def container_tag(self) -> tuple[bool, bool | None]:
+        """Whether the stat that holds the `is_container` role is among the `tags`, and what it
+        says there (ADR 0066, by role not name, ADR 0449)."""
+        for stat in self.entity.effective_stats:
+            if (
+                stat.stat_definition.role == "is_container"
+                and stat.stat_definition.stat_group.role == "tags"
+            ):
+                value = self.resolved_stat_values().get(stat.stat_definition_id)
+                return True, value if isinstance(value, bool) else None
+        return False, None
 
 
 def _by_position(stat: VEffectiveStat) -> tuple[int, str]:

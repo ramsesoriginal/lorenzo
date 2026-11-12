@@ -3400,6 +3400,12 @@ export interface paths {
          *     holds directly (contained by it), with the stats of the tenant's weapon group; what the
          *     caller may see of them is ADR 0040's, so another player's being shows none. The abilities
          *     are the being's information of the tenant's ability type, as the caller can see it.
+         *
+         *     With a template (named by `template_id`, or the one of the campaign's game system that matches
+         *     the being) those three settings come from it instead: the first `stats` slot's group, the
+         *     columns of the first `held` slot and the type of the first `information` slot (ADR 0452). A
+         *     slot it has not is a section not configured. `templates` lists the matches of the campaign's
+         *     system, so a client can offer the choice when there are several.
          */
         get: operations["get_being_sheet"];
         put?: never;
@@ -5149,8 +5155,9 @@ export interface paths {
          *     whether each entry holds it itself and the entry it comes from (ADR 0387, RFC 0041 §7): a
          *     compare grid is the list plus these columns in one request a page. The entries and their
          *     order are `GET /entities`'s, with the same filters (q, kind, parent_id, recursive). A stat an
-         *     entry has no value for is left out of its row. A stat definition that is not the library's is
-         *     a 404.
+         *     entry has no value for is left out of its row. `system` (a slug) leaves out the stats of the
+         *     library's other game systems, formulas still evaluated (ADR 0450; an unknown slug is a 404).
+         *     A stat definition that is not the library's is a 404.
          */
         get: operations["list_effective_stats"];
         put?: never;
@@ -5200,7 +5207,9 @@ export interface paths {
         };
         /**
          * Get Entity
-         * @description The full detail shape, with every relationship eager-loaded up front.
+         * @description The full detail shape, with every relationship eager-loaded up front. `system` (a slug)
+         *     narrows `stats` to those of no game system and of that one (ADR 0450); the values are
+         *     resolved as without it, and an unknown slug is a 404.
          */
         get: operations["get_entity"];
         put?: never;
@@ -7282,6 +7291,152 @@ export interface paths {
         patch: operations["update_stat_enum_value"];
         trace?: never;
     };
+    "/tenants/{tenant_id}/systems": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Systems
+         * @description The library's systems, by slug (ADR 0085's page).
+         */
+        get: operations["list_systems"];
+        put?: never;
+        /**
+         * Create System
+         * @description Makes a game system (409 for a slug the library has, 422 for a root entry that is not
+         *     one of its entries).
+         */
+        post: operations["create_system"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/systems/{system_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get System */
+        get: operations["get_system"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete System
+         * @description Deletes a system nothing uses (409 while a stat group, a template or a campaign has it).
+         */
+        delete: operations["delete_system"];
+        options?: never;
+        head?: never;
+        /**
+         * Update System
+         * @description Edits a system's name, root entry (or clears it) or slug. The slug cannot change while a
+         *     stat group belongs to the system, since the names of its stats start with it (409); a slug
+         *     another system has is a 409 too. Not logged: naming, not structure (ADR 0084).
+         */
+        patch: operations["update_system"];
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/templates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Templates
+         * @description The library's templates by name; with `system`, those of no game system and of that one
+         *     (an unknown slug is a 404).
+         */
+        get: operations["list_templates"];
+        put?: never;
+        /**
+         * Create Template
+         * @description Makes a template with its slots (409 for a name the library has, 422 for a slot that does
+         *     not fit its kind or a system, entry, stat group or stat that is not the library's).
+         */
+        post: operations["create_template"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/templates/{template_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Template */
+        get: operations["get_template"];
+        /**
+         * Replace Template
+         * @description Replaces the template: its name, game system, filter and every slot. Not logged: what a
+         *     sheet shows, not structure (ADR 0084).
+         */
+        put: operations["replace_template"];
+        post?: never;
+        /** Delete Template */
+        delete: operations["delete_template"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/entities/{entity_id}/matching-templates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Matching Templates
+         * @description The templates whose filter matches this entry, by name; with `system`, those of no game
+         *     system and of that one. Nothing is chosen when several match (ADR 0451).
+         */
+        get: operations["matching_templates"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/entities/{entity_id}/templates/{template_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read Through Template
+         * @description The entry as the template shows it: an ordered array of slots with the resolved values,
+         *     labels and units (ADR 0451). The entry must be one the template is for (409 otherwise): the
+         *     API does not pick another. Each slot is read by the rules of what it reads: stat values as
+         *     the entry's own read gives them, notes through the information visibility check, held things
+         *     through ADR 0040's reach; nothing the caller may not read is in it.
+         */
+        get: operations["read_through_template"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/metrics": {
         parameters: {
             query?: never;
@@ -8530,6 +8685,8 @@ export interface components {
             name: string;
             /** Game System */
             game_system: string;
+            /** System Id */
+            system_id?: string | null;
             /** Slug */
             slug: string;
             /** Description */
@@ -8568,6 +8725,8 @@ export interface components {
             description: string;
             /** Game System */
             game_system: string;
+            /** System Id */
+            system_id: string | null;
             /** Secret */
             secret: boolean;
             /** Player Self Service */
@@ -8609,6 +8768,8 @@ export interface components {
             name: string;
             /** Game System */
             game_system: string;
+            /** System Id */
+            system_id: string | null;
             /** Secret */
             secret: boolean;
             /** Gm Title */
@@ -8629,6 +8790,8 @@ export interface components {
             name?: string | null;
             /** Game System */
             game_system?: string | null;
+            /** System Id */
+            system_id?: string | null;
             /** Slug */
             slug?: string | null;
             /** Description */
@@ -9015,7 +9178,7 @@ export interface components {
              * Kind
              * @enum {string}
              */
-            kind: "stat_group" | "stat_definition" | "slug";
+            kind: "stat_group" | "stat_definition" | "stat_role" | "slug";
             /**
              * Source Id
              * Format: uuid
@@ -9569,6 +9732,11 @@ export interface components {
             /** Dry Run */
             dry_run: boolean;
             previous: components["schemas"]["PreviousCopyOut"] | null;
+            /**
+             * Warnings
+             * @default []
+             */
+            warnings: components["schemas"]["CopyWarningOut"][];
         };
         /**
          * CopyPlanOut
@@ -9579,6 +9747,11 @@ export interface components {
             steps: components["schemas"]["CopyStepOut"][];
             /** Collisions */
             collisions: components["schemas"]["CollisionOut"][];
+            /**
+             * Warnings
+             * @default []
+             */
+            warnings: components["schemas"]["CopyWarningOut"][];
         };
         /**
          * CopyRequest
@@ -9594,6 +9767,8 @@ export interface components {
             dry_run?: boolean | null;
             /** Again */
             again?: ("keep" | "purge") | null;
+            /** Strict Units */
+            strict_units?: boolean | null;
         };
         /**
          * CopyStepOut
@@ -9627,12 +9802,55 @@ export interface components {
             stat_groups: number;
             /** Stat Definitions */
             stat_definitions: number;
+            /**
+             * Systems
+             * @default 0
+             */
+            systems: number;
+            /**
+             * Templates
+             * @default 0
+             */
+            templates: number;
             /** Information */
             information: number;
             /** Attachments */
             attachments: number;
             /** Dropped */
             dropped: components["schemas"]["DroppedOut"][];
+        };
+        /**
+         * CopyWarningOut
+         * @description A stat the copy merges into the library's own whose unit or bounds differ: the library's
+         *     stay, so a value in the repository's unit would read as the library's (ADR 0453). Send
+         *     `strict_units` to be asked instead of told.
+         */
+        CopyWarningOut: {
+            /**
+             * Repository Id
+             * Format: uuid
+             */
+            repository_id: string;
+            /**
+             * Kind
+             * @default scale
+             * @constant
+             */
+            kind: "scale";
+            /** Name */
+            name: string;
+            /**
+             * Source Id
+             * Format: uuid
+             */
+            source_id: string;
+            /**
+             * Local Id
+             * Format: uuid
+             */
+            local_id: string;
+            library: components["schemas"]["ScaleOut"];
+            incoming: components["schemas"]["ScaleOut"];
         };
         /** CoverageElement */
         CoverageElement: {
@@ -9901,6 +10119,11 @@ export interface components {
             tags: string[];
             /** System */
             system: string | null;
+            /**
+             * Systems
+             * @default []
+             */
+            systems: string[];
             /** Languages */
             languages: string[];
             /** Has Cover */
@@ -10023,6 +10246,13 @@ export interface components {
              * Format: uuid
              */
             stat_definition_id: string;
+            /**
+             * Group Id
+             * Format: uuid
+             */
+            group_id: string;
+            /** System */
+            system?: string | null;
             /** Value */
             value: number | string | boolean;
             /** Own */
@@ -10319,6 +10549,18 @@ export interface components {
          *     for a computed one.
          */
         EntityStatValueOut: {
+            /**
+             * Stat Definition Id
+             * Format: uuid
+             */
+            stat_definition_id: string;
+            /**
+             * Group Id
+             * Format: uuid
+             */
+            group_id: string;
+            /** System */
+            system?: string | null;
             /** Name */
             name: string;
             /** Value */
@@ -12615,6 +12857,11 @@ export interface components {
              */
             updated_at: string;
             /**
+             * Systems
+             * @default []
+             */
+            systems: string[];
+            /**
              * Listed
              * @default true
              */
@@ -13791,6 +14038,32 @@ export interface components {
         Page_SubscriptionOut_: {
             /** Items */
             items: components["schemas"]["SubscriptionOut"][];
+            /** Total */
+            total: number;
+            /** Page */
+            page: number;
+            /** Size */
+            size: number;
+            /** Pages */
+            pages: number;
+        };
+        /** Page[SystemOut] */
+        Page_SystemOut_: {
+            /** Items */
+            items: components["schemas"]["SystemOut"][];
+            /** Total */
+            total: number;
+            /** Page */
+            page: number;
+            /** Size */
+            size: number;
+            /** Pages */
+            pages: number;
+        };
+        /** Page[TemplateSummaryOut] */
+        Page_TemplateSummaryOut_: {
+            /** Items */
+            items: components["schemas"]["TemplateSummaryOut"][];
             /** Total */
             total: number;
             /** Page */
@@ -15801,6 +16074,11 @@ export interface components {
              */
             updated_at: string;
             /**
+             * Systems
+             * @default []
+             */
+            systems: string[];
+            /**
              * Listed
              * @default true
              */
@@ -15900,7 +16178,7 @@ export interface components {
              * Kind
              * @enum {string}
              */
-            kind: "stat_group" | "stat_definition" | "slug";
+            kind: "stat_group" | "stat_definition" | "stat_role" | "slug";
             /**
              * Source Id
              * Format: uuid
@@ -16091,6 +16369,18 @@ export interface components {
             state: ("released" | "edited") | null;
             /** Breaking */
             breaking: components["schemas"]["BreakingNoteOut"][];
+        };
+        /**
+         * ScaleOut
+         * @description The unit and bounds of a stat.
+         */
+        ScaleOut: {
+            /** Unit */
+            unit: string | null;
+            /** Min Value */
+            min_value: number | null;
+            /** Max Value */
+            max_value: number | null;
         };
         /** SceneCreate */
         SceneCreate: {
@@ -16509,6 +16799,12 @@ export interface components {
             weapons: components["schemas"]["SheetWeaponOut"][];
             /** Abilities */
             abilities: components["schemas"]["InformationOut"][];
+            template?: components["schemas"]["TemplateSummaryOut"] | null;
+            /**
+             * Templates
+             * @default []
+             */
+            templates: components["schemas"]["TemplateSummaryOut"][];
         };
         /**
          * SheetWeaponOut
@@ -16847,6 +17143,8 @@ export interface components {
              */
             stat_group_id: string;
             value_type: components["schemas"]["StatValueType"];
+            /** Role */
+            role?: ("weight" | "height" | "price" | "rarity" | "hp" | "armor" | "size" | "carry_capacity" | "containment_capacity" | "max_item_size" | "binding" | "is_container") | null;
             /** Enum Values */
             enum_values?: string[] | null;
             /** Unit */
@@ -16908,6 +17206,8 @@ export interface components {
              */
             stat_group_id: string;
             value_type: components["schemas"]["StatValueType"];
+            /** Role */
+            role?: ("weight" | "height" | "price" | "rarity" | "hp" | "armor" | "size" | "carry_capacity" | "containment_capacity" | "max_item_size" | "binding" | "is_container") | null;
             /** Enum Values */
             enum_values: string[];
             /** Enum Options */
@@ -16952,6 +17252,8 @@ export interface components {
         StatDefinitionUpdate: {
             /** Name */
             name?: string | null;
+            /** Role */
+            role?: ("weight" | "height" | "price" | "rarity" | "hp" | "armor" | "size" | "carry_capacity" | "containment_capacity" | "max_item_size" | "binding" | "is_container") | null;
             /** Unit */
             unit?: string | null;
             /** Adjustable In Play */
@@ -17035,6 +17337,13 @@ export interface components {
              * Format: uuid
              */
             stat_definition_id: string;
+            /**
+             * Group Id
+             * Format: uuid
+             */
+            group_id: string;
+            /** System */
+            system?: string | null;
             /** Name */
             name: string;
             /** Value */
@@ -17078,6 +17387,10 @@ export interface components {
             mandatory: boolean;
             /** Position */
             position?: number | null;
+            /** System Id */
+            system_id?: string | null;
+            /** Role */
+            role?: ("physical" | "economic" | "destroyable" | "damaging" | "tags") | null;
         };
         /**
          * StatGroupOrder
@@ -17108,6 +17421,10 @@ export interface components {
             mandatory: boolean;
             /** Position */
             position: number;
+            /** System Id */
+            system_id?: string | null;
+            /** Role */
+            role?: ("physical" | "economic" | "destroyable" | "damaging" | "tags") | null;
             /**
              * Created At
              * Format: date-time
@@ -17134,6 +17451,10 @@ export interface components {
             mandatory?: boolean | null;
             /** Position */
             position?: number | null;
+            /** System Id */
+            system_id?: string | null;
+            /** Role */
+            role?: ("physical" | "economic" | "destroyable" | "damaging" | "tags") | null;
         };
         /**
          * StatValueOut
@@ -17340,6 +17661,62 @@ export interface components {
             reason?: string | null;
         };
         /**
+         * SystemCreate
+         * @description POST /systems - a game system the library holds the vocabulary of (ADR 0448, RFC 0052).
+         *     The slug is a short lowercase word (letters and digits, no underscore), the prefix of its
+         *     stats' names, and does not change once a stat group uses it. The name is for people. The
+         *     root entry is the system root of ADR 0181, optional.
+         */
+        SystemCreate: {
+            /** Slug */
+            slug: string;
+            /** Name */
+            name: string;
+            /** Root Entry Id */
+            root_entry_id?: string | null;
+        };
+        /**
+         * SystemOut
+         * @description A game system of the library (ADR 0448).
+         */
+        SystemOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Slug */
+            slug: string;
+            /** Name */
+            name: string;
+            /** Root Entry Id */
+            root_entry_id: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /**
+         * SystemUpdate
+         * @description PATCH /systems/{id} - merge-patch (`exclude_unset`). The slug cannot change while a stat
+         *     group uses it (409). Only the root entry may be cleared; the slug and the name cannot be
+         *     null.
+         */
+        SystemUpdate: {
+            /** Slug */
+            slug?: string | null;
+            /** Name */
+            name?: string | null;
+            /** Root Entry Id */
+            root_entry_id?: string | null;
+        };
+        /**
          * TagValueOut
          * @description Wraps one entry of `EntityViewMixin.tags` (`list[tuple[str, bool | None]]`).
          */
@@ -17348,6 +17725,281 @@ export interface components {
             name: string;
             /** Value */
             value: boolean | null;
+        };
+        /**
+         * TemplateCellOut
+         * @description One cell of a held row, in the order of the columns: the typed value, or null when the
+         *     thing has none.
+         */
+        TemplateCellOut: {
+            /**
+             * Stat Definition Id
+             * Format: uuid
+             */
+            stat_definition_id: string;
+            /** Value */
+            value?: number | string | boolean | null;
+        };
+        /**
+         * TemplateColumnOut
+         * @description A column of a `held` slot: a stat, its label and unit.
+         */
+        TemplateColumnOut: {
+            /**
+             * Stat Definition Id
+             * Format: uuid
+             */
+            stat_definition_id: string;
+            /** Name */
+            name: string;
+            /** Label */
+            label: string;
+            /** Unit */
+            unit?: string | null;
+        };
+        /**
+         * TemplateHeldRowOut
+         * @description One thing the entry holds: it, its quantity and a cell for each column.
+         */
+        TemplateHeldRowOut: {
+            entity: components["schemas"]["EntitySummary"];
+            /** Quantity */
+            quantity: number | null;
+            /** Cells */
+            cells: components["schemas"]["TemplateCellOut"][];
+        };
+        /**
+         * TemplateIn
+         * @description POST and PUT /templates (ADR 0451, RFC 0052). The filter is the kind and the ancestor entry
+         *     the template is for, both optional and applied together; `system_id` only names its game
+         *     system, for a campaign that picks templates by system. A PUT replaces the whole template,
+         *     its slots included.
+         */
+        TemplateIn: {
+            /** Name */
+            name: string;
+            /** System Id */
+            system_id?: string | null;
+            /** Required Kind */
+            required_kind?: ("item" | "item_instance" | "being" | "character" | "fact" | "calendar" | "clock" | "location" | "map" | "connection" | "relationship" | "social_web" | "calendar_period" | "event" | "observance" | "book" | "carrier" | "edition" | "chapter" | "scene_telling" | "scene" | "scene_appearance" | "session") | null;
+            /** Required Ancestor Entry Id */
+            required_ancestor_entry_id?: string | null;
+            /** Slots */
+            slots?: components["schemas"]["TemplateSlotIn"][];
+        };
+        /**
+         * TemplateOut
+         * @description A template of the library (ADR 0451).
+         */
+        TemplateOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** System Id */
+            system_id: string | null;
+            /** System */
+            system: string | null;
+            /** Required Kind */
+            required_kind: ("item" | "item_instance" | "being" | "character" | "fact" | "calendar" | "clock" | "location" | "map" | "connection" | "relationship" | "social_web" | "calendar_period" | "event" | "observance" | "book" | "carrier" | "edition" | "chapter" | "scene_telling" | "scene" | "scene_appearance" | "session") | null;
+            /** Required Ancestor Entry Id */
+            required_ancestor_entry_id: string | null;
+            /** Slots */
+            slots: components["schemas"]["TemplateSlotOut"][];
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /**
+         * TemplateSlotIn
+         * @description One block of a template (ADR 0451). By `kind`:
+         *
+         *     - `stats`: a stat group (`stat_group_id`, with `exclude` for the stats of it to leave out) or an
+         *       ordered list (`stats`), one of the two.
+         *     - `held`: the things the entry holds, a column for each stat of a group or a list, as `stats`;
+         *       `held_order` is `name` (the default) or `prototype` (by the name of the thing's prototype,
+         *       then its name).
+         *     - `information`: the entry's notes of `information_type`.
+         *     - `tags`: the `bool` stats that are true, of `stat_group_id` or, left out, of any group.
+         */
+        TemplateSlotIn: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "stats" | "information" | "held" | "tags";
+            /** Label */
+            label?: string | null;
+            /** Stat Group Id */
+            stat_group_id?: string | null;
+            /** Stats */
+            stats?: components["schemas"]["TemplateStatIn"][];
+            /** Exclude */
+            exclude?: string[];
+            /** Information Type */
+            information_type?: string | null;
+            /** Held Order */
+            held_order?: ("name" | "prototype") | null;
+        };
+        /**
+         * TemplateSlotOut
+         * @description A slot as written, in its position.
+         */
+        TemplateSlotOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Position */
+            position: number;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "stats" | "information" | "held" | "tags";
+            /** Label */
+            label: string | null;
+            /** Stat Group Id */
+            stat_group_id: string | null;
+            /** Stats */
+            stats: components["schemas"]["TemplateSlotStatOut"][];
+            /** Exclude */
+            exclude: string[];
+            /** Information Type */
+            information_type: string | null;
+            /** Held Order */
+            held_order: ("name" | "prototype") | null;
+        };
+        /** TemplateSlotStatOut */
+        TemplateSlotStatOut: {
+            /**
+             * Stat Definition Id
+             * Format: uuid
+             */
+            stat_definition_id: string;
+            /** Label */
+            label: string | null;
+        };
+        /**
+         * TemplateStatIn
+         * @description A stat a slot lists, with the label it is shown under (the stat's own name when left out).
+         */
+        TemplateStatIn: {
+            /**
+             * Stat Definition Id
+             * Format: uuid
+             */
+            stat_definition_id: string;
+            /** Label */
+            label?: string | null;
+        };
+        /**
+         * TemplateStatOut
+         * @description A stat of a `stats` slot: the value as the entry's own read gives it, the label the slot
+         *     shows it under (the stat's name when the slot sets none) and its unit.
+         */
+        TemplateStatOut: {
+            /**
+             * Stat Definition Id
+             * Format: uuid
+             */
+            stat_definition_id: string;
+            /**
+             * Group Id
+             * Format: uuid
+             */
+            group_id: string;
+            /** System */
+            system?: string | null;
+            /** Name */
+            name: string;
+            /** Value */
+            value: number | string | boolean;
+            /** Own */
+            own: boolean;
+            from_entity?: components["schemas"]["EntitySummary"] | null;
+            /** From Hidden */
+            from_hidden?: boolean | null;
+            /**
+             * Computed
+             * @default false
+             */
+            computed: boolean;
+            /** Label */
+            label: string;
+            /** Unit */
+            unit?: string | null;
+        };
+        /**
+         * TemplateSummaryOut
+         * @description A template in a list: what it is for, without its slots.
+         */
+        TemplateSummaryOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** System Id */
+            system_id: string | null;
+            /** System */
+            system: string | null;
+            /** Required Kind */
+            required_kind: ("item" | "item_instance" | "being" | "character" | "fact" | "calendar" | "clock" | "location" | "map" | "connection" | "relationship" | "social_web" | "calendar_period" | "event" | "observance" | "book" | "carrier" | "edition" | "chapter" | "scene_telling" | "scene" | "scene_appearance" | "session") | null;
+            /** Required Ancestor Entry Id */
+            required_ancestor_entry_id: string | null;
+        };
+        /**
+         * TemplateViewOut
+         * @description GET /entities/{id}/templates/{template_id}: the entry as the template shows it, an
+         *     ordered array of slots (ADR 0451).
+         */
+        TemplateViewOut: {
+            template: components["schemas"]["TemplateSummaryOut"];
+            entity: components["schemas"]["EntitySummary"];
+            /** Slots */
+            slots: components["schemas"]["TemplateViewSlotOut"][];
+        };
+        /**
+         * TemplateViewSlotOut
+         * @description A slot of the assembled view, in its position. Only the fields of its kind are filled:
+         *     `stats` for a stats slot, `columns` and `rows` for a held slot, `information` for an
+         *     information slot, `tags` for a tags slot. A slot the caller may not read is left out of the
+         *     view.
+         */
+        TemplateViewSlotOut: {
+            /** Position */
+            position: number;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "stats" | "information" | "held" | "tags";
+            /** Label */
+            label: string | null;
+            /** Stats */
+            stats?: components["schemas"]["TemplateStatOut"][] | null;
+            /** Information */
+            information?: components["schemas"]["InformationOut"][] | null;
+            /** Columns */
+            columns?: components["schemas"]["TemplateColumnOut"][] | null;
+            /** Rows */
+            rows?: components["schemas"]["TemplateHeldRowOut"][] | null;
+            /** Tags */
+            tags?: components["schemas"]["TemplateStatOut"][] | null;
         };
         /**
          * TenantCreate
@@ -23845,7 +24497,10 @@ export interface operations {
     };
     plan_repository_copy: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Plan as a copy that refuses to merge a stat into the library's own while their unit or bounds differ (ADR 0453): `merge` is not among its choices. */
+                strict_units?: boolean;
+            };
             header?: never;
             path: {
                 repository_id: string;
@@ -30979,8 +31634,10 @@ export interface operations {
     get_being_sheet: {
         parameters: {
             query?: {
-                /** @description A campaign of the tenant the caller can read. Accepted so a campaign can later override the library's sheet settings; it changes nothing today. */
+                /** @description A campaign of the tenant the caller can read. When it names a game system, the sheet is drawn from that system's template for the being, if exactly one matches (ADR 0452). */
                 campaign_id?: string | null;
+                /** @description A template of the library the being matches: the sheet is drawn from it, whatever the campaign names (409 when it is not for the being). */
+                template_id?: string | null;
             };
             header?: never;
             path: {
@@ -39066,6 +39723,8 @@ export interface operations {
                 parent_id?: string | null;
                 /** @description With parent_id, also include entries that inherit from it transitively, not just directly. */
                 recursive?: boolean;
+                /** @description The slug of a game system of the library: only the stats that belong to no system and that system's. Left out, every stat. An unknown slug is a 404. */
+                system?: string | null;
                 page?: number;
                 size?: number;
             };
@@ -39275,7 +39934,10 @@ export interface operations {
     };
     get_entity: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description The slug of a game system of the library: only the stats that belong to no system and that system's. Left out, every stat. An unknown slug is a 404. */
+                system?: string | null;
+            };
             header?: never;
             path: {
                 tenant_id: string;
@@ -39614,7 +40276,10 @@ export interface operations {
     };
     get_entity_by_slug: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description The slug of a game system of the library: only the stats that belong to no system and that system's. Left out, every stat. An unknown slug is a 404. */
+                system?: string | null;
+            };
             header?: never;
             path: {
                 tenant_id: string;
@@ -46772,6 +47437,818 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["StatDefinitionOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    list_systems: {
+        parameters: {
+            query?: {
+                page?: number;
+                size?: number;
+            };
+            header?: never;
+            path: {
+                tenant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_SystemOut_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    create_system: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SystemCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SystemOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    get_system: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+                system_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SystemOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    delete_system: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+                system_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    update_system: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+                system_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SystemUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SystemOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    list_templates: {
+        parameters: {
+            query?: {
+                /** @description The slug of a game system of the library: only the stats that belong to no system and that system's. Left out, every stat. An unknown slug is a 404. */
+                system?: string | null;
+                page?: number;
+                size?: number;
+            };
+            header?: never;
+            path: {
+                tenant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_TemplateSummaryOut_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    create_template: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TemplateIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TemplateOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    get_template: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+                template_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TemplateOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    replace_template: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+                template_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TemplateIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TemplateOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    delete_template: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+                template_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    matching_templates: {
+        parameters: {
+            query?: {
+                /** @description The slug of a game system of the library: only the stats that belong to no system and that system's. Left out, every stat. An unknown slug is a 404. */
+                system?: string | null;
+            };
+            header?: never;
+            path: {
+                tenant_id: string;
+                entity_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TemplateSummaryOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    read_through_template: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+                entity_id: string;
+                template_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TemplateViewOut"];
                 };
             };
             /** @description Validation Error */

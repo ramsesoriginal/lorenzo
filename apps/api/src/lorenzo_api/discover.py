@@ -92,6 +92,7 @@ def item_out(
         summary=profile.summary,
         tags=list(profile.tags),
         system=profile.system,
+        systems=list(profile.systems or []),
         languages=list(profile.languages),
         has_cover=profile.cover_picture_id is not None,
         release=DiscoverReleaseOut(label=profile.release_label, released_at=profile.released_at),
@@ -141,7 +142,13 @@ async def search(
     if tag:
         stmt = stmt.where(literal(tag.strip().lower()) == any_(RepositoryProfile.tags))
     if system:
-        stmt = stmt.where(func.lower(RepositoryProfile.system) == system.strip().lower())
+        wanted = system.strip().lower()
+        stmt = stmt.where(
+            or_(
+                func.lower(RepositoryProfile.system) == wanted,
+                literal(wanted) == any_(RepositoryProfile.systems),
+            )
+        )
     if language:
         stmt = stmt.where(literal(language.strip().lower()) == any_(RepositoryProfile.languages))
     total = int(await session.scalar(select(func.count()).select_from(stmt.subquery())) or 0)
@@ -162,6 +169,14 @@ _LISTED_SQL = (
 )
 
 
+# What a repository says of its game system: the label its Owner wrote and the slugs of the
+# systems its release carries, each once (ADR 0453).
+_SYSTEM_VALUES = (
+    "ARRAY(SELECT DISTINCT s FROM unnest(ARRAY[lower(p.system)] || p.systems) s "
+    "WHERE s IS NOT NULL)"
+)
+
+
 async def facets(session: AsyncSession, *, enabled: bool) -> DiscoverFacetsOut:
     """The tags, systems and languages in use among the listed repositories, most used first."""
 
@@ -178,7 +193,7 @@ async def facets(session: AsyncSession, *, enabled: bool) -> DiscoverFacetsOut:
     return DiscoverFacetsOut(
         enabled=enabled,
         tags=await count("unnest(p.tags)"),
-        systems=await count("lower(p.system)"),
+        systems=await count(f"unnest({_SYSTEM_VALUES})"),
         languages=await count("unnest(p.languages)"),
     )
 

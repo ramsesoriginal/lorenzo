@@ -46,6 +46,7 @@ function profile(overrides: Partial<MemberProfileOut> = {}): MemberProfileOut {
     credits: [],
     tags: [],
     system: null,
+    systems: [],
     languages: [],
     has_cover: false,
     updated_at: '2026-11-03T10:00:00Z',
