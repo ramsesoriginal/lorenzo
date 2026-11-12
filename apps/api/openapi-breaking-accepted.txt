@@ -1341,3 +1341,9 @@ GET /tenants/{tenant_id}/entities/{entity_id}/templates/{template_id} added the 
 POST /tenants/{tenant_id}/templates added the new `features` enum value to the `slots/items/kind` response property for the response status `201`
 GET /tenants/{tenant_id}/templates/{template_id} added the new `features` enum value to the `slots/items/kind` response property for the response status `200`
 PUT /tenants/{tenant_id}/templates/{template_id} added the new `features` enum value to the `slots/items/kind` response property for the response status `200`
+
+# ADR 0457: a template slot can be of the kind `features`.
+GET /tenants/{tenant_id}/entities/{entity_id}/templates/{template_id} added the new `features` enum value to the `slots/items/kind` response property for the response status `200`
+POST /tenants/{tenant_id}/templates added the new `features` enum value to the `slots/items/kind` response property for the response status `201`
+GET /tenants/{tenant_id}/templates/{template_id} added the new `features` enum value to the `slots/items/kind` response property for the response status `200`
+PUT /tenants/{tenant_id}/templates/{template_id} added the new `features` enum value to the `slots/items/kind` response property for the response status `200`
