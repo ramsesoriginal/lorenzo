@@ -44,7 +44,13 @@ router = APIRouter(
     dependencies=[Depends(_vocabulary_gate)],
 )
 
-ALL_CODES: tuple[CheckCode, ...] = ("computed-outside-scale", "above-hint", "formula-chain-depth")
+ALL_CODES: tuple[CheckCode, ...] = (
+    "computed-outside-scale",
+    "above-hint",
+    "formula-chain-depth",
+    "unset-input",
+    "own-value-shadows-formula",
+)
 
 
 def _out(finding: Finding) -> FindingOut:
@@ -110,6 +116,7 @@ async def check_vocabulary(
             session,
             tenant_id=tenant_id,
             entities=entities,
+            visibility=visibility,
             codes=codes,
             stat_definition_id=stat_definition_id,
         )

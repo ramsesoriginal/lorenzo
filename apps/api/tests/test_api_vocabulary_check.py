@@ -102,7 +102,7 @@ async def test_a_computed_value_outside_its_scale_is_info(
             session.add(EntityPrototype(entity_id=entry, prototype_id=prototype, tenant_id=tenant))
         await session.commit()
 
-    page = await _check(client, tenant)
+    page = await _check(client, tenant, code="computed-outside-scale")
     (finding,) = page["items"]
     assert (finding["code"], finding["severity"]) == ("computed-outside-scale", "info")
     assert finding["entry_id"] == str(outside)

@@ -1362,3 +1362,7 @@ GET /tenants/{tenant_id}/entities/{entity_id}/templates/{template_id} added the 
 POST /tenants/{tenant_id}/templates added the new `features` enum value to the `slots/items/kind` response property for the response status `201`
 GET /tenants/{tenant_id}/templates/{template_id} added the new `features` enum value to the `slots/items/kind` response property for the response status `200`
 PUT /tenants/{tenant_id}/templates/{template_id} added the new `features` enum value to the `slots/items/kind` response property for the response status `200`
+
+# ADR 0459: the vocabulary check says two more things (`unset-input`, `own-value-shadows-formula`).
+GET /tenants/{tenant_id}/vocabulary-check added the new `own-value-shadows-formula` enum value to the `items/items/code` response property for the response status `200`
+GET /tenants/{tenant_id}/vocabulary-check added the new `unset-input` enum value to the `items/items/code` response property for the response status `200`

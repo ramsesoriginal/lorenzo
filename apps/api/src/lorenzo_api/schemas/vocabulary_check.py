@@ -5,7 +5,13 @@ from pydantic import BaseModel
 
 __all__ = ["CheckCode", "FindingOut"]
 
-CheckCode = Literal["computed-outside-scale", "above-hint", "formula-chain-depth"]
+CheckCode = Literal[
+    "computed-outside-scale",
+    "above-hint",
+    "formula-chain-depth",
+    "unset-input",
+    "own-value-shadows-formula",
+]
 
 
 class FindingOut(BaseModel):

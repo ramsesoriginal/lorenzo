@@ -1337,6 +1337,8 @@ class Code(StrEnum):
     computed_outside_scale = "computed-outside-scale"
     above_hint = "above-hint"
     formula_chain_depth = "formula-chain-depth"
+    unset_input = "unset-input"
+    own_value_shadows_formula = "own-value-shadows-formula"
 
 
 class Severity(StrEnum):

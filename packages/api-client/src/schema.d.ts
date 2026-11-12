@@ -11373,7 +11373,7 @@ export interface components {
              * Code
              * @enum {string}
              */
-            code: "computed-outside-scale" | "above-hint" | "formula-chain-depth";
+            code: "computed-outside-scale" | "above-hint" | "formula-chain-depth" | "unset-input" | "own-value-shadows-formula";
             /**
              * Severity
              * @enum {string}
@@ -49112,7 +49112,7 @@ export interface operations {
         parameters: {
             query?: {
                 /** @description Only these findings (repeatable); all by default. */
-                code?: ("computed-outside-scale" | "above-hint" | "formula-chain-depth")[] | null;
+                code?: ("computed-outside-scale" | "above-hint" | "formula-chain-depth" | "unset-input" | "own-value-shadows-formula")[] | null;
                 /** @description Only this entry. */
                 entry_id?: string | null;
                 /** @description Only entries that have this entry as a parent. */
