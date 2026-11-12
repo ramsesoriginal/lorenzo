@@ -77,6 +77,12 @@ from lorenzo_api.models.stat_definition import StatDefinition, StatValueType
 from lorenzo_api.models.stat_definition_enum_value import StatDefinitionEnumValue
 from lorenzo_api.models.stat_group import StatGroup
 from lorenzo_api.models.system import System
+from lorenzo_api.models.template import (
+    Template,
+    TemplateSlot,
+    TemplateSlotExclusion,
+    TemplateSlotStat,
+)
 from lorenzo_api.models.tenant import Tenant, TenantKind
 from lorenzo_api.models.tenant_admin_campaign_opt_out import TenantAdminCampaignOptOut
 from lorenzo_api.models.tenant_profile_picture import TenantProfilePicture
@@ -214,6 +220,10 @@ __all__ = [
     "StatDefinitionEnumValue",
     "StatGroup",
     "System",
+    "Template",
+    "TemplateSlot",
+    "TemplateSlotExclusion",
+    "TemplateSlotStat",
     "StatValueType",
     "Tenant",
     "TenantKind",

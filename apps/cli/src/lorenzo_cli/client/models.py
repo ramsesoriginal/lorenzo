@@ -3795,6 +3795,95 @@ class TagValueOut(BaseModel):
     value: bool | None = Field(..., title="Value")
 
 
+class TemplateCellOut(BaseModel):
+    stat_definition_id: UUID = Field(..., title="Stat Definition Id")
+    value: int | str | float | bool | None = Field(None, title="Value")
+
+
+class TemplateColumnOut(BaseModel):
+    stat_definition_id: UUID = Field(..., title="Stat Definition Id")
+    name: str = Field(..., title="Name")
+    label: str = Field(..., title="Label")
+    unit: str | None = Field(None, title="Unit")
+
+
+class TemplateHeldRowOut(BaseModel):
+    entity: EntitySummary
+    quantity: int | None = Field(..., title="Quantity")
+    cells: list[TemplateCellOut] = Field(..., title="Cells")
+
+
+class RequiredKind(StrEnum):
+    item = "item"
+    item_instance = "item_instance"
+    being = "being"
+    character = "character"
+    fact = "fact"
+    calendar = "calendar"
+    clock = "clock"
+    location = "location"
+    map = "map"
+    connection = "connection"
+    relationship = "relationship"
+    social_web = "social_web"
+    calendar_period = "calendar_period"
+    event = "event"
+    observance = "observance"
+    book = "book"
+    carrier = "carrier"
+    edition = "edition"
+    chapter = "chapter"
+    scene_telling = "scene_telling"
+    scene = "scene"
+    scene_appearance = "scene_appearance"
+    session = "session"
+
+
+class Kind45(StrEnum):
+    stats = "stats"
+    information = "information"
+    held = "held"
+    tags = "tags"
+
+
+class HeldOrder(StrEnum):
+    name = "name"
+    prototype = "prototype"
+
+
+class TemplateSlotStatOut(BaseModel):
+    stat_definition_id: UUID = Field(..., title="Stat Definition Id")
+    label: str | None = Field(..., title="Label")
+
+
+class TemplateStatIn(BaseModel):
+    stat_definition_id: UUID = Field(..., title="Stat Definition Id")
+    label: constr(min_length=1, max_length=200) | None = Field(None, title="Label")
+
+
+class TemplateStatOut(BaseModel):
+    stat_definition_id: UUID = Field(..., title="Stat Definition Id")
+    group_id: UUID = Field(..., title="Group Id")
+    system: str | None = Field(None, title="System")
+    name: str = Field(..., title="Name")
+    value: int | str | float | bool = Field(..., title="Value")
+    own: bool = Field(..., title="Own")
+    from_entity: EntitySummary | None = None
+    from_hidden: bool | None = Field(None, title="From Hidden")
+    computed: bool | None = Field(False, title="Computed")
+    label: str = Field(..., title="Label")
+    unit: str | None = Field(None, title="Unit")
+
+
+class TemplateSummaryOut(BaseModel):
+    id: UUID = Field(..., title="Id")
+    name: str = Field(..., title="Name")
+    system_id: UUID | None = Field(..., title="System Id")
+    system: str | None = Field(..., title="System")
+    required_kind: RequiredKind | None = Field(..., title="Required Kind")
+    required_ancestor_entry_id: UUID | None = Field(..., title="Required Ancestor Entry Id")
+
+
 class TenantInviteCreate(BaseModel):
     kind: InviteKind
     role: InviteRole | None = None
@@ -3895,7 +3984,7 @@ class UnprovenKindOut(BaseModel):
     kinds: list[str] = Field(..., title="Kinds")
 
 
-class Kind45(StrEnum):
+class Kind48(StrEnum):
     entity = "entity"
     stat_group = "stat_group"
     stat_definition = "stat_definition"
@@ -3964,7 +4053,7 @@ class WhereaboutsOut(BaseModel):
     place: PlaceOut | None = None
 
 
-class Kind46(StrEnum):
+class Kind49(StrEnum):
     book = "book"
     edition = "edition"
     chapter = "chapter"
@@ -3977,7 +4066,7 @@ class Kind46(StrEnum):
 class WritingEntry(BaseModel):
     id: UUID = Field(..., title="Id")
     name: str = Field(..., title="Name")
-    kind: Kind46 = Field(..., title="Kind")
+    kind: Kind49 = Field(..., title="Kind")
     book_id: UUID | None = Field(None, title="Book Id")
     parent_id: UUID | None = Field(None, title="Parent Id")
     scene_id: UUID | None = Field(None, title="Scene Id")
@@ -4929,6 +5018,14 @@ class PageSystemOut(BaseModel):
     pages: conint(ge=0) = Field(..., title="Pages")
 
 
+class PageTemplateSummaryOut(BaseModel):
+    items: list[TemplateSummaryOut] = Field(..., title="Items")
+    total: conint(ge=0) = Field(..., title="Total")
+    page: conint(ge=1) = Field(..., title="Page")
+    size: conint(ge=1) = Field(..., title="Size")
+    pages: conint(ge=0) = Field(..., title="Pages")
+
+
 class PageTenantOut(BaseModel):
     items: list[TenantOut] = Field(..., title="Items")
     total: conint(ge=0) = Field(..., title="Total")
@@ -5320,6 +5417,41 @@ class SumFormulaBodyOutput(BaseModel):
     round_mode: RoundMode | None = "none"
 
 
+class TemplateSlotIn(BaseModel):
+    kind: Kind45 = Field(..., title="Kind")
+    label: constr(min_length=1, max_length=200) | None = Field(None, title="Label")
+    stat_group_id: UUID | None = Field(None, title="Stat Group Id")
+    stats: list[TemplateStatIn] | None = Field(None, max_length=200, title="Stats")
+    exclude: list[UUID] | None = Field(None, max_length=200, title="Exclude")
+    information_type: constr(min_length=1, max_length=200) | None = Field(
+        None, title="Information Type"
+    )
+    held_order: HeldOrder | None = Field(None, title="Held Order")
+
+
+class TemplateSlotOut(BaseModel):
+    id: UUID = Field(..., title="Id")
+    position: int = Field(..., title="Position")
+    kind: Kind45 = Field(..., title="Kind")
+    label: str | None = Field(..., title="Label")
+    stat_group_id: UUID | None = Field(..., title="Stat Group Id")
+    stats: list[TemplateSlotStatOut] = Field(..., title="Stats")
+    exclude: list[UUID] = Field(..., title="Exclude")
+    information_type: str | None = Field(..., title="Information Type")
+    held_order: HeldOrder | None = Field(..., title="Held Order")
+
+
+class TemplateViewSlotOut(BaseModel):
+    position: int = Field(..., title="Position")
+    kind: Kind45 = Field(..., title="Kind")
+    label: str | None = Field(..., title="Label")
+    stats: list[TemplateStatOut] | None = Field(None, title="Stats")
+    information: list[InformationOut] | None = Field(None, title="Information")
+    columns: list[TemplateColumnOut] | None = Field(None, title="Columns")
+    rows: list[TemplateHeldRowOut] | None = Field(None, title="Rows")
+    tags: list[TemplateStatOut] | None = Field(None, title="Tags")
+
+
 class TenantCreate(BaseModel):
     name: str = Field(..., title="Name")
     slug: constr(pattern=r"^[a-z0-9]+(-[a-z0-9]+)*$") | None = Field(None, title="Slug")
@@ -5328,7 +5460,7 @@ class TenantCreate(BaseModel):
 
 
 class UpdateActionIn(BaseModel):
-    kind: Kind45 = Field(..., title="Kind")
+    kind: Kind48 = Field(..., title="Kind")
     source_id: UUID = Field(..., title="Source Id")
     action: Action2 = Field(..., title="Action")
     keep_local: list[str] | None = Field(None, title="Keep Local")
@@ -5702,6 +5834,32 @@ class StatExplanationOut(BaseModel):
     picked: PickedExplanationOut | None = None
     division_rounded: bool | None = Field(None, title="Division Rounded")
     chosen: ChosenStepExplanationOut | None = None
+
+
+class TemplateIn(BaseModel):
+    name: constr(min_length=1, max_length=200) = Field(..., title="Name")
+    system_id: UUID | None = Field(None, title="System Id")
+    required_kind: RequiredKind | None = Field(None, title="Required Kind")
+    required_ancestor_entry_id: UUID | None = Field(None, title="Required Ancestor Entry Id")
+    slots: list[TemplateSlotIn] | None = Field(None, max_length=50, title="Slots")
+
+
+class TemplateOut(BaseModel):
+    id: UUID = Field(..., title="Id")
+    name: str = Field(..., title="Name")
+    system_id: UUID | None = Field(..., title="System Id")
+    system: str | None = Field(..., title="System")
+    required_kind: RequiredKind | None = Field(..., title="Required Kind")
+    required_ancestor_entry_id: UUID | None = Field(..., title="Required Ancestor Entry Id")
+    slots: list[TemplateSlotOut] = Field(..., title="Slots")
+    created_at: AwareDatetime = Field(..., title="Created At")
+    updated_at: AwareDatetime = Field(..., title="Updated At")
+
+
+class TemplateViewOut(BaseModel):
+    template: TemplateSummaryOut
+    entity: EntitySummary
+    slots: list[TemplateViewSlotOut] = Field(..., title="Slots")
 
 
 class UpdatesOut(BaseModel):

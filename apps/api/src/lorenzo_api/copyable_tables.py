@@ -131,6 +131,10 @@ from lorenzo_api.models import (
     StatGroup,
     StoryEvent,
     System,
+    Template,
+    TemplateSlot,
+    TemplateSlotExclusion,
+    TemplateSlotStat,
     TenantAdminCampaignOptOut,
     TenantProfilePicture,
     WritingBiography,
@@ -205,6 +209,12 @@ def _link(model: type[Base], name: str, of: LinkOf) -> CopyableTable:
 REGISTRY: tuple[CopyableTable, ...] = (
     # Not copied yet: a repository carries systems from ADR 0453 on (RFC 0052 Y6).
     CopyableTable("system", System, True, "none"),
+    # Templates: not copied yet either; Y6 of RFC 0052 places them after the stat groups, stats and
+    # entries their slots and filters point to.
+    CopyableTable("template", Template, True, "none"),
+    CopyableTable("template_slot", TemplateSlot, True, "none"),
+    CopyableTable("template_slot_stat", TemplateSlotStat, True, "none"),
+    CopyableTable("template_slot_exclusion", TemplateSlotExclusion, True, "none"),
     _rows(StatGroup, "stat_group"),
     _rows(StatDefinition, "stat_definition", counted_on_purge=True),
     _rows(StatDefinitionEnumValue, "stat_definition_enum_value", carried_by="stat_definition"),

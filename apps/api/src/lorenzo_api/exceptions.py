@@ -1726,3 +1726,30 @@ class InvalidStatRoleError(UnprocessableProblem):
     (ADR 0449)."""
 
     title = "This stat cannot hold this role"
+
+
+class TemplateNotFoundError(NotFoundProblem):
+    """.../templates/{id} - no such template in this tenant (ADR 0451)."""
+
+    title = "Template not found"
+
+
+class TemplateNameTakenError(ConflictProblem):
+    """POST or PUT .../templates - another template of the tenant has the name
+    (UNIQUE(tenant_id, name), ADR 0451)."""
+
+    title = "A template with this name already exists"
+
+
+class TemplateDoesNotMatchError(ConflictProblem):
+    """GET .../entities/{id}/templates/{template_id} - the entry is not one the template is for:
+    not of its kind, or not under its ancestor. The API does not guess another (ADR 0451)."""
+
+    title = "This template is not for this entry"
+
+
+class InvalidTemplateError(UnprocessableProblem):
+    """POST or PUT .../templates - a slot that does not fit its kind, or a system, entry, stat
+    group or stat that does not resolve in this tenant (ADR 0451)."""
+
+    title = "Invalid template"

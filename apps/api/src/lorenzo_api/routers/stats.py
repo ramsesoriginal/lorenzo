@@ -62,6 +62,9 @@ from lorenzo_api.models import (
     StatGroup,
     StatValueType,
     System,
+    TemplateSlot,
+    TemplateSlotExclusion,
+    TemplateSlotStat,
 )
 from lorenzo_api.roles import DEFINITION_ROLES, GROUP_ROLES, RESERVED_ENUM_VALUES, role_fits
 from lorenzo_api.schemas.library_counts import LibraryCountOut
@@ -641,8 +644,15 @@ async def delete_stat_group(
         .select_from(EntityStatGroup)
         .where(EntityStatGroup.stat_group_id == stat_group_id)
     )
+    slots = await session.scalar(
+        select(func.count())
+        .select_from(TemplateSlot)
+        .where(TemplateSlot.stat_group_id == stat_group_id)
+    )
     in_use = _in_use_parts(
-        (definitions, "stat definition(s) in it"), (acquired, "entity(ies) that acquired it")
+        (definitions, "stat definition(s) in it"),
+        (acquired, "entity(ies) that acquired it"),
+        (slots, "template slot(s) showing it"),
     )
     if in_use:
         raise StatGroupInUseError(detail=f"Stat group {stat_group_id} is still in use: {in_use}")
@@ -1004,8 +1014,16 @@ async def delete_stat_definition(
             ComputedStatSelectStep.result_stat_definition_id == stat_definition_id,
         )
     )
+    shown = await count(
+        TemplateSlotStat, TemplateSlotStat.stat_definition_id == stat_definition_id
+    ) + await count(
+        TemplateSlotExclusion, TemplateSlotExclusion.stat_definition_id == stat_definition_id
+    )
     in_use = _in_use_parts(
-        (values, "value(s) held"), (formulas, "formula(s) for it"), (reads, "formula(s) reading it")
+        (values, "value(s) held"),
+        (formulas, "formula(s) for it"),
+        (reads, "formula(s) reading it"),
+        (shown, "template slot(s) naming it"),
     )
     if in_use:
         raise StatDefinitionInUseError(

@@ -30,7 +30,7 @@ from lorenzo_api.exceptions import (
     SystemSlugInUseError,
     SystemSlugTakenError,
 )
-from lorenzo_api.models import Entity, StatGroup, System
+from lorenzo_api.models import Entity, StatGroup, System, Template
 from lorenzo_api.routers.stats import _vocabulary_gate
 from lorenzo_api.schemas.systems import SystemCreate, SystemOut, SystemUpdate
 
@@ -76,6 +76,17 @@ async def _check_slug_free(
         raise SystemSlugTakenError(
             detail=f"Another system in tenant {tenant_id} already has the slug {slug!r}"
         )
+
+
+async def _templates_of(session: SessionDep, tenant_id: uuid.UUID, system_id: uuid.UUID) -> int:
+    return (
+        await session.scalar(
+            select(func.count())
+            .select_from(Template)
+            .where(Template.tenant_id == tenant_id, Template.system_id == system_id)
+        )
+        or 0
+    )
 
 
 async def _groups_of(session: SessionDep, tenant_id: uuid.UUID, system_id: uuid.UUID) -> int:
@@ -173,10 +184,12 @@ async def update_system(
 async def delete_system(
     tenant_id: uuid.UUID, system_id: uuid.UUID, session: SessionDep, user: CurrentUser
 ) -> None:
-    """Deletes a system nothing uses (409 while a stat group belongs to it)."""
+    """Deletes a system nothing uses (409 while a stat group or a template belongs to it)."""
     system = await _get_system_or_404(session, tenant_id, system_id)
     if await _groups_of(session, tenant_id, system_id):
         raise SystemInUseError(detail=f"A stat group still belongs to system {system.slug!r}")
+    if await _templates_of(session, tenant_id, system_id):
+        raise SystemInUseError(detail=f"A template still belongs to system {system.slug!r}")
     await record_activity(
         session,
         tenant_id=tenant_id,
