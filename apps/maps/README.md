@@ -3,7 +3,7 @@
 Static Astro app for the places of a library: Locations, their part-of tree and the Maps drawn from them ([RFC 0048](../../docs/rfcs/0048-locations-maps-connections-and-optional-dates.md)).
 [ADR 0330](../../docs/adr/0330-locations-the-kind-and-the-part-of-tree.md),
 [ADR 0331](../../docs/adr/0331-a-location-may-be-any-kind.md) and
-[ADR 0332](../../docs/adr/0332-lorenzo-maps-the-app.md). Desktop is the design target: below 720px the Map view is one column and what is pressed is larger, but there is no phone layout of its own and no offline use.
+[ADR 0332](../../docs/adr/0332-lorenzo-maps-the-app.md). It is in the web shell ([ADR 0462](../../docs/adr/0462-maps-moves-into-the-web-shell.md)). A phone reads everything and writes the small changes (a name, whether a Map is open to the library, a pin's x and y); drawing is for a pointer. There is no offline use.
 
 A Location is an entry kind. It sits in a single-parent tree that skips levels: a universe, a village
 and one floor of a building are all Locations, and a floor is an ordinary Location in the one above
