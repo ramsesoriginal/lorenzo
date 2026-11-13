@@ -193,6 +193,8 @@ def _check_select(
                 if value not in allowed:
                     raise invalid(f"{value!r} is not one of the values of {source.name!r}")
 
+    if target.value_type is StatValueType.DICE:
+        raise invalid("a select gives a number, a flag or a text, never dice")
     results: list[SelectResult] = [step.result for step in formula.steps]
     if formula.otherwise is not None:
         results.append(formula.otherwise)

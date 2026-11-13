@@ -248,6 +248,16 @@ async def test_a_dice_value_is_not_a_number_to_a_formula(
     }
     read = await client.put(sheet.formula_url(prototype, "strength"), json=linear)
     assert read.status_code == 422, read.text
+    # A select, a comparison and a contents formula give dice no more than a linear one does.
+    select = {
+        "kind": "select",
+        "source_stat_definition_id": str(sheet["strength"]),
+        "mode": "threshold",
+        "steps": [{"from": 0, "result": {"number": 1}}],
+    }
+    into_dice = await client.put(sheet.formula_url(prototype, "damage"), json=select)
+    assert into_dice.status_code == 422, into_dice.text
+    assert "never dice" in into_dice.json()["detail"]
     # Nor is a formula's result ever a dice value, until a kind says so.
     to_dice = await client.put(
         sheet.formula_url(prototype, "damage"),
