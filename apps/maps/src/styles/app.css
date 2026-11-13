@@ -662,3 +662,14 @@
 .map-history-list button[data-state="undone"] {
   opacity: 0.7;
 }
+
+.map-command {
+  align-items: center;
+}
+.map-command-answer {
+  flex-basis: 100%;
+  margin: 0;
+}
+.map-command-answer[data-failed="true"] {
+  color: var(--text-secondary);
+}

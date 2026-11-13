@@ -25,6 +25,7 @@ import {
   snapCorner,
   toggleCell,
 } from './cells-edit';
+import { HELP, parseCommand } from './command-line';
 import { button, el, field, groupTitle, message, select, statusLine } from './dom';
 import {
   type Editable,
@@ -44,6 +45,7 @@ import {
   batchPlacements,
   type EntryChoice,
   findEntries,
+  findLocations,
   makeLocation,
   partsOf,
   putPlacement,
@@ -52,7 +54,15 @@ import {
   removePlacement,
   rowState,
 } from './map-api';
-import { GROUP_NAMES, searchTools, type ToolDecl, toolByKey, toolsOf, usable } from './tools';
+import {
+  TOOLS as DECLARED,
+  GROUP_NAMES,
+  searchTools,
+  type ToolDecl,
+  toolByKey,
+  toolsOf,
+  usable,
+} from './tools';
 
 export type EditorContext = {
   tenant: string;
@@ -81,6 +91,8 @@ export type Editor = {
   history: HTMLElement;
   /** Puts an entry on the Map as a pin at a point of the drawing. */
   placeEntry(entry: { id: string; name: string }, at: [number, number]): Promise<void>;
+  /** The line under the Map that takes typed commands. */
+  commandLine: HTMLElement;
   /** Whether the tools are on. */
   editing(): boolean;
   /** The page's selection changed. */
@@ -385,6 +397,93 @@ export function createEditor(context: EditorContext): Editor {
       render();
       refresh();
     });
+  }
+
+  // The command line (MP6): a typed twin of the pointer, one answer per line.
+  const commandLine = el('form', '', 'map-command row-tight');
+  commandLine.setAttribute('aria-label', 'Command line');
+  const commandInput = el('input', '', 'text-input grow');
+  commandInput.type = 'text';
+  commandInput.autocomplete = 'off';
+  commandInput.spellcheck = false;
+  commandInput.placeholder = 'Type a tool or a command, HELP for the list';
+  commandInput.setAttribute('aria-label', 'Command');
+  const commandAnswer = el('p', '', 'status-text map-command-answer');
+  commandAnswer.setAttribute('role', 'status');
+  commandLine.append(commandInput, commandAnswer);
+  const answer = (text: string, failed = false) => {
+    commandAnswer.textContent = text;
+    commandAnswer.dataset.failed = String(failed);
+  };
+  commandLine.addEventListener('submit', (event) => {
+    event.preventDefault();
+    const line = commandInput.value;
+    commandInput.value = '';
+    void runCommand(line);
+  });
+  commandInput.addEventListener('keydown', (event) => {
+    event.stopPropagation();
+    if (event.key === 'Escape') commandInput.blur();
+  });
+  async function runCommand(line: string) {
+    const command = parseCommand(line, DECLARED, here());
+    if (!command) return;
+    switch (command.kind) {
+      case 'error':
+        answer(command.message, true);
+        return;
+      case 'help':
+        answer(HELP);
+        return;
+      case 'planned':
+      case 'unavailable':
+        answer(unavailable(command.tool), true);
+        return;
+      case 'tool':
+        setTool(command.tool.id as ToolName);
+        answer(`${command.tool.name} is the tool.`);
+        return;
+      case 'undo':
+        await undo();
+        answer('Undone.');
+        return;
+      case 'redo':
+        await redo();
+        answer('Done again.');
+        return;
+      case 'fit':
+        context.view().fit();
+        answer('The whole sheet is in view.');
+        return;
+      case 'select': {
+        const wanted = command.name.toLowerCase();
+        const row = context.rows().find((r) => r.name.toLowerCase() === wanted);
+        if (!row) {
+          answer(`Nothing named “${command.name}” is on this Map.`, true);
+          return;
+        }
+        context.select(row.id);
+        answer(`${row.name} is selected.`);
+        return;
+      }
+      case 'place': {
+        try {
+          const wanted = command.name.toLowerCase();
+          const found = (await findLocations(context.tenant, command.name, 50)).find(
+            (place) => place.name.toLowerCase() === wanted,
+          );
+          if (!found) {
+            answer(`No place named “${command.name}” in this library.`, true);
+            return;
+          }
+          await placeEntry(found, command.at);
+          answer(`${found.name} is on the map at ${command.at[0]},${command.at[1]}.`);
+        } catch (error) {
+          answer(asText(error), true);
+        }
+        return;
+      }
+    }
   }
 
   /** Steps back, or forward, to any point in what was done. */
@@ -740,6 +839,12 @@ export function createEditor(context: EditorContext): Editor {
     if (target?.closest('input, textarea, select, [contenteditable="true"]')) return;
     const active = document.activeElement;
     if (active && active !== document.body && !active.closest('.map-workspace')) return;
+    if (event.key === '/') {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      commandInput.focus();
+      return;
+    }
     const decl = toolByKey(event.key);
     if (!decl) return;
     event.preventDefault();
@@ -755,6 +860,7 @@ export function createEditor(context: EditorContext): Editor {
   function renderToolbar() {
     toolbar.replaceChildren();
     renderHistory();
+    commandLine.hidden = !editing;
     const toggle = el('button', editing ? 'Stop editing' : 'Edit this map', 'btn btn-secondary');
     toggle.type = 'button';
     toggle.setAttribute('aria-pressed', String(editing));
@@ -1195,6 +1301,7 @@ export function createEditor(context: EditorContext): Editor {
     toolbar,
     panel,
     history: historyPanel,
+    commandLine,
     placeEntry,
     editing: () => editing,
     selected(id) {
