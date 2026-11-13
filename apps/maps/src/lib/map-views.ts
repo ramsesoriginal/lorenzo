@@ -1,3 +1,4 @@
+import { pageState } from '@lorenzo/app-shell';
 import { installEntryPreview } from '@lorenzo/entry-preview';
 import {
   createMapView,
@@ -25,7 +26,7 @@ import { cellOfPoint, cellWords } from './cells-edit';
 import { BRANDING_CSS_URL } from './config';
 import { wayWords } from './connection-words';
 import { dateLens } from './date-lens';
-import { leftWords, TIE_WORDS } from './date-words';
+import { leftWords } from './date-words';
 import { distanceSection } from './distance-section';
 import {
   audienceBadge,
@@ -46,6 +47,7 @@ import {
   sectionHead,
   statusLine,
 } from './dom';
+import { mapCard } from './gallery';
 import { loadLayers } from './layer-pictures';
 import { picturesSection } from './layers-settings';
 import { chosenTheme, LOOKS, type Look, readLook, writeLook } from './look';
@@ -149,19 +151,61 @@ export async function mountMaps() {
     const scope: string = tenant;
     const [name, manage] = await Promise.all([libraryName(scope), canManage(scope)]);
     const view = el('div', '', 'stack view');
-    view.append(
-      pageHead('Maps', {
-        crumbs: [backLink('Libraries', '/')],
-        lede: name ? `In ${name}.` : undefined,
-      }),
-    );
     const search = field('Find a Map');
     search.input.type = 'search';
-    const list = el('ul', '', 'list');
+    search.label.classList.add('map-find');
+    const gallery = el('ul', '', 'map-gallery');
+    const none = el('div', '', 'stack');
     const status = statusLine();
     const left = el('p', '', 'status-text');
     left.setAttribute('role', 'status');
-    const lens = await dateLens(scope, () => void show());
+    const lens = await dateLens(scope, () => {
+      when.textContent = lens?.chosen() ? 'A date is chosen' : 'Any date';
+      when.prepend(icon('kind-calendar'));
+      void show();
+    });
+    // The page's own actions (MP1): looking through a date, and making a Map, first.
+    const headActions: HTMLElement[] = [];
+    const when = el('button', '', 'btn btn-secondary');
+    when.type = 'button';
+    when.append(icon('kind-calendar'), document.createTextNode('Any date'));
+    const lensPanel = el('section', '', 'card card-body map-lens-panel');
+    lensPanel.hidden = true;
+    lensPanel.id = 'map-lens-panel';
+    if (lens) {
+      when.setAttribute('aria-controls', lensPanel.id);
+      when.setAttribute('aria-expanded', 'false');
+      when.addEventListener('click', () => {
+        lensPanel.hidden = !lensPanel.hidden;
+        when.setAttribute('aria-expanded', String(!lensPanel.hidden));
+      });
+      lensPanel.append(lens.element);
+      headActions.push(when);
+    }
+    const make = manage ? el('section', '', 'card card-body map-make') : null;
+    if (make) {
+      make.hidden = true;
+      make.id = 'map-make';
+      make.append(makeMapForm(scope, (id, slug) => location.assign(mapHref(scope, id, slug))));
+      const open = el('button', '', 'btn btn-primary');
+      open.type = 'button';
+      open.setAttribute('aria-controls', make.id);
+      open.setAttribute('aria-expanded', 'false');
+      open.append(icon('add'), document.createTextNode('Make a Map'));
+      open.addEventListener('click', () => {
+        make.hidden = !make.hidden;
+        open.setAttribute('aria-expanded', String(!make.hidden));
+      });
+      headActions.push(open);
+    }
+    view.append(
+      pageHead('Maps', {
+        lede: name ? `The places of ${name}, drawn.` : undefined,
+        actions: headActions,
+      }),
+    );
+    if (make) view.append(make);
+    view.append(lensPanel, search.label, status, left, gallery, none);
     let sequence = 0;
     async function show() {
       const mine = ++sequence;
@@ -179,19 +223,28 @@ export async function mountMaps() {
         if (mine !== sequence) return;
         status.textContent = '';
         left.textContent = lens?.leavesOut() ? leftWords(page.total) : '';
-        list.replaceChildren(
+        gallery.replaceChildren(
+          ...page.items.map((stub) =>
+            mapCard(scope, stub, mapHref(scope, stub.id, stub.slug), (header, rows) =>
+              modelOf(header, rows),
+            ),
+          ),
+        );
+        none.replaceChildren(
           ...(page.items.length
-            ? page.items.map((stub) => {
-                const row = el('li', '', stub.tie === 'other' ? 'map-other' : '');
-                row.append(
-                  icon('kind-location'),
-                  link(stub.name, mapHref(scope, stub.id, stub.slug)),
-                );
-                if (stub.tie)
-                  row.append(document.createTextNode(' '), el('span', TIE_WORDS[stub.tie], 'chip'));
-                return row;
-              })
-            : [el('li', query ? 'No Map has that name.' : 'No Maps yet.', 'status-text')]),
+            ? []
+            : [
+                query
+                  ? el('p', 'No Map has that name.', 'status-text')
+                  : pageState(BRANDING_CSS_URL, {
+                      art: 'empty-map',
+                      level: 2,
+                      title: 'No Maps yet',
+                      text: manage
+                        ? 'Make a Map to draw the places of this library.'
+                        : 'No Map is open to you in this library yet.',
+                    }),
+              ]),
         );
       } catch (error) {
         if (mine === sequence) {
@@ -201,19 +254,6 @@ export async function mountMaps() {
       }
     }
     search.input.addEventListener('input', () => void show());
-    const section = el('section', '', 'stack');
-    section.append(sectionHead('Maps of the library'), search.label);
-    if (lens) section.append(lens.element);
-    section.append(status, left, list);
-    view.append(section);
-    if (manage) {
-      const add = el('section', '', 'stack');
-      add.append(
-        sectionHead('Make a Map'),
-        makeMapForm(scope, (id, slug) => location.assign(mapHref(scope, id, slug))),
-      );
-      view.append(add);
-    }
     host.replaceChildren(view);
     await show();
   } catch (error) {

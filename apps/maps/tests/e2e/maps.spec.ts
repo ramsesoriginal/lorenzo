@@ -57,8 +57,10 @@ test('a GM builds a tree of Locations and a player sees only what is visible', a
   const gm = await signedIn(browser, w.subject);
   const player = await signedIn(browser, w.playerSubject);
   try {
+    // With one library the app begins at its gallery of Maps; Locations is a tab beside it.
     await gm.goto('/');
-    await gm.getByRole('link', { name: w.tenant.name, exact: true }).click();
+    await expect(gm.getByRole('heading', { name: 'Maps', exact: true })).toBeVisible();
+    await gm.getByRole('link', { name: 'Locations', exact: true }).click();
     await expect(gm.getByRole('heading', { name: 'Locations', exact: true })).toBeVisible();
     await expect(gm.getByText('No Locations yet.')).toBeVisible();
 
@@ -141,7 +143,7 @@ test('a Location refuses to become part of itself and the pages have no accessib
     await expect(gm.getByRole('alert')).toBeVisible();
     await expect(gm.getByRole('alert')).not.toContainText(inner.id);
     for (const address of [
-      '/',
+      `/maps/?tenant=${w.tenant.id}`,
       `/locations/?tenant=${w.tenant.id}`,
       `/location/?tenant=${w.tenant.id}&id=${top.id}`,
     ]) {

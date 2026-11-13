@@ -107,6 +107,7 @@ test('a writer makes a square, a rectangular and a hex Map, the hex one only wit
   const page = await signedIn(browser, w.subject);
   try {
     await page.goto(`/maps/?tenant=${w.tenant.id}`);
+    await page.getByRole('button', { name: 'Make a Map', exact: true }).click();
     // A square grid.
     await page.getByLabel('Name', { exact: true }).fill('Chessboard');
     await page.getByRole('combobox', { name: 'The sheet is' }).selectOption('square');
@@ -118,6 +119,7 @@ test('a writer makes a square, a rectangular and a hex Map, the hex one only wit
 
     // A hex grid is not made until the hexes are said to be flat or pointed.
     await page.goto(`/maps/?tenant=${w.tenant.id}`);
+    await page.getByRole('button', { name: 'Make a Map', exact: true }).click();
     await page.getByLabel('Name', { exact: true }).fill('Hexcrawl');
     await page.getByRole('combobox', { name: 'The sheet is' }).selectOption('hex');
     await page.getByLabel('Cell size').filter({ visible: true }).fill('100');
@@ -134,6 +136,7 @@ test('a writer makes a square, a rectangular and a hex Map, the hex one only wit
 
     // A rectangular grid.
     await page.goto(`/maps/?tenant=${w.tenant.id}`);
+    await page.getByRole('button', { name: 'Make a Map', exact: true }).click();
     await page.getByLabel('Name', { exact: true }).fill('Brickwork');
     await page.getByRole('combobox', { name: 'The sheet is' }).selectOption('rect');
     await page.getByLabel('Cell width').filter({ visible: true }).fill('120');
@@ -363,6 +366,7 @@ for (const theme of ['light', 'dark'] as const) {
       const result = await new AxeBuilder({ page }).exclude('.shell-bottom').analyze();
       expect(result.violations.map((v) => `${v.id}: ${v.nodes[0]?.html}`)).toEqual([]);
       await page.goto(`/maps/?tenant=${w.tenant.id}`);
+      await page.getByRole('button', { name: 'Make a Map', exact: true }).click();
       await page.getByRole('combobox', { name: 'The sheet is' }).selectOption('hex');
       const form = await new AxeBuilder({ page }).exclude('.shell-bottom').analyze();
       expect(form.violations.map((v) => `${v.id}: ${v.nodes[0]?.html}`)).toEqual([]);
