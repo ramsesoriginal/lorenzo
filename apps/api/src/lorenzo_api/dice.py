@@ -33,7 +33,12 @@ DropMode = Literal["lowest", "highest"]
 
 # `[count] (d|w) sides [d [l|h] number]`, case-insensitive, nothing else. The drop marker is `D`
 # alone (only the die marker takes `W`), and a bare `d` before the number drops the lowest.
-_NOTATION = re.compile(r"(?P<count>\d+)?[dw](?P<sides>\d+)(?:d(?P<mode>[lh])?(?P<drop>\d+))?")
+# Every number is bounded in length (five digits is more than any limit allows) and so is the text,
+# so no input can make the match slow.
+_NOTATION = re.compile(
+    r"(?P<count>\d{1,5})?[dw](?P<sides>\d{1,5})(?:d(?P<mode>[lh])?(?P<drop>\d{1,5}))?"
+)
+_LONGEST = 32
 
 
 class InvalidDice(ValueError):
@@ -127,7 +132,8 @@ def from_parts(
 def parse(text: str) -> Dice:
     """The `Dice` a notation says, in any accepted form (`d20`, `W20`, `2W6`, `4d6d1`, `4D6DL1`);
     spaces around the whole value are ignored. Raises `InvalidDice`."""
-    found = _NOTATION.fullmatch(text.strip().lower())
+    plain = text.strip().lower()
+    found = _NOTATION.fullmatch(plain) if len(plain) <= _LONGEST else None
     if found is None:
         raise InvalidDice(
             "notation", f"{text!r} is not dice: write it like 2d6, W20 or 4d6dl1 (a drop: dl or dh)"

@@ -222,3 +222,13 @@ def test_a_dice_value_formula_round_trips_and_a_document_of_format_46_has_none()
     ]
     again = rd.decode(old, files, format=46)
     assert again.formulas and all(f.read_as is None for f in again.formulas.values())
+
+
+@pytest.mark.parametrize(
+    "written", ["0" * 5000, "2d" + "6" * 5000, "d" + "0" * 40, "2d6dl" + "1" * 6, "9" * 6 + "d6"]
+)
+def test_a_long_or_odd_input_is_refused_at_once(written: str) -> None:
+    started = time.perf_counter()
+    with pytest.raises(dice.InvalidDice):
+        dice.parse(written)
+    assert time.perf_counter() - started < 0.5
