@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.6.0](https://github.com/ramsesoriginal/lorenzo/compare/loot-bot-v0.5.0...loot-bot-v0.6.0) (2026-11-13)
+
+
+### Features
+
+* **api:** repositories carry game systems and templates (RFC 0052 Y6) ([3cd9b45](https://github.com/ramsesoriginal/lorenzo/commit/3cd9b456485d55215a14dca805a9fe5b2df41c32))
+* **api:** the options of a contents formula and the active switch (RFC 0053 K4) ([38812ba](https://github.com/ramsesoriginal/lorenzo/commit/38812bae3baa0678814135e303026f08a7215ee4))
+* **loot-bot,cli:** link the legal pages ([85448dc](https://github.com/ramsesoriginal/lorenzo/commit/85448dc586edf2e9e2947f6b85e1f515a6682440))
+
+
+### Bug Fixes
+
+* the clients that build an item or an instance know the new fields ([d2b9008](https://github.com/ramsesoriginal/lorenzo/commit/d2b9008bf51e0dd67b55fc8ee395519649e875c8))
+* the typed fixtures of the apps carry the new fields of a stat row ([06f8e4c](https://github.com/ramsesoriginal/lorenzo/commit/06f8e4c81a54e15037508e518a43d247a85199cd))
+
 ## [0.5.0](https://github.com/ramsesoriginal/lorenzo/compare/loot-bot-v0.4.0...loot-bot-v0.5.0) (2026-10-29)
 
 

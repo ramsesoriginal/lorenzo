@@ -1,5 +1,41 @@
 # Changelog
 
+## [1.1.0](https://github.com/ramsesoriginal/lorenzo/compare/calendars-v1.0.0...calendars-v1.1.0) (2026-11-13)
+
+
+### Features
+
+* **account-hub,inventory-web,beings,bench,calendars,sessions,writing,maps,social:** link the legal pages ([af9383b](https://github.com/ramsesoriginal/lorenzo/commit/af9383b1c013082788837b420c4659f500ecae9d))
+* **api:** the Events list filters by period, and Calendars' time filter uses it (ADR 0442) ([03158f3](https://github.com/ramsesoriginal/lorenzo/commit/03158f36d956239d89f98f9ca5163d505765c27c))
+* **calendars:** a mark for each kind, and a day lists the Sessions that cover it (UI-E, 14) ([fd28a19](https://github.com/ramsesoriginal/lorenzo/commit/fd28a19b26321628bdbacae7167817caded84266))
+* **calendars:** an empty Events list uses the shared mascot state ([163a7a2](https://github.com/ramsesoriginal/lorenzo/commit/163a7a26bc7a071eb0a8197790e663582ef6ea5a))
+* **calendars:** an empty Events list uses the shared mascot state (UI-E Calendars) ([4d362dd](https://github.com/ramsesoriginal/lorenzo/commit/4d362dd17ea95552f79e6ba87dab6bc5bbcd8392))
+* **calendars:** an entry's page as cards (UI-E, 7) ([b22f2b9](https://github.com/ramsesoriginal/lorenzo/commit/b22f2b909bd1887bd247a4e222a9596b1cf6b591))
+* **calendars:** an Event says where it was presented, and Change theme opens Appearance (UI-E, 15) ([3fbfb75](https://github.com/ramsesoriginal/lorenzo/commit/3fbfb75d28c979ac166258fc738c2f306aeb2d6b))
+* **calendars:** an Event's date and participants on its row, and a time filter (UI-E, 11) ([dbecdde](https://github.com/ramsesoriginal/lorenzo/commit/dbecdde6f45ff8045b5d1376d820ba2b7446c2b1))
+* **calendars:** Events as drawn, with what the API gives (UI-E, 6) ([2a4f4f0](https://github.com/ramsesoriginal/lorenzo/commit/2a4f4f09f4e3253f1f95e42afd8826d8c1bac739))
+* **calendars:** Events rows take their date and participants from the list (ADR 0442) ([a91d779](https://github.com/ramsesoriginal/lorenzo/commit/a91d779af96336d0da7804bf23028bcf4834b542))
+* **calendars:** Home as the design draws it (UI-E, 2) ([41bdbe0](https://github.com/ramsesoriginal/lorenzo/commit/41bdbe04017fb02061ff8da4b0747ef47b06d8bd))
+* **calendars:** Order and causes is a button in an Event's head (UI-E, 13) ([33db25d](https://github.com/ramsesoriginal/lorenzo/commit/33db25da4ec451c8c30a26d44af48ca7612564af))
+* **calendars:** the arrows step the month and the day panel is a sheet below 1100px (UI-E, 13) ([36aa655](https://github.com/ramsesoriginal/lorenzo/commit/36aa65548b252d3e152edb6540ddc48b148664dc))
+* **calendars:** the bell, Sessions on a day, arrow keys and the status bar (UI-E, 9) ([3295e9a](https://github.com/ramsesoriginal/lorenzo/commit/3295e9ad9747e6465f469973e6df7bb1c5b69338))
+* **calendars:** the day panel and Add to this day (UI-E, 4) ([889e0b0](https://github.com/ramsesoriginal/lorenzo/commit/889e0b08ceaefe7e43d0b6cb5fa73129c73ed170))
+* **calendars:** the day panel is a bottom sheet on a phone (UI-E, 10) ([3c43d0b](https://github.com/ramsesoriginal/lorenzo/commit/3c43d0b0e56b9eaf16a930e552c10be708337e08))
+* **calendars:** the empty calendar list uses the shared mascot state ([54f6ac6](https://github.com/ramsesoriginal/lorenzo/commit/54f6ac6aa9c9f45b35278ff2f214820205291dac))
+* **calendars:** the empty calendar list uses the shared mascot state (UI-E Calendars) ([c38dcca](https://github.com/ramsesoriginal/lorenzo/commit/c38dcca2f442ad652d827accc8ba075268265096))
+* **calendars:** the Events time filter is the year strip, as a shared package (UI-E, 12) ([037bbd0](https://github.com/ramsesoriginal/lorenzo/commit/037bbd05ff959693ba7b98dc0a7c0f55d2960018))
+* **calendars:** the list of clocks and the definition editor as drawn (UI-E, 8) ([dfb5b4c](https://github.com/ramsesoriginal/lorenzo/commit/dfb5b4ca9b90873863f5217d6e3a28ae8863b59e))
+* **calendars:** the month's head, strip and grid (UI-E, 3) ([4c18b83](https://github.com/ramsesoriginal/lorenzo/commit/4c18b83a6d8d57b6638df4e9015a771c190c625a))
+* **calendars:** the panel names Facts and what recurs, an Event is under Events, and the checked-against-design pass (UI-E, 16) ([e58f717](https://github.com/ramsesoriginal/lorenzo/commit/e58f7174d6f20692e810a22bba91c49cf4d21082))
+* **calendars:** the web shell frame (UI-E, 1) ([6991b99](https://github.com/ramsesoriginal/lorenzo/commit/6991b9975b77d144c20a32d7b805084a42a9b7b6))
+* **calendars:** the whole year as rows of squares (UI-E, 5) ([f5d5861](https://github.com/ramsesoriginal/lorenzo/commit/f5d586101875e0202c9ab15ad4d8b9f64a249137))
+
+
+### Bug Fixes
+
+* **calendars:** a segment chip's click may find the chooser not yet made ([d382bc4](https://github.com/ramsesoriginal/lorenzo/commit/d382bc40f38391d636599503dbd8f46ff612e489))
+* **calendars:** the selected day has a border, the density dots a radius token ([a2a00d7](https://github.com/ramsesoriginal/lorenzo/commit/a2a00d7d02c3cecce33605d4bea1e9a73bf24d52))
+
 ## 1.0.0 (2026-10-29)
 
 

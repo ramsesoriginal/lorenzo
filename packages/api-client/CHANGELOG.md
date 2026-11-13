@@ -1,5 +1,70 @@
 # Changelog
 
+## [2.0.0](https://github.com/ramsesoriginal/lorenzo/compare/api-client-v1.0.0...api-client-v2.0.0) (2026-11-13)
+
+
+### ⚠ BREAKING CHANGES
+
+* **api:** the `kinds` enum of entries gains `social_web`; accepted in openapi-breaking-accepted.txt (ADR 0406).
+* **api:** the `kinds` enum of entries gains `relationship`; accepted in openapi-breaking-accepted.txt (ADR 0399).
+
+### Features
+
+* **api:** a campaign names a game system, and the sheet reads a template (RFC 0052 Y5) ([d70b1db](https://github.com/ramsesoriginal/lorenzo/commit/d70b1db259d1af82e0fd0ebeaddf33e36267194c))
+* **api:** a game system as a row, and the prefix rule (RFC 0052 Y1) ([2936ef3](https://github.com/ramsesoriginal/lorenzo/commit/2936ef324381c9890d8449cad2dc3a995e3de07d))
+* **api:** a hidden entry gives its texts to the entries below it, and consent is asked once ([b7c6535](https://github.com/ramsesoriginal/lorenzo/commit/b7c6535f8c2128b9a9886878e60e4fa6bcc5ede4))
+* **api:** a write of a stat or of a formula can answer with warnings (RFC 0055 V4) ([9842c53](https://github.com/ramsesoriginal/lorenzo/commit/9842c536053980b0341c70bc571c076176166dcc))
+* **api:** a write of a stat or of a formula can answer with warnings (RFC 0055 V4) ([a4a8904](https://github.com/ramsesoriginal/lorenzo/commit/a4a89041f6597df42acf14a645204ef2355c24dd))
+* **api:** bulk write of relationships and standings, and the type stats (ADR 0400) ([545ceac](https://github.com/ramsesoriginal/lorenzo/commit/545ceac1e73e2bef84d2d588c2373ed2b5b82d74))
+* **api:** features, two kinds and what a holder has (RFC 0054 F1) ([93ffa5a](https://github.com/ramsesoriginal/lorenzo/commit/93ffa5a5cdfb1e09455d81763f5e41ce8af29d98))
+* **api:** formula kind select (RFC 0053 K3) ([074b0c0](https://github.com/ramsesoriginal/lorenzo/commit/074b0c039042c207024e8cf19f8d7b0ee191c536))
+* **api:** formula kinds min and max, and a bool or an enum as a number (RFC 0053 K1) ([5fe61ca](https://github.com/ramsesoriginal/lorenzo/commit/5fe61cada0b5bcb7a1f761490342c147e528a82b))
+* **api:** formula kinds product and ratio (RFC 0053 K2) ([9c09f9c](https://github.com/ramsesoriginal/lorenzo/commit/9c09f9c248af0bcbb51d8bdc5d2b4b84a5b42529))
+* **api:** grant records, the grants read, apply with picks and revocation (RFC 0054 F3) ([e9fa7a9](https://github.com/ramsesoriginal/lorenzo/commit/e9fa7a9eb242b7074fffdf1b74d91e0b644a6b4a))
+* **api:** grant rules and the prerequisites of a feature (RFC 0054 F2) ([9ca688e](https://github.com/ramsesoriginal/lorenzo/commit/9ca688e5ea315bc3642cfa612349ed964bc20155))
+* **api:** hide a source's entries (RFC 0051 H4) ([03c33b3](https://github.com/ramsesoriginal/lorenzo/commit/03c33b3a9456e39d3287968661eb32a2cead1275))
+* **api:** include a repository in the release of one built on it ([ca321d1](https://github.com/ramsesoriginal/lorenzo/commit/ca321d1264ece2df99c7d315d5eeb19c48f68f6e))
+* **api:** leave a public repository off Discover ([38a17a3](https://github.com/ramsesoriginal/lorenzo/commit/38a17a365afbd933f454c4dff2936642de201410))
+* **api:** Lorenzo Social in the registry of app links ([38ed868](https://github.com/ramsesoriginal/lorenzo/commit/38ed8689c61a5fffe1fe695c7be537f8ebfea16c))
+* **api:** Lorenzo Social in the registry of app links ([7e28c77](https://github.com/ramsesoriginal/lorenzo/commit/7e28c7731e3a65a8a44056ed24f0e39b156eb291))
+* **api:** optional minimum and maximum on a numeric stat (ADR 0403) ([2c293a5](https://github.com/ramsesoriginal/lorenzo/commit/2c293a5f6764f6896d61270fa8d664d453ea2427))
+* **api:** optional time on a relationship and reading it as of an Event (ADR 0405) ([45952a6](https://github.com/ramsesoriginal/lorenzo/commit/45952a6c596aa9b64ad3a79d01606b107d15a48d))
+* **api:** protected repositories ([b056c03](https://github.com/ramsesoriginal/lorenzo/commit/b056c03a45a07c9a05a5bf82b4c0135ec3b0d3ba))
+* **api:** relationship through, an authored ordered chain (ADR 0402) ([f3503ea](https://github.com/ramsesoriginal/lorenzo/commit/f3503ea7130fba8367ad5055ffbcdf782b4d0392))
+* **api:** relationships, the second kind joining two entries (ADR 0399) ([5594086](https://github.com/ramsesoriginal/lorenzo/commit/55940860f9f823e77aabbde042f8e699e8108c89))
+* **api:** repositories carry game systems and templates (RFC 0052 Y6) ([3cd9b45](https://github.com/ramsesoriginal/lorenzo/commit/3cd9b456485d55215a14dca805a9fe5b2df41c32))
+* **api:** repositories carry game systems and templates (RFC 0052 Y6) ([3a2465e](https://github.com/ramsesoriginal/lorenzo/commit/3a2465e6d2fe216682f5e5ecb9fde079c521d652))
+* **api:** roles - the API reads a stat by what it is for (RFC 0052 Y2) ([d2bfe98](https://github.com/ramsesoriginal/lorenzo/commit/d2bfe98b9b05c7d4bd491d0a750f17d886c8d94c))
+* **api:** templates - what a sheet shows, as data (RFC 0052 Y4) ([b63212a](https://github.com/ramsesoriginal/lorenzo/commit/b63212adc825bff6579f7c5d8c8511ffca0a7bc9))
+* **api:** the Events list filters by period, and Calendars' time filter uses it (ADR 0442) ([03158f3](https://github.com/ramsesoriginal/lorenzo/commit/03158f36d956239d89f98f9ca5163d505765c27c))
+* **api:** the features slot of a template (RFC 0054 F4) ([92febd1](https://github.com/ramsesoriginal/lorenzo/commit/92febd104295f8527e5d12a120efeeb1888303d8))
+* **api:** the features slot of a template (RFC 0054 F4) ([1502101](https://github.com/ramsesoriginal/lorenzo/commit/1502101575798de0af8f0f8584302f9dd6baae6b))
+* **api:** the legal app and support link in the registry, and a one-time avatar copy ([a52bff0](https://github.com/ramsesoriginal/lorenzo/commit/a52bff0f54a689f601623dc586bc562f8fd91b71))
+* **api:** the options of a contents formula and the active switch (RFC 0053 K4) ([38812ba](https://github.com/ramsesoriginal/lorenzo/commit/38812bae3baa0678814135e303026f08a7215ee4))
+* **api:** the options of a contents formula and the active switch (RFC 0053 K4) ([ea34047](https://github.com/ramsesoriginal/lorenzo/commit/ea340474a0703c666f07f852831ad181a6f73fe2))
+* **api:** the SocialWeb kind, a saved view of relationships (ADR 0406) ([c7b253d](https://github.com/ramsesoriginal/lorenzo/commit/c7b253de438f623b0ea8e5296cc1b001a4097951))
+* **api:** the system filter on the stat reads (RFC 0052 Y3) ([9726f0f](https://github.com/ramsesoriginal/lorenzo/commit/9726f0fa6117b1ebfafff2baf9f816cc46359bfe))
+* **api:** the vocabulary check says a tie, for one entry (RFC 0055 V3) ([9b3962c](https://github.com/ramsesoriginal/lorenzo/commit/9b3962c531053f5e788df7287d5a61ac40f1f178))
+* **api:** the vocabulary check says an unset input and an own value that shadows a formula (RFC 0055 V2) ([44970cd](https://github.com/ramsesoriginal/lorenzo/commit/44970cd4fab8fc544b887e9ddd7e00cd98864567))
+* **api:** the vocabulary check, its route and its first findings (RFC 0055 V1) ([2115406](https://github.com/ramsesoriginal/lorenzo/commit/2115406c1f74c4a86fccbaad644bcb1b0d0f3a43))
+* **calendars:** Events rows take their date and participants from the list (ADR 0442) ([a91d779](https://github.com/ramsesoriginal/lorenzo/commit/a91d779af96336d0da7804bf23028bcf4834b542))
+* **calendars:** the empty calendar list uses the shared mascot state ([54f6ac6](https://github.com/ramsesoriginal/lorenzo/commit/54f6ac6aa9c9f45b35278ff2f214820205291dac))
+* **social:** players write their own relationships (ADR 0409) ([96b83a3](https://github.com/ramsesoriginal/lorenzo/commit/96b83a38e85a48ec01a04e366aaa7d06f4d59e2a))
+* **social:** the date lens and "as read by" in the app (ADR 0405) ([73d27d9](https://github.com/ramsesoriginal/lorenzo/commit/73d27d9c4855c876893bdee6a8a96ea8054f5ce1))
+* **social:** the Lorenzo Social app scaffold, relationship list and page (ADR 0408) ([cc6aa2b](https://github.com/ramsesoriginal/lorenzo/commit/cc6aa2b93687ad3598813d501a897af26a8bad33))
+* **social:** the types and standings screen and the starter vocabulary (ADR 0400) ([f35ac64](https://github.com/ramsesoriginal/lorenzo/commit/f35ac6425ef1ead1fcc1cba3af4bea4deb808df0))
+* **social:** the web screens and the graph view with stress and ForceAtlas2 (ADR 0407, ADR 0408) ([f6733ad](https://github.com/ramsesoriginal/lorenzo/commit/f6733ad86a4f9c37e78123b1776b3de7c20e5422))
+* **writing:** personal manuscript-length targets ([e55d62f](https://github.com/ramsesoriginal/lorenzo/commit/e55d62f569f16c8dcd410bb4fbfd9e22825a56b7))
+
+
+### Bug Fixes
+
+* **api:** accept the added hide value, ask the tenant and the gate in one statement ([a876d5a](https://github.com/ramsesoriginal/lorenzo/commit/a876d5a13e7dc7b3e0972f7681811ebe1946abaa))
+* **api:** accept the added visibility value, keep the release statement bound at a fixed number ([3a79dac](https://github.com/ramsesoriginal/lorenzo/commit/3a79dac87bdfe58ec7b0c8b11155dc041dd907b2))
+* **api:** answer what the API used to ignore, crash on or return out of order ([62d1cd4](https://github.com/ramsesoriginal/lorenzo/commit/62d1cd48c685003e5996ae7c43697830a5ea50f4))
+* **api:** answer what the API used to ignore, crash on or return out of order ([2311c97](https://github.com/ramsesoriginal/lorenzo/commit/2311c97c9b7d4b2eb5e59d00c987846192c42c24))
+* **api:** the api client's types carry the route's final description ([a4bccab](https://github.com/ramsesoriginal/lorenzo/commit/a4bccabc72ff780de2d6026e7c622fb764799deb))
+
 ## 1.0.0 (2026-10-29)
 
 

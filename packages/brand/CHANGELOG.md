@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.3.0](https://github.com/ramsesoriginal/lorenzo/compare/brand-package-v1.2.0...brand-package-v1.3.0) (2026-11-13)
+
+
+### Features
+
+* **app-shell:** the save bar, the autosave indicator and retried reads (UI-C, part 3) ([f38d6f7](https://github.com/ramsesoriginal/lorenzo/commit/f38d6f7f5b2cf84dc8afa90b2d560371ceb2b361))
+* **brand:** page parts - heading, settings sections, states and home blocks ([bfb5a26](https://github.com/ramsesoriginal/lorenzo/commit/bfb5a26f0def9faa254fb17b7e33ccd2383e8491))
+
 ## [1.2.0](https://github.com/ramsesoriginal/lorenzo/compare/brand-package-v1.1.0...brand-package-v1.2.0) (2026-10-29)
 
 

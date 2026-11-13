@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.1.0](https://github.com/ramsesoriginal/lorenzo/compare/maps-v1.0.0...maps-v1.1.0) (2026-11-13)
+
+
+### Features
+
+* **account-hub,inventory-web,beings,bench,calendars,sessions,writing,maps,social:** link the legal pages ([af9383b](https://github.com/ramsesoriginal/lorenzo/commit/af9383b1c013082788837b420c4659f500ecae9d))
+* **calendars:** the empty calendar list uses the shared mascot state ([54f6ac6](https://github.com/ramsesoriginal/lorenzo/commit/54f6ac6aa9c9f45b35278ff2f214820205291dac))
+* **maps:** the date lens has the year strip, from the shared time filter (UI-E, 17) ([58bdde7](https://github.com/ramsesoriginal/lorenzo/commit/58bdde759cd7ddd2e0daeb36b150d2129220e89c))
+
 ## 1.0.0 (2026-10-29)
 
 

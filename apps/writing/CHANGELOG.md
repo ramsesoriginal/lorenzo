@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.1.0](https://github.com/ramsesoriginal/lorenzo/compare/writing-v1.0.0...writing-v1.1.0) (2026-11-13)
+
+
+### Features
+
+* **account-hub,inventory-web,beings,bench,calendars,sessions,writing,maps,social:** link the legal pages ([af9383b](https://github.com/ramsesoriginal/lorenzo/commit/af9383b1c013082788837b420c4659f500ecae9d))
+* **writing:** personal manuscript-length targets ([e55d62f](https://github.com/ramsesoriginal/lorenzo/commit/e55d62f569f16c8dcd410bb4fbfd9e22825a56b7))
+
 ## 1.0.0 (2026-10-29)
 
 
