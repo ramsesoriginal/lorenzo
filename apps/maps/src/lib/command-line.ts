@@ -12,6 +12,8 @@ export type Command =
   | { kind: 'redo' }
   | { kind: 'fit' }
   | { kind: 'help' }
+  | { kind: 'point'; at: [number, number] }
+  | { kind: 'done' }
   | { kind: 'select'; name: string }
   | { kind: 'place'; name: string; at: [number, number] }
   | { kind: 'error'; message: string };
@@ -20,6 +22,7 @@ export const HELP = [
   'Tool name (for example Line): choose that tool.',
   'PLACE name x,y: put a place of the library on the Map at that point.',
   'SELECT name: select a place on the Map.',
+  'x,y: the next point of what is being drawn; DONE finishes a line, an area or cells.',
   'UNDO, REDO, FIT (frame the whole sheet), HELP.',
 ].join(' ');
 
@@ -37,6 +40,8 @@ export function parseCommand(
 ): Command | null {
   const text = line.trim();
   if (!text) return null;
+  const typed = parsePoint(text);
+  if (typed) return { kind: 'point', at: typed };
   const word = (text.split(/\s+/, 1)[0] ?? '').toLowerCase();
   const rest = text.slice(word.length).trim();
   switch (word) {
@@ -46,6 +51,9 @@ export function parseCommand(
       return { kind: 'redo' };
     case 'fit':
       return { kind: 'fit' };
+    case 'done':
+    case 'finish':
+      return { kind: 'done' };
     case 'help':
     case '?':
       return { kind: 'help' };

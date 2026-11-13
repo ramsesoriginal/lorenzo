@@ -46,7 +46,6 @@ import {
   batchPlacements,
   type EntryChoice,
   findEntries,
-  findLocations,
   makeLocation,
   partsOf,
   putPlacement,
@@ -425,6 +424,22 @@ export function createEditor(context: EditorContext): Editor {
     event.stopPropagation();
     if (event.key === 'Escape') commandInput.blur();
   });
+  /** What the line asks for next, in the tool's own words. */
+  function nextPrompt(): string {
+    if (!target && toolName !== 'cells') return 'Choose what you are drawing first.';
+    switch (toolName) {
+      case 'pin':
+        return 'Type the point, x,y.';
+      case 'circle':
+        return draft.length === 0 ? 'Type the centre, x,y.' : 'Type a point on the edge, x,y.';
+      case 'line':
+      case 'area':
+        return `${draft.length} point${draft.length === 1 ? '' : 's'}. Type the next point, x,y, or DONE.`;
+      default:
+        return 'Click a cell, then DONE.';
+    }
+  }
+
   async function runCommand(line: string) {
     const command = parseCommand(line, DECLARED, here());
     if (!command) return;
@@ -443,6 +458,31 @@ export function createEditor(context: EditorContext): Editor {
         setTool(command.tool.id as ToolName);
         answer(`${command.tool.name} is the tool.`);
         return;
+      case 'point': {
+        if (!editing || toolName === 'select') {
+          answer('Choose a drawing tool first, for example Line.', true);
+          return;
+        }
+        drawTool.click?.({
+          point: command.at,
+          hit: null,
+          handle: null,
+          shift: false,
+          detail: 0,
+        });
+        answer(nextPrompt());
+        return;
+      }
+      case 'done': {
+        if (!editing || toolName === 'select' || toolName === 'pin') {
+          answer('Nothing is being drawn to finish.', true);
+          return;
+        }
+        if (toolName === 'cells') finishCells();
+        else if (toolName === 'line' || toolName === 'area') finishDraft();
+        else answer('A circle finishes with its second point.', true);
+        return;
+      }
       case 'undo':
         await undo();
         answer('Undone.');
@@ -469,11 +509,11 @@ export function createEditor(context: EditorContext): Editor {
       case 'place': {
         try {
           const wanted = command.name.toLowerCase();
-          const found = (await findLocations(context.tenant, command.name, 50)).find(
+          const found = (await findEntries(context.tenant, command.name, 50)).find(
             (place) => place.name.toLowerCase() === wanted,
           );
           if (!found) {
-            answer(`No place named “${command.name}” in this library.`, true);
+            answer(`Nothing named “${command.name}” in this library.`, true);
             return;
           }
           await placeEntry(found, command.at);

@@ -18,3 +18,25 @@ export async function openPanel(page: Page, tab: 'Selected' | 'Places' | 'Histor
   }
   await page.getByRole('tab', { name: tab, exact: true }).click();
 }
+
+/**
+ * The part of the sheet that is free: once the panel beside it has stopped moving it, and to the right
+ * of the card that floats over its left edge, so a click at a fraction of it is a click on the sheet.
+ */
+export async function stageBox(page: Page) {
+  const stage = page.locator('.map-stage');
+  let last = await stage.boundingBox();
+  for (let i = 0; i < 20; i++) {
+    await page.waitForTimeout(100);
+    const now = await stage.boundingBox();
+    if (now && last && now.width === last.width && now.x === last.x && now.height === last.height) {
+      last = now;
+      break;
+    }
+    last = now;
+  }
+  if (!last) return last;
+  const left = await page.locator('.map-float--left').first().boundingBox();
+  const edge = left ? Math.max(0, left.x + left.width + 16 - last.x) : 0;
+  return { x: last.x + edge, y: last.y, width: last.width - edge, height: last.height };
+}

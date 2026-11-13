@@ -4,7 +4,7 @@ import { cellAt, cellCentre, type GridSpec } from '@lorenzo/map-renderer';
 import { type Browser, expect, type Page, test } from '@playwright/test';
 import { apiAs, ok, refreshTokenFor } from './support/api.ts';
 import { REFRESH_TOKEN_KEY, SITE_URL } from './support/env.ts';
-import { openControl, openPanel } from './support/map-ui.ts';
+import { openControl, openPanel, stageBox } from './support/map-ui.ts';
 
 async function signedIn(browser: Browser, subject: string, theme?: 'light' | 'dark') {
   const token = await refreshTokenFor(subject);
@@ -94,7 +94,7 @@ const geometryOf = (row: { geometry: unknown } | undefined): Geometry =>
 
 /** A click at a fraction of the drawing. */
 async function clickSheet(page: Page, fx: number, fy: number) {
-  const box = await page.locator('.map-stage').boundingBox();
+  const box = await stageBox(page);
   if (!box) throw new Error('the map has no box');
   await page.mouse.click(box.x + box.width * fx, box.y + box.height * fy);
 }
@@ -184,7 +184,7 @@ test('on a grid the pointer says its cell, a pin snaps to a cell and the Cells t
     await expect(gridPaths(page)).toHaveCount(1);
     await expect(page.locator('.map-stage path.m-grid-sub')).toHaveCount(1);
     // The cell under the pointer, in words.
-    const box = await page.locator('.map-stage').boundingBox();
+    const box = await stageBox(page);
     if (!box) throw new Error('no box');
     await page.mouse.move(box.x + box.width * 0.5, box.y + box.height * 0.5);
     await expect(page.locator('.map-cell')).toContainText(/Column \d+, row \d+/);
@@ -340,7 +340,7 @@ test('a player sees the grid and the cell words and none of the tools', async ({
     await expect(gridPaths(page)).toHaveCount(1);
     await openControl(page, 'Layers');
     await expect(page.getByRole('checkbox', { name: 'Grid', exact: true })).toBeChecked();
-    const box = await page.locator('.map-stage').boundingBox();
+    const box = await stageBox(page);
     if (!box) throw new Error('no box');
     await page.mouse.move(box.x + box.width * 0.5, box.y + box.height * 0.5);
     await expect(page.locator('.map-cell')).toContainText(/Column \d+, row \d+/);
