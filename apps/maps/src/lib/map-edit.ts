@@ -46,7 +46,6 @@ import {
   batchPlacements,
   type EntryChoice,
   findEntries,
-  findLocations,
   makeLocation,
   partsOf,
   putPlacement,
@@ -469,11 +468,11 @@ export function createEditor(context: EditorContext): Editor {
       case 'place': {
         try {
           const wanted = command.name.toLowerCase();
-          const found = (await findLocations(context.tenant, command.name, 50)).find(
+          const found = (await findEntries(context.tenant, command.name, 50)).find(
             (place) => place.name.toLowerCase() === wanted,
           );
           if (!found) {
-            answer(`No place named “${command.name}” in this library.`, true);
+            answer(`Nothing named “${command.name}” in this library.`, true);
             return;
           }
           await placeEntry(found, command.at);

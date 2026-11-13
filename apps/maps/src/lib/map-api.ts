@@ -110,10 +110,14 @@ export async function readLinks(tenant: string, map: string): Promise<LinkRow[]>
 }
 
 /** Entries the person may see, found by name. */
-export async function findEntries(tenant: string, query: string): Promise<EntryChoice[]> {
+export async function findEntries(
+  tenant: string,
+  query: string,
+  size = 12,
+): Promise<EntryChoice[]> {
   const page = await unwrap(
     await client.GET('/tenants/{tenant_id}/entities', {
-      params: { path: { tenant_id: tenant }, query: { q: query, size: 12 } },
+      params: { path: { tenant_id: tenant }, query: { q: query, size } },
       cache: 'no-cache',
     }),
   );

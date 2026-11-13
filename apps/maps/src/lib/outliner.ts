@@ -3,7 +3,7 @@
 // thing: it puts the entry where the view is centred. Only for a writer, and only while the tools are on.
 
 import { el, field, icon, say, statusLine } from './dom';
-import { findLocations } from './map-api';
+import { findEntries } from './map-api';
 
 export type Entry = { id: string; name: string };
 
@@ -18,18 +18,18 @@ export function createOutliner(options: {
   place: (entry: Entry) => Promise<void>;
 }) {
   const root = el('section', '', 'stack-tight map-outliner');
-  const search = field('Search places');
+  const search = field('Search entries');
   search.input.type = 'search';
   const list = el('ul', '', 'list map-outline-list');
   const status = statusLine();
-  const hint = el('p', 'Drag a place onto the Map, or press Place.', 'status-text');
+  const hint = el('p', 'Drag an entry onto the Map, or press Place.', 'status-text');
   root.append(search.label, list, hint, status);
   let sequence = 0;
 
   async function refresh() {
     const mine = ++sequence;
     try {
-      const found = await findLocations(options.tenant, search.input.value.trim(), 50);
+      const found = await findEntries(options.tenant, search.input.value.trim(), 50);
       if (mine !== sequence) return;
       const placed = options.placed();
       const rows = found.filter((place) => !placed.has(place.id));
@@ -50,10 +50,14 @@ export function createOutliner(options: {
               put.type = 'button';
               put.setAttribute('aria-label', `Place ${place.name} on the Map`);
               put.addEventListener('click', () => void options.place(place));
-              item.append(icon('kind-location'), name, put);
+              item.append(
+                icon(place.kinds.includes('location') ? 'kind-location' : 'kind-being'),
+                name,
+                put,
+              );
               return item;
             })
-          : [el('li', 'Every place found is on this Map.', 'status-text')]),
+          : [el('li', 'Everything found is on this Map.', 'status-text')]),
       );
       say(status, '');
     } catch (error) {
