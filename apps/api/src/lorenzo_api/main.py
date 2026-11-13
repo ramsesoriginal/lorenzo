@@ -95,6 +95,7 @@ from lorenzo_api.routers.templates import router as templates_router
 from lorenzo_api.routers.tenant_invites import router as tenant_invites_router
 from lorenzo_api.routers.tenants import router as tenants_router
 from lorenzo_api.routers.users import router as users_router
+from lorenzo_api.routers.vocabulary_check import router as vocabulary_check_router
 from lorenzo_api.routers.writing import router as writing_router
 from lorenzo_api.routers.writing_reviews import router as writing_reviews_router
 
@@ -236,6 +237,7 @@ def create_app() -> FastAPI:
     app.include_router(stats_router)
     app.include_router(systems_router)
     app.include_router(templates_router)
+    app.include_router(vocabulary_check_router)
     app.include_router(template_entry_router)
     app.include_router(features_router)
     app.include_router(prerequisites_router)
