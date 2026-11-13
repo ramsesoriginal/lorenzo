@@ -142,7 +142,7 @@ async function seeded(w: World) {
 }
 
 const here = (tenant: string) => `/maps/?tenant=${tenant}`;
-const rows = (page: Page) => page.locator('#maps-list ul.list li');
+const rows = (page: Page) => page.locator('#maps-list ul.map-gallery li');
 
 async function chooseDay(page: Page, year: number, day: number) {
   const picker = page.locator('.period-picker');
@@ -165,11 +165,13 @@ test('without a calendar there is no date control, and with one the list can be 
 
     await seeded(w);
     await page.reload();
+    await page.getByRole('button', { name: 'Any date' }).click();
     const lens = page.getByRole('group', { name: 'Tied to a date' });
     await expect(lens).toBeVisible();
     // It opens empty: the list is what it was, with no words about dates.
     await expect(rows(page)).toHaveCount(7);
-    await expect(page.locator('.chip')).toHaveCount(0);
+    // A card says how it is tied, in its own words, and nothing of "this date" before one is chosen.
+    await expect(page.getByText('Tied to this date')).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Clear the date' })).toBeHidden();
 
     await chooseDay(page, 3286, 16);
@@ -202,7 +204,8 @@ test('without a calendar there is no date control, and with one the list can be 
     await expect(page.getByText('Tied to other dates')).toHaveCount(3);
 
     await page.getByRole('button', { name: 'Clear the date' }).click();
-    await expect(page.locator('.chip')).toHaveCount(0);
+    await expect(page.getByText('Tied to this date')).toHaveCount(0);
+    await expect(page.getByText('Tied to other dates')).toHaveCount(0);
     await expect(rows(page)).toHaveCount(7);
   } finally {
     await page.context().close();
@@ -220,6 +223,7 @@ test('a player reads a date they cannot see as not tied', async ({ browser }) =>
   try {
     for (const page of [gm, player]) {
       await page.goto(here(w.tenant.id));
+      await page.getByRole('button', { name: 'Any date' }).click();
       await expect(page.getByRole('group', { name: 'Tied to a date' })).toBeVisible();
       const input = page.locator('.period-picker').getByRole('spinbutton', { name: 'Year' });
       await input.fill('3286');
@@ -247,6 +251,7 @@ for (const theme of ['light', 'dark'] as const) {
     const page = await signedIn(browser, w.subject, theme);
     try {
       await page.goto(here(w.tenant.id));
+      await page.getByRole('button', { name: 'Any date' }).click();
       await expect(page.getByRole('group', { name: 'Tied to a date' })).toBeVisible();
       const before = await new AxeBuilder({ page }).exclude('.shell-bottom').analyze();
       expect(before.violations.map((v) => `${v.id}: ${v.nodes[0]?.html}`)).toEqual([]);

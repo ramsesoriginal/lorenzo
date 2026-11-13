@@ -158,6 +158,7 @@ test('the Locations page can be looked at through a date, and the tree comes bac
 
     await seeded(w);
     await page.reload();
+    await page.getByRole('button', { name: 'Any date' }).click();
     await expect(page.getByRole('group', { name: 'Tied to a date' })).toBeVisible();
     // It opens empty: the tree of roots, with what is inside them folded away.
     await expect(roots(page)).toHaveCount(4);
@@ -208,6 +209,7 @@ test('a player reads a date they cannot see as not tied', async ({ browser }) =>
   try {
     for (const page of [gm, player]) {
       await page.goto(here(w.tenant.id));
+      await page.getByRole('button', { name: 'Any date' }).click();
       await expect(page.getByRole('group', { name: 'Tied to a date' })).toBeVisible();
       const input = page.locator('.period-picker').getByRole('spinbutton', { name: 'Year' });
       await input.fill('3286');
@@ -234,6 +236,7 @@ for (const theme of ['light', 'dark'] as const) {
     const page = await signedIn(browser, w.subject, theme);
     try {
       await page.goto(here(w.tenant.id));
+      await page.getByRole('button', { name: 'Any date' }).click();
       await expect(page.getByRole('group', { name: 'Tied to a date' })).toBeVisible();
       const before = await new AxeBuilder({ page }).exclude('.shell-bottom').analyze();
       expect(before.violations.map((v) => `${v.id}: ${v.nodes[0]?.html}`)).toEqual([]);
@@ -256,6 +259,7 @@ test('the date lens has a strip of a year: one date on it, by key, and the date 
   const page = await signedIn(browser, w.subject);
   try {
     await page.goto(here(w.tenant.id));
+    await page.getByRole('button', { name: 'Any date' }).click();
     const handle = page.getByRole('slider', { name: 'Date', exact: true });
     await expect(handle).toBeVisible();
     await expect(page.locator('.time-filter-out')).toHaveText('Any time');
