@@ -1,6 +1,8 @@
 # 0056 - Dice as a stat value: `2d6`, `W20`, `4d6dl1`
 
-Status: accepted (2026-11-11), decided with the maintainer, not built; slices D1 to D3, each its own ADR. It adds a value type to what
+Status: accepted (2026-11-11), decided with the maintainer; built 2026-11-13 as slices D1 to D3, each its own ADR
+([0462](../adr/0462-the-dice-value-type.md), [0463](../adr/0463-the-dice-value-formula.md),
+[0464](../adr/0464-the-dice-formula-and-what-previews-print.md)). It adds a value type to what
 [ADR 0014](../adr/0014-stats.md) and [ADR 0103](../adr/0103-stat-tags-enum-values-and-mandatory-groups.md) define, and two
 formula kinds beside those of [RFC 0016](0016-stats-computed-values-and-crud-api.md) and [RFC 0053](0053-formula-kinds-min-max-product-ratio-select-and-held-aggregation.md). It changes nothing decided
 about how a stat resolves ([ADR 0037](../adr/0037-effective-stat-resolution.md)).

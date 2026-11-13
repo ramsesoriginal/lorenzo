@@ -154,6 +154,25 @@ describe('explain', () => {
     expect(read('average', 'floor')).toBe('The average roll of Dexterity, rounded down');
   });
 
+  it('says dice built from a count and a number of sides', () => {
+    const built = explain(
+      {
+        ...base,
+        formula: {
+          kind: 'dice',
+          count_stat_definition_id: 'dex',
+          count_constant: null,
+          sides_stat_definition_id: null,
+          sides_constant: 8,
+        },
+        inputs: [],
+      } as Explanation,
+      names,
+    );
+
+    expect(built.text).toBe('Dexterity dice of 8 sides');
+  });
+
   it('says a contents formula by its aggregate and what it keeps', () => {
     const best = explain(
       {

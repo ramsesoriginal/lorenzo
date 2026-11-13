@@ -44,6 +44,7 @@ from lorenzo_api.models import (
     ComputedStat,
     ComputedStatComparison,
     ComputedStatContents,
+    ComputedStatDice,
     ComputedStatDiceValue,
     ComputedStatExtremum,
     ComputedStatExtremumInput,
@@ -299,6 +300,7 @@ REGISTRY: tuple[CopyableTable, ...] = (
     ),
     _rows(ComputedStatRatio, "computed_stat_ratio", carried_by="computed_stat"),
     _rows(ComputedStatDiceValue, "computed_stat_dice_value", carried_by="computed_stat"),
+    _rows(ComputedStatDice, "computed_stat_dice", carried_by="computed_stat"),
     _rows(ComputedStatSelect, "computed_stat_select", carried_by="computed_stat"),
     _rows(
         ComputedStatSelectStep,

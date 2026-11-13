@@ -198,6 +198,18 @@ class DiceValueFormula:
     round_mode: RoundMode
 
 
+@dataclass(frozen=True, slots=True)
+class DiceFormula:
+    """A dice value built from a count and a number of sides, each a stat of the same entry or a
+    constant, exactly one of the two for each - ADR 0464. No value when a stat has none or holds a
+    number the dice cannot have (a count from 1 to 100, sides from 2 to 1000)."""
+
+    count_stat_definition_id: uuid.UUID | None
+    count_constant: int | None
+    sides_stat_definition_id: uuid.UUID | None
+    sides_constant: int | None
+
+
 Formula = (
     LinearFormula
     | ComparisonFormula
@@ -208,6 +220,7 @@ Formula = (
     | RatioFormula
     | SelectFormula
     | DiceValueFormula
+    | DiceFormula
 )
 
 
@@ -360,6 +373,14 @@ def formula_of(computed: ComputedStat) -> Formula | None:
             read_as=reading.read_as,
             round_mode=RoundMode(reading.round_mode),
         )
+    if computed.dice is not None:
+        built = computed.dice
+        return DiceFormula(
+            count_stat_definition_id=built.count_stat_definition_id,
+            count_constant=built.count_constant,
+            sides_stat_definition_id=built.sides_stat_definition_id,
+            sides_constant=built.sides_constant,
+        )
     return None
 
 
@@ -376,6 +397,12 @@ def input_ids(formula: Formula) -> list[uuid.UUID]:
         return [formula.source_stat_definition_id]
     if isinstance(formula, DiceValueFormula):
         return [formula.source_stat_definition_id]
+    if isinstance(formula, DiceFormula):
+        return [
+            i
+            for i in (formula.count_stat_definition_id, formula.sides_stat_definition_id)
+            if i is not None
+        ]
     if isinstance(formula, SumFormula):
         return [term.source_stat_definition_id for term in formula.terms]
     if isinstance(formula, ExtremumFormula):
@@ -506,6 +533,26 @@ def apply_dice_value(
         average = held.average
         number = Decimal(average.numerator) / Decimal(average.denominator)
     return _rounded(number, formula.round_mode, target_type)
+
+
+def apply_dice(formula: DiceFormula, resolve: Callable[[uuid.UUID], Value | None]) -> Value | None:
+    """The dice a count and a number of sides make, as their notation. A stat that has no value, or
+    one that is not a whole number the dice allow, gives no value."""
+
+    def part(stat: uuid.UUID | None, constant: int | None) -> int | None:
+        if stat is None:
+            return constant
+        value = resolve(stat)
+        return value if isinstance(value, int) and not isinstance(value, bool) else None
+
+    count = part(formula.count_stat_definition_id, formula.count_constant)
+    sides = part(formula.sides_stat_definition_id, formula.sides_constant)
+    if count is None or sides is None:
+        return None
+    try:
+        return dice.from_parts(count, sides).notation
+    except dice.InvalidDice:
+        return None
 
 
 def apply_sum(
@@ -751,10 +798,13 @@ def apply_formula(
     | ExtremumFormula
     | ProductFormula
     | RatioFormula
-    | DiceValueFormula,
+    | DiceValueFormula
+    | DiceFormula,
     resolve: Callable[[uuid.UUID], Value | None],
     target_type: StatValueType,
 ) -> Value | None:
+    if isinstance(formula, DiceFormula):
+        return apply_dice(formula, resolve)
     if isinstance(formula, DiceValueFormula):
         return apply_dice_value(formula, resolve(formula.source_stat_definition_id), target_type)
     if isinstance(formula, ExtremumFormula):

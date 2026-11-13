@@ -139,7 +139,7 @@ def test_a_dice_value_is_written_as_its_parts_and_reads_back_exactly() -> None:
 def test_a_document_of_format_45_has_no_dice_and_reads_with_none() -> None:
     content, _, _ = _with_dice()
     document, files = rd.encode(content)
-    assert rd.FORMAT == 47
+    assert rd.FORMAT == 48
 
     old = dict(document)
     old["definitions"] = {
@@ -207,7 +207,7 @@ def test_a_dice_value_formula_round_trips_and_a_document_of_format_46_has_none()
         kind="dice_value", source=dice_stat, read_as="average", round_mode="ceil"
     )
     document, files = rd.encode(content)
-    assert rd.FORMAT == 47
+    assert rd.FORMAT == 48
     back = rd.decode(rd.loads(rd.dumps(document)), files)
     assert differences(content, back) == []
     assert back.formulas[(holder, reading)].read_as == "average"
@@ -232,3 +232,48 @@ def test_a_long_or_odd_input_is_refused_at_once(written: str) -> None:
     with pytest.raises(dice.InvalidDice):
         dice.parse(written)
     assert time.perf_counter() - started < 0.5
+
+
+def test_a_dice_formula_round_trips_and_a_document_of_format_47_has_none() -> None:
+    content, holder, dice_stat = _with_dice()
+    count = uuid.UUID(int=902)
+    for key, name in ((count, "Level"), (uuid.UUID(int=903), "Bite")):
+        content.definitions[key] = {
+            **next(iter(content.definitions.values())),
+            "name": name,
+            "value_type": StatValueType.INT if key == count else StatValueType.DICE,
+        }
+    bite = uuid.UUID(int=903)
+    content.formulas[(holder, bite)] = Formula(kind="dice", count=count, sides_constant=8)
+    document, files = rd.encode(content)
+    back = rd.decode(rd.loads(rd.dumps(document)), files)
+    assert differences(content, back) == []
+    built = back.formulas[(holder, bite)]
+    assert (built.count, built.count_constant, built.sides, built.sides_constant) == (
+        count,
+        None,
+        None,
+        8,
+    )
+    assert built.inputs() == [count]
+
+    # A document of format 47 has none of the four in any formula, and reads as holding none.
+    old = dict(document)
+    old["formulas"] = [
+        [
+            a,
+            b,
+            {
+                k: v
+                for k, v in record.items()
+                if k not in ("count", "count_constant", "sides", "sides_constant")
+            },
+        ]
+        for a, b, record in document["formulas"]
+        if record["kind"] != "dice"
+    ]
+    again = rd.decode(old, files, format=47)
+    assert all(
+        (f.count, f.count_constant, f.sides, f.sides_constant) == (None,) * 4
+        for f in again.formulas.values()
+    )

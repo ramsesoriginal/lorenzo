@@ -138,6 +138,12 @@ class ComputedStat(Base):
         cascade="all, delete-orphan",
         passive_deletes=True,
     )
+    dice: Mapped[ComputedStatDice | None] = relationship(
+        foreign_keys="[ComputedStatDice.entity_id, ComputedStatDice.stat_definition_id]",
+        lazy="raise_on_sql",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
 
     @property
     def kind(self) -> str:
@@ -156,6 +162,8 @@ class ComputedStat(Base):
             return "select"
         if self.dice_value is not None:
             return "dice_value"
+        if self.dice is not None:
+            return "dice"
         return "contents" if self.contents is not None else "comparison"
 
     def source_stat_definition_ids(self) -> list[uuid.UUID]:
@@ -197,6 +205,15 @@ class ComputedStat(Base):
             return ids
         if self.dice_value is not None:
             return [self.dice_value.source_stat_definition_id]
+        if self.dice is not None:
+            return [
+                i
+                for i in (
+                    self.dice.count_stat_definition_id,
+                    self.dice.sides_stat_definition_id,
+                )
+                if i is not None
+            ]
         return []
 
 
@@ -237,6 +254,46 @@ class ComputedStatLinear(Base):
     offset: Mapped[Decimal] = mapped_column(Numeric(), server_default=text("0"))
     # Plain text + CHECK rather than a Postgres enum: easier to extend.
     round_mode: Mapped[str] = mapped_column(server_default=text("'none'"))
+
+
+class ComputedStatDice(Base):
+    """A dice value from a count and a number of sides, each a stat or a constant - ADR 0464."""
+
+    __tablename__ = "computed_stat_dice"
+    __table_args__ = (
+        *_kind_key("computed_stat_dice"),
+        same_tenant_fk(
+            "computed_stat_dice_count_stat_definition_id_fkey",
+            ["count_stat_definition_id"],
+            "stat_definition",
+        ),
+        same_tenant_fk(
+            "computed_stat_dice_sides_stat_definition_id_fkey",
+            ["sides_stat_definition_id"],
+            "stat_definition",
+        ),
+        CheckConstraint(
+            "num_nonnulls(count_stat_definition_id, count_constant) = 1",
+            name="computed_stat_dice_one_count",
+        ),
+        CheckConstraint(
+            "num_nonnulls(sides_stat_definition_id, sides_constant) = 1",
+            name="computed_stat_dice_one_sides",
+        ),
+        CheckConstraint(
+            "(count_constant IS NULL OR count_constant BETWEEN 1 AND 100) "
+            "AND (sides_constant IS NULL OR sides_constant BETWEEN 2 AND 1000)",
+            name="computed_stat_dice_constants",
+        ),
+    )
+
+    entity_id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
+    stat_definition_id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
+    tenant_id: Mapped[TenantFk]
+    count_stat_definition_id: Mapped[uuid.UUID | None] = mapped_column(index=True)
+    count_constant: Mapped[int | None]
+    sides_stat_definition_id: Mapped[uuid.UUID | None] = mapped_column(index=True)
+    sides_constant: Mapped[int | None]
 
 
 class ComputedStatDiceValue(Base):
@@ -711,4 +768,5 @@ def formula_load_options(path: _AbstractLoad | None = None) -> list[_AbstractLoa
         join(ComputedStat.ratio),
         join(ComputedStat.select).selectinload(ComputedStatSelect.steps),
         join(ComputedStat.dice_value),
+        join(ComputedStat.dice),
     ]

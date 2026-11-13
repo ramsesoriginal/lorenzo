@@ -40,6 +40,7 @@ from lorenzo_api.models import (
     ComputedStat,
     ComputedStatComparison,
     ComputedStatContents,
+    ComputedStatDice,
     ComputedStatDiceValue,
     ComputedStatExtremum,
     ComputedStatExtremumInput,
@@ -404,7 +405,7 @@ class Names:
         return found if isinstance(found, str) and found else None
 
 
-_FORMULA_ROLES = ("source", "left", "right", "numerator", "denominator", "where")
+_FORMULA_ROLES = ("source", "left", "right", "numerator", "denominator", "where", "count", "sides")
 
 
 def _formula_inputs(formula: Any) -> list[str]:
@@ -1654,6 +1655,16 @@ class _Applier:
                     }
                     for position, (stat, _, constant) in enumerate(operands)
                 ],
+            )
+        elif formula["kind"] == "dice":
+            await s.execute(
+                insert(ComputedStatDice).values(
+                    **keys,
+                    count_stat_definition_id=inputs.get("count"),
+                    count_constant=formula.get("count_constant"),
+                    sides_stat_definition_id=inputs.get("sides"),
+                    sides_constant=formula.get("sides_constant"),
+                )
             )
         elif formula["kind"] == "dice_value":
             await s.execute(

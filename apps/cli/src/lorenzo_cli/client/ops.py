@@ -26,6 +26,7 @@ from lorenzo_cli.client.models import (
     CopyOut,
     CopyPlanOut,
     CopyRequest,
+    DiceFormulaBody,
     DiceValueFormulaBody,
     EntityDetailOut,
     EntityStatWriteOut,
@@ -92,6 +93,7 @@ ComputedStatBody = (
     | RatioFormulaBodyInput
     | SelectFormulaBodyInput
     | DiceValueFormulaBody
+    | DiceFormulaBody
 )
 
 

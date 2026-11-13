@@ -49,6 +49,7 @@ from lorenzo_api.models import (
     ComputedStat,
     ComputedStatComparison,
     ComputedStatContents,
+    ComputedStatDice,
     ComputedStatDiceValue,
     ComputedStatExtremumInput,
     ComputedStatLinear,
@@ -1020,6 +1021,11 @@ async def delete_stat_definition(
         + await count(
             ComputedStatDiceValue,
             ComputedStatDiceValue.source_stat_definition_id == stat_definition_id,
+        )
+        + await count(
+            ComputedStatDice,
+            (ComputedStatDice.count_stat_definition_id == stat_definition_id)
+            | (ComputedStatDice.sides_stat_definition_id == stat_definition_id),
         )
         + await count(
             ComputedStatSelect,

@@ -7,6 +7,7 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from lorenzo_api import dice
 from lorenzo_api.models import Comparator, ComputedStat, RoundMode
 from lorenzo_api.schemas.common import EntitySummary
 from lorenzo_api.schemas.dice import DiceOut
@@ -14,6 +15,7 @@ from lorenzo_api.schemas.vocabulary_check import FindingOut
 from lorenzo_api.stat_evaluation import (
     ComparisonFormula,
     ContentsFormula,
+    DiceFormula,
     DiceValueFormula,
     ExtremumFormula,
     Formula,
@@ -35,6 +37,7 @@ __all__ = [
     "ComputedStatOut",
     "ComputedStatPreviewIn",
     "ComputedStatPreviewOut",
+    "DiceFormulaBody",
     "DiceValueFormulaBody",
     "ContentsExplanationOut",
     "ExtremumInputBody",
@@ -247,6 +250,47 @@ class ProductFormulaBody(BaseModel):
         )
 
 
+class DiceFormulaBody(BaseModel):
+    """A dice value built from a count and a number of sides - ADR 0464. Each is a whole-number
+    stat of the same entry or a constant, exactly one of the two: a count from 1 to 100, sides from
+    2 to 1000. The result is the dice, `3d8` for a count of 3 and 8 sides, and it has no value when
+    a stat has none or holds a number the dice cannot have. It is for a `dice` stat."""
+
+    kind: Literal["dice"] = "dice"
+    count_stat_definition_id: uuid.UUID | None = None
+    count_constant: int | None = None
+    sides_stat_definition_id: uuid.UUID | None = None
+    sides_constant: int | None = None
+
+    @model_validator(mode="after")
+    def _one_each_within_limits(self) -> DiceFormulaBody:
+        if (self.count_stat_definition_id is None) == (self.count_constant is None):
+            raise ValueError(
+                "a dice formula needs exactly one of count_stat_definition_id or count_constant"
+            )
+        if (self.sides_stat_definition_id is None) == (self.sides_constant is None):
+            raise ValueError(
+                "a dice formula needs exactly one of sides_stat_definition_id or sides_constant"
+            )
+        if self.count_constant is not None and not 1 <= self.count_constant <= dice.MAX_COUNT:
+            raise ValueError(f"count_constant is a whole number from 1 to {dice.MAX_COUNT}")
+        if self.sides_constant is not None and not (
+            dice.MIN_SIDES <= self.sides_constant <= dice.MAX_SIDES
+        ):
+            raise ValueError(
+                f"sides_constant is a whole number from {dice.MIN_SIDES} to {dice.MAX_SIDES}"
+            )
+        return self
+
+    def to_formula(self) -> DiceFormula:
+        return DiceFormula(
+            count_stat_definition_id=self.count_stat_definition_id,
+            count_constant=self.count_constant,
+            sides_stat_definition_id=self.sides_stat_definition_id,
+            sides_constant=self.sides_constant,
+        )
+
+
 class DiceValueFormulaBody(BaseModel):
     """`round(min, max or average of the dice)`, read from a dice stat of the same entry - ADR 0463.
     `as` says what is read: the `min`, the `max` or the exact `average` of the dice (a drop
@@ -401,11 +445,19 @@ AnyFormulaBody = (
     | RatioFormulaBody
     | SelectFormulaBody
     | DiceValueFormulaBody
+    | DiceFormulaBody
 )
 FormulaBody = Annotated[AnyFormulaBody, Field(discriminator="kind")]
 
 
 def formula_body_of(formula: Formula) -> AnyFormulaBody:
+    if isinstance(formula, DiceFormula):
+        return DiceFormulaBody(
+            count_stat_definition_id=formula.count_stat_definition_id,
+            count_constant=formula.count_constant,
+            sides_stat_definition_id=formula.sides_stat_definition_id,
+            sides_constant=formula.sides_constant,
+        )
     if isinstance(formula, DiceValueFormula):
         return DiceValueFormulaBody(
             source_stat_definition_id=formula.source_stat_definition_id,
@@ -610,4 +662,5 @@ class ComputedStatDependentOut(BaseModel):
         "ratio",
         "select",
         "dice_value",
+        "dice",
     ]

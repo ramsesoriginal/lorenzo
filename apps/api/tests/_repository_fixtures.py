@@ -25,6 +25,7 @@ from lorenzo_api.models import (
     ComputedStat,
     ComputedStatComparison,
     ComputedStatContents,
+    ComputedStatDice,
     ComputedStatDiceValue,
     ComputedStatExtremum,
     ComputedStatExtremumInput,
@@ -462,6 +463,7 @@ async def seed_every_content_table(
             ComputedStat(entity_id=chest.id, stat_definition_id=might.id, tenant_id=tenant_id),
             ComputedStat(entity_id=chest.id, stat_definition_id=modifier.id, tenant_id=tenant_id),
             ComputedStat(entity_id=guild.id, stat_definition_id=modifier.id, tenant_id=tenant_id),
+            ComputedStat(entity_id=guild.id, stat_definition_id=hit_dice.id, tenant_id=tenant_id),
             Containment(child_entity_id=blade.id, parent_entity_id=chest.id, tenant_id=tenant_id),
             Ownership(owned_entity_id=blade.id, owner_character_id=guild.id, tenant_id=tenant_id),
         ]
@@ -587,6 +589,14 @@ async def seed_every_content_table(
                 tenant_id=tenant_id,
                 source_stat_definition_id=hit_dice.id,
                 read_as="min",
+            ),
+            # The Guild's Hit dice: as many d8 as its Strength (ADR 0464).
+            ComputedStatDice(
+                entity_id=guild.id,
+                stat_definition_id=hit_dice.id,
+                tenant_id=tenant_id,
+                count_stat_definition_id=strength.id,
+                sides_constant=8,
             ),
             # Might = Strength + 2 × Modifier + 1 (ADR 0126).
             ComputedStatSum(
