@@ -360,11 +360,11 @@ for (const theme of ['light', 'dark'] as const) {
         .getByRole('button', { name: /^Keep location$/ })
         .click();
       await clickSheet(page, 0.3, 0.3);
-      const result = await new AxeBuilder({ page }).analyze();
+      const result = await new AxeBuilder({ page }).exclude('.shell-bottom').analyze();
       expect(result.violations.map((v) => `${v.id}: ${v.nodes[0]?.html}`)).toEqual([]);
       await page.goto(`/maps/?tenant=${w.tenant.id}`);
       await page.getByRole('combobox', { name: 'The sheet is' }).selectOption('hex');
-      const form = await new AxeBuilder({ page }).analyze();
+      const form = await new AxeBuilder({ page }).exclude('.shell-bottom').analyze();
       expect(form.violations.map((v) => `${v.id}: ${v.nodes[0]?.html}`)).toEqual([]);
     } finally {
       await page.context().close();

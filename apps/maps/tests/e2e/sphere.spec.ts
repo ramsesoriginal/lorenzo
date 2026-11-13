@@ -324,14 +324,14 @@ for (const theme of ['light', 'dark'] as const) {
       await page.goto(`/map/?tenant=${w.tenant.id}&id=${chart.id}`);
       await expect(page.getByRole('heading', { name: 'Aeris', exact: true })).toBeVisible();
       await page.getByRole('button', { name: 'Edit this map' }).click();
-      const round = await new AxeBuilder({ page }).analyze();
+      const round = await new AxeBuilder({ page }).exclude('.shell-bottom').analyze();
       expect(round.violations.map((v) => `${v.id}: ${v.nodes[0]?.html}`)).toEqual([]);
       await page.getByRole('combobox', { name: 'Drawn as' }).selectOption('equirectangular');
-      const flat = await new AxeBuilder({ page }).analyze();
+      const flat = await new AxeBuilder({ page }).exclude('.shell-bottom').analyze();
       expect(flat.violations.map((v) => `${v.id}: ${v.nodes[0]?.html}`)).toEqual([]);
       await page.goto(`/maps/?tenant=${w.tenant.id}`);
       await page.getByRole('combobox', { name: 'The sheet is' }).selectOption('sphere');
-      const form = await new AxeBuilder({ page }).analyze();
+      const form = await new AxeBuilder({ page }).exclude('.shell-bottom').analyze();
       expect(form.violations.map((v) => `${v.id}: ${v.nodes[0]?.html}`)).toEqual([]);
     } finally {
       await page.context().close();

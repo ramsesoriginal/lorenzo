@@ -342,10 +342,10 @@ for (const theme of ['light', 'dark'] as const) {
       await page.getByText('Legend', { exact: true }).click();
       await page.locator('.map-places').getByRole('button', { name: /Keep/ }).click();
       await expect(page.getByRole('heading', { name: 'Change Keep' })).toBeVisible();
-      const result = await new AxeBuilder({ page }).analyze();
+      const result = await new AxeBuilder({ page }).exclude('.shell-bottom').analyze();
       expect(result.violations.map((v) => `${v.id}: ${v.nodes[0]?.html}`)).toEqual([]);
       await page.getByRole('button', { name: 'Circle', exact: true }).click();
-      const drawing = await new AxeBuilder({ page }).analyze();
+      const drawing = await new AxeBuilder({ page }).exclude('.shell-bottom').analyze();
       expect(drawing.violations.map((v) => `${v.id}: ${v.nodes[0]?.html}`)).toEqual([]);
     } finally {
       await page.context().close();

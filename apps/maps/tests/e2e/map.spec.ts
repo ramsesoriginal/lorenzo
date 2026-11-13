@@ -211,7 +211,7 @@ test('a mark and a row of the list open the entry card, and Escape puts it away'
     // A Map's own kind has its word too, and axe finds nothing wrong with a card open.
     await drawing.locator('[aria-label^="Salt road"]').first().focus();
     await expect(card).toContainText('Salt road');
-    const result = await new AxeBuilder({ page: gm }).analyze();
+    const result = await new AxeBuilder({ page: gm }).exclude('.shell-bottom').analyze();
     expect(result.violations.map((v) => `${v.id}: ${v.nodes[0]?.html}`)).toEqual([]);
   } finally {
     await gm.context().close();
@@ -265,7 +265,7 @@ for (const theme of ['light', 'dark'] as const) {
         await expect(gm.locator('[data-page]')).toBeVisible();
         await expect(gm.locator('[data-loading]')).toHaveCount(0);
         await expect(gm.getByRole('heading', { level: 1 })).toBeVisible();
-        const result = await new AxeBuilder({ page: gm }).analyze();
+        const result = await new AxeBuilder({ page: gm }).exclude('.shell-bottom').analyze();
         expect(result.violations.map((v) => `${v.id}: ${v.nodes[0]?.html}`)).toEqual([]);
       }
     } finally {

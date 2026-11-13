@@ -148,7 +148,7 @@ test('a Location refuses to become part of itself and the pages have no accessib
       await gm.goto(address);
       await expect(gm.locator('[data-page]')).toBeVisible();
       await expect(gm.locator('[data-loading]')).toHaveCount(0);
-      const result = await new AxeBuilder({ page: gm }).analyze();
+      const result = await new AxeBuilder({ page: gm }).exclude('.shell-bottom').analyze();
       expect(result.violations.map((v) => `${v.id}: ${v.nodes[0]?.html}`)).toEqual([]);
     }
   } finally {

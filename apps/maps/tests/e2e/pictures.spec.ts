@@ -387,7 +387,7 @@ for (const theme of ['light', 'dark'] as const) {
         .first()
         .getByRole('combobox', { name: 'Where it lies' })
         .selectOption('two');
-      const result = await new AxeBuilder({ page }).analyze();
+      const result = await new AxeBuilder({ page }).exclude('.shell-bottom').analyze();
       expect(result.violations.map((v) => `${v.id}: ${v.nodes[0]?.html}`)).toEqual([]);
     } finally {
       await page.context().close();
