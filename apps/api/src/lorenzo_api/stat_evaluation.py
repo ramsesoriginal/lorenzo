@@ -644,6 +644,38 @@ MAX_FORMULA_CHAIN = 200
 through the chain, so an unbounded one cannot be read."""
 
 
+def _chains_below(
+    edges: Mapping[uuid.UUID, set[uuid.UUID]],
+    readers: Mapping[uuid.UUID, list[uuid.UUID]],
+    unread: dict[uuid.UUID, int],
+) -> dict[uuid.UUID, int]:
+    """Topological order, a stat after everything it reads: Kahn's walk from the stats that read
+    nothing, so `below[n]` (the longest chain starting at n) is final when n comes up."""
+    below: dict[uuid.UUID, int] = {}
+    ready = [node for node, count in unread.items() if count == 0]
+    while ready:
+        node = ready.pop()
+        below[node] = max((below[source] + 1 for source in edges.get(node, ())), default=0)
+        for reader in readers.get(node, ()):
+            unread[reader] -= 1
+            if unread[reader] == 0:
+                ready.append(reader)
+    return below
+
+
+def formula_chains_below(edges: Mapping[uuid.UUID, set[uuid.UUID]]) -> dict[uuid.UUID, int]:
+    """For each stat of the definition-level graph, how many formulas lie below it in the longest
+    chain that starts at it (0 for a stat nothing computes). A stat caught in a cycle is left out
+    (a write that would make a cycle is refused, ADR 0104; one that got in has no chain)."""
+    readers: dict[uuid.UUID, list[uuid.UUID]] = {}
+    unread = {node: len(sources) for node, sources in edges.items()}
+    for node, sources in edges.items():
+        for source in sources:
+            readers.setdefault(source, []).append(node)
+            unread.setdefault(source, 0)
+    return _chains_below(edges, readers, unread)
+
+
 def longest_formula_chain(edges: Mapping[uuid.UUID, set[uuid.UUID]], through: uuid.UUID) -> int:
     """The number of formulas in the longest chain of the definition-level graph that runs through
     `through`: a path of k edges is k formulas, the last stat on it being one that is read, not
@@ -655,17 +687,7 @@ def longest_formula_chain(edges: Mapping[uuid.UUID, set[uuid.UUID]], through: uu
         for source in sources:
             readers.setdefault(source, []).append(node)
             unread.setdefault(source, 0)
-    # Topological order, a stat after everything it reads: Kahn's walk from the stats that read
-    # nothing, so `below[n]` (the longest chain starting at n) is final when n comes up.
-    below: dict[uuid.UUID, int] = {}
-    ready = [node for node, count in unread.items() if count == 0]
-    while ready:
-        node = ready.pop()
-        below[node] = max((below[source] + 1 for source in edges.get(node, ())), default=0)
-        for reader in readers.get(node, ()):
-            unread[reader] -= 1
-            if unread[reader] == 0:
-                ready.append(reader)
+    below = _chains_below(edges, readers, unread)
     # `above[n]` is the longest chain ending at n, from the readers' side.
     above: dict[uuid.UUID, int] = {}
     for node in sorted(below, key=below.__getitem__, reverse=True):

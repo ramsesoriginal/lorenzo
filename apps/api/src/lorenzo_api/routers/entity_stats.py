@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Header, Request, Response
+from fastapi import APIRouter, Depends, Header, Query, Request, Response
 from sqlalchemy import func, select
 from sqlalchemy.orm import selectinload
 
@@ -73,6 +73,7 @@ from lorenzo_api.stat_evaluation import (
     picked_operand,
     ratio_was_rounded,
 )
+from lorenzo_api.vocabulary_check import WARNINGS_HELP, warnings_for_write
 
 # get_tenant_or_404 here, not get_tenant_context (mirrors
 # routers/item_instances.py's identical ADR 0032/RFC 0005 precedent) -
@@ -366,13 +367,26 @@ async def _write_out(
     request: Request,
     user: CurrentUser,
     previous: PreviousOwnStat,
+    stat_definition_id: uuid.UUID | None = None,
+    warnings: bool = False,
 ) -> EntityStatWriteOut:
     """The entry after the write, with what it replaced, and its new version as the ETag."""
     detail = await _entity_detail(
         session, tenant_id=tenant_id, entity_id=entity_id, request=request, user=user
     )
     response.headers["ETag"] = etag_for(detail.updated_at)
-    return EntityStatWriteOut(**dict(detail), previous=previous)
+    found = (
+        await warnings_for_write(
+            session,
+            tenant_id=tenant_id,
+            user_id=user.id,
+            entity_id=entity_id,
+            stat_definition_id=stat_definition_id,
+        )
+        if warnings and stat_definition_id is not None
+        else None
+    )
+    return EntityStatWriteOut(**dict(detail), previous=previous, warnings=found)
 
 
 @router.put("/stats/{stat_definition_id}")
@@ -386,6 +400,7 @@ async def set_entity_stat(
     session: SessionDep,
     user: CurrentUser,
     if_match: Annotated[str | None, Header()] = None,
+    warnings: Annotated[bool, Query(description=WARNINGS_HELP)] = False,
 ) -> EntityStatWriteOut:
     """Deliberately not recorded in the activity log (ADR 0084: stat-value
     writes are descriptive-content edits, not structural changes).
@@ -440,6 +455,8 @@ async def set_entity_stat(
         request=request,
         user=user,
         previous=previous,
+        stat_definition_id=stat_definition_id,
+        warnings=warnings,
     )
 
 
@@ -454,6 +471,7 @@ async def _set_tag(
     response: Response,
     user: CurrentUser,
     if_match: str | None,
+    warnings: bool = False,
 ) -> EntityStatWriteOut:
     entity = await get_entity_or_404(session, entity_id, tenant_id)
     stat_definition = await _get_stat_definition_or_404(session, stat_definition_id, tenant_id)
@@ -480,6 +498,8 @@ async def _set_tag(
         request=request,
         user=user,
         previous=previous,
+        stat_definition_id=stat_definition_id,
+        warnings=warnings,
     )
 
 
@@ -493,6 +513,7 @@ async def set_entity_tag(
     session: SessionDep,
     user: CurrentUser,
     if_match: Annotated[str | None, Header()] = None,
+    warnings: Annotated[bool, Query(description=WARNINGS_HELP)] = False,
 ) -> EntityStatWriteOut:
     """Sets a bool stat to `true` on this entity itself, and adds the
     stat's group to the entity if missing - ADR 0103/RFC 0016. No body.
@@ -509,6 +530,7 @@ async def set_entity_tag(
         response=response,
         user=user,
         if_match=if_match,
+        warnings=warnings,
     )
 
 
@@ -522,6 +544,7 @@ async def unset_entity_tag(
     session: SessionDep,
     user: CurrentUser,
     if_match: Annotated[str | None, Header()] = None,
+    warnings: Annotated[bool, Query(description=WARNINGS_HELP)] = False,
 ) -> EntityStatWriteOut:
     """Sets a bool stat to an explicit `false` on this entity itself - an
     override of whatever a prototype says, not silence (ADR 0103: the door
@@ -538,6 +561,7 @@ async def unset_entity_tag(
         response=response,
         user=user,
         if_match=if_match,
+        warnings=warnings,
     )
 
 
