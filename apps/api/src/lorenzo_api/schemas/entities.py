@@ -3,12 +3,17 @@ from datetime import datetime
 from typing import Any, Literal
 
 from fastapi import Request
-from pydantic import BaseModel, Field, model_validator
+from pydantic import (
+    BaseModel,
+    Field,
+    model_validator,
+)
 
 from lorenzo_api.information_visibility import InformationReader
 from lorenzo_api.models import Entity, Information, VEffectiveStat
 from lorenzo_api.schemas.common import EntitySummary, Slug
 from lorenzo_api.schemas.payloads import PayloadOut, payload_to_schema
+from lorenzo_api.schemas.vocabulary_check import FindingOut
 from lorenzo_api.stat_evaluation import evaluate
 
 
@@ -512,3 +517,6 @@ class EntityStatWriteOut(EntityDetailOut):
     `previous` existed is unaffected (ADR 0225)."""
 
     previous: PreviousOwnStat
+    # What the vocabulary check says of the stat just written, when the request carried
+    # `warnings=true` (ADR 0461); left out of the answer otherwise.
+    warnings: list[FindingOut] | None = Field(default=None, exclude_if=lambda value: value is None)
