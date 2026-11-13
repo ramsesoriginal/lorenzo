@@ -128,6 +128,10 @@ Where a table maps a tier to values (an experience value for a challenge rating)
 
 A twin stat holds the converted value: `weight_kg = linear(weight, 0.45359237, 0, none)`, a `float` stat with the unit `kg`. Conversion is a constant per twin; a table of non-linear values is not.
 
+## Checking a vocabulary
+
+The rules above do what they say, and some of what they say surprises. `GET /tenants/{id}/vocabulary-check` ([ADR 0458](../adr/0458-the-vocabulary-check-route-and-its-first-findings.md) to [0461](../adr/0461-warnings-on-the-writes-of-a-stat-and-of-a-formula.md)) reads a library and says where, without refusing or changing anything. Its findings: `unset-input` (a computed stat has no value because an input has none), `own-value-shadows-formula` (a value of an entry's own wins over a formula an ancestor holds), `tie` (two ancestors set a stat at one distance and the group priority, the parent order or the id decided; for one entry, with `entry_id`), and, as information, `computed-outside-scale`, `above-hint` and `formula-chain-depth`. Narrow it with `code`, `entry_id` or `parent_id` with `recursive`, `kind` and `stat_definition_id`. A write of a stat, a tag or a formula answers with the findings for what it wrote when it carries `warnings=true`.
+
 ## Traps
 
 - **An unset input leaves the result unset.** A `sum` with one term without a value has no value, and the explanation of it is not found. Store a 0 on the base prototype for every optional term.
