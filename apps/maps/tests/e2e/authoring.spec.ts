@@ -3,7 +3,7 @@ import AxeBuilder from '@axe-core/playwright';
 import { type Browser, expect, type Page, test } from '@playwright/test';
 import { apiAs, ok, refreshTokenFor } from './support/api.ts';
 import { REFRESH_TOKEN_KEY, SITE_URL } from './support/env.ts';
-import { openControl, openPanel } from './support/map-ui.ts';
+import { openControl, openPanel, stageBox } from './support/map-ui.ts';
 
 async function signedIn(browser: Browser, subject: string, theme?: 'light' | 'dark') {
   const token = await refreshTokenFor(subject);
@@ -83,7 +83,7 @@ const geometryOf = (row: { geometry: unknown } | undefined): Geometry =>
 
 /** A click at a fraction of the drawing, inside the sheet. */
 async function clickSheet(page: Page, fx: number, fy: number) {
-  const box = await page.locator('.map-stage').boundingBox();
+  const box = await stageBox(page);
   if (!box) throw new Error('the map has no box');
   await page.mouse.click(box.x + box.width * fx, box.y + box.height * fy);
 }
@@ -437,7 +437,7 @@ test('the outliner places a place, by button or by dragging, and History steps b
       .getByRole('button', { name: 'Place Lighthouse on the Map' })
       .locator('xpath=..')
       .dispatchEvent('dragstart', { dataTransfer });
-    const box = await page.locator('.map-stage').boundingBox();
+    const box = await stageBox(page);
     if (!box) throw new Error('the map has no box');
     await page.locator('.map-stage').dispatchEvent('drop', {
       dataTransfer,

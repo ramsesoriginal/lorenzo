@@ -616,14 +616,25 @@ export async function mountMap() {
         else noSelection();
         centre.hidden = !row;
         if (row) centre.textContent = `Centre on ${row.name}`;
-        // While drawing, what is selected shows in the dock and the Map stays clear of the panel.
-        if (row && !editor?.editing()) openPanel('selected');
+        // What is selected shows on the tab for it, or in the options while the tools are on.
+        // Placing from the list of places keeps that list in front, to place the next one.
+        if (row && !keepTab) openPanel(editor?.editing() ? 'options' : 'selected');
         if (fromList || (entryId === null && controller?.getView().selection)) {
           controller?.select(entryId);
         }
         editor?.selected(entryId);
       };
       centre.addEventListener('click', () => selected && controller?.centreOn(selected));
+
+      let keepTab = false;
+      const placing = async (go: () => Promise<void>) => {
+        keepTab = true;
+        try {
+          await go();
+        } finally {
+          keepTab = false;
+        }
+      };
 
       const drawList = () => {
         buttons.clear();
@@ -659,6 +670,7 @@ export async function mountMap() {
         ? ([
             ['selected', 'Selected'],
             ['places', 'Places'],
+            ['options', 'Options'],
             ['history', 'History'],
             ['settings', 'Settings'],
           ] as const)
@@ -946,10 +958,11 @@ export async function mountMap() {
           tools.append(editor.toolbar);
           // Drawing starts with the Map clear: the panel puts itself away.
           editor.toolbar.addEventListener('click', () => {
-            if (editor?.editing()) closePanel();
+            if (editor?.editing()) openPanel('options');
+            else closePanel();
           });
         }
-        editDock.append(editor.panel);
+        (bodies.get('options') as HTMLElement).append(editor.panel);
         if (!phoneNow()) editDock.append(editor.commandLine);
         (bodies.get('history') as HTMLElement).append(editor.history);
 
@@ -960,7 +973,7 @@ export async function mountMap() {
           placed: () => new Set(rows.map((r) => r.id)),
           place: async (entry) => {
             const centre = controller?.getView().centre ?? [0, 0];
-            await ed.placeEntry(entry, [centre[0], centre[1]]);
+            await placing(() => ed.placeEntry(entry, [centre[0], centre[1]]));
             void outliner.refresh();
           },
         });
@@ -990,7 +1003,7 @@ export async function mountMap() {
             { zoom: state.zoom, centre: state.centre },
             [event.clientX - box.left, event.clientY - box.top],
           );
-          void ed.placeEntry(entry, [at[0], at[1]]).then(() => outliner.refresh());
+          void placing(() => ed.placeEntry(entry, [at[0], at[1]])).then(() => outliner.refresh());
         });
       }
 

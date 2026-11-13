@@ -3,7 +3,7 @@ import AxeBuilder from '@axe-core/playwright';
 import { type Browser, expect, type Page, test } from '@playwright/test';
 import { apiAs, ok, refreshTokenFor } from './support/api.ts';
 import { REFRESH_TOKEN_KEY, SITE_URL } from './support/env.ts';
-import { openControl, openPanel } from './support/map-ui.ts';
+import { openControl, openPanel, stageBox } from './support/map-ui.ts';
 
 async function signedIn(browser: Browser, subject: string, theme?: 'light' | 'dark') {
   const token = await refreshTokenFor(subject);
@@ -89,23 +89,27 @@ type Geometry = { parts: { shape: string; at?: number[]; pts?: number[][] }[] };
 const geometryOf = (row: { geometry: unknown } | undefined): Geometry =>
   (row?.geometry ?? { parts: [] }) as Geometry;
 
-async function stageBox(page: Page) {
-  const box = await page.locator('.map-stage').boundingBox();
+async function settledBox(page: Page) {
+  const box = await stageBox(page);
   if (!box) throw new Error('the map has no box');
   return box;
 }
 
 /** A click at a fraction of the drawing. */
 async function clickSheet(page: Page, fx: number, fy: number) {
-  const box = await stageBox(page);
+  const box = await settledBox(page);
   await page.mouse.click(box.x + box.width * fx, box.y + box.height * fy);
 }
 
-/** The longitude and latitude a flat sphere drawn whole has at a fraction of the drawing. */
+/** The longitude and latitude the page itself says a fraction of the drawing is, read off its pointer note. */
 async function lonLatAt(page: Page, fx: number, fy: number): Promise<[number, number]> {
-  const box = await stageBox(page);
-  const scale = Math.min(box.width / 360, box.height / 180);
-  return [(fx * box.width - box.width / 2) / scale, -(fy * box.height - box.height / 2) / scale];
+  const box = await settledBox(page);
+  await page.mouse.move(box.x + box.width * fx, box.y + box.height * fy);
+  const note = page.locator('.map-cell');
+  await expect(note).toHaveText(/^\d+\.\d° [NS], \d+\.\d° [EW]$/);
+  const m = /^(\d+\.\d)° ([NS]), (\d+\.\d)° ([EW])$/.exec((await note.textContent()) ?? '');
+  if (!m) throw new Error('no pointer note');
+  return [Number(m[3]) * (m[4] === 'W' ? -1 : 1), Number(m[1]) * (m[2] === 'S' ? -1 : 1)];
 }
 
 const marks = (page: Page, id: string) => page.locator(`.map-stage [data-entry="${id}"]`);
@@ -167,7 +171,8 @@ test('on a flat sphere the pointer says where it is and a writer draws a pin, a 
     await expect(page.getByRole('heading', { name: 'Aeris', exact: true })).toBeVisible();
     await expect(limb(page)).toHaveCount(0);
     await expect(gridPaths(page)).toHaveCount(1);
-    const box = await stageBox(page);
+    const box = await page.locator('.map-stage').boundingBox();
+    if (!box) throw new Error('the map has no box');
     await page.mouse.move(box.x + box.width * 0.5, box.y + box.height * 0.5);
     await expect(page.locator('.map-cell')).toHaveText('0.0° N, 0.0° E');
     await page.mouse.move(box.x + box.width * 0.75, box.y + box.height * 0.25);

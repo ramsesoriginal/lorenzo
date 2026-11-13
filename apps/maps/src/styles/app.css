@@ -285,6 +285,14 @@
   overflow: hidden;
 }
 
+/* The panel sits beside the Map, not over it: the sheet shrinks to what is left, so a click on the
+   sheet is still a click on the sheet. */
+@media (min-width: 721px) {
+  .map-workspace[data-panel="open"] .map-stage {
+    inset-inline-end: min(26rem, 100%);
+  }
+}
+
 .map-float {
   position: absolute;
   z-index: 2;

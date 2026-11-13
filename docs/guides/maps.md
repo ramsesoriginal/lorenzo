@@ -88,4 +88,4 @@ Authors, GMs, and Owners and Organizers who can see everything can add, rename, 
 
 ## Drawing with the keyboard
 
-While the tools are on, each tool has one key (shown on its button), a **command line** under the toolbox takes a tool's name, `PLACE name x,y`, `SELECT name`, `UNDO`, `REDO`, `FIT` and `HELP` (press `/` to reach it), the **Places** tab lists the places not yet on the Map to place with a button or to drag onto it, and **History** lists each step by name with a way back to any of them. **Shortcuts** changes a tool's key; your keys are yours alone and kept in this browser.
+While the tools are on, each tool has one key (shown on its button), a **command line** under the toolbox takes a tool's name, `PLACE name x,y`, `SELECT name`, `UNDO`, `REDO`, `FIT` and `HELP` (press `/` to reach it), the **Options** tab beside the Map holds what the tool needs, the **Places** tab lists the entries not yet on the Map to place with a button or to drag onto it, and **History** lists each step by name with a way back to any of them. **Shortcuts** changes a tool's key; your keys are yours alone and kept in this browser.
