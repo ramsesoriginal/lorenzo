@@ -25,6 +25,7 @@ from lorenzo_api.models import (
     ComputedStat,
     ComputedStatComparison,
     ComputedStatContents,
+    ComputedStatDiceValue,
     ComputedStatExtremum,
     ComputedStatExtremumInput,
     ComputedStatLinear,
@@ -368,7 +369,10 @@ async def seed_every_content_table(
     load = StatDefinition(
         tenant_id=tenant_id, stat_group_id=group.id, name="Load", value_type=StatValueType.INT
     )
-    session.add_all([strength, modifier, strong, alignment, might, load])
+    hit_dice = StatDefinition(
+        tenant_id=tenant_id, stat_group_id=group.id, name="Hit dice", value_type=StatValueType.DICE
+    )
+    session.add_all([strength, modifier, strong, alignment, might, load, hit_dice])
     session.add_all(
         [
             Item(entity_id=sword.id, tenant_id=tenant_id, starts_inactive=True),
@@ -439,6 +443,15 @@ async def seed_every_content_table(
                 tenant_id=tenant_id,
                 value_int=16,
             ),
+            EntityStat(
+                entity_id=sword.id,
+                stat_definition_id=hit_dice.id,
+                tenant_id=tenant_id,
+                dice_count=4,
+                dice_sides=6,
+                dice_drop_mode="lowest",
+                dice_drop_count=1,
+            ),
             ComputedStat(entity_id=sword.id, stat_definition_id=modifier.id, tenant_id=tenant_id),
             ComputedStat(entity_id=sword.id, stat_definition_id=strong.id, tenant_id=tenant_id),
             ComputedStat(entity_id=sword.id, stat_definition_id=might.id, tenant_id=tenant_id),
@@ -448,6 +461,7 @@ async def seed_every_content_table(
             ComputedStat(entity_id=guild.id, stat_definition_id=load.id, tenant_id=tenant_id),
             ComputedStat(entity_id=chest.id, stat_definition_id=might.id, tenant_id=tenant_id),
             ComputedStat(entity_id=chest.id, stat_definition_id=modifier.id, tenant_id=tenant_id),
+            ComputedStat(entity_id=guild.id, stat_definition_id=modifier.id, tenant_id=tenant_id),
             Containment(child_entity_id=blade.id, parent_entity_id=chest.id, tenant_id=tenant_id),
             Ownership(owned_entity_id=blade.id, owner_character_id=guild.id, tenant_id=tenant_id),
         ]
@@ -565,6 +579,14 @@ async def seed_every_content_table(
                 numerator_stat_definition_id=strength.id,
                 denominator_constant=Decimal("2"),
                 round_mode="floor",
+            ),
+            # The Guild's Modifier: the fewest its Hit dice can show (ADR 0463).
+            ComputedStatDiceValue(
+                entity_id=guild.id,
+                stat_definition_id=modifier.id,
+                tenant_id=tenant_id,
+                source_stat_definition_id=hit_dice.id,
+                read_as="min",
             ),
             # Might = Strength + 2 × Modifier + 1 (ADR 0126).
             ComputedStatSum(

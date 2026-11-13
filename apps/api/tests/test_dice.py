@@ -2,7 +2,10 @@
 the release document (format 46), and what an older document says of it.
 """
 
+import itertools
+import time
 import uuid
+from fractions import Fraction
 
 import pytest
 from _content_compare import differences
@@ -11,7 +14,7 @@ from _content_fixtures import full_content
 from lorenzo_api import dice
 from lorenzo_api import release_document as rd
 from lorenzo_api.models import StatValueType
-from lorenzo_api.repository_content import Content, StatValue
+from lorenzo_api.repository_content import Content, Formula, StatValue
 
 
 @pytest.mark.parametrize(
@@ -136,7 +139,7 @@ def test_a_dice_value_is_written_as_its_parts_and_reads_back_exactly() -> None:
 def test_a_document_of_format_45_has_no_dice_and_reads_with_none() -> None:
     content, _, _ = _with_dice()
     document, files = rd.encode(content)
-    assert rd.FORMAT == 46
+    assert rd.FORMAT == 47
 
     old = dict(document)
     old["definitions"] = {
@@ -152,3 +155,70 @@ def test_a_document_of_format_45_has_no_dice_and_reads_with_none() -> None:
     back = rd.decode(old, files, format=45)
     assert all(value.dice_count is None for value in back.stats.values())
     assert back.stats  # the other stats are read as they were
+
+
+def test_the_minimum_the_maximum_and_the_exact_average_of_the_rfcs_table() -> None:
+    assert (dice.parse("d20").minimum, dice.parse("d20").maximum) == (1, 20)
+    assert dice.parse("d20").average == Fraction(21, 2)
+    assert (dice.parse("2d6").minimum, dice.parse("2d6").maximum) == (2, 12)
+    assert dice.parse("2d6").average == 7
+    drop = dice.parse("4d6dl1")
+    assert (drop.minimum, drop.maximum) == (3, 18)
+    assert drop.average == Fraction(15869, 1296)
+    assert float(drop.average) == pytest.approx(12.2446, abs=1e-4)
+    assert (dice.parse("4d6dh1").minimum, dice.parse("4d6dh1").maximum) == (3, 18)
+    assert dice.parse("100d1000dl99").minimum == 1
+
+
+@pytest.mark.parametrize(
+    "written",
+    ["3d4dl1", "3d4dh1", "4d3dl2", "4d3dh2", "5d2dl3", "5d2dh4", "2d5dl1", "3d6dh2", "4d6dl3"],
+)
+def test_the_average_of_a_drop_is_what_counting_every_roll_says(written: str) -> None:
+    value = dice.parse(written)
+    total = Fraction(0)
+    rolls = list(itertools.product(range(1, value.sides + 1), repeat=value.count))
+    for roll in rolls:
+        ordered = sorted(roll)
+        drop = value.drop_count or 0
+        total += sum(ordered[drop:] if value.drop_mode == "lowest" else ordered[:-drop])
+    assert value.average == total / len(rolls)
+
+
+def test_the_average_of_a_large_drop_is_exact_and_cheap() -> None:
+    started = time.perf_counter()
+    value = dice.parse("100d1000dl50")
+    exact = value.average
+    assert time.perf_counter() - started < 5
+    # Cached by value: the same dice are the same fraction, found again at no cost.
+    assert dice.parse("100W1000DL50").average is exact
+    assert value.minimum < float(exact) < value.maximum
+
+
+def test_a_dice_value_formula_round_trips_and_a_document_of_format_46_has_none() -> None:
+    content, holder, dice_stat = _with_dice()
+    reading = uuid.UUID(int=901)
+    content.definitions[reading] = {
+        **next(iter(content.definitions.values())),
+        "name": "Most damage",
+        "value_type": StatValueType.INT,
+    }
+    content.formulas[(holder, reading)] = Formula(
+        kind="dice_value", source=dice_stat, read_as="average", round_mode="ceil"
+    )
+    document, files = rd.encode(content)
+    assert rd.FORMAT == 47
+    back = rd.decode(rd.loads(rd.dumps(document)), files)
+    assert differences(content, back) == []
+    assert back.formulas[(holder, reading)].read_as == "average"
+    assert back.formulas[(holder, reading)].inputs() == [dice_stat]
+
+    # A document of format 46 has no `read_as` in any formula, and reads as holding none.
+    old = dict(document)
+    old["formulas"] = [
+        [a, b, {k: v for k, v in record.items() if k != "read_as"}]
+        for a, b, record in document["formulas"]
+        if record["kind"] != "dice_value"
+    ]
+    again = rd.decode(old, files, format=46)
+    assert again.formulas and all(f.read_as is None for f in again.formulas.values())

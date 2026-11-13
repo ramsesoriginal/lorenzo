@@ -48,7 +48,7 @@ from lorenzo_api.repository_content import (
 )
 from lorenzo_api.roles import DEFINITION_ROLES, GROUP_ROLES
 
-FORMAT = 46
+FORMAT = 47
 _DEFINITION_ROLES = frozenset(DEFINITION_ROLES)
 _GROUP_ROLES = frozenset(GROUP_ROLES)
 
@@ -325,6 +325,8 @@ _FORMULA = _dataclass(
             )
         ),
         "otherwise": _optional(_SELECT_RESULT),
+        # What a `dice_value` reads of its dice stat (format 47, ADR 0463).
+        "read_as": _PLAIN,
         "kind": _PLAIN,
         "source": _optional(_ID),
         "multiplier": _optional(_DECIMAL),
@@ -974,6 +976,15 @@ def _read_v45(document: Document, files: Mapping[str, bytes]) -> Content:
 
 
 def _read_v46(document: Document, files: Mapping[str, bytes]) -> Content:
+    # Before format 47 there was no `dice_value` formula (ADR 0463): none reads anything.
+    formulas = [
+        [entity, definition, {"read_as": None, **record}]
+        for entity, definition, record in document["formulas"]
+    ]
+    return _read_v47({**document, "formulas": formulas}, files)
+
+
+def _read_v47(document: Document, files: Mapping[str, bytes]) -> Content:
     content: Content = _CONTENT.decode(document, dict(files))
     return content
 
@@ -1027,6 +1038,7 @@ READERS: dict[int, Callable[[Document, Mapping[str, bytes]], Content]] = {
     44: _read_v44,
     45: _read_v45,
     46: _read_v46,
+    47: _read_v47,
 }
 
 

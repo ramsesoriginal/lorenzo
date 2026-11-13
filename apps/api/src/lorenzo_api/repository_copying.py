@@ -55,6 +55,7 @@ from lorenzo_api.models import (
     ComputedStat,
     ComputedStatComparison,
     ComputedStatContents,
+    ComputedStatDiceValue,
     ComputedStatExtremumInput,
     ComputedStatLinear,
     ComputedStatProductFactor,
@@ -1124,6 +1125,16 @@ class _Planner:
                         "constant": constant,
                     }
                     for position, (stat, constant) in enumerate(formula.operands)
+                )
+            elif formula.kind == "dice_value":
+                assert formula.source is not None
+                self.rows["computed_stat_dice_value"].append(
+                    key
+                    | {
+                        "source_stat_definition_id": inputs[formula.source],
+                        "read_as": formula.read_as,
+                        "round_mode": formula.round_mode,
+                    }
                 )
             elif formula.kind == "linear":
                 assert formula.source is not None
@@ -2475,6 +2486,13 @@ async def check_formula_cycles(session: AsyncSession, tenant_id: uuid.UUID) -> N
         ).where(ComputedStatLinear.tenant_id == tenant_id)
     ):
         edges[target].add(source)
+    for target, source in await session.execute(
+        select(
+            ComputedStatDiceValue.stat_definition_id,
+            ComputedStatDiceValue.source_stat_definition_id,
+        ).where(ComputedStatDiceValue.tenant_id == tenant_id)
+    ):
+        edges[target].add(source)
     for target, left, right in await session.execute(
         select(
             ComputedStatComparison.stat_definition_id,
@@ -2891,6 +2909,11 @@ async def forget_copy(
                 ComputedStatLinear.entity_id == ComputedStat.entity_id,
                 ComputedStatLinear.stat_definition_id == ComputedStat.stat_definition_id,
                 ComputedStatLinear.source_stat_definition_id.in_(all_definitions),
+            ),
+            exists().where(
+                ComputedStatDiceValue.entity_id == ComputedStat.entity_id,
+                ComputedStatDiceValue.stat_definition_id == ComputedStat.stat_definition_id,
+                ComputedStatDiceValue.source_stat_definition_id.in_(all_definitions),
             ),
             exists().where(
                 ComputedStatComparison.entity_id == ComputedStat.entity_id,

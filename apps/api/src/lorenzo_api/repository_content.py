@@ -37,6 +37,7 @@ from lorenzo_api.models import (
     ComputedStat,
     ComputedStatComparison,
     ComputedStatContents,
+    ComputedStatDiceValue,
     ComputedStatExtremum,
     ComputedStatExtremumInput,
     ComputedStatLinear,
@@ -210,6 +211,9 @@ class Formula:
     select_mode: str | None = None
     steps: list[SelectStepData] | None = None
     otherwise: SelectResultData | None = None
+    # A `dice_value` (ADR 0463): `source` is its dice stat, and this is what it reads of it, `min`,
+    # `max` or `average`.
+    read_as: str | None = None
 
     def inputs(self) -> list[uuid.UUID]:
         own = [i for i in (self.source, self.left, self.right, self.where) if i is not None]
@@ -880,6 +884,14 @@ async def load_content(session: AsyncSession, tenant_id: uuid.UUID) -> Content:
             )
         )
     }
+    dice_values = {
+        (row.entity_id, row.stat_definition_id): row
+        for row in (
+            await session.scalars(
+                select(ComputedStatDiceValue).where(ComputedStatDiceValue.tenant_id == t)
+            )
+        )
+    }
     extrema = {
         (row.entity_id, row.stat_definition_id): row
         for row in (
@@ -998,6 +1010,14 @@ async def load_content(session: AsyncSession, tenant_id: uuid.UUID) -> Content:
                 kind=extrema[(e, d)].pick,
                 round_mode=extrema[(e, d)].round_mode,
                 operands=operands[(e, d)],
+            )
+        elif (e, d) in dice_values:
+            reading = dice_values[(e, d)]
+            c.formulas[(e, d)] = Formula(
+                kind="dice_value",
+                source=reading.source_stat_definition_id,
+                read_as=reading.read_as,
+                round_mode=reading.round_mode,
             )
         elif (e, d) in linear:
             lin = linear[(e, d)]
@@ -1498,6 +1518,14 @@ def _formula_json(formula: Formula, name: Namer) -> dict[str, Any]:
             "source": name("stat_definition", formula.source),
             "multiplier": str(formula.multiplier),
             "offset": str(formula.offset),
+            "round_mode": formula.round_mode,
+        }
+    if formula.kind == "dice_value":
+        assert formula.source is not None
+        return {
+            "kind": "dice_value",
+            "source": name("stat_definition", formula.source),
+            "as": formula.read_as,
             "round_mode": formula.round_mode,
         }
     if formula.kind == "select":

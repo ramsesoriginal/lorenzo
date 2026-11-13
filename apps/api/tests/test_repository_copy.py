@@ -81,7 +81,7 @@ async def test_copying_a_repository(
         plan = (await gm.get(f"/tenants/{table}/repositories/{faerun}/copy-plan")).json()
         assert plan["collisions"] == []
         (step,) = plan["steps"]
-        assert (step["entities"], step["stat_groups"], step["stat_definitions"]) == (29, 1, 6)
+        assert (step["entities"], step["stat_groups"], step["stat_definitions"]) == (29, 1, 7)
         assert (step["granted"], step["published"], step["already_copied"]) == (True, True, False)
 
         copied = await gm.post(f"/tenants/{table}/repositories/{faerun}/copy")
@@ -283,6 +283,7 @@ async def test_collisions_need_a_choice(
                 "Strong",
                 "Alignment",
                 "Might",
+                "Hit dice",
                 "Load",
             }
             strength_values = (

@@ -14,6 +14,7 @@ from lorenzo_api.schemas.vocabulary_check import FindingOut
 from lorenzo_api.stat_evaluation import (
     ComparisonFormula,
     ContentsFormula,
+    DiceValueFormula,
     ExtremumFormula,
     Formula,
     LinearFormula,
@@ -34,6 +35,7 @@ __all__ = [
     "ComputedStatOut",
     "ComputedStatPreviewIn",
     "ComputedStatPreviewOut",
+    "DiceValueFormulaBody",
     "ContentsExplanationOut",
     "ExtremumInputBody",
     "FormulaBody",
@@ -245,6 +247,27 @@ class ProductFormulaBody(BaseModel):
         )
 
 
+class DiceValueFormulaBody(BaseModel):
+    """`round(min, max or average of the dice)`, read from a dice stat of the same entry - ADR 0463.
+    `as` says what is read: the `min`, the `max` or the exact `average` of the dice (a drop
+    included), divided at 28 digits then rounded by the mode. An `int` stat needs a rounding mode
+    for an `average`. No value when the dice stat has none."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    kind: Literal["dice_value"] = "dice_value"
+    source_stat_definition_id: uuid.UUID
+    as_: Literal["min", "max", "average"] = Field(alias="as")
+    round_mode: RoundMode = RoundMode.NONE
+
+    def to_formula(self) -> DiceValueFormula:
+        return DiceValueFormula(
+            source_stat_definition_id=self.source_stat_definition_id,
+            read_as=self.as_,
+            round_mode=self.round_mode,
+        )
+
+
 class RatioFormulaBody(BaseModel):
     """`round(numerator / denominator x multiplier + offset)`, the numerator a stat of the same
     entity and the denominator a stat or a constant, exactly one of the two - ADR 0445. A zero
@@ -377,11 +400,18 @@ AnyFormulaBody = (
     | ProductFormulaBody
     | RatioFormulaBody
     | SelectFormulaBody
+    | DiceValueFormulaBody
 )
 FormulaBody = Annotated[AnyFormulaBody, Field(discriminator="kind")]
 
 
 def formula_body_of(formula: Formula) -> AnyFormulaBody:
+    if isinstance(formula, DiceValueFormula):
+        return DiceValueFormulaBody(
+            source_stat_definition_id=formula.source_stat_definition_id,
+            as_=formula.read_as,
+            round_mode=formula.round_mode,
+        )
     if isinstance(formula, LinearFormula):
         return LinearFormulaBody(
             source_stat_definition_id=formula.source_stat_definition_id,
@@ -570,5 +600,14 @@ class ComputedStatDependentOut(BaseModel):
     entity_id: uuid.UUID
     stat_definition_id: uuid.UUID
     kind: Literal[
-        "linear", "comparison", "sum", "contents", "min", "max", "product", "ratio", "select"
+        "linear",
+        "comparison",
+        "sum",
+        "contents",
+        "min",
+        "max",
+        "product",
+        "ratio",
+        "select",
+        "dice_value",
     ]
