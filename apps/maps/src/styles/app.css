@@ -450,3 +450,20 @@
 .map-find {
   max-inline-size: 24rem;
 }
+
+/* A Location's page: the parts and the connections as cards side by side where there is room. */
+.map-location-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr));
+  gap: var(--space-4);
+  align-items: start;
+}
+
+/* A row of the tree says when it is tied and, for a writer, whether it is open. */
+.place-when {
+  margin-inline-start: var(--space-2);
+}
+
+.place-state {
+  margin-inline-start: auto;
+}
