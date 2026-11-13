@@ -562,3 +562,43 @@ test('the Shortcuts dialog changes a tool key, refuses a taken one and puts the 
     await page.context().close();
   }
 });
+
+test('the command line takes the points of a drawing, and DONE finishes it', async ({
+  browser,
+}) => {
+  const w = await world();
+  const page = await signedIn(browser, w.subject);
+  try {
+    await page.goto(`/map/?tenant=${w.tenant.id}&id=${w.chart.id}`);
+    await expect(page.getByRole('heading', { name: 'Sword Coast', exact: true })).toBeVisible();
+    await page.getByRole('button', { name: 'Edit this map' }).click();
+    const command = page.getByLabel('Command', { exact: true });
+    const answer = page.locator('.map-command-answer');
+
+    // No tool: a point has nowhere to go.
+    await command.fill('10,10');
+    await command.press('Enter');
+    await expect(answer).toContainText('Choose a drawing tool first');
+
+    await command.fill('Line');
+    await command.press('Enter');
+    await page.getByLabel('Or make a new Location, named').fill('Salt Road');
+    await page.getByRole('button', { name: 'Draw a new Location' }).click();
+    await command.fill('100,100');
+    await command.press('Enter');
+    await expect(answer).toContainText('1 point');
+    await command.fill('300,150');
+    await command.press('Enter');
+    await expect(answer).toContainText('2 points');
+    await command.fill('DONE');
+    await command.press('Enter');
+    await expect.poll(async () => (await w.read()).map((r) => r.name)).toEqual(['Salt Road']);
+    const pts = geometryOf((await w.read())[0]).parts[0]?.pts;
+    expect(pts).toEqual([
+      [100, 100],
+      [300, 150],
+    ]);
+  } finally {
+    await page.context().close();
+  }
+});

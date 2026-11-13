@@ -19,6 +19,11 @@ describe('the command line', () => {
     expect(parseCommand('   ', TOOLS, flat)).toBeNull();
   });
 
+  it('reads a bare point as the next point, and DONE', () => {
+    expect(parseCommand('120,80', TOOLS, flat)).toEqual({ kind: 'point', at: [120, 80] });
+    expect(parseCommand('done', TOOLS, flat)).toEqual({ kind: 'done' });
+  });
+
   it('reads PLACE with a name of several words and a point, and SELECT with a name', () => {
     expect(parseCommand('PLACE Old Town 12,7', TOOLS, flat)).toEqual({
       kind: 'place',
