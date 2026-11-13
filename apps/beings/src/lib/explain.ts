@@ -148,6 +148,16 @@ export function explain(explanation: Explanation, names: ReadonlyMap<string, str
         parts,
       };
     }
+    case 'dice_value': {
+      // ADR 0463: what is read of a dice stat, the way it is said.
+      const read = { min: 'smallest', max: 'largest', average: 'average' }[formula.as];
+      const rounding = ROUNDING[formula.round_mode] ?? '';
+
+      return {
+        text: `The ${read} roll of ${label(formula.source_stat_definition_id)}${rounding}`,
+        parts,
+      };
+    }
     case 'select': {
       // A value from a table (ADR 0446): which step the source reached.
       const chosen = explanation.chosen;

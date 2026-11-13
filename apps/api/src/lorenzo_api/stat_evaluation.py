@@ -188,6 +188,16 @@ class SelectFormula:
     otherwise: SelectResult | None
 
 
+@dataclass(frozen=True, slots=True)
+class DiceValueFormula:
+    """A number read from a dice stat of the same entry: its minimum, its maximum or its exact
+    average, rounded as any result is - ADR 0463. No value when the stat has none."""
+
+    source_stat_definition_id: uuid.UUID
+    read_as: str
+    round_mode: RoundMode
+
+
 Formula = (
     LinearFormula
     | ComparisonFormula
@@ -197,6 +207,7 @@ Formula = (
     | ProductFormula
     | RatioFormula
     | SelectFormula
+    | DiceValueFormula
 )
 
 
@@ -342,6 +353,13 @@ def formula_of(computed: ComputedStat) -> Formula | None:
             ),
             round_mode=RoundMode(extremum.round_mode),
         )
+    if computed.dice_value is not None:
+        reading = computed.dice_value
+        return DiceValueFormula(
+            source_stat_definition_id=reading.source_stat_definition_id,
+            read_as=reading.read_as,
+            round_mode=RoundMode(reading.round_mode),
+        )
     return None
 
 
@@ -355,6 +373,8 @@ def input_ids(formula: Formula) -> list[uuid.UUID]:
             if i is not None
         ]
     if isinstance(formula, LinearFormula):
+        return [formula.source_stat_definition_id]
+    if isinstance(formula, DiceValueFormula):
         return [formula.source_stat_definition_id]
     if isinstance(formula, SumFormula):
         return [term.source_stat_definition_id for term in formula.terms]
@@ -464,6 +484,28 @@ def apply_linear(
     if number is None:
         return None
     return _rounded(number * formula.multiplier + formula.offset, formula.round_mode, target_type)
+
+
+def apply_dice_value(
+    formula: DiceValueFormula, source: Value | None, target_type: StatValueType
+) -> Value | None:
+    """The minimum, the maximum or the exact average of the dice the source holds (its notation),
+    rounded for the target. An average is divided at 28 digits, as a ratio is (ADR 0445), then
+    rounded by the mode. No value for a stat that has none, or whose value is not dice."""
+    if not isinstance(source, str):
+        return None
+    try:
+        held = dice.parse(source)
+    except dice.InvalidDice:
+        return None
+    if formula.read_as == "min":
+        number = Decimal(held.minimum)
+    elif formula.read_as == "max":
+        number = Decimal(held.maximum)
+    else:
+        average = held.average
+        number = Decimal(average.numerator) / Decimal(average.denominator)
+    return _rounded(number, formula.round_mode, target_type)
 
 
 def apply_sum(
@@ -708,10 +750,13 @@ def apply_formula(
     | SumFormula
     | ExtremumFormula
     | ProductFormula
-    | RatioFormula,
+    | RatioFormula
+    | DiceValueFormula,
     resolve: Callable[[uuid.UUID], Value | None],
     target_type: StatValueType,
 ) -> Value | None:
+    if isinstance(formula, DiceValueFormula):
+        return apply_dice_value(formula, resolve(formula.source_stat_definition_id), target_type)
     if isinstance(formula, ExtremumFormula):
         return apply_extremum(formula, resolve, target_type)
     if isinstance(formula, ProductFormula):

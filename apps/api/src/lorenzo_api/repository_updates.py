@@ -40,6 +40,7 @@ from lorenzo_api.models import (
     ComputedStat,
     ComputedStatComparison,
     ComputedStatContents,
+    ComputedStatDiceValue,
     ComputedStatExtremum,
     ComputedStatExtremumInput,
     ComputedStatLinear,
@@ -1653,6 +1654,15 @@ class _Applier:
                     }
                     for position, (stat, _, constant) in enumerate(operands)
                 ],
+            )
+        elif formula["kind"] == "dice_value":
+            await s.execute(
+                insert(ComputedStatDiceValue).values(
+                    **keys,
+                    source_stat_definition_id=inputs["source"],
+                    read_as=formula["as"],
+                    round_mode=formula["round_mode"],
+                )
             )
         elif formula["kind"] == "linear":
             await s.execute(

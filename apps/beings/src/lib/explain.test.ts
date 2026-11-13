@@ -138,6 +138,22 @@ describe('explain', () => {
     expect(ratio.text).toBe('Dexterity ÷ 3, rounded down, the division rounded to 28 digits');
   });
 
+  it('says what a dice value reads of its dice, and how it is rounded', () => {
+    const read = (as: string, round_mode: string) =>
+      explain(
+        {
+          ...base,
+          formula: { kind: 'dice_value', source_stat_definition_id: 'dex', as, round_mode },
+          inputs: [],
+        } as Explanation,
+        names,
+      ).text;
+
+    expect(read('max', 'none')).toBe('The largest roll of Dexterity');
+    expect(read('min', 'none')).toBe('The smallest roll of Dexterity');
+    expect(read('average', 'floor')).toBe('The average roll of Dexterity, rounded down');
+  });
+
   it('says a contents formula by its aggregate and what it keeps', () => {
     const best = explain(
       {

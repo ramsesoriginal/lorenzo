@@ -8,6 +8,9 @@ when it arrives (`parse`).
 
 import re
 from dataclasses import dataclass
+from fractions import Fraction
+from functools import lru_cache
+from math import comb
 from typing import Literal, Protocol
 
 __all__ = [
@@ -64,6 +67,27 @@ class Dice:
         if self.drop_mode is not None:
             text += f"d{self.drop_mode[0]}{self.drop_count}"
         return text
+
+    @property
+    def kept(self) -> int:
+        """How many dice count: all but the dropped."""
+        return self.count - (self.drop_count or 0)
+
+    @property
+    def minimum(self) -> int:
+        """The least a roll can be: every kept die shows 1."""
+        return self.kept
+
+    @property
+    def maximum(self) -> int:
+        """The most a roll can be: every kept die shows its highest face."""
+        return self.kept * self.sides
+
+    @property
+    def average(self) -> Fraction:
+        """The exact expectation of the kept dice, from the order statistics of the dice (RFC 0056
+        section 4), memoised by value."""
+        return _average(self.count, self.sides, self.drop_mode, self.drop_count)
 
     def parts(self) -> dict[str, object]:
         """The parts as the API shows them."""
@@ -154,3 +178,38 @@ def columns(value: Dice | None) -> dict[str, int | str | None]:
         "dice_drop_mode": value.drop_mode,
         "dice_drop_count": value.drop_count,
     }
+
+
+@lru_cache(maxsize=4096)
+def _average(count: int, sides: int, drop_mode: str | None, drop_count: int | None) -> Fraction:
+    """The expected sum of the kept dice, exactly.
+
+    With the dice in order, the k-th lowest is at least `v` when at least `count - k + 1` dice show
+    `v` or more, so its expectation is the sum over `v` of that tail of a binomial: `a` faces of
+    `sides` qualify (`a = sides - v + 1`) and `b = v - 1` do not. The sum of the tails of the ranks
+    that are kept is taken over a common denominator, `sides ** count`, in whole numbers, and made
+    one fraction at the end.
+    """
+    drop = drop_count or 0
+    if drop == 0:
+        return Fraction(count * (sides + 1), 2)
+    # `m = count - k + 1` for a kept rank `k`: dropping the lowest keeps ranks drop+1..count, so
+    # m runs 1..count-drop; dropping the highest keeps ranks 1..count-drop, so m runs drop+1..count.
+    first, last = (1, count - drop) if drop_mode == "lowest" else (drop + 1, count)
+    total = 0
+    for v in range(1, sides + 1):
+        a, b = sides - v + 1, v - 1
+        powers_a = [1] * (count + 1)
+        powers_b = [1] * (count + 1)
+        for j in range(1, count + 1):
+            powers_a[j] = powers_a[j - 1] * a
+            powers_b[j] = powers_b[j - 1] * b
+        terms = [comb(count, j) * powers_a[j] * powers_b[count - j] for j in range(count + 1)]
+        # tails[m] is the sum of terms[m..count]
+        tail = 0
+        tails = [0] * (count + 2)
+        for j in range(count, -1, -1):
+            tail += terms[j]
+            tails[j] = tail
+        total += sum(tails[first : last + 1])
+    return Fraction(total, sides**count)

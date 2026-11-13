@@ -11,6 +11,8 @@ from httpx import AsyncClient
 from sqlalchemy import select
 
 from lorenzo_api.models import (
+    ComputedStat,
+    ComputedStatDiceValue,
     Entity,
     EntityStat,
     EntityStatGroup,
@@ -33,9 +35,15 @@ async def _repository(author, name: str = "Weapons"):  # type: ignore[no-untyped
             name="Damage",
             value_type=StatValueType.DICE,
         )
+        max_damage = StatDefinition(
+            tenant_id=repository,
+            stat_group_id=group.id,
+            name="Max damage",
+            value_type=StatValueType.INT,
+        )
         longsword = Entity(tenant_id=repository, name="Longsword")
         dagger = Entity(tenant_id=repository, name="Dagger")
-        session.add_all([damage, longsword, dagger])
+        session.add_all([damage, max_damage, longsword, dagger])
         await session.flush()
         session.add_all(
             [
@@ -61,8 +69,24 @@ async def _repository(author, name: str = "Weapons"):  # type: ignore[no-untyped
                 ),
             ]
         )
+        # What the longsword can do at most: a formula that reads its dice (ADR 0463).
+        session.add(
+            ComputedStat(
+                entity_id=longsword.id, stat_definition_id=max_damage.id, tenant_id=repository
+            )
+        )
+        await session.flush()
+        session.add(
+            ComputedStatDiceValue(
+                entity_id=longsword.id,
+                stat_definition_id=max_damage.id,
+                tenant_id=repository,
+                source_stat_definition_id=damage.id,
+                read_as="max",
+            )
+        )
         await session.commit()
-        return repository, damage.id, longsword.id, dagger.id
+        return repository, damage.id, longsword.id, dagger.id, max_damage.id
 
 
 async def _copy(author, gm, repository: uuid.UUID) -> uuid.UUID:  # type: ignore[no-untyped-def]
@@ -97,7 +121,7 @@ async def test_a_copy_brings_a_dice_stat_and_its_values_as_parts(
 ) -> None:
     author = await make_actor(raw_client, fake_jwks_server, "author")
     gm = await make_actor(raw_client, fake_jwks_server, "gm")
-    repository, damage, _, _ = await _repository(author)
+    repository, damage, _, _, _ = await _repository(author)
     table = await _copy(author, gm, repository)
     try:
         values = await _values(gm, table)
@@ -131,7 +155,7 @@ async def test_a_change_upstream_is_one_clean_change_of_the_value_and_is_applied
 ) -> None:
     author = await make_actor(raw_client, fake_jwks_server, "author")
     gm = await make_actor(raw_client, fake_jwks_server, "gm")
-    repository, damage, longsword, dagger = await _repository(author)
+    repository, damage, longsword, dagger, _ = await _repository(author)
     table = await _copy(author, gm, repository)
     url = f"/tenants/{table}/repositories/{repository}"
     try:
@@ -173,5 +197,53 @@ async def test_a_change_upstream_is_one_clean_change_of_the_value_and_is_applied
                 )
             ).all()
             assert len(rows) == 2
+    finally:
+        await cleanup([repository, table], [author, gm])
+
+
+async def test_a_dice_value_formula_is_copied_reading_the_copied_dice_and_updated_as_one_change(
+    raw_client: AsyncClient, fake_jwks_server: FakeJwksServer
+) -> None:
+    author = await make_actor(raw_client, fake_jwks_server, "author")
+    gm = await make_actor(raw_client, fake_jwks_server, "gm")
+    repository, damage, longsword, _, max_damage = await _repository(author)
+    table = await _copy(author, gm, repository)
+    url = f"/tenants/{table}/repositories/{repository}"
+    try:
+        values = await _values(gm, table)
+        assert values["Longsword"]["Max damage"]["value"] == 12
+        assert values["Longsword"]["Max damage"]["computed"] is True
+        async with admin_session_factory() as session:
+            local = await session.scalar(
+                select(StatDefinition.id).where(
+                    StatDefinition.tenant_id == table, StatDefinition.name == "Damage"
+                )
+            )
+            reading = (
+                await session.scalars(
+                    select(ComputedStatDiceValue).where(ComputedStatDiceValue.tenant_id == table)
+                )
+            ).one()
+            assert (reading.source_stat_definition_id, reading.read_as) == (local, "max")
+        assert (await gm.get(f"{url}/updates")).json()["changed"] == []
+
+        async with admin_session_factory() as session:
+            row = await session.get_one(ComputedStatDiceValue, (longsword, max_damage))
+            row.read_as, row.round_mode = "average", "ceil"
+            await session.commit()
+        updates = (await gm.get(f"{url}/updates")).json()
+        (changed,) = [row for row in updates["changed"] if row["name"] == "Longsword"]
+        (formula,) = [f for f in changed["fields"] if f["field"].startswith("formulas:")]
+        assert formula["state"] == "clean"
+        assert (formula["base"]["as"], formula["upstream"]["as"]) == ("max", "average")
+        assert formula["upstream"]["round_mode"] == "ceil"
+
+        actions = [{"kind": "entity", "source_id": str(longsword), "action": "apply"}]
+        applied = await gm.post(f"{url}/updates", json={"actions": actions})
+        assert applied.status_code == 200, applied.text
+        assert applied.json()["not_applied"] == []
+        values = await _values(gm, table)
+        assert values["Longsword"]["Max damage"]["value"] == 7
+        assert (await gm.get(f"{url}/updates")).json()["changed"] == []
     finally:
         await cleanup([repository, table], [author, gm])

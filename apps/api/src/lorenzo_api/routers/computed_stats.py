@@ -37,6 +37,7 @@ from lorenzo_api.models import (
     ComputedStat,
     ComputedStatComparison,
     ComputedStatContents,
+    ComputedStatDiceValue,
     ComputedStatExtremum,
     ComputedStatExtremumInput,
     ComputedStatLinear,
@@ -68,6 +69,7 @@ from lorenzo_api.stat_evaluation import (
     MAX_FORMULA_CHAIN,
     ComparisonFormula,
     ContentsFormula,
+    DiceValueFormula,
     ExtremumFormula,
     Formula,
     LinearFormula,
@@ -273,6 +275,23 @@ def _check_types(
         check_rounding(formula.round_mode, [formula.multiplier], formula.offset, input_ids(formula))
         return
 
+    if isinstance(formula, DiceValueFormula):
+        source = inputs[formula.source_stat_definition_id]
+        if source.value_type is not StatValueType.DICE:
+            raise invalid(f"a dice_value reads dice, and {source.name!r} isn't one")
+        if target.value_type not in _NUMERIC:
+            raise invalid("a dice_value produces a number, so the stat must be int or float")
+        if (
+            target.value_type is StatValueType.INT
+            and formula.read_as == "average"
+            and formula.round_mode is RoundMode.NONE
+        ):
+            raise invalid(
+                "an int stat needs a rounding mode other than 'none' for an average, "
+                "which dice rarely make whole"
+            )
+        return
+
     if isinstance(formula, SelectFormula):
         _check_select(formula, target, inputs, invalid)
         return
@@ -474,6 +493,7 @@ def _concrete_row(
     | ComputedStatProduct
     | ComputedStatRatio
     | ComputedStatSelect
+    | ComputedStatDiceValue
 ):
     key = {
         "entity_id": entity_id,
@@ -541,6 +561,13 @@ def _concrete_row(
                 )
                 for position, operand in enumerate(formula.inputs)
             ],
+        )
+    if isinstance(formula, DiceValueFormula):
+        return ComputedStatDiceValue(
+            **key,
+            source_stat_definition_id=formula.source_stat_definition_id,
+            read_as=formula.read_as,
+            round_mode=formula.round_mode.value,
         )
     if isinstance(formula, LinearFormula):
         return ComputedStatLinear(
@@ -659,6 +686,7 @@ async def set_computed_stat(
         existing.product = None
         existing.ratio = None
         existing.select = None
+        existing.dice_value = None
         await session.flush()
         existing.updated_at = func.now()
     session.add(concrete)
@@ -834,6 +862,14 @@ async def list_stat_dependents(
             )
         )
     ).tuples()
+    reading = (
+        await session.execute(
+            select(ComputedStatDiceValue.entity_id, ComputedStatDiceValue.stat_definition_id).where(
+                ComputedStatDiceValue.source_stat_definition_id == stat_definition_id,
+                ComputedStatDiceValue.tenant_id == tenant_id,
+            )
+        )
+    ).tuples()
     comparison = (
         await session.execute(
             select(
@@ -933,6 +969,10 @@ async def list_stat_dependents(
         + [
             ComputedStatDependentOut(entity_id=e, stat_definition_id=s, kind="select")
             for e, s in selecting
+        ]
+        + [
+            ComputedStatDependentOut(entity_id=e, stat_definition_id=s, kind="dice_value")
+            for e, s in reading
         ]
         + [
             ComputedStatDependentOut(entity_id=e, stat_definition_id=s, kind="product")
