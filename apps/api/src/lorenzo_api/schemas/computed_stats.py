@@ -9,6 +9,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from lorenzo_api.models import Comparator, ComputedStat, RoundMode
 from lorenzo_api.schemas.common import EntitySummary
+from lorenzo_api.schemas.vocabulary_check import FindingOut
 from lorenzo_api.stat_evaluation import (
     ComparisonFormula,
     ContentsFormula,
@@ -463,6 +464,9 @@ class ComputedStatOut(BaseModel):
     stat_definition_id: uuid.UUID
     formula: FormulaBody
     updated_at: datetime
+    # What the vocabulary check says of the stat just written, when `PUT` carried `warnings=true`
+    # (ADR 0461); left out of the answer otherwise.
+    warnings: list[FindingOut] | None = Field(default=None, exclude_if=lambda value: value is None)
 
     @classmethod
     def from_row(cls, row: ComputedStat, formula: Formula) -> ComputedStatOut:

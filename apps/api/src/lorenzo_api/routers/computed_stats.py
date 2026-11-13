@@ -12,7 +12,7 @@ from collections.abc import Callable
 from decimal import Decimal
 from typing import Annotated
 
-from fastapi import APIRouter, Body, Depends, Header, Response
+from fastapi import APIRouter, Body, Depends, Header, Query, Response
 from sqlalchemy import func, select
 from sqlalchemy.orm import selectinload
 
@@ -83,6 +83,7 @@ from lorenzo_api.stat_evaluation import (
     longest_formula_chain,
     same_entity_input_ids,
 )
+from lorenzo_api.vocabulary_check import WARNINGS_HELP, warnings_for_write
 
 router = APIRouter(
     prefix="/tenants/{tenant_id}",
@@ -617,6 +618,7 @@ async def set_computed_stat(
     session: SessionDep,
     user: CurrentUser,
     if_match: Annotated[str | None, Header()] = None,
+    warnings: Annotated[bool, Query(description=WARNINGS_HELP)] = False,
 ) -> ComputedStatOut:
     """Creates or replaces this entity's formula for one stat - ADR 0104.
     Check order: entity and stat definition (404), If-Match against the
@@ -675,7 +677,17 @@ async def set_computed_stat(
     )
     assert saved is not None
     response.headers["ETag"] = etag_for(saved.updated_at)
-    return _out(saved)
+    written = _out(saved)
+    if warnings:
+        # The check reads the entry as it now is (ADR 0461): it refuses nothing, the write is made.
+        written.warnings = await warnings_for_write(
+            session,
+            tenant_id=tenant_id,
+            user_id=user.id,
+            entity_id=entity_id,
+            stat_definition_id=stat_definition_id,
+        )
+    return written
 
 
 @router.delete("/entities/{entity_id}/computed-stats/{stat_definition_id}", status_code=204)
