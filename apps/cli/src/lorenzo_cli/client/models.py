@@ -1333,6 +1333,29 @@ class FieldChangeOut(BaseModel):
     removed: list[Any] | None = Field(..., title="Removed")
 
 
+class Code(StrEnum):
+    computed_outside_scale = "computed-outside-scale"
+    above_hint = "above-hint"
+    formula_chain_depth = "formula-chain-depth"
+    unset_input = "unset-input"
+    own_value_shadows_formula = "own-value-shadows-formula"
+    tie = "tie"
+
+
+class Severity(StrEnum):
+    warning = "warning"
+    info = "info"
+
+
+class FindingOut(BaseModel):
+    code: Code = Field(..., title="Code")
+    severity: Severity = Field(..., title="Severity")
+    entry_id: UUID | None = Field(..., title="Entry Id")
+    stat_definition_id: UUID = Field(..., title="Stat Definition Id")
+    message: str = Field(..., title="Message")
+    details: dict[str, Any] = Field(..., title="Details")
+
+
 class Visibility1(StrEnum):
     private = "private"
     protected = "protected"
@@ -2345,6 +2368,14 @@ class PageEntitySummary(BaseModel):
 
 class PageEventSummary(BaseModel):
     items: list[EventSummary] = Field(..., title="Items")
+    total: conint(ge=0) = Field(..., title="Total")
+    page: conint(ge=1) = Field(..., title="Page")
+    size: conint(ge=1) = Field(..., title="Size")
+    pages: conint(ge=0) = Field(..., title="Pages")
+
+
+class PageFindingOut(BaseModel):
+    items: list[FindingOut] = Field(..., title="Items")
     total: conint(ge=0) = Field(..., title="Total")
     page: conint(ge=1) = Field(..., title="Page")
     size: conint(ge=1) = Field(..., title="Size")
@@ -5902,6 +5933,7 @@ class ComputedStatOut(BaseModel):
         | SelectFormulaBodyOutput
     ) = Field(..., discriminator="kind", title="Formula")
     updated_at: AwareDatetime = Field(..., title="Updated At")
+    warnings: list[FindingOut] | None = Field(None, title="Warnings")
 
 
 class ComputedStatPreviewIn(BaseModel):
@@ -6014,6 +6046,7 @@ class EntityStatWriteOut(BaseModel):
     quantity: int | None = Field(..., title="Quantity")
     children: list[EntitySummary] = Field(..., title="Children")
     previous: PreviousOwnStat
+    warnings: list[FindingOut] | None = Field(None, title="Warnings")
 
 
 class GrantsOut(BaseModel):

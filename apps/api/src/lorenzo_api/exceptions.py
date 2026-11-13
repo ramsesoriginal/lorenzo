@@ -1822,3 +1822,10 @@ class GrantOverrideForbiddenError(ForbiddenProblem):
     """POST .../grants/apply with `override` by someone who is not a GM of the holder (ADR 0456)."""
 
     title = "Only a GM can override a grant's limits"
+
+
+class VocabularyCheckEntryRequiredError(UnprocessableProblem):
+    """GET .../vocabulary-check with the code `tie` and no `entry_id`: a tie is read for one entry
+    per request (ADR 0460)."""
+
+    title = "A tie is read for one entry"
