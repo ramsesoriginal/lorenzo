@@ -52,6 +52,7 @@ import {
   removePlacement,
   rowState,
 } from './map-api';
+import { GROUP_NAMES, searchTools, type ToolDecl, toolByKey, toolsOf, usable } from './tools';
 
 export type EditorContext = {
   tenant: string;
@@ -578,6 +579,92 @@ export function createEditor(context: EditorContext): Editor {
 
   // --- the toolbar ----------------------------------------------------------------------------
 
+  const here = () => ({ grid: Boolean(gridNow()), sphere: context.sphere === true });
+
+  /** What saying a tool that cannot be used yet looks like: it names the tool and why. */
+  function unavailable(decl: ToolDecl): string {
+    return decl.state === 'planned'
+      ? `${decl.name} is planned. ${decl.reason ?? ''}`.trim()
+      : `${decl.name} is not available on this Map.`;
+  }
+
+  /** Every tool, found by name, group or key; a planned one is listed with its reason and does nothing. */
+  function allTools(): HTMLElement {
+    const wrap = el('div', '', 'map-all-tools-wrap');
+    const open = el('button', 'All tools', 'btn btn-secondary');
+    open.type = 'button';
+    open.setAttribute('aria-expanded', 'false');
+    const panel = el('div', '', 'stack-tight map-all-tools');
+    panel.hidden = true;
+    const search = field('Find a tool');
+    search.input.type = 'search';
+    const list = el('ul', '', 'list map-all-tools-list');
+    const draw = () => {
+      list.replaceChildren(
+        ...searchTools(search.input.value).map((decl) => {
+          const item = el('li', '', 'row-tight');
+          const node = el('button', decl.name, 'btn btn-secondary');
+          node.type = 'button';
+          const ready = usable(decl, here());
+          node.setAttribute('aria-disabled', String(!ready));
+          node.addEventListener('click', () => {
+            if (!ready) {
+              say(unavailable(decl));
+              return;
+            }
+            panel.hidden = true;
+            open.setAttribute('aria-expanded', 'false');
+            setTool(decl.id as ToolName);
+          });
+          item.append(
+            node,
+            el('span', `${GROUP_NAMES[decl.group]} · ${decl.key.toUpperCase()}`, 'status-text'),
+          );
+          if (decl.state === 'planned') item.append(el('span', 'planned', 'chip'));
+          return item;
+        }),
+      );
+    };
+    search.input.addEventListener('input', draw);
+    draw();
+    open.addEventListener('click', () => {
+      panel.hidden = !panel.hidden;
+      open.setAttribute('aria-expanded', String(!panel.hidden));
+      if (!panel.hidden) search.input.focus();
+    });
+    panel.append(search.label, list);
+    wrap.append(open, panel);
+    return wrap;
+  }
+
+  // One key a tool, while the drawing has the focus. The page's own single keys (G then a letter) do not
+  // see these: the editor takes the key first, and a person who has turned single keys off keeps them off.
+  const singleKeysOn = () => {
+    try {
+      return window.localStorage.getItem('lorenzo:single-keys') !== 'off';
+    } catch {
+      return true;
+    }
+  };
+  const onToolKey = (event: KeyboardEvent) => {
+    if (!editing || event.ctrlKey || event.metaKey || event.altKey || event.shiftKey) return;
+    if (event.key.length !== 1 || !singleKeysOn()) return;
+    const target = event.target as HTMLElement | null;
+    if (target?.closest('input, textarea, select, [contenteditable="true"]')) return;
+    const active = document.activeElement;
+    if (active && active !== document.body && !active.closest('.map-workspace')) return;
+    const decl = toolByKey(event.key);
+    if (!decl) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    if (!usable(decl, here())) {
+      say(unavailable(decl));
+      return;
+    }
+    setTool(decl.id as ToolName);
+  };
+  document.addEventListener('keydown', onToolKey, true);
+
   function renderToolbar() {
     toolbar.replaceChildren();
     const toggle = el('button', editing ? 'Stop editing' : 'Edit this map', 'btn btn-secondary');
@@ -601,15 +688,24 @@ export function createEditor(context: EditorContext): Editor {
     const tools = el('div', '', 'row-tight');
     tools.setAttribute('role', 'group');
     tools.setAttribute('aria-label', 'Tool');
-    for (const [name, label] of TOOLS) {
-      if (name === 'cells' && !gridNow()) continue;
-      if (name === 'circle' && context.sphere) continue;
-      const node = el('button', label, 'btn btn-secondary');
-      node.type = 'button';
-      node.setAttribute('aria-pressed', String(toolName === name));
-      node.addEventListener('click', () => setTool(name));
-      tools.append(node);
+    // The tools of the registry (MP6), in their groups; the ones that are planned are in All tools.
+    for (const group of ['select', 'place', 'draw'] as const) {
+      const cluster = el('div', '', 'row-tight map-tool-group');
+      cluster.setAttribute('role', 'group');
+      cluster.setAttribute('aria-label', GROUP_NAMES[group]);
+      for (const decl of toolsOf(group)) {
+        if (!usable(decl, here())) continue;
+        const node = el('button', decl.name, 'btn btn-secondary');
+        node.type = 'button';
+        node.title = `${decl.name} (${decl.key.toUpperCase()})`;
+        node.setAttribute('aria-keyshortcuts', decl.key.toUpperCase());
+        node.setAttribute('aria-pressed', String(toolName === decl.id));
+        node.addEventListener('click', () => setTool(decl.id as ToolName));
+        cluster.append(node);
+      }
+      if (cluster.childElementCount) tools.append(cluster);
     }
+    tools.append(allTools());
     const undoButton = el('button', 'Undo', 'btn btn-secondary');
     undoButton.type = 'button';
     undoButton.disabled = busy || !history.canUndo();
@@ -1021,6 +1117,7 @@ export function createEditor(context: EditorContext): Editor {
     },
     destroy() {
       document.removeEventListener('keydown', onKey);
+      document.removeEventListener('keydown', onToolKey, true);
       context.view().setTool(null);
       context.view().setOverlay([]);
     },

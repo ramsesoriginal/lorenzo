@@ -606,3 +606,41 @@
 .map-small-title {
   margin: 0;
 }
+
+/* The toolbox (MP4, MP6): tools in their groups, close together for a pointer that is fine; on a
+   touch screen every control stays at the size it is pressed at. */
+.map-tool-group {
+  padding-inline-end: var(--space-2);
+  border-inline-end: 1px solid var(--border-subtle);
+}
+
+.map-tool-group:last-child {
+  border-inline-end: none;
+}
+
+.map-all-tools {
+  padding: var(--space-2);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-card);
+  background: var(--surface-canvas);
+}
+
+.map-all-tools-list {
+  max-block-size: 40dvh;
+  overflow: auto;
+}
+
+.map-all-tools-list [aria-disabled="true"] {
+  opacity: 0.7;
+}
+
+@media (pointer: fine) {
+  .map-edit-bar {
+    gap: var(--space-1) var(--space-2);
+  }
+
+  .map-edit-bar .btn {
+    padding-block: var(--space-1);
+    padding-inline: var(--space-2);
+  }
+}
