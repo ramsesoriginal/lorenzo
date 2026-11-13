@@ -3,6 +3,7 @@ import AxeBuilder from '@axe-core/playwright';
 import { type Browser, expect, type Page, test } from '@playwright/test';
 import { apiAs, ok, refreshTokenFor } from './support/api.ts';
 import { REFRESH_TOKEN_KEY, SITE_URL } from './support/env.ts';
+import { openControl, openPanel } from './support/map-ui.ts';
 
 async function signedIn(browser: Browser, subject: string, theme?: 'light' | 'dark') {
   const token = await refreshTokenFor(subject);
@@ -132,7 +133,8 @@ test('a writer makes a sphere with a radius and a globe projection, and it is sa
     await expect(page.getByRole('heading', { name: 'Aeris', exact: true })).toBeVisible();
     await expect(limb(page)).toHaveCount(1);
     await expect(gridPaths(page)).toHaveCount(1);
-    await expect(page.getByLabel('Grid', { exact: true })).toBeChecked();
+    await openControl(page, 'Layers');
+    await expect(page.getByRole('checkbox', { name: 'Grid', exact: true })).toBeChecked();
 
     const made = await ok(w.gm.GET('/tenants/{tenant_id}/maps', { params: { path: w.path } }));
     const header = await ok(
@@ -194,20 +196,20 @@ test('on a flat sphere the pointer says where it is and a writer draws a pin, a 
     expect(Math.abs(at[0] - lon)).toBeLessThan(0.6);
     expect(Math.abs(at[1] - lat)).toBeLessThan(0.6);
     // A selected pin says where it is, and the fields are a longitude and a latitude.
-    await expect(page.getByText(/^At \d+\.\d° N, \d+\.\d° E$/)).toBeVisible();
+    await expect(page.locator('.map-panel')).toContainText(/At \d+\.\d° N, \d+\.\d° E/);
     const panel = page.locator('.map-edit-panel');
     await expect(panel.getByLabel('Longitude')).toHaveValue(String(at[0]));
     await expect(panel.getByLabel('Latitude')).toHaveValue(String(at[1]));
 
     await use('Line', 'Road');
-    await clickSheet(page, 0.3, 0.3);
-    await clickSheet(page, 0.4, 0.6);
+    await clickSheet(page, 0.45, 0.3);
+    await clickSheet(page, 0.55, 0.6);
     await page.keyboard.press('Enter');
     await expect.poll(async () => (await w.read(chart.id)).length).toBe(2);
     await use('Area', 'Marches');
-    await clickSheet(page, 0.1, 0.4);
-    await clickSheet(page, 0.2, 0.4);
-    await clickSheet(page, 0.2, 0.5);
+    await clickSheet(page, 0.45, 0.4);
+    await clickSheet(page, 0.55, 0.4);
+    await clickSheet(page, 0.55, 0.5);
     await page.keyboard.press('Enter');
     await expect.poll(async () => (await w.read(chart.id)).length).toBe(3);
     const shapes = (await w.read(chart.id)).map((r) => geometryOf(r).parts[0]?.shape).sort();
@@ -241,24 +243,30 @@ test('a reader turns a globe, changes how it is drawn for themselves and goes ba
     await expect(marks(page, near.id).first()).toBeVisible();
     // The far side of the globe draws nothing, and the list still names it.
     await expect(marks(page, far.id)).toHaveCount(0);
+    await openPanel(page, 'Places');
     await expect(page.getByRole('button', { name: /^Far/ })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Edit this map' })).toHaveCount(0);
 
     // Turn east until the far place faces us.
+    await openControl(page, 'Projection');
     for (let i = 0; i < 12; i += 1) await page.getByRole('button', { name: 'Turn east' }).click();
     await expect(marks(page, far.id).first()).toBeVisible();
     await expect(marks(page, near.id)).toHaveCount(0);
     // Back to the saved view.
+    await openControl(page, 'Projection');
     await page.getByRole('button', { name: 'Back to the saved view' }).click();
     await expect(marks(page, near.id).first()).toBeVisible();
     await expect(marks(page, far.id)).toHaveCount(0);
 
     // A flat view of the same Map is the reader's own, kept across a reload, and shows both.
+    await openControl(page, 'Projection');
     await page.getByRole('combobox', { name: 'Drawn as' }).selectOption('equirectangular');
     await expect(limb(page)).toHaveCount(0);
     await expect(marks(page, far.id).first()).toBeVisible();
+    await openControl(page, 'Projection');
     await expect(page.getByRole('button', { name: 'Turn east' })).toBeHidden();
     await page.reload();
+    await openControl(page, 'Projection');
     await expect(page.getByRole('combobox', { name: 'Drawn as' })).toHaveValue('equirectangular');
     await expect(marks(page, near.id).first()).toBeVisible();
     // The Map itself was never changed.
@@ -269,6 +277,7 @@ test('a reader turns a globe, changes how it is drawn for themselves and goes ba
     );
     expect(header.view).toEqual(GLOBE);
     // And Mercator draws both as well.
+    await openControl(page, 'Projection');
     await page.getByRole('combobox', { name: 'Drawn as' }).selectOption('mercator');
     await expect(marks(page, far.id).first()).toBeVisible();
     await expect(marks(page, near.id).first()).toBeVisible();
@@ -288,11 +297,14 @@ test('a sphere with places cannot become a plane, and the form keeps the draft',
   try {
     await page.goto(`/map/?tenant=${w.tenant.id}&id=${chart.id}`);
     await expect(page.getByRole('heading', { name: 'Aeris', exact: true })).toBeVisible();
+    await openPanel(page, 'Settings');
     await page.getByRole('combobox', { name: 'The sheet is' }).selectOption('plane');
     await page.getByRole('button', { name: 'Save settings' }).click();
+    await openPanel(page, 'Settings');
     await expect(page.getByText(/cannot become a sphere, or stop being one/)).toBeVisible();
     await expect(page.getByRole('combobox', { name: 'The sheet is' })).toHaveValue('plane');
     // What is only said or drawn may change under places.
+    await openPanel(page, 'Settings');
     await page.getByRole('combobox', { name: 'The sheet is' }).selectOption('sphere');
     await page.getByRole('combobox', { name: 'The sphere is drawn' }).selectOption('mercator');
     await page.getByRole('button', { name: 'Save settings' }).click();
@@ -327,6 +339,7 @@ for (const theme of ['light', 'dark'] as const) {
       await page.getByRole('button', { name: 'Edit this map' }).click();
       const round = await new AxeBuilder({ page }).exclude('.shell-bottom').analyze();
       expect(round.violations.map((v) => `${v.id}: ${v.nodes[0]?.html}`)).toEqual([]);
+      await openControl(page, 'Projection');
       await page.getByRole('combobox', { name: 'Drawn as' }).selectOption('equirectangular');
       const flat = await new AxeBuilder({ page }).exclude('.shell-bottom').analyze();
       expect(flat.violations.map((v) => `${v.id}: ${v.nodes[0]?.html}`)).toEqual([]);

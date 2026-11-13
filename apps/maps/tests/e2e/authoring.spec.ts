@@ -3,6 +3,7 @@ import AxeBuilder from '@axe-core/playwright';
 import { type Browser, expect, type Page, test } from '@playwright/test';
 import { apiAs, ok, refreshTokenFor } from './support/api.ts';
 import { REFRESH_TOKEN_KEY, SITE_URL } from './support/env.ts';
+import { openControl, openPanel } from './support/map-ui.ts';
 
 async function signedIn(browser: Browser, subject: string, theme?: 'light' | 'dark') {
   const token = await refreshTokenFor(subject);
@@ -114,9 +115,7 @@ test('a writer makes a Map, draws, changes and undoes', async ({ browser }) => {
       .click();
     await expect(page.getByText('Click the map to place it.')).toBeVisible();
     await clickSheet(page, 0.3, 0.4);
-    await expect(
-      page.locator('.map-places').getByRole('button', { name: /Harbour/ }),
-    ).toBeVisible();
+    await expect(page.locator('.map-places .map-place', { hasText: 'Harbour' })).toHaveCount(1);
     let rows = await w.read();
     expect(rows.map((r) => [r.name, r.role])).toEqual([['Harbour', 'site']]);
     expect(geometryOf(rows[0]).parts[0]?.shape).toBe('point');
@@ -223,10 +222,11 @@ test('the children of a place, the look, the legend and the settings', async ({ 
     await page.goto(`/map/?tenant=${w.tenant.id}&id=${w.chart.id}`);
     await expect(page.getByRole('heading', { name: 'Sword Coast', exact: true })).toBeVisible();
     // The legend names the roles on the Map.
-    await page.getByText('Legend', { exact: true }).click();
+    await openControl(page, 'Legend');
     await expect(page.locator('.map-legend-item')).toContainText(['Territory']);
     // Place the children: three pins inside the territory, in one go.
     await page.getByRole('button', { name: 'Edit this map' }).click();
+    await openPanel(page, 'Places');
     await page.locator('.map-places').getByRole('button', { name: /Realm/ }).click();
     await expect(page.getByText('3 of the places inside Realm are not on this map.')).toBeVisible();
     await page.getByRole('button', { name: 'Place 3 inside it' }).click();
@@ -245,14 +245,17 @@ test('the children of a place, the look, the legend and the settings', async ({ 
     expect(await w.read()).toHaveLength(1);
 
     // The look: the viewer's choice, remembered.
+    await openControl(page, 'Look');
     await page.getByLabel('Look').selectOption('plain');
     await expect(page.locator('.map-stage svg')).toHaveAttribute('data-theme', 'plain');
     await page.reload();
     await expect(page.locator('.map-stage svg')).toHaveAttribute('data-theme', 'plain');
+    await openControl(page, 'Look');
     await page.getByLabel('Look').selectOption('map');
     await expect(page.locator('.map-stage svg')).toHaveAttribute('data-theme', 'default');
 
     // The Map's own theme name, by the settings.
+    await openPanel(page, 'Settings');
     await page.getByLabel('How it is drawn unless a viewer chooses').selectOption('plain');
     await page.getByRole('button', { name: 'Save settings' }).click();
     await expect(page.getByRole('heading', { name: 'Sword Coast', exact: true })).toBeVisible();
@@ -264,8 +267,10 @@ test('the children of a place, the look, the legend and the settings', async ({ 
     );
     expect(header.theme_hint).toBe('plain');
     // The sheet: a new width.
+    await openPanel(page, 'Settings');
     await page.getByLabel('Width', { exact: true }).fill('2000');
     await page.getByRole('button', { name: 'Save settings' }).click();
+    await openPanel(page, 'Settings');
     await expect(page.getByLabel('Width', { exact: true })).toHaveValue('2000');
   } finally {
     await page.context().close();
@@ -308,6 +313,7 @@ test('a refused drawing keeps the draft, and a player has no tools', async ({ br
     await expect(player.getByRole('heading', { name: 'Sword Coast', exact: true })).toBeVisible();
     await expect(player.getByRole('button', { name: 'Edit this map' })).toHaveCount(0);
     await expect(player.getByRole('heading', { name: 'Settings' })).toHaveCount(0);
+    await openControl(player, 'Look');
     await expect(player.getByLabel('Look')).toBeVisible();
     await player.goto(`/maps/?tenant=${w.tenant.id}`);
     await expect(player.getByRole('link', { name: 'Sword Coast', exact: true })).toBeVisible();
@@ -340,7 +346,8 @@ for (const theme of ['light', 'dark'] as const) {
       await page.goto(`/map/?tenant=${w.tenant.id}&id=${w.chart.id}`);
       await expect(page.getByRole('heading', { name: 'Sword Coast', exact: true })).toBeVisible();
       await page.getByRole('button', { name: 'Edit this map' }).click();
-      await page.getByText('Legend', { exact: true }).click();
+      await openControl(page, 'Legend');
+      await openPanel(page, 'Places');
       await page.locator('.map-places').getByRole('button', { name: /Keep/ }).click();
       await expect(page.getByRole('heading', { name: 'Change Keep' })).toBeVisible();
       const result = await new AxeBuilder({ page }).exclude('.shell-bottom').analyze();

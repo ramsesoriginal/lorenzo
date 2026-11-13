@@ -74,6 +74,7 @@ import {
   turned,
   writeProjectionChoice,
 } from './sphere-words';
+import { systemWords } from './system-words';
 import { resolveEntry } from './views';
 
 const tenantOf = () => new URLSearchParams(location.search).get('tenant');
@@ -326,7 +327,10 @@ export async function mountMap() {
   // What the page made and must undo before it draws again or is left.
   let cleanup: (() => void) | undefined;
   document.addEventListener('astro:before-swap', () => cleanup?.(), { once: true });
+  // Which tab of the panel is open stays so across a redraw (a save draws the page again).
+  const panelMemory = { open: false, tab: 'selected' };
   const render = async () => {
+    const restore = { ...panelMemory };
     cleanup?.();
     cleanup = undefined;
     try {
@@ -375,7 +379,9 @@ export async function mountMap() {
       let editor: Editor | undefined;
       const writer = manage && header.can_manage;
 
-      const view = el('div', '', 'stack view');
+      // The Map fills the page (MP3): floating controls sit over it and a panel slides over from the
+      // side. This is the card that names it.
+      const view = el('div', '', 'map-workspace');
       const meta: Node[] = [];
       if (name) meta.push(metaLine('kind-location', name));
       if (writer && header.is_public !== null && header.is_public !== undefined)
@@ -383,14 +389,56 @@ export async function mountMap() {
           audienceBadge(header.is_public ? 'Visible to everyone' : 'Restricted', header.is_public),
         );
       if (header.subject) meta.push(metaLine('kind-location', `Shows ${header.subject.name}`));
-      view.append(
-        pageHead(header.name, {
-          crumbs: [backLink('Maps', `/maps/?${new URLSearchParams({ tenant })}`)],
-          meta,
-        }),
+      const titleCard = el('div', '', 'card card-body stack-tight map-title-card');
+      titleCard.append(
+        backLink('Maps', `/maps/?${new URLSearchParams({ tenant })}`),
+        el('h1', header.name, 'map-title'),
+        el('p', systemWords(header.system as unknown as System), 'status-text'),
       );
+      if (meta.length) {
+        const metaRow = el('div', '', 'row');
+        metaRow.append(...meta);
+        titleCard.append(metaRow);
+      }
+      // What the controls open: only one at a time, and Escape puts the open one away.
+      const pops: { close: () => void }[] = [];
+      let popCount = 0;
+      const popover = (label: string, iconName: string, content: HTMLElement) => {
+        const root = el('div', '', 'map-pop-wrap');
+        const trigger = el('button', '', 'btn btn-secondary');
+        trigger.type = 'button';
+        trigger.append(icon(iconName), document.createTextNode(label));
+        const body = el('div', '', 'card card-body map-pop stack-tight');
+        popCount += 1;
+        body.id = `map-pop-${popCount}`;
+        body.hidden = true;
+        body.append(content);
+        trigger.setAttribute('aria-expanded', 'false');
+        trigger.setAttribute('aria-controls', body.id);
+        const close = () => {
+          body.hidden = true;
+          trigger.setAttribute('aria-expanded', 'false');
+        };
+        pops.push({ close });
+        trigger.addEventListener('click', () => {
+          const open = body.hidden;
+          for (const other of pops) other.close();
+          body.hidden = !open;
+          trigger.setAttribute('aria-expanded', String(open));
+        });
+        body.addEventListener('keydown', (event) => {
+          if (event.key !== 'Escape') return;
+          close();
+          trigger.focus();
+        });
+        root.append(trigger, body);
+        return { root, trigger, body, close };
+      };
 
-      // The toolbar: what is drawn, the look, the zoom, and the way back to the whole sheet.
+      // What is drawn (Layers), the look, the way a sphere is drawn and the zoom: each a floating control.
+      const lookBox = el('div', '', 'stack-tight');
+      const sphereBox = el('div', '', 'stack-tight');
+      const zoomBox = el('div', '', 'map-float map-float--zoom');
       const toolbar = el('div', '', 'row map-toolbar');
       toolbar.setAttribute('role', 'group');
       toolbar.setAttribute('aria-label', 'What the map shows');
@@ -427,7 +475,10 @@ export async function mountMap() {
         toolbar.append(box.label);
       }
       let look: Look = readLook();
-      const legend = createLegend();
+      let legendPop: ReturnType<typeof popover> | undefined;
+      const legend = createLegend((shown) => {
+        if (legendPop) legendPop.root.hidden = !shown;
+      });
       const themeNow = () => chosenTheme(look, header.theme_hint);
       const looks = el('label', '', 'field-inline');
       const lookSelect = el('select', '', 'text-input');
@@ -444,7 +495,7 @@ export async function mountMap() {
         legend.update(build(), themeNow());
       });
       looks.append(el('span', 'Look', 'field-label'), lookSelect);
-      toolbar.append(looks);
+      lookBox.append(looks);
 
       // A sphere: how it is drawn, and for a globe the buttons that turn it. Both are this reader's
       // own and nothing is saved (ADR 0359).
@@ -504,7 +555,7 @@ export async function mountMap() {
         turnBar.hidden = seenAs().kind !== 'orthographic';
       };
       updateTurn();
-      if (onSphere) toolbar.append(drawnAs, turnBar);
+      if (onSphere) sphereBox.append(drawnAs, turnBar);
       const zoom = el('span', '100%', 'chip');
       zoom.setAttribute('aria-live', 'polite');
       const zoomControls = el('div', '', 'row-tight map-zoom');
@@ -530,10 +581,10 @@ export async function mountMap() {
         whole,
         centre,
       );
-      toolbar.append(zoomControls);
+      zoomBox.append(zoomControls);
 
       // The drawing and a tip.
-      const stage = el('div', '', 'map-stage');
+      const stageHost = el('div', '', 'map-stage');
       const tip = el(
         'p',
         'Scroll or press + and − to zoom, drag or use the arrow keys to move, and press Tab to reach each place.',
@@ -560,6 +611,8 @@ export async function mountMap() {
         else noSelection();
         centre.hidden = !row;
         if (row) centre.textContent = `Centre on ${row.name}`;
+        // While drawing, what is selected shows in the dock and the Map stays clear of the panel.
+        if (row && !editor?.editing()) openPanel('selected');
         if (fromList || (entryId === null && controller?.getView().selection)) {
           controller?.select(entryId);
         }
@@ -592,38 +645,97 @@ export async function mountMap() {
       };
       drawList();
 
-      const drawing = el('section', '', 'stack');
-      drawing.append(sectionHead('The map'), toolbar);
-      const layoutRow = el('div', '', 'map-layout');
-      const left = el('div', '', 'stack');
-      const side = el('div', '', 'stack');
-      side.append(panel);
-      // Pictures load after the drawing, and say so when some could not be shown (ADR 0362).
-      const pictureNote = el('p', '', 'status-text');
-      pictureNote.setAttribute('role', 'status');
-      left.append(stage, tip, pictureNote);
-      if (writer && (header.layers ?? []).some((layer) => layer.needs_review)) {
-        side.append(
-          el(
-            'p',
-            'A picture under this Map was replaced after it was set up. Look at it against the places, then mark it reviewed in Settings.',
-            'status-text',
-          ),
-        );
+      // The panel that slides over: the selected mark, the places, and for a writer the settings.
+      const slide = el('aside', '', 'card map-slideover');
+      slide.hidden = true;
+      slide.id = 'map-slideover';
+      slide.setAttribute('aria-label', 'This Map');
+      const tabNames = writer
+        ? ([
+            ['selected', 'Selected'],
+            ['places', 'Places'],
+            ['settings', 'Settings'],
+          ] as const)
+        : ([
+            ['selected', 'Selected'],
+            ['places', 'Places'],
+          ] as const);
+      const tabList = el('div', '', 'row-tight map-tabs');
+      tabList.setAttribute('role', 'tablist');
+      tabList.setAttribute('aria-label', 'What the panel shows');
+      const bodies = new Map<string, HTMLElement>();
+      const tabs = new Map<string, HTMLButtonElement>();
+      const showTab = (name: string) => {
+        panelMemory.tab = name;
+        for (const [key, tab] of tabs) {
+          tab.setAttribute('aria-selected', String(key === name));
+          tab.tabIndex = key === name ? 0 : -1;
+          const body = bodies.get(key);
+          if (body) body.hidden = key !== name;
+        }
+      };
+      const openPanel = (name: string) => {
+        panelMemory.open = true;
+        slide.hidden = false;
+        view.dataset.panel = 'open';
+        showTab(name);
+      };
+      const closePanel = () => {
+        panelMemory.open = false;
+        slide.hidden = true;
+        delete view.dataset.panel;
+      };
+      for (const [key, label] of tabNames) {
+        const tab = el('button', label, 'btn btn-secondary map-tab');
+        tab.type = 'button';
+        tab.id = `map-tab-${key}`;
+        tab.setAttribute('role', 'tab');
+        tab.setAttribute('aria-controls', `map-body-${key}`);
+        tab.addEventListener('click', () => showTab(key));
+        tab.addEventListener('keydown', (event) => {
+          if (event.key !== 'ArrowRight' && event.key !== 'ArrowLeft') return;
+          const names = tabNames.map(([name]) => name);
+          const at = names.indexOf(key);
+          const to =
+            names[(at + (event.key === 'ArrowRight' ? 1 : names.length - 1)) % names.length];
+          if (!to) return;
+          showTab(to);
+          tabs.get(to)?.focus();
+        });
+        tabs.set(key, tab);
+        tabList.append(tab);
+        const body = el('div', '', 'stack map-body');
+        body.id = `map-body-${key}`;
+        body.setAttribute('role', 'tabpanel');
+        body.setAttribute('aria-labelledby', tab.id);
+        body.hidden = true;
+        bodies.set(key, body);
       }
-      layoutRow.append(left, side);
-      drawing.append(layoutRow, legend.root);
-      view.append(drawing);
+      const closeButton = el('button', '', 'btn btn-secondary');
+      closeButton.type = 'button';
+      closeButton.setAttribute('aria-label', 'Close the panel');
+      closeButton.append(icon('close'));
+      closeButton.addEventListener('click', closePanel);
+      slide.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') closePanel();
+      });
+      const slideHead = el('div', '', 'row map-slideover-head');
+      slideHead.append(el('h2', 'Map panel', 'grow'), closeButton);
+      slide.append(slideHead, tabList, ...bodies.values());
+
+      const selectedBody = bodies.get('selected') as HTMLElement;
+      selectedBody.append(panel);
+      const placesBody = bodies.get('places') as HTMLElement;
+      placesBody.append(tip, places);
       if (found.more)
-        view.append(
+        placesBody.append(
           el(
             'p',
             `This Map holds more than the ${VISIBLE_LIMIT.toLocaleString('en')} places shown here.`,
             'status-text',
           ),
         );
-      view.append(places);
-      view.append(
+      placesBody.append(
         distanceSection({
           tenant,
           map: { id: header.id, system: header.system as Record<string, unknown> },
@@ -631,16 +743,63 @@ export async function mountMap() {
         }),
       );
       if (writer) {
-        const settings = el('section', '', 'stack');
-        settings.append(sectionHead('Settings'), settingsSection(tenant, header, version, render));
+        const settingsBody = bodies.get('settings') as HTMLElement;
+        if ((header.layers ?? []).some((layer) => layer.needs_review)) {
+          settingsBody.append(
+            el(
+              'p',
+              'A picture under this Map was replaced after it was set up. Look at it against the places, then mark it reviewed in Settings.',
+              'status-text',
+            ),
+          );
+        }
+        settingsBody.append(
+          sectionHead('Settings'),
+          settingsSection(tenant, header, version, render),
+        );
         if (!onSphere) {
-          settings.append(
+          settingsBody.append(
             sectionHead('Pictures'),
             picturesSection({ tenant, header, version, again: render }),
           );
         }
-        view.append(settings);
       }
+      showTab('selected');
+      if (restore.open) openPanel(restore.tab);
+
+      // The floating controls: Places beside the title, what is drawn, the look and the legend over a
+      // corner, and the zoom at the foot.
+      const placesButton = el('button', '', 'btn btn-secondary');
+      placesButton.type = 'button';
+      placesButton.append(icon('list'), document.createTextNode('Places'));
+      placesButton.setAttribute('aria-controls', slide.id);
+      placesButton.addEventListener('click', () => {
+        if (slide.hidden || bodies.get('places')?.hidden) openPanel('places');
+        else closePanel();
+      });
+      const titleRow = el('div', '', 'row-tight');
+      titleRow.append(placesButton);
+      // What a writer draws with sits in this card until the toolbox of the drawing view takes its place.
+      const tools = el('div', '', 'map-tools');
+      titleCard.append(titleRow, tools);
+      const topRight = el('div', '', 'row-tight map-float map-float--controls');
+      const layersPop = popover('Layers', 'layers', toolbar);
+      const lookPop = popover('Look', 'eye', lookBox);
+      legendPop = popover('Legend', 'legend', legend.root);
+      legendPop.root.hidden = true;
+      topRight.append(layersPop.root, lookPop.root, legendPop.root);
+      if (onSphere) topRight.append(popover('Projection', 'map', sphereBox).root);
+      // Pictures load after the drawing, and say so when some could not be shown (ADR 0362).
+      const pictureNote = el('p', '', 'status-text');
+      pictureNote.setAttribute('role', 'status');
+      const status = el('div', '', 'row-tight map-float map-float--status');
+      status.append(pictureNote);
+      const stage = stageHost;
+      // What is being drawn or changed floats over the Map until the toolbox of the drawing view takes its place.
+      const editDock = el('div', '', 'map-edit-dock');
+      const leftColumn = el('div', '', 'map-float map-float--left');
+      leftColumn.append(titleCard, editDock);
+      view.append(stage, leftColumn, topRight, zoomBox, status, slide);
       host.replaceChildren(view);
 
       const model = build();
@@ -750,8 +909,12 @@ export async function mountMap() {
           setRows,
           select: (entryId) => select(entryId, true),
         });
-        drawing.insertBefore(editor.toolbar, layoutRow);
-        side.append(editor.panel);
+        tools.append(editor.toolbar);
+        // Drawing starts with the Map clear: the panel puts itself away.
+        editor.toolbar.addEventListener('click', () => {
+          if (editor?.editing()) closePanel();
+        });
+        editDock.append(editor.panel);
       }
 
       // A mark of the drawing and a row of the places list open the entry's card (ADR 0350). Maps is
