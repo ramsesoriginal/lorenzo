@@ -14,7 +14,7 @@ export type EntryChoice = { id: string; name: string; kinds: string[] };
 export const VISIBLE_LIMIT = 5000;
 
 /** The placements of a Map in pages until it is complete or the limit is reached. */
-export async function readPlacements(tenant: string, id: string) {
+export async function readPlacements(tenant: string, id: string, max = VISIBLE_LIMIT) {
   const rows: Row[] = [];
   let cursor: string | undefined;
   let more = false;
@@ -31,7 +31,7 @@ export async function readPlacements(tenant: string, id: string) {
     );
     rows.push(...page.items);
     cursor = page.next_cursor ?? undefined;
-    if (cursor && rows.length >= VISIBLE_LIMIT) {
+    if (cursor && rows.length >= max) {
       more = true;
       break;
     }

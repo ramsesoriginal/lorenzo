@@ -146,6 +146,7 @@ test('a writer sets how a grid counts diagonals and reads the straight line betw
   const page = await signedIn(browser, w.subject);
   try {
     await page.goto(`/maps/?tenant=${w.tenant.id}`);
+    await page.getByRole('button', { name: 'Make a Map', exact: true }).click();
     await page.getByLabel('Name', { exact: true }).fill('Battle grid');
     await page.getByRole('combobox', { name: 'The sheet is' }).selectOption('square');
     await page.getByLabel('Cell size').filter({ visible: true }).fill('50');
@@ -200,6 +201,7 @@ test('a writer sets how a grid counts diagonals and reads the straight line betw
 
     // A hex has one way to count: no choice is offered.
     await page.goto(`/maps/?tenant=${w.tenant.id}`);
+    await page.getByRole('button', { name: 'Make a Map', exact: true }).click();
     await page.getByRole('combobox', { name: 'The sheet is' }).selectOption('hex');
     await expect(page.getByLabel('Diagonals count as')).toBeHidden();
   } finally {

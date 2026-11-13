@@ -43,6 +43,12 @@ export async function mountHome() {
   try {
     host.replaceChildren(loading('Opening your libraries…'));
     const libraries = await myLibraries();
+    // The app begins at a gallery of Maps (MP1); with one library there is nothing to choose.
+    const only = libraries.length === 1 ? libraries[0] : undefined;
+    if (only) {
+      location.replace(`/maps/?${new URLSearchParams({ tenant: only.id })}`);
+      return;
+    }
     const view = el('div', '', 'stack view');
     view.append(
       pageHead('Maps', { lede: 'The places of your libraries, from a whole world to one room.' }),
@@ -52,9 +58,7 @@ export async function mountHome() {
       for (const library of libraries) {
         const row = el('li');
         const text = el('div', '', 'stack-tight grow');
-        text.append(
-          link(library.name, `/locations/?${new URLSearchParams({ tenant: library.id })}`),
-        );
+        text.append(link(library.name, `/maps/?${new URLSearchParams({ tenant: library.id })}`));
         row.append(text, el('span', library.role, 'chip'));
         list.append(row);
       }

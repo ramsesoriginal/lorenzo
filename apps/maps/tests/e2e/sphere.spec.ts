@@ -118,6 +118,7 @@ test('a writer makes a sphere with a radius and a globe projection, and it is sa
   const page = await signedIn(browser, w.subject);
   try {
     await page.goto(`/maps/?tenant=${w.tenant.id}`);
+    await page.getByRole('button', { name: 'Make a Map', exact: true }).click();
     await page.getByLabel('Name', { exact: true }).fill('Aeris');
     await page.getByRole('combobox', { name: 'The sheet is' }).selectOption('sphere');
     // A sphere's sheet has no width or height to ask for.
@@ -330,6 +331,7 @@ for (const theme of ['light', 'dark'] as const) {
       const flat = await new AxeBuilder({ page }).exclude('.shell-bottom').analyze();
       expect(flat.violations.map((v) => `${v.id}: ${v.nodes[0]?.html}`)).toEqual([]);
       await page.goto(`/maps/?tenant=${w.tenant.id}`);
+      await page.getByRole('button', { name: 'Make a Map', exact: true }).click();
       await page.getByRole('combobox', { name: 'The sheet is' }).selectOption('sphere');
       const form = await new AxeBuilder({ page }).exclude('.shell-bottom').analyze();
       expect(form.violations.map((v) => `${v.id}: ${v.nodes[0]?.html}`)).toEqual([]);

@@ -94,6 +94,7 @@ test('a writer makes a Map, draws, changes and undoes', async ({ browser }) => {
   try {
     // Make a Map from the library's list; a player is not offered the form.
     await page.goto(`/maps/?tenant=${w.tenant.id}`);
+    await page.getByRole('button', { name: 'Make a Map', exact: true }).click();
     await page.getByLabel('Name', { exact: true }).fill('Frostmarch');
     await page.getByLabel('Width', { exact: true }).fill('500');
     await page.getByLabel('Height', { exact: true }).fill('400');

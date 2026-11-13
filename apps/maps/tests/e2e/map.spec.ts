@@ -252,6 +252,30 @@ test('a player sees only what they may, and a hidden Map reads like a missing on
   }
 });
 
+test('the gallery draws each Map small, says what it is drawn on and how it is tied, and has an empty state', async ({
+  browser,
+}) => {
+  const w = await world();
+  const page = await signedIn(browser, w.subject);
+  try {
+    await page.goto(`/maps/?tenant=${w.tenant.id}`);
+    const card = page.locator('.map-card', { hasText: 'Sword Coast' });
+    // The drawing is painted from what this reader may read, and nothing in it can be focused.
+    await expect(card.locator('.map-thumb svg')).toBeVisible();
+    await expect(card.locator('.map-thumb [tabindex]')).toHaveCount(0);
+    await expect(card.getByText('Free plane')).toBeVisible();
+    await expect(card.getByText('Not tied to a date')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Make a Map', exact: true })).toBeVisible();
+
+    // A library with no Map says so, in the mascot's place.
+    const empty = await ok(w.gm.POST('/tenants', { body: { name: `Empty ${randomUUID()}` } }));
+    await page.goto(`/maps/?tenant=${empty.id}`);
+    await expect(page.getByRole('heading', { name: 'No Maps yet', exact: true })).toBeVisible();
+  } finally {
+    await page.context().close();
+  }
+});
+
 for (const theme of ['light', 'dark'] as const) {
   test(`the Map pages have no accessibility errors in ${theme}`, async ({ browser }) => {
     const w = await world();

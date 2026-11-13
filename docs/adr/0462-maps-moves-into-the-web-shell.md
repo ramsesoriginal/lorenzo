@@ -22,7 +22,7 @@ Filled in as each slice lands.
 | Part | Slice | State |
 | --- | --- | --- |
 | The frame, tabs, palette, status bar | M0 | done |
-| The gallery of Maps, its cards and the date lens | M1 | |
+| The gallery of Maps, its cards and the date lens | M1 | done: a card draws the Map small (up to 300 placements this reader may read, a few cards at a time, as the card comes into view), says what it is drawn on and how it is tied to a date (or "Not open to the library" for a writer), and "Any date" opens the date lens; with one library the app begins at its gallery; "Make a Map" opens its form. Where it differs from the design: the search box stays, because finding a Map by name is not to be lost. |
 | Locations and a Location's page | M2 | |
 | The Map: floating controls and the slide-over panel | M3 | |
 | Phone and tablet | M4 | |
