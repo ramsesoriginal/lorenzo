@@ -644,3 +644,21 @@
     padding-inline: var(--space-2);
   }
 }
+
+.map-outline-row {
+  cursor: grab;
+}
+.map-history-list {
+  display: grid;
+  gap: var(--space-1);
+}
+.map-history-list button {
+  width: 100%;
+  justify-content: flex-start;
+}
+.map-history-list button[aria-current="true"] {
+  background: var(--fill-soft);
+}
+.map-history-list button[data-state="undone"] {
+  opacity: 0.7;
+}

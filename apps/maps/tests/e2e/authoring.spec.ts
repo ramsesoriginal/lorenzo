@@ -411,3 +411,57 @@ test('the toolbox is drawn from the tool registry: groups, one key a tool, and p
     await page.context().close();
   }
 });
+
+test('the outliner places a place, by button or by dragging, and History steps back to any step', async ({
+  browser,
+}) => {
+  const w = await world();
+  await w.place('Harbour');
+  await w.place('Lighthouse');
+  const page = await signedIn(browser, w.subject);
+  try {
+    await page.goto(`/map/?tenant=${w.tenant.id}&id=${w.chart.id}`);
+    await expect(page.getByRole('heading', { name: 'Sword Coast', exact: true })).toBeVisible();
+    await page.getByRole('button', { name: 'Edit this map' }).click();
+    await openPanel(page, 'Places');
+    await expect(page.getByRole('button', { name: 'Place Harbour on the Map' })).toBeVisible();
+
+    // The Place button puts it where the view is centred.
+    await page.getByRole('button', { name: 'Place Harbour on the Map' }).click();
+    await expect.poll(async () => (await w.read()).map((r) => r.name)).toEqual(['Harbour']);
+    await expect(page.getByRole('button', { name: 'Place Harbour on the Map' })).toHaveCount(0);
+
+    // Dragging a row onto the sheet puts it at the drop.
+    const dataTransfer = await page.evaluateHandle(() => new DataTransfer());
+    await page
+      .getByRole('button', { name: 'Place Lighthouse on the Map' })
+      .locator('xpath=..')
+      .dispatchEvent('dragstart', { dataTransfer });
+    const box = await page.locator('.map-stage').boundingBox();
+    if (!box) throw new Error('the map has no box');
+    await page.locator('.map-stage').dispatchEvent('drop', {
+      dataTransfer,
+      clientX: box.x + box.width * 0.3,
+      clientY: box.y + box.height * 0.3,
+    });
+    await expect
+      .poll(async () => (await w.read()).map((r) => r.name).sort())
+      .toEqual(['Harbour', 'Lighthouse']);
+
+    // History names each step, and any of them can be gone back to.
+    await openPanel(page, 'History');
+    const history = page.locator('.map-history');
+    await expect(history.getByRole('button', { name: 'Placed Harbour' })).toBeVisible();
+    await expect(history.getByRole('button', { name: 'Placed Lighthouse' })).toBeVisible();
+    await history.getByRole('button', { name: 'Before any change' }).click();
+    await expect.poll(async () => (await w.read()).length).toBe(0);
+    await expect(history.getByRole('button', { name: 'Placed Harbour' })).toHaveAttribute(
+      'data-state',
+      'undone',
+    );
+    await history.getByRole('button', { name: 'Placed Harbour' }).click();
+    await expect.poll(async () => (await w.read()).map((r) => r.name)).toEqual(['Harbour']);
+  } finally {
+    await page.context().close();
+  }
+});

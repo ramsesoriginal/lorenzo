@@ -77,6 +77,10 @@ export type Editor = {
   toolbar: HTMLElement;
   /** What is being drawn, or what is selected, with the controls for it. */
   panel: HTMLElement;
+  /** What was done, each step by name, with a way back to any of them. */
+  history: HTMLElement;
+  /** Puts an entry on the Map as a pin at a point of the drawing. */
+  placeEntry(entry: { id: string; name: string }, at: [number, number]): Promise<void>;
   /** Whether the tools are on. */
   editing(): boolean;
   /** The page's selection changed. */
@@ -255,7 +259,7 @@ export function createEditor(context: EditorContext): Editor {
       const before = rowState(row);
       const after = { ...before, ...patch };
       const saved = await putPlacement(context.tenant, context.mapId, row.id, after);
-      history.record([{ entry: row.id, before, after: rowState(saved) }]);
+      history.record([{ entry: row.id, before, after: rowState(saved) }], `Changed ${row.name}`);
       context.setRows(upsert(saved));
       working = null;
       say('Saved.');
@@ -267,7 +271,10 @@ export function createEditor(context: EditorContext): Editor {
   async function removeRow(row: Row) {
     await guarded(async () => {
       await removePlacement(context.tenant, context.mapId, row.id);
-      history.record([{ entry: row.id, before: rowState(row), after: null }]);
+      history.record(
+        [{ entry: row.id, before: rowState(row), after: null }],
+        `Removed ${row.name}`,
+      );
       context.setRows(context.rows().filter((r) => r.id !== row.id));
       context.select(null);
       say(`${row.name} is no longer on this map.`);
@@ -294,9 +301,10 @@ export function createEditor(context: EditorContext): Editor {
         style: null,
         z: 0,
       });
-      history.record([
-        { entry: id, before: before ? rowState(before) : null, after: rowState(saved) },
-      ]);
+      history.record(
+        [{ entry: id, before: before ? rowState(before) : null, after: rowState(saved) }],
+        `${before ? 'Redrew' : 'Drew'} ${saved.name}`,
+      );
       context.setRows(upsert(saved));
       draft = [];
       cells = [];
@@ -357,6 +365,85 @@ export function createEditor(context: EditorContext): Editor {
       }
     });
 
+  /** Puts an entry on the Map as a pin at a point (dropped from the outliner, or its Place button). */
+  async function placeEntry(entry: { id: string; name: string }, at: Pt) {
+    await guarded(async () => {
+      const before = rowOf(entry.id);
+      const saved = await putPlacement(context.tenant, context.mapId, entry.id, {
+        geometry: toGeometry({ kind: 'point', at }) as unknown as Record<string, unknown>,
+        role: before?.role ?? 'site',
+        style: null,
+        z: 0,
+      });
+      history.record(
+        [{ entry: entry.id, before: before ? rowState(before) : null, after: rowState(saved) }],
+        `${before ? 'Moved' : 'Placed'} ${saved.name}`,
+      );
+      context.setRows(upsert(saved));
+      context.select(entry.id);
+      say(`${saved.name} is on the map.`);
+      render();
+      refresh();
+    });
+  }
+
+  /** Steps back, or forward, to any point in what was done. */
+  const goTo = (index: number) =>
+    guarded(async () => {
+      while (history.position() > index) {
+        const step = history.undo();
+        if (!step) break;
+        try {
+          await applyStep(step, 'undo');
+        } catch (error) {
+          history.redo();
+          throw error;
+        }
+      }
+      while (history.position() < index) {
+        const step = history.redo();
+        if (!step) break;
+        try {
+          await applyStep(step, 'redo');
+        } catch (error) {
+          history.undo();
+          throw error;
+        }
+      }
+    });
+
+  // The list of what was done (MP6): each step by its name, a step back to any of them, the undone
+  // ones still listed until something new is done.
+  const historyPanel = el('div', '', 'stack-tight map-history');
+  function renderHistory() {
+    const list = el('ol', '', 'list map-history-list');
+    const start = el('li');
+    const startButton = el('button', 'Before any change', 'btn btn-secondary');
+    startButton.type = 'button';
+    startButton.setAttribute('aria-current', String(history.position() === 0));
+    startButton.disabled = busy;
+    startButton.addEventListener('click', () => void goTo(0));
+    start.append(startButton);
+    list.append(start);
+    history.entries().forEach((entry, index) => {
+      const item = el('li');
+      const node = el('button', entry.name, 'btn btn-secondary');
+      node.type = 'button';
+      node.disabled = busy;
+      node.dataset.state = entry.done ? 'done' : 'undone';
+      if (!entry.done) node.append(el('span', 'undone', 'chip'));
+      node.setAttribute('aria-current', String(history.position() === index + 1));
+      node.addEventListener('click', () => void goTo(index + 1));
+      item.append(node);
+      list.append(item);
+    });
+    historyPanel.replaceChildren(
+      history.entries().length
+        ? list
+        : el('p', 'Nothing has been done on this Map yet.', 'status-text'),
+    );
+  }
+
   async function placeChildren(
     row: Row,
     shape: Editable,
@@ -385,7 +472,7 @@ export function createEditor(context: EditorContext): Editor {
         before: null,
         after: { geometry: item.geometry, role: item.role, style: null, z: 0 },
       }));
-      history.record(step);
+      history.record(step, `Placed ${chosen.length} places inside ${row.name}`);
       await reload();
       say(
         children.length > chosen.length
@@ -667,6 +754,7 @@ export function createEditor(context: EditorContext): Editor {
 
   function renderToolbar() {
     toolbar.replaceChildren();
+    renderHistory();
     const toggle = el('button', editing ? 'Stop editing' : 'Edit this map', 'btn btn-secondary');
     toggle.type = 'button';
     toggle.setAttribute('aria-pressed', String(editing));
@@ -1106,6 +1194,8 @@ export function createEditor(context: EditorContext): Editor {
   return {
     toolbar,
     panel,
+    history: historyPanel,
+    placeEntry,
     editing: () => editing,
     selected(id) {
       selectedId = id;

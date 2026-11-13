@@ -10,7 +10,7 @@ export async function openControl(page: Page, name: 'Layers' | 'Look' | 'Legend'
 }
 
 /** The slide-over panel, on one of its tabs. */
-export async function openPanel(page: Page, tab: 'Selected' | 'Places' | 'Settings') {
+export async function openPanel(page: Page, tab: 'Selected' | 'Places' | 'History' | 'Settings') {
   const panel = page.locator('.map-slideover');
   if (!(await panel.isVisible())) {
     // Places opens it on the tab it names; the others through the Places button, then the tab.
