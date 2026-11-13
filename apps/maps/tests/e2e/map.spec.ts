@@ -231,6 +231,64 @@ test('the Map fills the page: the panel slides over, its tabs and Escape work, a
   }
 });
 
+test('on a phone the Map reads in full and a writer makes small changes, with no drawing', async ({
+  browser,
+}) => {
+  const w = await world();
+  const token = await refreshTokenFor(w.subject);
+  const context = await browser.newContext({
+    viewport: { width: 430, height: 900 },
+    storageState: {
+      cookies: [],
+      origins: [{ origin: SITE_URL, localStorage: [{ name: REFRESH_TOKEN_KEY, value: token }] }],
+    },
+  });
+  const page = await context.newPage();
+  try {
+    await page.goto(`/map/?tenant=${w.tenant.id}&id=${w.chart.id}`);
+    await expect(page.getByRole('heading', { name: 'Sword Coast', exact: true })).toBeVisible();
+    // The panel is a sheet from the foot, and it reads: the places and what a place leads to.
+    await page.getByRole('button', { name: 'Places', exact: true }).click();
+    const sheet = await page.locator('.map-slideover').boundingBox();
+    expect(sheet?.y ?? 0).toBeGreaterThan(900 * 0.3);
+    await page.locator('.map-places .map-place', { hasText: 'Harbour town' }).click();
+    await expect(page.locator('.map-panel')).toContainText('Harbour town');
+    await page.getByRole('button', { name: 'Close the panel' }).click();
+    // Drawing is not offered; the small changes are.
+    await page.getByRole('button', { name: 'Edit this map' }).click();
+    await expect(
+      page.getByRole('heading', { name: 'Drawing needs a larger window' }),
+    ).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Pin', exact: true })).toHaveCount(0);
+    const small = page.locator('.map-small');
+    await small.getByLabel('Name', { exact: true }).fill('Sword Coast road');
+    await small.getByLabel('x', { exact: true }).fill('321');
+    await small.getByLabel('y', { exact: true }).fill('123');
+    await small.getByRole('button', { name: 'Save', exact: true }).click();
+    await expect(
+      page.getByRole('heading', { name: 'Sword Coast road', exact: true }),
+    ).toBeVisible();
+    const header = await ok(
+      w.gm.GET('/tenants/{tenant_id}/maps/{map_id}', {
+        params: { path: { ...w.path, map_id: w.chart.id } },
+      }),
+    );
+    expect(header.name).toBe('Sword Coast road');
+    const placed = await ok(
+      w.gm.GET('/tenants/{tenant_id}/maps/{map_id}/placements', {
+        params: { path: { ...w.path, map_id: w.chart.id } },
+      }),
+    );
+    const moved = placed.items.find((row) => row.name === 'Harbour town');
+    const parts = (moved?.geometry as { parts?: { at: number[] }[] } | undefined)?.parts;
+    expect(parts?.[0]?.at).toEqual([321, 123]);
+    const result = await new AxeBuilder({ page }).exclude('.shell-bottom').analyze();
+    expect(result.violations.map((v) => `${v.id}: ${v.nodes[0]?.html}`)).toEqual([]);
+  } finally {
+    await context.close();
+  }
+});
+
 test('a mark and a row of the list open the entry card, and Escape puts it away', async ({
   browser,
 }) => {
