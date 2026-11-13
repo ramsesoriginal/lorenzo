@@ -63,6 +63,7 @@ import { createEditor, type Editor } from './map-edit';
 import { createLegend } from './map-legend';
 import { makeMapForm, settingsSection } from './map-settings';
 import { canManage, libraryName, myLibraries } from './names';
+import { createOutliner, DRAG_TYPE } from './outliner';
 import { loadCard, loadPicture } from './previews';
 import { start } from './sign-in';
 import { smallChanges } from './small-changes';
@@ -658,6 +659,7 @@ export async function mountMap() {
         ? ([
             ['selected', 'Selected'],
             ['places', 'Places'],
+            ['history', 'History'],
             ['settings', 'Settings'],
           ] as const)
         : ([
@@ -948,6 +950,47 @@ export async function mountMap() {
           });
         }
         editDock.append(editor.panel);
+        (bodies.get('history') as HTMLElement).append(editor.history);
+
+        // The outliner: places not yet on this Map, to drag onto it or to place at the centre.
+        const ed = editor;
+        const outliner = createOutliner({
+          tenant,
+          placed: () => new Set(rows.map((r) => r.id)),
+          place: async (entry) => {
+            const centre = controller?.getView().centre ?? [0, 0];
+            await ed.placeEntry(entry, [centre[0], centre[1]]);
+            void outliner.refresh();
+          },
+        });
+        outliner.root.hidden = true;
+        placesBody.append(outliner.root);
+        const syncOutliner = () => {
+          const on = ed.editing();
+          outliner.root.hidden = !on;
+          if (on) void outliner.refresh();
+        };
+        editor.toolbar.addEventListener('click', () => queueMicrotask(syncOutliner));
+        stageHost.addEventListener('dragover', (event) => {
+          if (!ed.editing() || !event.dataTransfer?.types.includes(DRAG_TYPE)) return;
+          event.preventDefault();
+          event.dataTransfer.dropEffect = 'copy';
+        });
+        stageHost.addEventListener('drop', (event) => {
+          const raw = event.dataTransfer?.getData(DRAG_TYPE);
+          const state = controller?.getView();
+          if (!raw || !state || !ed.editing()) return;
+          event.preventDefault();
+          const entry = JSON.parse(raw) as { id: string; name: string };
+          const box = stageHost.getBoundingClientRect();
+          const at = screenToDrawing(
+            model.system,
+            { width: stageHost.clientWidth, height: stageHost.clientHeight },
+            { zoom: state.zoom, centre: state.centre },
+            [event.clientX - box.left, event.clientY - box.top],
+          );
+          void ed.placeEntry(entry, [at[0], at[1]]).then(() => outliner.refresh());
+        });
       }
 
       // A mark of the drawing and a row of the places list open the entry's card (ADR 0350). Maps is
