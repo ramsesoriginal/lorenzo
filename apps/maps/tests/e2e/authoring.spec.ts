@@ -360,3 +360,54 @@ for (const theme of ['light', 'dark'] as const) {
     }
   });
 }
+
+test('the toolbox is drawn from the tool registry: groups, one key a tool, and planned tools that say so', async ({
+  browser,
+}) => {
+  const w = await world();
+  const page = await signedIn(browser, w.subject);
+  try {
+    await page.goto(`/map/?tenant=${w.tenant.id}&id=${w.chart.id}`);
+    await expect(page.getByRole('heading', { name: 'Sword Coast', exact: true })).toBeVisible();
+    await page.getByRole('button', { name: 'Edit this map' }).click();
+    // The tools are in their groups; Cells waits for a grid, and the planned ones are in All tools.
+    const place = page.getByRole('group', { name: 'Place', exact: true });
+    await expect(place.getByRole('button', { name: 'Pin', exact: true })).toBeVisible();
+    await expect(place.getByRole('button', { name: 'Circle', exact: true })).toBeVisible();
+    await expect(page.getByRole('group', { name: 'Draw', exact: true })).toContainText('Area');
+    await expect(page.getByRole('button', { name: 'Cells', exact: true })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Spline', exact: true })).toHaveCount(0);
+    // One key a tool, while the drawing has the focus; the page's own keys do not see them.
+    await page.locator('.map-stage svg').focus();
+    await page.keyboard.press('p');
+    await expect(page.getByRole('button', { name: 'Pin', exact: true })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    await page.keyboard.press('l');
+    await expect(page.getByRole('button', { name: 'Line', exact: true })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    const address = page.url();
+    await page.keyboard.press('g');
+    await expect(page.getByText('Cells is not available on this Map.')).toBeVisible();
+    expect(page.url()).toBe(address);
+    await page.keyboard.press('s');
+    await expect(page.getByText(/Spline is planned\./)).toBeVisible();
+    // All tools lists every tool, finds one by a few words and says which are planned.
+    await page.getByRole('button', { name: 'All tools' }).click();
+    await page.getByLabel('Find a tool').fill('cave');
+    const cave = page.getByRole('button', { name: 'Cave system', exact: true });
+    await expect(cave).toHaveAttribute('aria-disabled', 'true');
+    await expect(page.locator('.map-all-tools-list')).toContainText('planned');
+    await cave.click({ force: true });
+    await expect(page.getByText(/Cave system is planned\./)).toBeVisible();
+    // A key typed into a field is the field's.
+    await page.getByLabel('Find a tool').fill('');
+    await page.getByLabel('Find a tool').press('p');
+    await expect(page.getByLabel('Find a tool')).toHaveValue('p');
+  } finally {
+    await page.context().close();
+  }
+});
