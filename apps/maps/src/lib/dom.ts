@@ -163,7 +163,8 @@ export function sectionHead(
 }
 
 /** A heading for a group inside a card or a section (levels follow where it sits). */
-export const groupTitle = (level: 'h3' | 'h4', text: string) => el(level, text, 'group-title');
+export const groupTitle = (level: 'h2' | 'h3' | 'h4', text: string) =>
+  el(level, text, 'group-title');
 
 /**
  * A closed panel for an editor or a longer list: one summary row with a chevron, and the body

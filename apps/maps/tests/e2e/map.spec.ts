@@ -3,6 +3,7 @@ import AxeBuilder from '@axe-core/playwright';
 import { type Browser, expect, test } from '@playwright/test';
 import { apiAs, ok, refreshTokenFor } from './support/api.ts';
 import { REFRESH_TOKEN_KEY, SITE_URL } from './support/env.ts';
+import { openControl, openPanel } from './support/map-ui.ts';
 
 async function signedIn(browser: Browser, subject: string, theme?: 'light' | 'dark') {
   const token = await refreshTokenFor(subject);
@@ -137,6 +138,7 @@ test('a GM sees the Map drawn, and the toggles, zoom and selection work', async 
     const drawing = gm.getByRole('group', { name: 'Map of Sword Coast' });
     await expect(drawing).toBeVisible();
     // Every placement the GM may see is on the list, the hidden one included for a GM.
+    await openPanel(gm, 'Places');
     const list = gm.locator('.map-places');
     await expect(list.getByRole('button')).toHaveCount(5);
     // Marks: the pin, the region, the route and the person are drawn.
@@ -144,16 +146,17 @@ test('a GM sees the Map drawn, and the toggles, zoom and selection work', async 
       await expect(drawing.locator(`[aria-label^="${name}"]`)).toHaveCount(1);
     }
     // The toggles hide and show their groups.
-    await gm.getByLabel('Roads', { exact: true }).uncheck();
+    await openControl(gm, 'Layers');
+    await gm.getByRole('checkbox', { name: 'Roads', exact: true }).uncheck();
     await expect(drawing.locator('[aria-label^="Salt road"]')).toHaveCount(0);
-    await gm.getByLabel('Roads', { exact: true }).check();
+    await gm.getByRole('checkbox', { name: 'Roads', exact: true }).check();
     await expect(drawing.locator('[aria-label^="Salt road"]')).toHaveCount(1);
-    await gm.getByLabel('People', { exact: true }).uncheck();
+    await gm.getByRole('checkbox', { name: 'People', exact: true }).uncheck();
     await expect(drawing.locator('[aria-label^="Bram the guide"]')).toHaveCount(0);
-    await gm.getByLabel('People', { exact: true }).check();
-    await gm.getByLabel('Places', { exact: true }).uncheck();
+    await gm.getByRole('checkbox', { name: 'People', exact: true }).check();
+    await gm.getByRole('checkbox', { name: 'Places', exact: true }).uncheck();
     await expect(drawing.locator('[aria-label^="Harbour town"]')).toHaveCount(0);
-    await gm.getByLabel('Places', { exact: true }).check();
+    await gm.getByRole('checkbox', { name: 'Places', exact: true }).check();
     // Zoom and "Whole map".
     await expect(gm.getByText('100%', { exact: true })).toBeVisible();
     await gm.getByRole('button', { name: 'Zoom in' }).click();
@@ -161,24 +164,68 @@ test('a GM sees the Map drawn, and the toggles, zoom and selection work', async 
     await gm.getByRole('button', { name: 'Whole map' }).click();
     await expect(gm.getByText('100%', { exact: true })).toBeVisible();
     // Selecting from the list and from the drawing agree.
-    await list.getByRole('button', { name: /Wet marsh/ }).click();
-    await expect(list.getByRole('button', { name: /Wet marsh/ })).toHaveAttribute(
+    await openPanel(gm, 'Places');
+    await list.locator('.map-place', { hasText: 'Wet marsh' }).click();
+    await expect(list.locator('.map-place', { hasText: 'Wet marsh' })).toHaveAttribute(
       'aria-pressed',
       'true',
     );
     await expect(gm.getByRole('link', { name: 'Wet marsh', exact: true })).toBeVisible();
     await expect(gm.getByRole('button', { name: 'Centre on Wet marsh' })).toBeVisible();
     await drawing.locator('[aria-label^="Harbour town"] .m-pinbg').click();
-    await expect(list.getByRole('button', { name: /Harbour town/ })).toHaveAttribute(
+    await expect(list.locator('.map-place', { hasText: 'Harbour town' })).toHaveAttribute(
       'aria-pressed',
       'true',
     );
-    await expect(list.getByRole('button', { name: /Wet marsh/ })).toHaveAttribute(
+    await expect(list.locator('.map-place', { hasText: 'Wet marsh' })).toHaveAttribute(
       'aria-pressed',
       'false',
     );
     await gm.keyboard.press('Escape');
     await expect(gm.getByText('Select a place on the map or in the list.')).toBeVisible();
+  } finally {
+    await gm.context().close();
+  }
+});
+
+test('the Map fills the page: the panel slides over, its tabs and Escape work, and the controls float', async ({
+  browser,
+}) => {
+  const w = await world();
+  const gm = await signedIn(browser, w.subject);
+  try {
+    await gm.goto(`/map/?tenant=${w.tenant.id}&id=${w.chart.id}`);
+    await expect(gm.getByRole('heading', { name: 'Sword Coast', exact: true })).toBeVisible();
+    // The title card says what it is drawn on, and the panel is shut.
+    await expect(gm.locator('.map-title-card')).toContainText('Free plane');
+    await expect(gm.locator('.map-slideover')).toBeHidden();
+    // Places opens it on the places, with a tab for the settings of a writer.
+    await gm.getByRole('button', { name: 'Places', exact: true }).click();
+    await expect(gm.getByRole('tab', { name: 'Places', exact: true })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
+    await expect(gm.getByRole('tab', { name: 'Settings', exact: true })).toBeVisible();
+    await gm.getByRole('tab', { name: 'Selected', exact: true }).click();
+    await expect(gm.getByText('Select a place on the map or in the list.')).toBeVisible();
+    // Escape in the panel puts it away; the floating controls are still there.
+    await gm.getByRole('tab', { name: 'Selected', exact: true }).focus();
+    await gm.keyboard.press('Escape');
+    await expect(gm.locator('.map-slideover')).toBeHidden();
+    await expect(gm.getByRole('button', { name: 'Layers', exact: true })).toBeVisible();
+    // A control opens one panel at a time and Escape puts it away.
+    await openControl(gm, 'Layers');
+    await openControl(gm, 'Look');
+    await expect(gm.getByRole('button', { name: 'Layers', exact: true })).toHaveAttribute(
+      'aria-expanded',
+      'false',
+    );
+    await gm.getByLabel('Look').focus();
+    await gm.keyboard.press('Escape');
+    await expect(gm.getByRole('button', { name: 'Look', exact: true })).toHaveAttribute(
+      'aria-expanded',
+      'false',
+    );
   } finally {
     await gm.context().close();
   }
@@ -202,6 +249,7 @@ test('a mark and a row of the list open the entry card, and Escape puts it away'
     await gm.mouse.move(5, 5);
     await expect(card).toBeHidden();
     // A row of the places list, by the keyboard.
+    await openPanel(gm, 'Places');
     const row = gm.locator('.map-places').getByRole('button', { name: /Wet marsh/ });
     await row.focus();
     await expect(card).toContainText('Wet marsh');
@@ -226,6 +274,7 @@ test('a player sees only what they may, and a hidden Map reads like a missing on
   try {
     await player.goto(`/map/?tenant=${w.tenant.id}&id=${w.chart.id}`);
     await expect(player.getByRole('heading', { name: 'Sword Coast', exact: true })).toBeVisible();
+    await openPanel(player, 'Places');
     await expect(player.locator('.map-places').getByRole('button')).toHaveCount(4);
     await expect(player.getByText('Secret vault')).toHaveCount(0);
     await expect(player.getByText('Visible to everyone')).toHaveCount(0);

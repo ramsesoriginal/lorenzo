@@ -4,15 +4,15 @@ import { legend, type MapModel, paintSvg, SWATCH, type Theme } from '@lorenzo/ma
 import { BRANDING_CSS_URL } from './config';
 import { el } from './dom';
 
-export function createLegend() {
-  const root = el('details', '', 'map-legend');
-  const summary = el('summary', 'Legend', 'map-legend-title');
+export function createLegend(onChange: (shown: boolean) => void = () => {}) {
+  const root = el('div', '', 'map-legend');
   const list = el('ul', '', 'map-legend-list');
-  root.append(summary, list);
+  root.append(list);
 
   function update(model: MapModel, theme: Theme) {
     const items = legend(model, theme, { iconBase: BRANDING_CSS_URL });
     root.hidden = items.length === 0;
+    onChange(items.length > 0);
     list.replaceChildren(
       ...items.map((item) => {
         const row = el('li', '', 'map-legend-item');

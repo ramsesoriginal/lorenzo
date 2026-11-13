@@ -270,29 +270,121 @@
   }
 }
 
-/* A Map: the toolbar, the drawing beside its panel, and the list of what is drawn. */
-.map-toolbar {
+/* A Map (MP3): it fills the page, with small controls floating over it and a panel that slides over
+   from the side. The workspace takes back the page's own padding. */
+.map-workspace {
+  position: relative;
+  margin: calc(-1 * var(--space-5)) calc(-1 * var(--space-4));
+  min-height: max(32rem, calc(100dvh - 6.5rem));
+  overflow: hidden;
+}
+
+.map-stage {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+.map-float {
+  position: absolute;
+  z-index: 2;
+  /* What floats does not take the clicks on the Map beside it: only what is on it does. */
+  pointer-events: none;
+}
+
+.map-float > * {
+  pointer-events: auto;
+}
+
+.map-float--left {
+  inset-block-start: var(--space-3);
+  inset-inline-start: var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  inline-size: min(22rem, calc(100% - 2 * var(--space-3)));
+  max-block-size: calc(100% - 2 * var(--space-3));
+  overflow: auto;
+}
+
+.map-title-card {
+  max-inline-size: 22rem;
+}
+
+.map-edit-dock:empty {
+  display: none;
+}
+
+.map-title {
+  margin: 0;
+}
+
+.map-float--controls {
+  inset-block-start: var(--space-3);
+  inset-inline-end: var(--space-3);
+  align-items: flex-start;
+}
+
+.map-workspace[data-panel="open"] .map-float--controls {
+  inset-inline-end: calc(min(26rem, 100%) + var(--space-3));
+}
+
+.map-float--zoom {
+  inset-block-end: var(--space-3);
+  inset-inline-end: var(--space-3);
+}
+
+.map-workspace[data-panel="open"] .map-float--zoom {
+  inset-inline-end: calc(min(26rem, 100%) + var(--space-3));
+}
+
+.map-float--status {
+  inset-block-end: var(--space-3);
+  inset-inline-start: var(--space-3);
+}
+
+.map-pop-wrap {
+  position: relative;
+}
+
+.map-pop {
+  position: absolute;
+  z-index: 3;
+  inset-block-start: calc(100% + var(--space-1));
+  inset-inline-end: 0;
+  min-inline-size: 14rem;
+  max-block-size: 60dvh;
+  overflow: auto;
+}
+
+.map-slideover {
+  position: absolute;
+  z-index: 4;
+  inset-block: 0;
+  inset-inline-end: 0;
+  inline-size: min(26rem, 100%);
+  padding: var(--space-3);
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.map-slideover[hidden] {
+  display: none;
+}
+
+.map-tabs {
   flex-wrap: wrap;
-  gap: var(--space-3) var(--space-4);
+}
+
+.map-tab[aria-selected="true"] {
+  font-weight: 600;
+  text-decoration: underline;
 }
 
 .map-zoom {
   margin-inline-start: auto;
-}
-
-.map-layout {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 280px;
-  gap: var(--space-4);
-  align-items: start;
-}
-
-.map-stage {
-  position: relative;
-  height: min(68vh, 680px);
-  min-height: 360px;
-  overflow: hidden;
-  border-radius: var(--radius-card);
 }
 
 .map-place {
@@ -304,12 +396,6 @@
 .map-places .map-place[aria-pressed="true"] {
   font-weight: 600;
   text-decoration: underline;
-}
-
-@media (max-width: 720px) {
-  .map-layout {
-    grid-template-columns: minmax(0, 1fr);
-  }
 }
 
 .map-panel .chip {

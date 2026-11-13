@@ -76,6 +76,8 @@ export type Editor = {
   toolbar: HTMLElement;
   /** What is being drawn, or what is selected, with the controls for it. */
   panel: HTMLElement;
+  /** Whether the tools are on. */
+  editing(): boolean;
   /** The page's selection changed. */
   selected(id: string | null): void;
   destroy(): void;
@@ -633,7 +635,7 @@ export function createEditor(context: EditorContext): Editor {
   function chooser(): HTMLElement {
     const box = el('div', '', 'stack-tight');
     const label = TOOLS.find(([name]) => name === toolName)?.[1] ?? '';
-    box.append(groupTitle('h3', `Draw: ${label.toLowerCase()}`));
+    box.append(groupTitle('h2', `Draw: ${label.toLowerCase()}`));
     if (target) {
       const placed = target.id ? rowOf(target.id) : undefined;
       box.append(
@@ -742,7 +744,7 @@ export function createEditor(context: EditorContext): Editor {
 
   function pointFields(row: Row, shape: Editable): HTMLElement {
     const box = el('div', '', 'stack-tight');
-    box.append(groupTitle('h4', 'Points'));
+    box.append(groupTitle('h3', 'Points'));
     const inputs: HTMLInputElement[][] = [];
     const commit = () => {
       const number = (input: HTMLInputElement | undefined) => Number(input?.value ?? Number.NaN);
@@ -829,7 +831,7 @@ export function createEditor(context: EditorContext): Editor {
       return null;
     }
     const box = el('div', '', 'stack-tight');
-    box.append(groupTitle('h4', 'Places inside'));
+    box.append(groupTitle('h3', 'Places inside'));
     const line = el('p', 'Looking for what is inside…', 'status-text');
     box.append(line);
     void partsOf(context.tenant, row.id)
@@ -860,7 +862,7 @@ export function createEditor(context: EditorContext): Editor {
 
   function cellsPanel(row: Row, grid: GridSpec, current: Cell[]): HTMLElement {
     const box = el('div', '', 'stack-tight');
-    box.append(groupTitle('h4', 'Cells'));
+    box.append(groupTitle('h3', 'Cells'));
     const write = (next: Cell[]) =>
       saveRow(row, { geometry: cellsGeometry(grid, context.extent, next) });
     for (const cell of current) {
@@ -908,7 +910,7 @@ export function createEditor(context: EditorContext): Editor {
 
   function editPanel(row: Row): HTMLElement {
     const box = el('div', '', 'stack-tight');
-    box.append(groupTitle('h3', `Change ${row.name}`));
+    box.append(groupTitle('h2', `Change ${row.name}`));
     const role = select('Role', ROLE_OPTIONS, row.role ?? '');
     role.input.addEventListener(
       'change',
@@ -1008,6 +1010,7 @@ export function createEditor(context: EditorContext): Editor {
   return {
     toolbar,
     panel,
+    editing: () => editing,
     selected(id) {
       selectedId = id;
       working = null;
