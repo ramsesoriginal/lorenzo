@@ -660,6 +660,7 @@ class Kind6(StrEnum):
     ratio = "ratio"
     select = "select"
     dice_value = "dice_value"
+    dice = "dice"
 
 
 class ComputedStatDependentOut(BaseModel):
@@ -1002,6 +1003,14 @@ class Mode1(StrEnum):
 class DiceDropOut(BaseModel):
     mode: Mode1 = Field(..., title="Mode")
     count: int = Field(..., title="Count")
+
+
+class DiceFormulaBody(BaseModel):
+    kind: Literal["dice"] = Field("dice", title="Kind")
+    count_stat_definition_id: UUID | None = Field(None, title="Count Stat Definition Id")
+    count_constant: int | None = Field(None, title="Count Constant")
+    sides_stat_definition_id: UUID | None = Field(None, title="Sides Stat Definition Id")
+    sides_constant: int | None = Field(None, title="Sides Constant")
 
 
 class DiceIn(BaseModel):
@@ -5983,6 +5992,7 @@ class ComputedStatOut(BaseModel):
         | RatioFormulaBodyOutput
         | SelectFormulaBodyOutput
         | DiceValueFormulaBody
+        | DiceFormulaBody
     ) = Field(..., discriminator="kind", title="Formula")
     updated_at: AwareDatetime = Field(..., title="Updated At")
     warnings: list[FindingOut] | None = Field(None, title="Warnings")
@@ -6000,6 +6010,7 @@ class ComputedStatPreviewIn(BaseModel):
         | RatioFormulaBodyInput
         | SelectFormulaBodyInput
         | DiceValueFormulaBody
+        | DiceFormulaBody
         | None
     ) = Field(None, title="Formula")
 
@@ -6254,6 +6265,7 @@ class StatExplanationOut(BaseModel):
         | RatioFormulaBodyOutput
         | SelectFormulaBodyOutput
         | DiceValueFormulaBody
+        | DiceFormulaBody
         | None
     ) = Field(..., title="Formula")
     inputs: list[PreviewInputOut] = Field(..., title="Inputs")

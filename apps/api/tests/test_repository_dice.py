@@ -12,6 +12,7 @@ from sqlalchemy import select
 
 from lorenzo_api.models import (
     ComputedStat,
+    ComputedStatDice,
     ComputedStatDiceValue,
     Entity,
     EntityStat,
@@ -244,6 +245,104 @@ async def test_a_dice_value_formula_is_copied_reading_the_copied_dice_and_update
         assert applied.json()["not_applied"] == []
         values = await _values(gm, table)
         assert values["Longsword"]["Max damage"]["value"] == 7
+        assert (await gm.get(f"{url}/updates")).json()["changed"] == []
+    finally:
+        await cleanup([repository, table], [author, gm])
+
+
+async def _goblin_repository(author):  # type: ignore[no-untyped-def]
+    """A Goblin whose Bite is as many d8 as its Level (ADR 0464)."""
+    repository = await author.create_tenant("Bestiary", kind="repository")
+    async with admin_session_factory() as session:
+        group = StatGroup(tenant_id=repository, name="Combat")
+        session.add(group)
+        await session.flush()
+        level = StatDefinition(
+            tenant_id=repository,
+            stat_group_id=group.id,
+            name="Level",
+            value_type=StatValueType.INT,
+        )
+        bite = StatDefinition(
+            tenant_id=repository,
+            stat_group_id=group.id,
+            name="Bite",
+            value_type=StatValueType.DICE,
+        )
+        goblin = Entity(tenant_id=repository, name="Goblin")
+        session.add_all([level, bite, goblin])
+        await session.flush()
+        session.add_all(
+            [
+                EntityStatGroup(entity_id=goblin.id, stat_group_id=group.id, tenant_id=repository),
+                EntityStat(
+                    entity_id=goblin.id,
+                    stat_definition_id=level.id,
+                    tenant_id=repository,
+                    value_int=2,
+                ),
+                ComputedStat(entity_id=goblin.id, stat_definition_id=bite.id, tenant_id=repository),
+            ]
+        )
+        await session.flush()
+        session.add(
+            ComputedStatDice(
+                entity_id=goblin.id,
+                stat_definition_id=bite.id,
+                tenant_id=repository,
+                count_stat_definition_id=level.id,
+                sides_constant=8,
+            )
+        )
+        await session.commit()
+        return repository, goblin.id, bite.id
+
+
+async def test_a_dice_formula_is_copied_reading_the_copied_stat_and_updated_as_one_change(
+    raw_client: AsyncClient, fake_jwks_server: FakeJwksServer
+) -> None:
+    author = await make_actor(raw_client, fake_jwks_server, "author")
+    gm = await make_actor(raw_client, fake_jwks_server, "gm")
+    repository, goblin, bite = await _goblin_repository(author)
+    table = await _copy(author, gm, repository)
+    url = f"/tenants/{table}/repositories/{repository}"
+    try:
+        values = await _values(gm, table)
+        assert values["Goblin"]["Bite"]["value"] == "2d8"
+        assert values["Goblin"]["Bite"]["computed"] is True
+        async with admin_session_factory() as session:
+            local_level = await session.scalar(
+                select(StatDefinition.id).where(
+                    StatDefinition.tenant_id == table, StatDefinition.name == "Level"
+                )
+            )
+            built = (
+                await session.scalars(
+                    select(ComputedStatDice).where(ComputedStatDice.tenant_id == table)
+                )
+            ).one()
+            assert (built.count_stat_definition_id, built.count_constant) == (local_level, None)
+            assert (built.sides_stat_definition_id, built.sides_constant) == (None, 8)
+        assert (await gm.get(f"{url}/updates")).json()["changed"] == []
+
+        async with admin_session_factory() as session:
+            row = await session.get_one(ComputedStatDice, (goblin, bite))
+            row.count_stat_definition_id, row.count_constant, row.sides_constant = None, 3, 10
+            await session.commit()
+        updates = (await gm.get(f"{url}/updates")).json()
+        (changed,) = [row for row in updates["changed"] if row["name"] == "Goblin"]
+        (formula,) = [f for f in changed["fields"] if f["field"].startswith("formulas:")]
+        assert formula["state"] == "clean"
+        assert (formula["upstream"]["count_constant"], formula["upstream"]["sides_constant"]) == (
+            3,
+            10,
+        )
+
+        actions = [{"kind": "entity", "source_id": str(goblin), "action": "apply"}]
+        applied = await gm.post(f"{url}/updates", json={"actions": actions})
+        assert applied.status_code == 200, applied.text
+        assert applied.json()["not_applied"] == []
+        assert (await _values(gm, table))["Goblin"]["Bite"]["value"] == "3d10"
         assert (await gm.get(f"{url}/updates")).json()["changed"] == []
     finally:
         await cleanup([repository, table], [author, gm])

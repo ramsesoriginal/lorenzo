@@ -132,6 +132,14 @@ A twin stat holds the converted value: `weight_kg = linear(weight, 0.45359237, 0
 
 The rules above do what they say, and some of what they say surprises. `GET /tenants/{id}/vocabulary-check` ([ADR 0458](../adr/0458-the-vocabulary-check-route-and-its-first-findings.md) to [0461](../adr/0461-warnings-on-the-writes-of-a-stat-and-of-a-formula.md)) reads a library and says where, without refusing or changing anything. Its findings: `unset-input` (a computed stat has no value because an input has none), `own-value-shadows-formula` (a value of an entry's own wins over a formula an ancestor holds), `tie` (two ancestors set a stat at one distance and the group priority, the parent order or the id decided; for one entry, with `entry_id`), and, as information, `computed-outside-scale`, `above-hint` and `formula-chain-depth`. Narrow it with `code`, `entry_id` or `parent_id` with `recursive`, `kind` and `stat_definition_id`. A write of a stat, a tag or a formula answers with the findings for what it wrote when it carries `warnings=true`.
 
+## Dice
+
+A `dice` stat holds a dice expression, written the way tables write it and read back in one form ([RFC 0056](../rfcs/0056-dice-values.md)): `2d6`, `W20` or `d20`, and `4d6dl1` for four six-sided dice without the lowest (`dh` drops the highest). `W` is the German die; a drop is always `D` (`4W6DL1`). It is read as `2d6`, `d20` and `4d6dl1` whatever way it was written, with its parts (`count`, `sides`, `drop`) beside the notation. A count is 1 to 100, the sides 2 to 1000, and a drop leaves at least one die. It is a statement of dice and never a roll, and it takes no unit or scale ([ADR 0462](../adr/0462-the-dice-value-type.md)).
+
+- **The numbers behind it.** `dice_value` reads a dice stat as a number, its `min`, its `max` or its exact `average` (`4d6dl1` is 12.2446, from 15869/1296): `most = dice_value(damage, max)`. An `int` stat needs a rounding mode for an average ([ADR 0463](../adr/0463-the-dice-value-formula.md)).
+- **Dice from stats.** `dice` builds the value from a count and a number of sides, each an `int` stat or a constant: a library that keeps `damage_dice_count` and `damage_die` adds `damage = dice(damage_dice_count, damage_die)` on its weapon prototype, and nothing is migrated. A drop is a value, not part of this formula ([ADR 0464](../adr/0464-the-dice-formula-and-what-previews-print.md)).
+- **A dice value is not a number** to any other formula; read it with `dice_value`. A stat named `damage` that is a dice stat gives the item card its damage line, and the `{damage}` chip prints the notation.
+
 ## Traps
 
 - **An unset input leaves the result unset.** A `sum` with one term without a value has no value, and the explanation of it is not found. Store a 0 on the base prototype for every optional term.

@@ -37,6 +37,7 @@ from lorenzo_api.models import (
     ComputedStat,
     ComputedStatComparison,
     ComputedStatContents,
+    ComputedStatDice,
     ComputedStatDiceValue,
     ComputedStatExtremum,
     ComputedStatExtremumInput,
@@ -69,6 +70,7 @@ from lorenzo_api.stat_evaluation import (
     MAX_FORMULA_CHAIN,
     ComparisonFormula,
     ContentsFormula,
+    DiceFormula,
     DiceValueFormula,
     ExtremumFormula,
     Formula,
@@ -273,6 +275,17 @@ def _check_types(
         if target.value_type not in _NUMERIC:
             raise invalid("a linear formula produces a number, so the stat must be int or float")
         check_rounding(formula.round_mode, [formula.multiplier], formula.offset, input_ids(formula))
+        return
+
+    if isinstance(formula, DiceFormula):
+        if target.value_type is not StatValueType.DICE:
+            raise invalid("a dice formula produces dice, so the stat must be a dice stat")
+        for source_id in input_ids(formula):
+            source = inputs[source_id]
+            if source.value_type is not StatValueType.INT:
+                raise invalid(
+                    f"a dice formula reads whole numbers, and {source.name!r} isn't an int stat"
+                )
         return
 
     if isinstance(formula, DiceValueFormula):
@@ -494,6 +507,7 @@ def _concrete_row(
     | ComputedStatRatio
     | ComputedStatSelect
     | ComputedStatDiceValue
+    | ComputedStatDice
 ):
     key = {
         "entity_id": entity_id,
@@ -561,6 +575,14 @@ def _concrete_row(
                 )
                 for position, operand in enumerate(formula.inputs)
             ],
+        )
+    if isinstance(formula, DiceFormula):
+        return ComputedStatDice(
+            **key,
+            count_stat_definition_id=formula.count_stat_definition_id,
+            count_constant=formula.count_constant,
+            sides_stat_definition_id=formula.sides_stat_definition_id,
+            sides_constant=formula.sides_constant,
         )
     if isinstance(formula, DiceValueFormula):
         return ComputedStatDiceValue(
@@ -687,6 +709,7 @@ async def set_computed_stat(
         existing.ratio = None
         existing.select = None
         existing.dice_value = None
+        existing.dice = None
         await session.flush()
         existing.updated_at = func.now()
     session.add(concrete)
@@ -862,6 +885,17 @@ async def list_stat_dependents(
             )
         )
     ).tuples()
+    built = (
+        await session.execute(
+            select(ComputedStatDice.entity_id, ComputedStatDice.stat_definition_id)
+            .where(
+                (ComputedStatDice.count_stat_definition_id == stat_definition_id)
+                | (ComputedStatDice.sides_stat_definition_id == stat_definition_id),
+                ComputedStatDice.tenant_id == tenant_id,
+            )
+            .distinct()
+        )
+    ).tuples()
     reading = (
         await session.execute(
             select(ComputedStatDiceValue.entity_id, ComputedStatDiceValue.stat_definition_id).where(
@@ -973,6 +1007,10 @@ async def list_stat_dependents(
         + [
             ComputedStatDependentOut(entity_id=e, stat_definition_id=s, kind="dice_value")
             for e, s in reading
+        ]
+        + [
+            ComputedStatDependentOut(entity_id=e, stat_definition_id=s, kind="dice")
+            for e, s in built
         ]
         + [
             ComputedStatDependentOut(entity_id=e, stat_definition_id=s, kind="product")

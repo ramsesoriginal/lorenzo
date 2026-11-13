@@ -9615,7 +9615,7 @@ export interface components {
              * Kind
              * @enum {string}
              */
-            kind: "linear" | "comparison" | "sum" | "contents" | "min" | "max" | "product" | "ratio" | "select" | "dice_value";
+            kind: "linear" | "comparison" | "sum" | "contents" | "min" | "max" | "product" | "ratio" | "select" | "dice_value" | "dice";
         };
         /**
          * ComputedStatOut
@@ -9634,7 +9634,7 @@ export interface components {
              */
             stat_definition_id: string;
             /** Formula */
-            formula: components["schemas"]["LinearFormulaBody-Output"] | components["schemas"]["ComparisonFormulaBody-Output"] | components["schemas"]["SumFormulaBody-Output"] | components["schemas"]["ContentsFormulaBody-Output"] | components["schemas"]["MinFormulaBody-Output"] | components["schemas"]["MaxFormulaBody-Output"] | components["schemas"]["ProductFormulaBody-Output"] | components["schemas"]["RatioFormulaBody-Output"] | components["schemas"]["SelectFormulaBody-Output"] | components["schemas"]["DiceValueFormulaBody"];
+            formula: components["schemas"]["LinearFormulaBody-Output"] | components["schemas"]["ComparisonFormulaBody-Output"] | components["schemas"]["SumFormulaBody-Output"] | components["schemas"]["ContentsFormulaBody-Output"] | components["schemas"]["MinFormulaBody-Output"] | components["schemas"]["MaxFormulaBody-Output"] | components["schemas"]["ProductFormulaBody-Output"] | components["schemas"]["RatioFormulaBody-Output"] | components["schemas"]["SelectFormulaBody-Output"] | components["schemas"]["DiceValueFormulaBody"] | components["schemas"]["DiceFormulaBody"];
             /**
              * Updated At
              * Format: date-time
@@ -9650,7 +9650,7 @@ export interface components {
          */
         ComputedStatPreviewIn: {
             /** Formula */
-            formula?: (components["schemas"]["LinearFormulaBody-Input"] | components["schemas"]["ComparisonFormulaBody-Input"] | components["schemas"]["SumFormulaBody-Input"] | components["schemas"]["ContentsFormulaBody-Input"] | components["schemas"]["MinFormulaBody-Input"] | components["schemas"]["MaxFormulaBody-Input"] | components["schemas"]["ProductFormulaBody-Input"] | components["schemas"]["RatioFormulaBody-Input"] | components["schemas"]["SelectFormulaBody-Input"] | components["schemas"]["DiceValueFormulaBody"]) | null;
+            formula?: (components["schemas"]["LinearFormulaBody-Input"] | components["schemas"]["ComparisonFormulaBody-Input"] | components["schemas"]["SumFormulaBody-Input"] | components["schemas"]["ContentsFormulaBody-Input"] | components["schemas"]["MinFormulaBody-Input"] | components["schemas"]["MaxFormulaBody-Input"] | components["schemas"]["ProductFormulaBody-Input"] | components["schemas"]["RatioFormulaBody-Input"] | components["schemas"]["SelectFormulaBody-Input"] | components["schemas"]["DiceValueFormulaBody"] | components["schemas"]["DiceFormulaBody"]) | null;
         };
         /**
          * ComputedStatPreviewOut
@@ -10484,6 +10484,28 @@ export interface components {
             mode: "lowest" | "highest";
             /** Count */
             count: number;
+        };
+        /**
+         * DiceFormulaBody
+         * @description A dice value built from a count and a number of sides - ADR 0464. Each is a whole-number
+         *     stat of the same entry or a constant, exactly one of the two: a count from 1 to 100, sides from
+         *     2 to 1000. The result is the dice, `3d8` for a count of 3 and 8 sides, and it has no value when
+         *     a stat has none or holds a number the dice cannot have. It is for a `dice` stat.
+         */
+        DiceFormulaBody: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "dice";
+            /** Count Stat Definition Id */
+            count_stat_definition_id?: string | null;
+            /** Count Constant */
+            count_constant?: number | null;
+            /** Sides Stat Definition Id */
+            sides_stat_definition_id?: string | null;
+            /** Sides Constant */
+            sides_constant?: number | null;
         };
         /**
          * DiceIn
@@ -18350,7 +18372,7 @@ export interface components {
             /** From Hidden */
             from_hidden?: boolean | null;
             /** Formula */
-            formula: (components["schemas"]["LinearFormulaBody-Output"] | components["schemas"]["ComparisonFormulaBody-Output"] | components["schemas"]["SumFormulaBody-Output"] | components["schemas"]["ContentsFormulaBody-Output"] | components["schemas"]["MinFormulaBody-Output"] | components["schemas"]["MaxFormulaBody-Output"] | components["schemas"]["ProductFormulaBody-Output"] | components["schemas"]["RatioFormulaBody-Output"] | components["schemas"]["SelectFormulaBody-Output"] | components["schemas"]["DiceValueFormulaBody"]) | null;
+            formula: (components["schemas"]["LinearFormulaBody-Output"] | components["schemas"]["ComparisonFormulaBody-Output"] | components["schemas"]["SumFormulaBody-Output"] | components["schemas"]["ContentsFormulaBody-Output"] | components["schemas"]["MinFormulaBody-Output"] | components["schemas"]["MaxFormulaBody-Output"] | components["schemas"]["ProductFormulaBody-Output"] | components["schemas"]["RatioFormulaBody-Output"] | components["schemas"]["SelectFormulaBody-Output"] | components["schemas"]["DiceValueFormulaBody"] | components["schemas"]["DiceFormulaBody"]) | null;
             /** Inputs */
             inputs: components["schemas"]["PreviewInputOut"][];
             contents: components["schemas"]["ContentsExplanationOut"] | null;
@@ -43103,7 +43125,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["LinearFormulaBody-Input"] | components["schemas"]["ComparisonFormulaBody-Input"] | components["schemas"]["SumFormulaBody-Input"] | components["schemas"]["ContentsFormulaBody-Input"] | components["schemas"]["MinFormulaBody-Input"] | components["schemas"]["MaxFormulaBody-Input"] | components["schemas"]["ProductFormulaBody-Input"] | components["schemas"]["RatioFormulaBody-Input"] | components["schemas"]["SelectFormulaBody-Input"] | components["schemas"]["DiceValueFormulaBody"];
+                "application/json": components["schemas"]["LinearFormulaBody-Input"] | components["schemas"]["ComparisonFormulaBody-Input"] | components["schemas"]["SumFormulaBody-Input"] | components["schemas"]["ContentsFormulaBody-Input"] | components["schemas"]["MinFormulaBody-Input"] | components["schemas"]["MaxFormulaBody-Input"] | components["schemas"]["ProductFormulaBody-Input"] | components["schemas"]["RatioFormulaBody-Input"] | components["schemas"]["SelectFormulaBody-Input"] | components["schemas"]["DiceValueFormulaBody"] | components["schemas"]["DiceFormulaBody"];
             };
         };
         responses: {
