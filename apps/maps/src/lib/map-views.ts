@@ -65,6 +65,7 @@ import { makeMapForm, settingsSection } from './map-settings';
 import { canManage, libraryName, myLibraries } from './names';
 import { loadCard, loadPicture } from './previews';
 import { start } from './sign-in';
+import { smallChanges } from './small-changes';
 import {
   PROJECTION_WORDS,
   positionWords,
@@ -76,6 +77,9 @@ import {
 } from './sphere-words';
 import { systemWords } from './system-words';
 import { resolveEntry } from './views';
+
+/** Whether this window is a phone's: drawing is not offered there (MP2). */
+const phoneNow = () => window.matchMedia('(max-width: 720px)').matches;
 
 const tenantOf = () => new URLSearchParams(location.search).get('tenant');
 
@@ -909,11 +913,40 @@ export async function mountMap() {
           setRows,
           select: (entryId) => select(entryId, true),
         });
-        tools.append(editor.toolbar);
-        // Drawing starts with the Map clear: the panel puts itself away.
-        editor.toolbar.addEventListener('click', () => {
-          if (editor?.editing()) closePanel();
-        });
+        if (phoneNow()) {
+          // A phone reads everything and writes what needs no pointer on the sheet (MP2).
+          const small = smallChanges({
+            tenant,
+            header,
+            version,
+            selected: () => rows.find((r) => r.id === selected),
+            again: render,
+            back: () => {
+              small.root.hidden = true;
+              edit.hidden = false;
+              delete view.dataset.small;
+            },
+          });
+          small.root.hidden = true;
+          const edit = el('button', '', 'btn btn-primary');
+          edit.type = 'button';
+          edit.append(icon('edit'), document.createTextNode('Edit this map'));
+          edit.addEventListener('click', () => {
+            closePanel();
+            small.refresh();
+            small.root.hidden = false;
+            edit.hidden = true;
+            view.dataset.small = 'open';
+          });
+          tools.append(edit);
+          editDock.append(small.root);
+        } else {
+          tools.append(editor.toolbar);
+          // Drawing starts with the Map clear: the panel puts itself away.
+          editor.toolbar.addEventListener('click', () => {
+            if (editor?.editing()) closePanel();
+          });
+        }
         editDock.append(editor.panel);
       }
 
