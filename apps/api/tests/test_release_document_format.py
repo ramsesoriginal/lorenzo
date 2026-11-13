@@ -124,9 +124,14 @@ def test_version_one_is_read_as_it_was_written() -> None:
 
     assert differences(full_content(), rd.decode(golden, _files(), format=1)) == []
     # V3 adds calendars; V1 and V2 remain readable unchanged.
-    assert rd.FORMAT == 45
+    assert rd.FORMAT == 46
+    nothing = dict.fromkeys(("dice_count", "dice_sides", "dice_drop_mode", "dice_drop_count"))
     assert rd.encode(full_content())[0] == {
         **golden,
+        "stats": [
+            [entity, definition, {**nothing, **value}]
+            for entity, definition, value in golden["stats"]
+        ],
         "repeatable": {},
         "grant_rules": {},
         "prerequisites": {},

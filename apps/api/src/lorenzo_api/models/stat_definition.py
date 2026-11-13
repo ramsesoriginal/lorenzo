@@ -26,6 +26,8 @@ class StatValueType(enum.Enum):
     # Stored in value_text, one of stat_definition_enum_value's values for
     # this definition (ADR 0103).
     ENUM = "enum"
+    # Held as parts in entity_stat's dice_* columns, shown as its notation (RFC 0056, ADR 0462).
+    DICE = "dice"
 
 
 class StatDefinition(Base):

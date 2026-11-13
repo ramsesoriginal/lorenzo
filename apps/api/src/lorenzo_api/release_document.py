@@ -48,7 +48,7 @@ from lorenzo_api.repository_content import (
 )
 from lorenzo_api.roles import DEFINITION_ROLES, GROUP_ROLES
 
-FORMAT = 45
+FORMAT = 46
 _DEFINITION_ROLES = frozenset(DEFINITION_ROLES)
 _GROUP_ROLES = frozenset(GROUP_ROLES)
 
@@ -289,6 +289,11 @@ _STAT_VALUE = _dataclass(
         "value_text": _PLAIN,
         "value_float": _optional(_FLOAT),
         "value_bool": _PLAIN,
+        # A dice value as its parts (format 46, ADR 0462).
+        "dice_count": _PLAIN,
+        "dice_sides": _PLAIN,
+        "dice_drop_mode": _PLAIN,
+        "dice_drop_count": _PLAIN,
     },
 )
 
@@ -957,6 +962,18 @@ def _read_v44(document: Document, files: Mapping[str, bytes]) -> Content:
 
 
 def _read_v45(document: Document, files: Mapping[str, bytes]) -> Content:
+    # Before format 46 there were no dice values (ADR 0462): a stat holds none of the four parts.
+    nothing = {
+        "dice_count": None,
+        "dice_sides": None,
+        "dice_drop_mode": None,
+        "dice_drop_count": None,
+    }
+    stats = [[a, b, {**nothing, **value}] for a, b, value in document["stats"]]
+    return _read_v46({**document, "stats": stats}, files)
+
+
+def _read_v46(document: Document, files: Mapping[str, bytes]) -> Content:
     content: Content = _CONTENT.decode(document, dict(files))
     return content
 
@@ -1009,6 +1026,7 @@ READERS: dict[int, Callable[[Document, Mapping[str, bytes]], Content]] = {
     43: _read_v43,
     44: _read_v44,
     45: _read_v45,
+    46: _read_v46,
 }
 
 

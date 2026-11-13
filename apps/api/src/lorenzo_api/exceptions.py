@@ -54,6 +54,7 @@ __all__ = [
     "InvalidSubscriberError",
     "InvalidStatGroupError",
     "InvalidProfilePictureError",
+    "InvalidDiceError",
     "InvalidStatValueTypeError",
     "AuthorEntryForbiddenError",
     "InheritedEntryDeletionForbiddenError",
@@ -474,6 +475,14 @@ class InvalidStatHintError(UnprocessableProblem):
     number (ADR 0279)."""
 
     title = "That stat cannot be used as a hint here"
+
+
+class InvalidDiceError(UnprocessableProblem):
+    """A dice value that is not one: a notation that does not read, or a count, a number of sides or
+    a drop outside the limits; the detail names the part that failed (RFC 0056, ADR 0462). Also a
+    unit on a dice stat."""
+
+    title = "That is not a dice value"
 
 
 class InvalidStatScaleError(UnprocessableProblem):

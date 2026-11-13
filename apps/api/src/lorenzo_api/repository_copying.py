@@ -1033,6 +1033,10 @@ class _Planner:
                     "value_text": stat_value.value_text,
                     "value_float": stat_value.value_float,
                     "value_bool": stat_value.value_bool,
+                    "dice_count": stat_value.dice_count,
+                    "dice_sides": stat_value.dice_sides,
+                    "dice_drop_mode": stat_value.dice_drop_mode,
+                    "dice_drop_count": stat_value.dice_drop_count,
                 }
             )
         for (e, d), formula in c.formulas.items():

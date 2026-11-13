@@ -20,6 +20,7 @@ from lorenzo_api.dependencies import (
     set_tenant_rls_context,
 )
 from lorenzo_api.exceptions import (
+    InvalidDiceError,
     InvalidStatEnumValuesError,
     InvalidStatGroupError,
     InvalidStatHintError,
@@ -349,6 +350,12 @@ def _check_scale(value_type: StatValueType, low: float | None, high: float | Non
         )
     if low is not None and high is not None and low > high:
         raise InvalidStatScaleError(detail=f"The minimum {low:g} is above the maximum {high:g}")
+
+
+def _check_dice_has_no_unit(value_type: StatValueType, unit: str | None) -> None:
+    """A dice stat is shown as its notation, so it takes no unit (RFC 0056, ADR 0462)."""
+    if unit is not None and value_type is StatValueType.DICE:
+        raise InvalidDiceError(detail="A dice stat has no unit")
 
 
 async def _check_scale_holds(
@@ -754,6 +761,7 @@ async def create_stat_definition(
         own_id=None,
     )
     _check_scale(body.value_type, body.min_value, body.max_value)
+    _check_dice_has_no_unit(body.value_type, body.unit)
     role: str | None
     if "role" in body.model_fields_set:
         role = body.role
@@ -918,6 +926,7 @@ async def update_stat_definition(
         {k: v for k, v in changes.items() if k.endswith("_hint_id")},
         own_id=stat_definition_id,
     )
+    _check_dice_has_no_unit(stat_definition.value_type, changes.get("unit"))
     if "min_value" in changes or "max_value" in changes:
         low = changes.get("min_value", stat_definition.min_value)
         high = changes.get("max_value", stat_definition.max_value)

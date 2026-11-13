@@ -22,6 +22,7 @@ from lorenzo_api.models import (
     formula_load_options,
 )
 from lorenzo_api.schemas.common import EntitySummary
+from lorenzo_api.schemas.dice import dice_out
 from lorenzo_api.schemas.effective_stats import EffectiveStatOut, EntryEffectiveStatsOut
 from lorenzo_api.stat_contents import contents_for_rows
 from lorenzo_api.stat_evaluation import Contents, evaluate
@@ -91,6 +92,7 @@ async def effective_stats_of(
                     group_id=winner.stat_definition.stat_group_id,
                     system=winner.system_slug(),
                     value=values[stat_definition_id],
+                    dice=dice_out(winner.stat_definition.value_type, values[stat_definition_id]),
                     own=own,
                     from_entity=(
                         None

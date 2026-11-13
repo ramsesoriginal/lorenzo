@@ -15,6 +15,7 @@ from dataclasses import dataclass
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from lorenzo_api import dice
 from lorenzo_api.models import (
     ComputedStat,
     Entity,
@@ -25,7 +26,8 @@ from lorenzo_api.models import (
     Ownership,
 )
 
-type StatValue = tuple[uuid.UUID, int | None, str | None, float | None, bool | None]
+# The last is a dice value as its notation (RFC 0056).
+type StatValue = tuple[uuid.UUID, int | None, str | None, float | None, bool | None, str | None]
 
 
 @dataclass(frozen=True)
@@ -100,6 +102,7 @@ async def signatures(
                 stat.value_text,
                 stat.value_float,
                 stat.value_bool,
+                None if (held := dice.of_row(stat)) is None else held.notation,
             )
         )
     return {

@@ -1369,3 +1369,15 @@ GET /tenants/{tenant_id}/vocabulary-check added the new `unset-input` enum value
 
 # ADR 0460: the vocabulary check says a tie.
 GET /tenants/{tenant_id}/vocabulary-check added the new `tie` enum value to the `items/items/code` response property for the response status `200`
+
+# ADR 0462: stat_definition.value_type gains `dice`, so every response that carries a definition can have it.
+GET /repositories/{repository_id}/stat-groups added the new `dice` enum value to the `items/definitions/items/value_type` response property for the response status `200`
+GET /tenants/{tenant_id}/repositories/{repository_id}/stat-groups added the new `dice` enum value to the `items/definitions/items/value_type` response property for the response status `200`
+GET /tenants/{tenant_id}/stat-definitions added the new `dice` enum value to the `items/items/value_type` response property for the response status `200`
+POST /tenants/{tenant_id}/stat-definitions added the new `dice` enum value to the `value_type` response property for the response status `201`
+GET /tenants/{tenant_id}/stat-definitions/{stat_definition_id} added the new `dice` enum value to the `value_type` response property for the response status `200`
+PATCH /tenants/{tenant_id}/stat-definitions/{stat_definition_id} added the new `dice` enum value to the `value_type` response property for the response status `200`
+POST /tenants/{tenant_id}/stat-definitions/{stat_definition_id}/enum-values added the new `dice` enum value to the `value_type` response property for the response status `201`
+DELETE /tenants/{tenant_id}/stat-definitions/{stat_definition_id}/enum-values/{enum_value_id} added the new `dice` enum value to the `value_type` response property for the response status `200`
+PATCH /tenants/{tenant_id}/stat-definitions/{stat_definition_id}/enum-values/{enum_value_id} added the new `dice` enum value to the `value_type` response property for the response status `200`
+PUT /tenants/{tenant_id}/stat-groups/{stat_group_id}/order added the new `dice` enum value to the `items/value_type` response property for the response status `200`
