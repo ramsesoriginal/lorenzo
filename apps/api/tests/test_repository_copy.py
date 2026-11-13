@@ -101,7 +101,14 @@ async def test_copying_a_repository(
         # and the sum 16 + 2 * 3 + 1 = 23 (ADR 0126).
         sword = (await gm.get(f"/tenants/{table}/entities/{mine['Sword']}")).json()
         stats = {s["name"]: s["value"] for s in sword["stats"]}
-        assert stats == {"Strength": 16, "Modifier": 3, "Strong": True, "Might": 23}
+        # The Hit dice are the Sword's own dice value, copied as its parts (ADR 0462).
+        assert stats == {
+            "Strength": 16,
+            "Modifier": 3,
+            "Strong": True,
+            "Might": 23,
+            "Hit dice": "4d6dl1",
+        }
         # The Chest's Load adds up the Strength of what's in it: the Blade,
         # which inherits 16 from the Sword (ADR 0127).
         chest = (await gm.get(f"/tenants/{table}/entities/{mine['Chest']}")).json()
