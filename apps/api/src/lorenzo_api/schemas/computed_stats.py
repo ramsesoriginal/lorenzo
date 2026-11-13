@@ -9,6 +9,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from lorenzo_api.models import Comparator, ComputedStat, RoundMode
 from lorenzo_api.schemas.common import EntitySummary
+from lorenzo_api.schemas.dice import DiceOut
 from lorenzo_api.schemas.vocabulary_check import FindingOut
 from lorenzo_api.stat_evaluation import (
     ComparisonFormula,
@@ -546,6 +547,8 @@ class StatExplanationOut(BaseModel):
     system: str | None = None
     name: str
     value: int | float | str | bool
+    # RFC 0056: the parts of a dice stat's `value`; absent for a stat of any other type.
+    dice: DiceOut | None = Field(default=None, exclude_if=lambda value: value is None)
     own: bool
     computed: bool
     from_entity: EntitySummary | None

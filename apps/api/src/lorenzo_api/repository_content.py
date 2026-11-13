@@ -20,6 +20,7 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from lorenzo_api import dice
 from lorenzo_api.models import (
     Being,
     Book,
@@ -146,12 +147,18 @@ class StatValue:
     value_text: str | None
     value_float: float | None
     value_bool: bool | None
+    # A dice value as its parts (RFC 0056), all None for any other.
+    dice_count: int | None = None
+    dice_sides: int | None = None
+    dice_drop_mode: str | None = None
+    dice_drop_count: int | None = None
 
     def as_json(self) -> Any:
         for value in (self.value_int, self.value_text, self.value_float, self.value_bool):
             if value is not None:
                 return value
-        return None
+        held = dice.of_row(self)
+        return None if held is None else held.notation
 
 
 @dataclass
@@ -820,16 +827,20 @@ async def load_content(session: AsyncSession, tenant_id: uuid.UUID) -> Content:
             where=EntityStatGroup.tenant_id == t,
         )
     ]
-    for e, d, vi, vt, vf, vb in await rows(
+    for e, d, vi, vt, vf, vb, dc, ds, dm, dn in await rows(
         EntityStat.entity_id,
         EntityStat.stat_definition_id,
         EntityStat.value_int,
         EntityStat.value_text,
         EntityStat.value_float,
         EntityStat.value_bool,
+        EntityStat.dice_count,
+        EntityStat.dice_sides,
+        EntityStat.dice_drop_mode,
+        EntityStat.dice_drop_count,
         where=EntityStat.tenant_id == t,
     ):
-        c.stats[(e, d)] = StatValue(vi, vt, vf, vb)
+        c.stats[(e, d)] = StatValue(vi, vt, vf, vb, dc, ds, dm, dn)
     linear = {
         (row.entity_id, row.stat_definition_id): row
         for row in (

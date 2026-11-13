@@ -8,6 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from lorenzo_api.models import StatDefinition, StatValueType
 from lorenzo_api.roles import DefinitionRole, GroupRole
+from lorenzo_api.schemas.dice import DiceIn
 
 __all__ = [
     "SetEntityStatRequest",
@@ -294,5 +295,6 @@ class SetEntityStatRequest(BaseModel):
     routes do; off by default, so nothing changes for a caller that doesn't ask.
     """
 
-    value: int | str | float | bool
+    # A dice stat takes its notation (a string, `4W6DL1`) or its parts (RFC 0056).
+    value: int | str | float | bool | DiceIn
     acquire_group: bool = False

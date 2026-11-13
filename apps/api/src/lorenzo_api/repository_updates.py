@@ -22,6 +22,7 @@ from sqlalchemy import delete, func, insert, select, update
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from lorenzo_api import dice
 from lorenzo_api.activity_log import record_activity
 from lorenzo_api.entity_kinds import feature_is_held, inventory_items_inherit
 from lorenzo_api.exceptions import (
@@ -1502,13 +1503,15 @@ class _Applier:
                     ComputedStat.tenant_id == t,
                 )
             )
-            value_column = _value_column(self.value_types.get(definition))
+            stored: dict[str, Any]
+            if self.value_types.get(definition) is StatValueType.DICE:
+                # The upstream value is the notation; the row holds its parts (RFC 0056).
+                stored = dict(dice.columns(dice.parse(change.upstream)))
+            else:
+                stored = {_value_column(self.value_types.get(definition)): change.upstream}
             await s.execute(
                 insert(EntityStat).values(
-                    entity_id=e,
-                    stat_definition_id=definition,
-                    tenant_id=t,
-                    **{value_column: change.upstream},
+                    entity_id=e, stat_definition_id=definition, tenant_id=t, **stored
                 )
             )
             return True

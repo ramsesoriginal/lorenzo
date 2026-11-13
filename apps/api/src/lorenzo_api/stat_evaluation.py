@@ -42,6 +42,7 @@ from decimal import (
 
 import structlog
 
+from lorenzo_api import dice
 from lorenzo_api.models import (
     Comparator,
     ComputedStat,
@@ -395,6 +396,10 @@ def stored_value(stat: VEffectiveStat) -> Value | None:
         return stat.value_float
     if value_type is StatValueType.BOOL:
         return stat.value_bool
+    if value_type is StatValueType.DICE:
+        # A dice value reads as its notation (RFC 0056): parts are stored, the text is made.
+        held = dice.of_row(stat)
+        return None if held is None else held.notation
     return None
 
 

@@ -14,6 +14,7 @@ from fastapi import APIRouter, Depends, Header, Query, Request, Response
 from sqlalchemy import ColumnElement, select
 from sqlalchemy.orm import selectinload
 
+from lorenzo_api import dice
 from lorenzo_api.dependencies import (
     CurrentUser,
     SessionDep,
@@ -103,6 +104,9 @@ async def _information_of(
 
 
 def _stat_value(stat: EntityStat) -> int | str | float | bool:
+    held = dice.of_row(stat)
+    if held is not None:
+        return held.notation
     for value in (stat.value_int, stat.value_text, stat.value_float, stat.value_bool):
         if value is not None:
             return value

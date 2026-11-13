@@ -10465,6 +10465,50 @@ export interface components {
             device_code: string;
         };
         /**
+         * DiceDropIn
+         * @description The dice a value drops: the `count` lowest or highest results. Checked with the notation's
+         *     limits by the route (422 `invalid-dice` naming the part), not by the schema.
+         */
+        DiceDropIn: {
+            /** Mode */
+            mode: string;
+            /** Count */
+            count: number;
+        };
+        /** DiceDropOut */
+        DiceDropOut: {
+            /**
+             * Mode
+             * @enum {string}
+             */
+            mode: "lowest" | "highest";
+            /** Count */
+            count: number;
+        };
+        /**
+         * DiceIn
+         * @description A dice value given as its parts instead of its notation: `{"count": 4, "sides": 6,
+         *     "drop": {"mode": "lowest", "count": 1}}` is `4d6dl1`.
+         */
+        DiceIn: {
+            /** Count */
+            count: number;
+            /** Sides */
+            sides: number;
+            drop?: components["schemas"]["DiceDropIn"] | null;
+        };
+        /**
+         * DiceOut
+         * @description A dice value as its parts. The stat's `value` is its notation in the canonical form.
+         */
+        DiceOut: {
+            /** Count */
+            count: number;
+            /** Sides */
+            sides: number;
+            drop?: components["schemas"]["DiceDropOut"] | null;
+        };
+        /**
          * DiscoverFacetOut
          * @description A value a listing can be narrowed by, and how many listed repositories have it.
          */
@@ -10662,6 +10706,7 @@ export interface components {
             system?: string | null;
             /** Value */
             value: number | string | boolean;
+            dice?: components["schemas"]["DiceOut"] | null;
             /** Own */
             own: boolean;
             from_entity?: components["schemas"]["EntitySummary"] | null;
@@ -10980,6 +11025,7 @@ export interface components {
             name: string;
             /** Value */
             value: number | string | boolean;
+            dice?: components["schemas"]["DiceOut"] | null;
             /** Own */
             own: boolean;
             from_entity?: components["schemas"]["EntitySummary"] | null;
@@ -17656,7 +17702,7 @@ export interface components {
          */
         SetEntityStatRequest: {
             /** Value */
-            value: number | string | boolean;
+            value: number | string | boolean | components["schemas"]["DiceIn"];
             /**
              * Acquire Group
              * @default false
@@ -18269,6 +18315,7 @@ export interface components {
             name: string;
             /** Value */
             value: number | string | boolean;
+            dice?: components["schemas"]["DiceOut"] | null;
             /** Own */
             own: boolean;
             /** Computed */
@@ -18393,7 +18440,7 @@ export interface components {
          * @description Which of entity_stat's value_* columns a stat's value lives in.
          * @enum {string}
          */
-        StatValueType: "int" | "text" | "float" | "bool" | "enum";
+        StatValueType: "int" | "text" | "float" | "bool" | "enum" | "dice";
         /** StepOut */
         StepOut: {
             /**
@@ -18878,6 +18925,7 @@ export interface components {
             name: string;
             /** Value */
             value: number | string | boolean;
+            dice?: components["schemas"]["DiceOut"] | null;
             /** Own */
             own: boolean;
             from_entity?: components["schemas"]["EntitySummary"] | null;
