@@ -1,6 +1,9 @@
 # 0055 - A vocabulary check: what a library's stats get wrong without saying so
 
-Status: accepted (2026-11-11), decided with the maintainer, not built; slices V1 to V4, each its own ADR. It reads what
+Status: accepted (2026-11-11), decided with the maintainer; built 2026-11-12 as slices V1 to V4, each its own ADR
+([0458](../adr/0458-the-vocabulary-check-route-and-its-first-findings.md),
+[0459](../adr/0459-findings-an-unset-input-and-an-own-value-that-shadows-a-formula.md),
+[0460](../adr/0460-the-tie-finding-read-for-one-entry.md), [0461](../adr/0461-warnings-on-the-writes-of-a-stat-and-of-a-formula.md)). It reads what
 [RFC 0016](0016-stats-computed-values-and-crud-api.md), [ADR 0037](../adr/0037-effective-stat-resolution.md),
 [ADR 0266](../adr/0266-stat-tie-break-by-parent-order.md), [ADR 0279](../adr/0279-stat-hints.md) and
 [ADR 0403](../adr/0403-stat-scales.md) already decided and changes none of it.

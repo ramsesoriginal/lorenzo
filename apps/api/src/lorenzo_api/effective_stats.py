@@ -24,9 +24,37 @@ from lorenzo_api.models import (
 from lorenzo_api.schemas.common import EntitySummary
 from lorenzo_api.schemas.effective_stats import EffectiveStatOut, EntryEffectiveStatsOut
 from lorenzo_api.stat_contents import contents_for_rows
-from lorenzo_api.stat_evaluation import evaluate
+from lorenzo_api.stat_evaluation import Contents, evaluate
 
-__all__ = ["effective_stats_of"]
+__all__ = ["effective_stats_of", "load_effective_rows"]
+
+
+async def load_effective_rows(
+    session: AsyncSession, *, tenant_id: uuid.UUID, entity_ids: Sequence[uuid.UUID]
+) -> tuple[dict[uuid.UUID, list[VEffectiveStat]], Contents | None]:
+    """Every effective row of each entry, with what evaluating it needs (the definitions and their
+    enum values, the stat's group and system, the entry a value comes from, the winning formulas),
+    and what the contents formulas among them read: the bulk read's loading, in one pass for all
+    the entries (ADR 0387), shared with the vocabulary check (ADR 0458)."""
+    rows: dict[uuid.UUID, list[VEffectiveStat]] = {entity_id: [] for entity_id in entity_ids}
+    if entity_ids:
+        for stat in await session.scalars(
+            select(VEffectiveStat)
+            .where(VEffectiveStat.entity_id.in_(entity_ids), VEffectiveStat.tenant_id == tenant_id)
+            .options(
+                selectinload(VEffectiveStat.stat_definition),
+                selectinload(VEffectiveStat.stat_definition).selectinload(
+                    StatDefinition.enum_values
+                ),
+                selectinload(VEffectiveStat.stat_definition)
+                .joinedload(StatDefinition.stat_group)
+                .joinedload(StatGroup.system),
+                selectinload(VEffectiveStat.source_entity),
+                *formula_load_options(selectinload(VEffectiveStat.computed_stat)),
+            )
+        ):
+            rows[stat.entity_id].append(stat)
+    return rows, await contents_for_rows(session, tenant_id=tenant_id, stats=rows)
 
 
 async def effective_stats_of(
@@ -44,25 +72,7 @@ async def effective_stats_of(
     `system`, a stat of another game system is left out (ADR 0450): after the evaluation, so a
     formula still reads it."""
     ids = [entity.id for entity in entities]
-    rows: dict[uuid.UUID, list[VEffectiveStat]] = {entity_id: [] for entity_id in ids}
-    if ids:
-        for stat in await session.scalars(
-            select(VEffectiveStat)
-            .where(VEffectiveStat.entity_id.in_(ids), VEffectiveStat.tenant_id == tenant_id)
-            .options(
-                selectinload(VEffectiveStat.stat_definition),
-                selectinload(VEffectiveStat.stat_definition).selectinload(
-                    StatDefinition.enum_values
-                ),
-                selectinload(VEffectiveStat.stat_definition)
-                .joinedload(StatDefinition.stat_group)
-                .joinedload(StatGroup.system),
-                selectinload(VEffectiveStat.source_entity),
-                *formula_load_options(selectinload(VEffectiveStat.computed_stat)),
-            )
-        ):
-            rows[stat.entity_id].append(stat)
-    contents = await contents_for_rows(session, tenant_id=tenant_id, stats=rows)
+    rows, contents = await load_effective_rows(session, tenant_id=tenant_id, entity_ids=ids)
     out: list[EntryEffectiveStatsOut] = []
     for entity in entities:
         values = evaluate(rows[entity.id], entity_id=entity.id, contents=contents)
