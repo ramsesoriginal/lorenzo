@@ -2,6 +2,7 @@
 the release document (format 46), and what an older document says of it.
 """
 
+import time
 import uuid
 
 import pytest
@@ -152,3 +153,13 @@ def test_a_document_of_format_45_has_no_dice_and_reads_with_none() -> None:
     back = rd.decode(old, files, format=45)
     assert all(value.dice_count is None for value in back.stats.values())
     assert back.stats  # the other stats are read as they were
+
+
+@pytest.mark.parametrize(
+    "written", ["0" * 5000, "2d" + "6" * 5000, "d" + "0" * 40, "2d6dl" + "1" * 6, "9" * 6 + "d6"]
+)
+def test_a_long_or_odd_input_is_refused_at_once(written: str) -> None:
+    started = time.perf_counter()
+    with pytest.raises(dice.InvalidDice):
+        dice.parse(written)
+    assert time.perf_counter() - started < 0.5
