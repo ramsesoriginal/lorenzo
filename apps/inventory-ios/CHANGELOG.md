@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.0](https://github.com/ramsesoriginal/lorenzo/compare/inventory-ios-v0.2.0...inventory-ios-v0.3.0) (2026-11-13)
+
+
+### Features
+
+* **loot-bot,cli:** link the legal pages ([85448dc](https://github.com/ramsesoriginal/lorenzo/commit/85448dc586edf2e9e2947f6b85e1f515a6682440))
+
 ## [0.2.0](https://github.com/ramsesoriginal/lorenzo/compare/inventory-ios-v0.1.0...inventory-ios-v0.2.0) (2026-10-29)
 
 

@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.1.0](https://github.com/ramsesoriginal/lorenzo/compare/bench-v1.0.0...bench-v1.1.0) (2026-11-13)
+
+
+### Features
+
+* **account-hub,inventory-web,beings,bench,calendars,sessions,writing,maps,social:** link the legal pages ([af9383b](https://github.com/ramsesoriginal/lorenzo/commit/af9383b1c013082788837b420c4659f500ecae9d))
+* **beings,bench:** the Relationships section and the Relations pane take the graph renderer (ADR 0407) ([12e412d](https://github.com/ramsesoriginal/lorenzo/commit/12e412d3ff1c2a849715a824a533212fba5a1a6e))
+* **bench:** kind icons on the entry picker rows and the grid's name cells ([b610111](https://github.com/ramsesoriginal/lorenzo/commit/b61011137c5a94edbdd5f02628bdb5bc8980959e))
+* **bench:** kind icons on the entry picker rows and the grid's name cells ([c65d831](https://github.com/ramsesoriginal/lorenzo/commit/c65d83108fbe8cb0f1efaf74e443d53b66df6fc9))
+* **bench:** second icon pass, with a formatting toolbar over texts ([ece25ff](https://github.com/ramsesoriginal/lorenzo/commit/ece25ff248a85f59532baf4bfcd9ebd1623084e5))
+* **bench:** second icon pass, with a formatting toolbar over texts ([2c0a80c](https://github.com/ramsesoriginal/lorenzo/commit/2c0a80cffbb7c7383a7f20d97c324e0bf2a33f58))
+
 ## 1.0.0 (2026-10-29)
 
 

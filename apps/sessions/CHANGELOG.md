@@ -1,5 +1,28 @@
 # Changelog
 
+## [1.1.0](https://github.com/ramsesoriginal/lorenzo/compare/sessions-v1.0.0...sessions-v1.1.0) (2026-11-13)
+
+
+### Features
+
+* **account-hub,inventory-web,beings,bench,calendars,sessions,writing,maps,social:** link the legal pages ([af9383b](https://github.com/ramsesoriginal/lorenzo/commit/af9383b1c013082788837b420c4659f500ecae9d))
+* **calendars:** the empty calendar list uses the shared mascot state ([54f6ac6](https://github.com/ramsesoriginal/lorenzo/commit/54f6ac6aa9c9f45b35278ff2f214820205291dac))
+* **sessions:** a player's Session opens in All, and the differences from the design are written down (UI-E Sessions, 8) ([efbcbae](https://github.com/ramsesoriginal/lorenzo/commit/efbcbae6a717966ccd8de138a21413034fea6837))
+* **sessions:** a Scene's page as cards, and No Session yet (UI-E Sessions, 6) ([6dae297](https://github.com/ramsesoriginal/lorenzo/commit/6dae29773c31adf2330bce27802c6a6582576968))
+* **sessions:** Home as drawn, with the next Session and a campaign's Sessions together (UI-E Sessions, 2) ([b63eadb](https://github.com/ramsesoriginal/lorenzo/commit/b63eadb669d5d11d9133f8db67e05dc315467499))
+* **sessions:** Home's rows say where a Session starts and which have no place in the order (UI-E Sessions, 10) ([2999dce](https://github.com/ramsesoriginal/lorenzo/commit/2999dceea4ae2b57482e79a02cdffc8aab2b60b5))
+* **sessions:** lived order as cards, and smaller card headings (UI-E Sessions, 7) ([1f0642f](https://github.com/ramsesoriginal/lorenzo/commit/1f0642fa6c8ee4f177a0862a385b83e476d58c27))
+* **sessions:** the Details part is read first, with the editor folded under it (UI-E Sessions, 9) ([f6def18](https://github.com/ramsesoriginal/lorenzo/commit/f6def1819ac9bdc4b1aebc71ea5fb486c6521281))
+* **sessions:** the empty Home uses the shared mascot state ([d8564ae](https://github.com/ramsesoriginal/lorenzo/commit/d8564ae0bd30d4784a98fc076703c8a68c4c2bf0))
+* **sessions:** the empty Home uses the shared mascot state (UI-E Sessions) ([9c73f20](https://github.com/ramsesoriginal/lorenzo/commit/9c73f20f3b5de710867250c86be171ba552e058b))
+* **sessions:** the parts are cards in two columns, each with a control to hide it (UI-E Sessions, 5) ([2fe0acd](https://github.com/ramsesoriginal/lorenzo/commit/2fe0acd7c75700e2258079a4faafb1212e76878b))
+* **sessions:** the played record is proposed in a dialog, saved on purpose (UI-E Sessions, 11) ([17e8384](https://github.com/ramsesoriginal/lorenzo/commit/17e8384faa73f56bd8b8e34bedf6ec42bf5377bb))
+* **sessions:** the Scenes list is cards with audience, period and references ([4a924e2](https://github.com/ramsesoriginal/lorenzo/commit/4a924e25491481363ce687114c371b89eaf72a4b))
+* **sessions:** the Scenes list is cards with audience, period and references (ADR 0441) ([85b7aa6](https://github.com/ramsesoriginal/lorenzo/commit/85b7aa6b1ff77935f46bb79e20e51db1fbb6182c))
+* **sessions:** the Session page's View menu, parts and saved views (UI-E Sessions, 3) ([7b36214](https://github.com/ramsesoriginal/lorenzo/commit/7b36214da013ec87d517bb08e7bf62edf1e64252))
+* **sessions:** the status bar says the Session's in-world date (UI-E Sessions, 4) ([1ace836](https://github.com/ramsesoriginal/lorenzo/commit/1ace836bc79a917f8e889519fa6b81a067f87c5f))
+* **sessions:** the web shell frame (UI-E Sessions, 1) ([31472a0](https://github.com/ramsesoriginal/lorenzo/commit/31472a05869f1ec68d3958284b6c429cc6507bed))
+
 ## 1.0.0 (2026-10-29)
 
 

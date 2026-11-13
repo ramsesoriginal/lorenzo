@@ -1,5 +1,22 @@
 # Changelog
 
+## [1.3.0](https://github.com/ramsesoriginal/lorenzo/compare/inventory-web-v1.2.0...inventory-web-v1.3.0) (2026-11-13)
+
+
+### Features
+
+* **account-hub,inventory-web,beings,bench,calendars,sessions,writing,maps,social:** link the legal pages ([af9383b](https://github.com/ramsesoriginal/lorenzo/commit/af9383b1c013082788837b420c4659f500ecae9d))
+* **api:** hide a source's entries (RFC 0051 H4) ([03c33b3](https://github.com/ramsesoriginal/lorenzo/commit/03c33b3a9456e39d3287968661eb32a2cead1275))
+* **api:** repositories carry game systems and templates (RFC 0052 Y6) ([3cd9b45](https://github.com/ramsesoriginal/lorenzo/commit/3cd9b456485d55215a14dca805a9fe5b2df41c32))
+* **api:** the options of a contents formula and the active switch (RFC 0053 K4) ([38812ba](https://github.com/ramsesoriginal/lorenzo/commit/38812bae3baa0678814135e303026f08a7215ee4))
+
+
+### Bug Fixes
+
+* **inventory-web,cli:** read a text from a hidden entry as inherited, never as the entry's own ([ac9d751](https://github.com/ramsesoriginal/lorenzo/commit/ac9d751923e22334199f98a7e4acd5e78a2ac3a8))
+* the clients that build an item or an instance know the new fields ([d2b9008](https://github.com/ramsesoriginal/lorenzo/commit/d2b9008bf51e0dd67b55fc8ee395519649e875c8))
+* the typed fixtures of the apps carry the new fields of a stat row ([06f8e4c](https://github.com/ramsesoriginal/lorenzo/commit/06f8e4c81a54e15037508e518a43d247a85199cd))
+
 ## [1.2.0](https://github.com/ramsesoriginal/lorenzo/compare/inventory-web-v1.1.0...inventory-web-v1.2.0) (2026-10-29)
 
 

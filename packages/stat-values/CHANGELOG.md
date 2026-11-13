@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.1.0](https://github.com/ramsesoriginal/lorenzo/compare/stat-values-v1.0.0...stat-values-v1.1.0) (2026-11-13)
+
+
+### Features
+
+* **api:** repositories carry game systems and templates (RFC 0052 Y6) ([3cd9b45](https://github.com/ramsesoriginal/lorenzo/commit/3cd9b456485d55215a14dca805a9fe5b2df41c32))
+
+
+### Bug Fixes
+
+* the typed fixtures of the apps carry the new fields of a stat row ([06f8e4c](https://github.com/ramsesoriginal/lorenzo/commit/06f8e4c81a54e15037508e518a43d247a85199cd))
+
 ## 1.0.0 (2026-10-29)
 
 
