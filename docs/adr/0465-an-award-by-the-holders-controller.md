@@ -21,18 +21,17 @@ to do it; most do not, and a feature the GM did not mean to give is a surprise.
   `422` for an entry that is no feature or a holder that holds nothing, the same instance, and the activity-log event names the caller.
 - **Only the award.** Removing a feature stays a manager's (a controller may swap the pick of a changeable rule, ADR 0456), and
   applying grants was already the controller's. Awarding a feature to a holder one does not control is a `403` whatever the setting.
-- **The answer.** `controllers_award_features` is in the tenant's answer when it is on and left out when it is off, so an answer from
-  a library that never knew the setting is exactly what it was, and the typed clients that list a tenant's fields keep compiling.
+- **The answer.** `controllers_award_features` is in the tenant's answer, `false` until it is turned on: a response field
+  that grew, which the typed clients that list a tenant's fields need in their fixtures (the account hub's has it).
 
 ## Design
 
 `require_awarder` in `features.py` is `manages_holder`, then the tenant's column and `can_self_manage_entity`; the award route calls it
-where it called `require_manager`. The column is `tenant.controllers_award_features boolean not null default false`. The schema field
-has `exclude_if` for `false`, as `warnings` has for a write that did not ask (ADR 0461).
+where it called `require_manager`. The column is `tenant.controllers_award_features boolean not null default false`. The schema field is a plain boolean.
 
 ## Validation and delivery
 
-Tests: the setting absent, set, kept by another change and cleared; a player refused with it off, awarding their own character with it
+Tests: the setting off, set, kept by another change and cleared; a player refused with it off, awarding their own character with it
 on (repeatable and not, a non-feature, a held feature that is not repeatable), refused for another being and for removing, refused again
 with it off; an administrator awarding either way. The OpenAPI change is one optional request field and one optional response field,
 neither breaking; the CLI models and `packages/api-client` are regenerated.
