@@ -14,7 +14,7 @@ Status: accepted, decided with the maintainer on 2026-11-16. Part of [RFC 0050](
 
 As decided, with these details:
 
-- **The label** sits a little above the middle of the line, measured along its length (the longest piece of a line the view has cut). The mark's name says "height 250 m" before its role; an entry of several lines says each height once, three at most, then how many more.
+- **The label** sits a little above the middle of the line, measured along its length (the longest piece of a line the view has cut). The labels are drawn after every placement, as text of their own and no part of a mark's button: a mark's name could not hold the text of every line it has, and the rule that a name holds its visible label would fail. The mark's name says "height 250 m" before its role; an entry of several lines says each height once, three at most, then how many more.
 - **The options** are `HEIGHT n` and `UNIT words` on the command line. A tool's whole name is read before an option's word, so "Height line" is still the tool.
 - **The toolbox draws every group that has a tool this Map can use,** so Terrain appears with this tool; until now it drew Select, Place and Draw by name.
 - **A value on a line is the Map's own data:** [ADR 0337](0337-geometry-roles-and-the-validator.md) said the renderer read neither a value nor a unit, and this is the change to that.
