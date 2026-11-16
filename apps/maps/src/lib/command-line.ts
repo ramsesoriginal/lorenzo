@@ -2,6 +2,7 @@
 // keyboard twin. This is only the reading of a line, pure and tested without a browser; the editor does
 // what it says. A tool is named by its name, and a planned tool says why it does nothing.
 
+import { SEED_MOST, seedOf } from './generator';
 import { unitOf } from './height';
 import {
   numberFor,
@@ -25,6 +26,11 @@ export type Command =
   | { kind: 'select'; name: string }
   | { kind: 'place'; name: string; at: [number, number] }
   | { kind: 'option'; option: ToolOption; value: OptionValue }
+  /** A generator's own commands (ADR 0475). */
+  | { kind: 'roll' }
+  | { kind: 'apply' }
+  | { kind: 'discard' }
+  | { kind: 'compare'; on: boolean }
   | { kind: 'error'; message: string };
 
 export const HELP = [
@@ -33,6 +39,7 @@ export const HELP = [
   'SELECT name: select a place on the Map.',
   'x,y: the next point of what is being drawn; DONE finishes a line, an area or cells.',
   'An option of the tool by its name, for example SNAP OFF, TENSION 0.4 or UNIT m.',
+  'For a generator: SEED n, ROLL, COMPARE ON or OFF, APPLY, DISCARD.',
   'UNDO, REDO, FIT (frame the whole sheet), HELP.',
 ].join(' ');
 
@@ -67,6 +74,18 @@ export function parseCommand(
     case 'help':
     case '?':
       return { kind: 'help' };
+    case 'roll':
+      return { kind: 'roll' };
+    case 'apply':
+      return { kind: 'apply' };
+    case 'discard':
+      return { kind: 'discard' };
+    case 'compare': {
+      const value = rest.toLowerCase();
+      return value === 'on' || value === 'off'
+        ? { kind: 'compare', on: value === 'on' }
+        : { kind: 'error', message: 'COMPARE takes ON or OFF.' };
+    }
     case 'select':
       return rest
         ? { kind: 'select', name: rest }
@@ -122,6 +141,12 @@ function parseOption(
     const range = option.most - option.least > 1e9 ? '' : ` from ${option.least} to ${option.most}`;
     return typed === null
       ? { kind: 'error', message: `${name} takes a number${range}.` }
+      : { kind: 'option', option, value: typed };
+  }
+  if (option.type === 'seed') {
+    const typed = seedOf(rest);
+    return typed === null
+      ? { kind: 'error', message: `${name} takes a whole number from 0 to ${SEED_MOST}.` }
       : { kind: 'option', option, value: typed };
   }
   if (option.type === 'text') {

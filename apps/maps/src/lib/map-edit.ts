@@ -28,6 +28,7 @@ import {
 import { HELP, parseCommand } from './command-line';
 import { button, el, field, groupTitle, message, select, statusLine } from './dom';
 import { strokeLine, unitsPerPixel } from './freehand';
+import { nextSeed, SEED_MOST, seedFrom, seedOf } from './generator';
 import {
   type Editable,
   editableOf,
@@ -577,6 +578,13 @@ export function createEditor(context: EditorContext): Editor {
             ? `${command.option.name} is ${command.value}.`
             : `${command.option.name} is ${command.value ? 'on' : 'off'}.`,
         );
+        return;
+      case 'roll':
+      case 'apply':
+      case 'discard':
+      case 'compare':
+        // A generator's own commands (ADR 0475): they mean something only while one is the tool.
+        answer('That is a command of a generator, and no generator is the tool.', true);
         return;
       case 'planned':
       case 'unavailable':
@@ -1829,6 +1837,40 @@ export function createEditor(context: EditorContext): Editor {
           refresh();
         });
         box.append(line.label);
+        continue;
+      }
+      if (option.type === 'seed') {
+        // The first seed is the page's to draw, from the browser's own randomness; from then on
+        // it is typed, or rolled to the next (ADR 0475).
+        if (optionValues.get(decl, option) === null) {
+          optionValues.set(
+            decl,
+            option,
+            seedFrom(crypto.getRandomValues(new Uint32Array(1))[0] ?? 0),
+          );
+        }
+        const line = field(option.name, String(optionValues.get(decl, option)), 'number');
+        line.input.min = '0';
+        line.input.max = String(SEED_MOST);
+        line.input.step = '1';
+        line.input.addEventListener('input', () => {
+          const typed = seedOf(line.input.value);
+          line.input.setCustomValidity(
+            typed === null ? `A whole number from 0 to ${SEED_MOST}.` : '',
+          );
+          if (typed === null) return;
+          optionValues.set(decl, option, typed);
+          refresh();
+        });
+        const roll = button(
+          'Roll',
+          async () => {
+            setOption(option, nextSeed(optionValues.get(decl, option) ?? 0));
+          },
+          { variant: 'secondary' },
+        );
+        roll.setAttribute('aria-label', 'Roll another seed');
+        box.append(line.label, roll);
         continue;
       }
       if (option.type === 'text') {

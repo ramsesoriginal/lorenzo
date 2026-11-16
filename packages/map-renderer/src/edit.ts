@@ -1,7 +1,7 @@
 import { num } from './geom';
 import { project, type Transform, toScreen } from './project';
 import type { Prim } from './scene';
-import type { Point, System } from './types';
+import type { BBox, Point, System } from './types';
 
 /**
  * What an editor draws over a map (ADR 0353): the part of a shape being drawn, a rubber band to the
@@ -17,6 +17,15 @@ export type OverlayShape =
       closed?: boolean;
       /** A rubber band, a lighter stroke than a finished part. */
       preview?: boolean;
+      /** Drawn only on the preview's side of the view's divider, when it has one. */
+      clipped?: boolean;
+    }
+  | {
+      id: string;
+      /** A filled area (ADR 0475): an outline and its holes, even-odd, as a generator previews one. */
+      kind: 'area';
+      rings: readonly (readonly Point[])[];
+      clipped?: boolean;
     }
   | {
       id: string;
@@ -71,8 +80,22 @@ export interface Tool {
   key?(event: KeyboardEvent): boolean;
 }
 
-/** The screen primitives of an overlay, drawn after the marks; they take no pointer events. */
-export function overlayPrims(overlay: Overlay, system: System, t: Transform): Prim[] {
+/**
+ * The screen primitives of an overlay, drawn after the marks; they take no pointer events. With
+ * `divide` (a fraction of the view's width from its left, ADR 0475) the shapes marked `clipped`
+ * are drawn only to its right, so the Map as it is shows on its left, and a divider is drawn there.
+ */
+export function overlayPrims(
+  overlay: Overlay,
+  system: System,
+  t: Transform,
+  divide?: number,
+): Prim[] {
+  const edge =
+    divide === undefined ? null : num(Math.max(0, Math.min(1, divide)) * t.width, 'a divider');
+  const clip = (clipped: boolean | undefined): { clip: BBox } | Record<string, never> =>
+    clipped && edge !== null ? { clip: [edge, 0, num(t.width), num(t.height)] } : {};
+
   const at = (p: Point): Point => {
     const s = toScreen(t, project(system, p));
 
@@ -97,6 +120,25 @@ export function overlayPrims(overlay: Overlay, system: System, t: Transform): Pr
         cls: shape.preview ? 'm-ov m-ov-line m-ov-preview' : 'm-ov m-ov-line',
         d: `M ${pts.map((p) => `${p[0]} ${p[1]}`).join(' L ')}${shape.closed ? ' Z' : ''}`,
         bbox: [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)],
+        ...clip(shape.clipped),
+      });
+    } else if (shape.kind === 'area') {
+      const rings = shape.rings.map((ring) => ring.map(at)).filter((ring) => ring.length > 0);
+      const all = rings.flat();
+
+      if (all.length === 0) continue;
+
+      const xs = all.map((p) => p[0]);
+      const ys = all.map((p) => p[1]);
+
+      prims.push({
+        id,
+        kind: 'path',
+        cls: 'm-ov m-ov-area',
+        d: rings.map((ring) => `M ${ring.map((p) => `${p[0]} ${p[1]}`).join(' L ')} Z`).join(' '),
+        fillRule: 'evenodd',
+        bbox: [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)],
+        ...clip(shape.clipped),
       });
     } else if (shape.kind === 'disc') {
       const c = at(shape.at);
@@ -129,6 +171,16 @@ export function overlayPrims(overlay: Overlay, system: System, t: Transform): Pr
         ],
       });
     }
+  }
+
+  if (edge !== null && overlay.some((shape) => 'clipped' in shape && shape.clipped)) {
+    prims.push({
+      id: 'overlay:divider',
+      kind: 'path',
+      cls: 'm-ov m-ov-divider',
+      d: `M ${edge} 0 L ${edge} ${num(t.height)}`,
+      bbox: [edge, 0, edge, num(t.height)],
+    });
   }
 
   return prims;

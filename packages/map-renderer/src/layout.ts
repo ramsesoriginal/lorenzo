@@ -440,7 +440,9 @@ export function layout(model: MapModel, view: View, theme: Theme = defaultTheme)
 
   prims.push(...values);
 
-  if (view.overlay?.length) prims.push(...overlayPrims(view.overlay, system, t));
+  if (view.overlay?.length) {
+    prims.push(...overlayPrims(view.overlay, system, t, view.overlayDivide));
+  }
 
   return {
     theme: theme.name,

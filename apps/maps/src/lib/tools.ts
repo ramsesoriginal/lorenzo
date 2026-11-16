@@ -21,7 +21,7 @@ export const GROUPS: ToolGroup[] = ['select', 'place', 'draw', 'terrain', 'gener
 /**
  * An option of a tool (ADR 0470): the Options tab draws it and the command line sets it by its word.
  * A type is built with the first tool that has one: `toggle` for snapping, `number` for a spline,
- * `text` for a height line's unit.
+ * `text` for a height line's unit, `seed` for the generators.
  */
 export type ToolOption = {
   id: string;
@@ -49,6 +49,10 @@ export type ToolOption = {
       step: number;
     }
   | {
+      /** A generator's seed (ADR 0475): a whole number the page draws first and a person may type. */
+      type: 'seed';
+    }
+  | {
       type: 'text';
       /** Empty when the person gives it before the tool can finish. */
       first: string;
@@ -60,6 +64,7 @@ export type ToolOption = {
 export type ToggleOption = Extract<ToolOption, { type: 'toggle' }>;
 export type NumberOption = Extract<ToolOption, { type: 'number' }>;
 export type TextOption = Extract<ToolOption, { type: 'text' }>;
+export type SeedOption = Extract<ToolOption, { type: 'seed' }>;
 
 export type OptionValue = boolean | number | string | null;
 
@@ -105,6 +110,9 @@ export const TOLERANCE: NumberOption = {
   most: 10,
   step: 0.5,
 };
+
+/** The seed of a generator (ADR 0475): each generator lists it, and each keeps its own. */
+export const SEED: SeedOption = { id: 'seed', name: 'Seed', word: 'seed', type: 'seed' };
 
 /** The height a height line carries (ADR 0473): never assumed, so it starts empty. */
 export const HEIGHT: NumberOption = {
@@ -342,6 +350,7 @@ export type OptionValues = {
   get(tool: ToolDecl, option: ToggleOption): boolean;
   get(tool: ToolDecl, option: NumberOption): number | null;
   get(tool: ToolDecl, option: TextOption): string;
+  get(tool: ToolDecl, option: SeedOption): number | null;
   get(tool: ToolDecl, option: ToolOption): OptionValue;
   set(tool: ToolDecl, option: ToolOption, value: OptionValue): void;
 };
@@ -354,7 +363,8 @@ export function createOptionValues(): OptionValues {
 
   return {
     get: ((tool: ToolDecl, option: ToolOption) =>
-      values.get(key(tool, option)) ?? option.first) as OptionValues['get'],
+      values.get(key(tool, option)) ??
+      (option.type === 'seed' ? null : option.first)) as OptionValues['get'],
     set(tool, option, value) {
       values.set(key(tool, option), value);
     },

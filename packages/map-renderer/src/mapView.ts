@@ -68,6 +68,11 @@ export interface MapViewController {
   setTool(tool: Tool | null): void;
   /** Replaces what an editor draws over the marks. */
   setOverlay(overlay: Overlay): void;
+  /**
+   * Splits the view at a fraction of its width from the left, so the overlay's clipped shapes are
+   * drawn to the right of it only (ADR 0475); null draws them whole.
+   */
+  setOverlayDivide(fraction: number | null): void;
   /** Marks a placement as hovered (a class, never a change of shape). Does not call `onHover`. */
   setHover(entryId: string | null): void;
   /** Selects a placement or clears the selection. Does not call `onSelect`. */
@@ -111,6 +116,7 @@ export function createMapView(host: HTMLElement, options: MapViewOptions): MapVi
   let theme = options.theme ?? defaultTheme;
   let tool: Tool | null = options.tool ?? null;
   let overlay: Overlay = options.overlay ?? [];
+  let divide: number | null = null;
   const idPrefix = `map-${++counter}`;
   const svg = doc.createElementNS(SVG_NS, 'svg') as SVGSVGElement;
 
@@ -150,6 +156,7 @@ export function createMapView(host: HTMLElement, options: MapViewOptions): MapVi
       hover,
       ...(options.iconBase === undefined ? {} : { iconBase: options.iconBase }),
       ...(overlay.length > 0 ? { overlay } : {}),
+      ...(divide === null ? {} : { overlayDivide: divide }),
     };
   }
 
@@ -464,6 +471,10 @@ export function createMapView(host: HTMLElement, options: MapViewOptions): MapVi
     },
     setOverlay(next) {
       overlay = next;
+      schedule();
+    },
+    setOverlayDivide(next) {
+      divide = next;
       schedule();
     },
     setHover(id) {

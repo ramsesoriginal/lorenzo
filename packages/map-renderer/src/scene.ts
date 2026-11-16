@@ -15,6 +15,8 @@ type Base = {
   /** The placement's accessible name; on the first primitive of each placement. */
   label?: string;
   hit?: Hit;
+  /** Drawn only inside this box of the screen (an overlay beside a divider, ADR 0475). */
+  clip?: BBox;
 };
 
 type Stroked = {

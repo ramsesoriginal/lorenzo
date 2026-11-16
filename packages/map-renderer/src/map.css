@@ -303,6 +303,22 @@
   stroke-linecap: round;
 }
 
+/* A generator's preview (ADR 0475): filled, and beside a divider when the view is split. */
+.m-ov-area {
+  fill: var(--action);
+  fill-opacity: 0.3;
+  stroke: var(--action);
+  stroke-width: 1.5;
+  stroke-dasharray: 4 4;
+  stroke-linejoin: round;
+}
+
+.m-ov-divider {
+  fill: none;
+  stroke: var(--text-primary);
+  stroke-width: 2;
+}
+
 .m-ov-preview {
   stroke-dasharray: 4 4;
   stroke-width: 1.5;

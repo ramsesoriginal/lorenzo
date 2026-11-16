@@ -142,9 +142,37 @@ export function sceneTree(scene: Scene, options: PaintOptions = {}): TreeNode {
 
   let group: TreeNode | null = null;
   let groupEntry: string | undefined;
+  // The boxes primitives are clipped to (ADR 0475), each written once and named by its place.
+  const clips: string[] = [];
+  const clipDefs: TreeNode[] = [];
 
   for (const prim of scene.prims) {
     const el = primNode(prim, iconBase);
+
+    if (prim.clip) {
+      const key = prim.clip.join(' ');
+      let index = clips.indexOf(key);
+
+      if (index < 0) {
+        index = clips.push(key) - 1;
+        clipDefs.push(
+          node(
+            'clipPath',
+            [['id', `${prefix}-clip-${index}`]],
+            [
+              node('rect', [
+                ['x', String(prim.clip[0])],
+                ['y', String(prim.clip[1])],
+                ['width', String(Math.max(0, prim.clip[2] - prim.clip[0]))],
+                ['height', String(Math.max(0, prim.clip[3] - prim.clip[1]))],
+              ]),
+            ],
+          ),
+        );
+      }
+
+      el.attrs.push(['clip-path', `url(#${prefix}-clip-${index})`]);
+    }
 
     if (prim.entryId === undefined) {
       group = null;
@@ -177,6 +205,8 @@ export function sceneTree(scene: Scene, options: PaintOptions = {}): TreeNode {
   ];
 
   if (labelled.length > 0) attrs.push(['aria-labelledby', labelled.join(' ')]);
+
+  if (clipDefs.length > 0) children.push(node('defs', [], clipDefs));
 
   return node('svg', attrs, children);
 }

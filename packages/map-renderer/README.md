@@ -119,6 +119,11 @@ tool in drawing units (`down`, `drag`, `up`, `click`, `dblclick`, `move`, `key`)
 draws lines, discs and draggable handles above the marks. A view with no tool behaves as before; the
 renderer knows nothing of what the editor does with either.
 
+An overlay may also hold a filled `area` (an outline and its holes), which is how a generator shows what
+it would draw before anything is written. `setOverlayDivide(fraction)` splits the view at that fraction of
+its width: overlay shapes marked `clipped` are drawn to the right of it only, with a divider line, so the
+Map as it is shows on the left ([ADR 0475](../../docs/adr/0475-the-generator-contract.md)).
+
 ## Grids
 
 A system of kind `square`, `rect` or `hex`, or a Map's `overlay` grid, is drawn under the placements as
