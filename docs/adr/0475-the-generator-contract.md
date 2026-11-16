@@ -26,6 +26,16 @@ Four planned tools make more than a person draws by hand: Cave system, Fill by m
 - The four generators are decided one by one: Cave system, Fill by marching squares, Fill by wave function collapse (its rules learned from cells already drawn, on this Map or another), and Height brush (a field the page builds from an entry's height lines and never stores).
 - Stored heights, a raster of any kind, and small Maps used as tiles are not decided here.
 
+## Built
+
+The shared pieces are built first, with no tool; the editor's preview, Apply and Discard come with the first generator.
+
+- **The mirror is the whole validator,** not only limits and simple polygons: the golden corpus asks every implementation to agree on each of its documents, and it does, on all of them (`apps/maps/src/lib/validate.ts`). Its limits are read against the engine's own file in a test. The turn of three points is worked out in whole numbers of any size, as the engine does. One difference is known: the size in bytes is measured on this side's JSON, which may write a number a character longer or shorter than the API's at the very edge of the limit.
+- **The renderer** has a filled `area` in its overlay and `setOverlayDivide(fraction)`: shapes marked `clipped` are drawn to the right of the divider only, through one clip path, and the divider is a line. The divider's slider is the app's.
+- **The seed** is an option type with no first value. The page draws it from `crypto` when the option is first shown; **Roll** takes the next number and 0 after 999,999.
+- **A result over a limit** is refused with a sentence that names the limit and, from the tool, what to change (`fits` in `generator.ts`).
+- **The commands** `ROLL`, `APPLY`, `DISCARD`, `COMPARE ON` and `COMPARE OFF` are read; with no generator as the tool they answer that.
+
 ## Validation and delivery
 
 Unit tests: the seed's range and Roll; the region of a selection; the mirror against the golden corpus; a result over each limit refused with its reason; the history step's name. Renderer tests: the filled overlay and the clip. Browser tests come with the first generator.
