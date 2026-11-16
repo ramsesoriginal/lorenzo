@@ -63,6 +63,25 @@ describe("helpCommand.execute", () => {
     expect(housekeeping.value).toContain("`/help` — List every command.");
   });
 
+  it("links the legal notice and the privacy policy only where the deployment set them", async () => {
+    const without = fakeInteraction();
+    await helpCommand.execute(without, { config, logger: {} as never, commands: fakeCommands });
+    const fieldsWithout = without.reply.mock.calls[0]?.[0].embeds[0].data.fields;
+    expect(fieldsWithout.map((f: { name: string }) => f.name)).not.toContain("Legal");
+
+    const withLegal = fakeInteraction();
+    await helpCommand.execute(withLegal, {
+      config: { legalUrl: "https://legal.example.org" } as Config,
+      logger: {} as never,
+      commands: fakeCommands,
+    });
+    const legal = withLegal.reply.mock.calls[0]?.[0].embeds[0].data.fields.find(
+      (f: { name: string }) => f.name === "Legal",
+    );
+    expect(legal.value).toContain("(https://legal.example.org/en/legal-notice/)");
+    expect(legal.value).toContain("(https://legal.example.org/en/privacy-policy/)");
+  });
+
   it("opens with a first-run intro that says where to start", async () => {
     const interaction = fakeInteraction();
 

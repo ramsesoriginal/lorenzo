@@ -77,6 +77,9 @@
    it, and shaped like the placeholder letter that stands in for it. */
 .repository-picture {
   flex: none;
+  width: auto;
+  height: 7.5rem;
+  aspect-ratio: 3 / 4;
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-card);
   object-fit: cover;
@@ -86,8 +89,17 @@
   display: none;
 }
 
-.repository-initial {
-  --avatar-size: 64px;
+/* No cover yet: the frame the picture will fill, as the design draws it. */
+.avatar-placeholder.repository-initial {
+  flex: none;
+  width: auto;
+  height: 7.5rem;
+  aspect-ratio: 3 / 4;
+  border: 1px dashed var(--border-control);
+  border-radius: var(--radius-card);
+  background: none;
+  font-size: var(--fs-meta);
+  color: var(--text-tertiary);
 }
 
 /* The links and section headings that are the way through Shelf (ADR 0196): a card's name, "All
@@ -101,7 +113,20 @@
   cursor: pointer;
 }
 
-@media (max-width: 720px), (pointer: coarse) {
+@container shell (max-width: 720px) {
+  .shelf-link,
+  .shelf-section > summary {
+    display: inline-flex;
+    align-items: center;
+    min-height: var(--target-min);
+  }
+
+  .shelf-section > summary {
+    display: flex;
+  }
+}
+
+@media (pointer: coarse) {
   .shelf-link,
   .shelf-section > summary {
     display: inline-flex;
@@ -136,16 +161,50 @@
   color: var(--text-primary);
 }
 
-@media (max-width: 720px), (pointer: coarse) {
+@container shell (max-width: 720px) {
   .clash .field-row,
-  [data-again] .field-row {
+  [data-again] .field-row,
+  .inclusion .field-row,
+  [data-terms-card] .field-row,
+  [data-visibility] .field-row {
     min-height: var(--target-min);
   }
 }
 
+@media (pointer: coarse) {
+  .clash .field-row,
+  [data-again] .field-row,
+  .inclusion .field-row,
+  [data-terms-card] .field-row,
+  [data-visibility] .field-row {
+    min-height: var(--target-min);
+  }
+}
+
+/* How a repository carries one it is built on (RFC 0051 H1, ADR 0431): the choice is a fieldset in a
+   list item or a dialog, with the question as its legend and no frame of its own. */
+.inclusion {
+  width: 100%;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+}
+
+.inclusion > legend {
+  padding: 0;
+}
+
 /* The release composer in the publish dialog (ADR 0209) and the "Make public" dialog (ADR 0290): its checkboxes are pressed, so each row is
    the brand's target size at phone widths and for a coarse pointer (identity.md 8.5). */
-@media (max-width: 720px), (pointer: coarse) {
+@container shell (max-width: 720px) {
+  [data-publish-dialog] .field-row,
+  [data-visibility-dialog] .field-row,
+  [data-showcase] .field-row {
+    min-height: var(--target-min);
+  }
+}
+
+@media (pointer: coarse) {
   [data-publish-dialog] .field-row,
   [data-visibility-dialog] .field-row,
   [data-showcase] .field-row {
@@ -205,6 +264,7 @@
   display: block;
   width: 100%;
   aspect-ratio: 3 / 1;
+  max-height: 14rem;
   object-fit: cover;
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-card);
@@ -271,7 +331,14 @@
   flex-wrap: nowrap;
 }
 
-@media (max-width: 720px), (pointer: coarse) {
+@container shell (max-width: 720px) {
+  .preview-item button,
+  .preview-dialog button {
+    min-height: var(--target-min);
+  }
+}
+
+@media (pointer: coarse) {
   .preview-item button,
   .preview-dialog button {
     min-height: var(--target-min);
@@ -302,4 +369,637 @@
 /* A credit is a card of three fields under one another, and what moves or removes it. */
 [data-credit] {
   min-width: 0;
+}
+
+/* The place a page of the account sits in, over its title (screen 26). */
+.page-crumb {
+  flex-basis: 100%;
+  margin: 0;
+  font-size: var(--fs-meta);
+  color: var(--text-tertiary);
+}
+
+/* /profile (ADR 0418, PT2, PT3): the form with a card beside it that shows how others see the person,
+   which stays in view while the form scrolls; on a tablet and a phone the card moves above the form. */
+.profile-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 20rem;
+  gap: var(--space-5);
+  align-items: start;
+}
+/* The sections of the profile are drawn stacked, a heading over its fields (screen 26), not with the
+   label beside them as the settings template has it. */
+section.profile-section {
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-2h);
+}
+.profile-card {
+  position: sticky;
+  top: var(--space-3);
+  display: grid;
+  gap: var(--space-2h);
+  padding: var(--space-3);
+  border: 1px solid var(--border-control);
+  border-radius: var(--radius-card);
+  background: var(--surface-default);
+}
+.profile-card > h2 {
+  margin: 0;
+  padding: 0;
+  font-size: var(--fs-meta);
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.profile-card > p {
+  margin: 0;
+}
+.profile-card #preview {
+  padding: 0;
+  border: 0;
+  background: none;
+}
+@container shell (max-width: 1099px) {
+  .profile-layout {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-4);
+  }
+  .profile-card {
+    position: static;
+    order: -1;
+  }
+}
+
+/* Who sees a field, told in words with an icon, never by colour alone (ADR 0418). */
+.visibility {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin: 0;
+  font-size: var(--fs-meta);
+  color: var(--text-secondary);
+}
+
+/* The colour to choose from: five, and a custom one. */
+.swatches {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+.colour-swatch {
+  width: var(--hit);
+  height: var(--hit);
+  padding: 0;
+  border: 2px solid var(--border-control);
+  border-radius: 999px;
+  background: var(--swatch);
+  cursor: pointer;
+}
+.colour-swatch[aria-pressed="true"] {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+/* /tokens (ADR 0418, PT4): the one sentence that says what a token is, and the rows. A state is told
+   in words and an icon; a token not used for a long time is tinted and one that has ended is struck
+   through, which is never the only sign. */
+.callout .icon {
+  flex: none;
+  width: 1.25rem;
+  height: 1.25rem;
+}
+.callout {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2h);
+  margin: 0;
+  padding: var(--space-3);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-card);
+  background: var(--surface-muted);
+}
+.token-list {
+  padding: 0;
+  list-style: none;
+}
+.token-list > .token-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr) auto;
+  gap: var(--space-3);
+  align-items: center;
+  min-height: var(--row-h);
+  padding: 0 var(--space-3);
+  border-bottom: 1px solid var(--border-subtle);
+}
+.token-name,
+.token-state {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+.token-list > .token-row[data-tone="stale"] {
+  background: var(--warning-surface);
+}
+.token-list > .token-row[data-tone="expired"] {
+  color: var(--text-secondary);
+}
+.token-list > .token-row[data-tone="expired"] [data-name] {
+  text-decoration: line-through;
+}
+@container shell (max-width: 720px) {
+  .token-list > .token-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .token-list > .token-row .btn {
+    justify-self: stretch;
+    width: 100%;
+    min-height: 44px;
+  }
+}
+
+/* Home (ADR 0417, AH1, screen 01): what needs the person and where they play beside what they run,
+   then Continue and the apps. One column below 1100px (the desktop step). */
+.home-columns {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  gap: var(--space-4);
+  align-items: start;
+}
+@container shell (max-width: 1099px) {
+  .home-columns {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.home-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2h);
+}
+.home-section > h2,
+.home-head h2 {
+  margin: 0;
+  font-size: var(--fs-heading);
+  font-weight: 600;
+  line-height: 1.3;
+}
+.home-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+.home-head a {
+  font-size: var(--fs-meta);
+}
+
+/* The page's own gap follows the title (the design's 24px), not a second one on top of the stack's. */
+div.home-title {
+  margin-bottom: 0;
+}
+
+/* Needs you holds its heading inside its card, as the design draws it; the rows below are the same
+   rows as the other cards'. */
+.home-card-head {
+  padding: var(--space-3) var(--space-3) 0;
+}
+.home-card-head h2 {
+  margin: 0;
+  font-size: var(--fs-heading);
+  font-weight: 600;
+  line-height: 1.3;
+}
+.home-needs {
+  padding-bottom: var(--space-1);
+}
+.home-needs > .error-text {
+  padding: 0 var(--space-3) var(--space-2);
+}
+
+/* Continue and the apps are quiet labels over their cards (the design's section title), set apart
+   from the blocks above by the larger step. */
+.home-label {
+  margin-top: var(--space-2);
+}
+.home-label > h2 {
+  margin: 0;
+  font-size: var(--fs-ui);
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--text-secondary);
+}
+
+/* A card of rows, a hairline between them. */
+.home-card {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-card);
+  background: var(--surface-canvas);
+}
+.home-rows {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.home-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2h);
+  min-height: var(--hit);
+  padding: var(--space-2h) var(--space-3);
+  border-top: 1px solid var(--border-subtle);
+}
+.home-row:first-child {
+  border-top: 0;
+}
+.home-row > .icon {
+  align-self: flex-start;
+  margin-top: 3px;
+  color: var(--text-secondary);
+}
+.home-row-text {
+  display: flex;
+  flex: 1 1 14rem;
+  flex-direction: column;
+  min-width: 0;
+}
+/* A role beside a name: an outline, not a status (the brand's pills are for state). */
+.home-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px var(--space-2);
+  border: 1px solid var(--border-control);
+  border-radius: var(--radius-pill);
+  font-size: var(--fs-meta);
+}
+.home-row-text b {
+  font-weight: 500;
+}
+.home-row-link {
+  color: var(--text-primary);
+  text-decoration: none;
+}
+.home-row-link:hover b {
+  text-decoration: underline;
+}
+.home-row .btn {
+  flex: none;
+}
+.home-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.home-actions .btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* Continue and the apps: cards in a grid that gives way with the width. */
+.home-tiles {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-2h);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.home-tiles--apps {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+@container shell (max-width: 1099px) {
+  .home-tiles--apps {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@container shell (max-width: 720px) {
+  .home-tiles,
+  .home-tiles--apps {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.home-tile,
+a.home-tile {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2h);
+  height: 100%;
+  padding: var(--space-3);
+  color: var(--text-primary);
+  text-decoration: none;
+}
+.home-tile:hover {
+  background: var(--fill-soft);
+}
+.home-tile-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.home-tile-title {
+  font-weight: 600;
+}
+.home-tile-icon {
+  display: inline-flex;
+  margin-top: 2px;
+  color: var(--text-primary);
+  font-size: 1.4rem;
+}
+.home-tile-icon .icon {
+  width: 1em;
+  height: 1em;
+}
+
+/* First run (ADR 0416, D27): the mascot beside the welcome and the two doors; one column on a phone. */
+.first-run {
+  display: grid;
+  grid-template-columns: 300px minmax(0, 1fr);
+  gap: var(--space-6);
+  align-items: center;
+}
+.doors {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+@container shell (max-width: 720px) {
+  .first-run {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-4);
+    justify-items: center;
+  }
+  .doors {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.doors h2 {
+  margin: 0;
+  font-size: var(--fs-sub);
+}
+
+/* /notifications: the count and the choices over a quiet list, an unread one marked by a dot and by a
+   word for a screen reader, never by colour alone. */
+.notif-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+}
+.notif-list > .notif {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2h);
+  min-height: var(--row-h);
+  padding: 0 var(--space-3);
+}
+.notif-dot-slot {
+  flex: none;
+  width: 14px;
+  margin-top: 6px;
+}
+.notif-dot {
+  display: block;
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--focus-ring);
+}
+.notif-list > .notif-read strong {
+  font-weight: 500;
+}
+
+/* Discover (AH5): the search and the filters in one row, the results as a grid of cards, and a
+   repository's page in two columns (what is inside, beside the copy). */
+.discover-search {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.discover-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.discover-grid > .discover-card,
+[data-preview-card] > .discover-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.storefront-columns {
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  gap: var(--space-4);
+  align-items: start;
+}
+
+@container shell (max-width: 1099px) {
+  .storefront-columns {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  /* The way to copy it comes before what is inside, on a phone. */
+  .storefront-side {
+    order: -1;
+  }
+}
+
+/* Joining (D27): the mascot above the moment that has a word to say, small and centred. */
+.join-mascot {
+  display: flex;
+  justify-content: center;
+}
+
+.join-mascot[hidden] {
+  display: none;
+}
+
+.join-mascot img {
+  max-width: 10rem;
+  height: auto;
+}
+
+/* A library's overview (the design's screen 05): three figures in a row, then what it draws on beside
+   what happened lately. */
+.library-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+  gap: var(--space-3);
+}
+
+.library-stats[hidden],
+.library-columns[hidden] {
+  display: none;
+}
+
+.library-stat {
+  font-size: var(--text-title, 1.75rem);
+  line-height: 1.1;
+}
+
+.library-columns {
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  gap: var(--space-4);
+  align-items: start;
+}
+
+@container shell (max-width: 1099px) {
+  .library-columns {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* A row of an entry in Look inside: its first picture, small, before its name. */
+.preview-thumb {
+  flex: none;
+  width: 2.5rem;
+  height: 2.5rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-control);
+  object-fit: cover;
+}
+.preview-thumb[hidden] {
+  display: none;
+}
+
+/* The library's Campaigns and People, as the design draws them (screens 06, 09): a card for a block
+   of words or a form, and a table for the people, the links and the players, with a hairline between
+   its rows and a quiet button for what is done to one. */
+.hub-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2h);
+  padding: var(--space-3);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-card);
+  background: var(--surface-canvas);
+}
+.hub-card > h3,
+.hub-card > header h3 {
+  margin: 0;
+  font-size: var(--fs-ui);
+  font-weight: 600;
+}
+.hub-intro {
+  margin: 0;
+  color: var(--text-secondary);
+}
+.hub-roles {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* A list that is a table: one frame, a hairline between rows. A header row sits in the same frame. */
+.hub-table {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-card);
+  overflow: hidden;
+  background: var(--surface-canvas);
+}
+.hub-table > .list,
+.list.hub-table {
+  gap: 0;
+}
+.hub-table > .list {
+  border: 0;
+}
+.list.hub-rows > li {
+  border: 0;
+  border-top: 1px solid var(--border-subtle);
+  border-radius: 0;
+  background: none;
+}
+.list.hub-rows > li:first-child {
+  border-top: 0;
+}
+.hub-head + .list.hub-rows > li:first-child {
+  border-top: 1px solid var(--border-subtle);
+}
+.hub-head {
+  display: grid;
+  grid-template-columns: var(--hub-cols);
+  gap: var(--space-2h);
+  align-items: center;
+  min-height: 2.125rem;
+  padding: 0 var(--space-3);
+  background: var(--surface-muted);
+  color: var(--text-secondary);
+  font-size: var(--fs-meta);
+  font-weight: 500;
+}
+.hub-people {
+  --hub-cols: minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 1fr) 7rem;
+}
+.hub-people > .list.hub-rows > li.hub-member {
+  display: grid;
+  grid-template-columns: var(--hub-cols);
+  gap: var(--space-2h);
+  align-items: center;
+}
+.hub-name {
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+.hub-cell {
+  color: var(--text-secondary);
+  overflow-wrap: anywhere;
+}
+.hub-end {
+  justify-content: flex-end;
+}
+@container shell (max-width: 720px) {
+  .hub-head {
+    display: none;
+  }
+  .hub-people > .list.hub-rows > li.hub-member {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-1);
+    padding-block: var(--space-2h);
+  }
+  .hub-end {
+    justify-content: flex-start;
+  }
+}
+
+/* Add someone: the choice of role and the lookup in one card, the meaning of the role under it. */
+.hub-add {
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-2h) var(--space-3);
+}
+
+/* A campaign: a card whose picture is a small thumbnail with its buttons beside it, not a block. */
+.hub-campaign [data-picture-upload] img {
+  width: 4rem;
+  height: 4rem;
+  object-fit: cover;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-card);
+}
+.hub-campaign [data-picture-upload] > .stack {
+  align-items: flex-start;
+  gap: var(--space-2);
+}
+/* A table with nothing in it draws nothing; its words say so. */
+.hub-table:empty {
+  display: none;
+}
+/* The small headings of the People tab and of a campaign: the size of a card's own. */
+.hub-heading {
+  margin: 0;
+  font-size: var(--fs-ui);
+  font-weight: 600;
 }

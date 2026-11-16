@@ -14,7 +14,7 @@ from _admin_db import admin_session_factory
 from _fake_jwks import FakeJwksServer
 from _release_world import ReleaseWorld, release_world
 from _repository_actors import Actor, cleanup, make_actor
-from _upstream_documents import in_tenant, set_visibility
+from _upstream_documents import in_tenant, publish_stack, set_visibility
 from httpx import AsyncClient
 from sqlalchemy import delete, func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -414,8 +414,9 @@ async def test_a_repository_a_public_one_is_built_on_cannot_be_made_private(
     stack = await _stack(raw_client, fake_jwks_server)
     try:
         await set_visibility([stack.equipment, stack.rules, stack.bridge], "public")
-        for repository in (stack.equipment, stack.rules, stack.bridge):
-            await stack.author.put(f"/tenants/{repository}/published", json={})
+        # Their releases are what a public repository is built on (ADR 0434): the bridge takes the
+        # new releases of the two it is built on and publishes.
+        await publish_stack(stack)
 
         async with _owner(stack.equipment, stack.author.user_id) as session:
             assert [d["name"] for d in await public_dependents(session, stack.equipment)] == [
@@ -432,8 +433,12 @@ async def test_a_repository_a_public_one_is_built_on_cannot_be_made_private(
         assert [d["name"] for d in refused.value.extras["repositories"]] == ["D&D Equipment"]
         assert await _visibility(stack.equipment) == "public"
 
-        # The dependent goes private first, and then the equipment may.
-        await set_visibility([stack.bridge], "private")
+        # The dependent goes private first (made private, which is what clears what it is built on),
+        # and then the equipment may.
+        gone = await stack.author.delete(
+            f"/tenants/{stack.bridge}/public", params={"acknowledge_revokes": True}
+        )
+        assert gone.status_code == 200, gone.text
         async with _owner(stack.equipment, stack.author.user_id) as session:
             tenant = await session.get_one(Tenant, stack.equipment)
             await make_private(

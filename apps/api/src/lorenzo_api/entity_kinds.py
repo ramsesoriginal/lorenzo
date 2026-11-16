@@ -45,6 +45,8 @@ from lorenzo_api.models import (
     EntryCalendarPeriod,
     EventParticipant,
     Fact,
+    Feature,
+    FeatureInstance,
     Item,
     ItemInstance,
     Location,
@@ -64,7 +66,16 @@ from lorenzo_api.models.story_session import Scene, SceneAppearance, StorySessio
 
 # The kinds a route may add or remove.
 Kind = Literal[
-    "item", "being", "fact", "event", "location", "map", "connection", "relationship", "social_web"
+    "item",
+    "being",
+    "fact",
+    "event",
+    "location",
+    "map",
+    "connection",
+    "relationship",
+    "social_web",
+    "feature",
 ]
 
 # The combinations of kinds a repository may be published with, each as its kinds in the order
@@ -126,6 +137,9 @@ PUBLISHABLE_KIND_COMBINATIONS: frozenset[tuple[str, ...]] = frozenset(
         ("relationship",),
         # ADR 0406: a SocialWeb is its own kind in this slice, as a relationship is.
         ("social_web",),
+        # ADR 0454: a feature and a feature instance are each their own kind and combine with none.
+        ("feature",),
+        ("feature_instance",),
     }
 )
 
@@ -158,6 +172,8 @@ async def create_entry(
     in_public_catalog: bool,
     entity_id: uuid.UUID | None = None,
     system: dict[str, Any] | None = None,
+    repeatable: bool = False,
+    starts_inactive: bool = False,
 ) -> Entity:
     """The entry, its link name, its marker rows and its parent edges, flushed in the caller's
     transaction. A taken link name is a 409 and a parent that is not an entry of the tenant a
@@ -184,6 +200,13 @@ async def create_entry(
         raise InvalidKindRequestError(
             detail="A social web is made with POST /social-webs, which sets its layout."
         )
+    if "feature_instance" in kinds:
+        raise InvalidKindRequestError(
+            detail="A feature instance is what a holder has: award it with "
+            "POST /entities/{holder}/features."
+        )
+    if "feature" in kinds and set(kinds) != {"feature"}:
+        raise InvalidKindRequestError(detail="A feature is its own kind and has no other.")
     if "event" in kinds and set(kinds) - {"location", "map"} != {"event"}:
         raise InvalidKindRequestError(
             detail="An Event does not combine with other kinds in this slice."
@@ -233,6 +256,15 @@ async def create_entry(
         )
     if "being" in kinds:
         session.add(Being(entity_id=entity.id, tenant_id=tenant_id))
+    if "feature" in kinds:
+        session.add(
+            Feature(
+                entity_id=entity.id,
+                tenant_id=tenant_id,
+                repeatable=repeatable,
+                starts_inactive=starts_inactive,
+            )
+        )
     if "fact" in kinds:
         session.add(Fact(entity_id=entity.id, tenant_id=tenant_id))
         session.add(EntityAudience(entity_id=entity.id, tenant_id=tenant_id, is_public=False))
@@ -269,9 +301,12 @@ async def add_kind(
     user_id: uuid.UUID,
     in_public_catalog: bool | None = None,
     system: dict[str, Any] | None = None,
+    repeatable: bool | None = None,
+    starts_inactive: bool | None = None,
 ) -> Literal["created", "changed", "unchanged"]:
     """Gives the entry the kind, and says what happened: `created` the marker row, `changed` an
-    `item`'s `in_public_catalog` set to another value, or `unchanged`. Touches the entry
+    `item`'s `in_public_catalog` or a `feature`'s columns set to another value, or `unchanged`.
+    Touches the entry
     (`updated_by`, and `updated_at`, so its ETag moves) only then. An inventory item never takes
     `item`; it may take `being`."""
     entity_id = entity.id
@@ -297,6 +332,12 @@ async def add_kind(
         )
     if "social_web" in existing_kinds:
         raise InvalidKindRequestError(detail="A social web is its own kind and has no other.")
+    if "feature_instance" in existing_kinds:
+        raise InvalidKindRequestError(detail="A feature instance is its own kind and has no other.")
+    if "feature" in existing_kinds and kind != "feature":
+        raise InvalidKindRequestError(detail="A feature is its own kind and has no other.")
+    if kind == "feature" and existing_kinds - {"feature"}:
+        raise InvalidKindRequestError(detail="A feature is its own kind and has no other.")
     if kind not in ("location", "map") and existing_kinds & {
         "scene",
         "scene_appearance",
@@ -354,6 +395,25 @@ async def add_kind(
                     EntityAudience(entity_id=entity_id, tenant_id=tenant_id, is_public=False)
                 )
             result = "created"
+    elif kind == "feature":
+        feature = await session.get(Feature, entity_id)
+        if feature is None:
+            session.add(
+                Feature(
+                    entity_id=entity_id,
+                    tenant_id=tenant_id,
+                    repeatable=bool(repeatable),
+                    starts_inactive=bool(starts_inactive),
+                )
+            )
+            result = "created"
+        else:
+            if repeatable is not None and feature.repeatable != repeatable:
+                feature.repeatable = repeatable
+                result = "changed"
+            if starts_inactive is not None and feature.starts_inactive != starts_inactive:
+                feature.starts_inactive = starts_inactive
+                result = "changed"
     elif kind == "location":
         if await session.get(Location, entity_id) is None:
             session.add(Location(entity_id=entity_id, tenant_id=tenant_id))
@@ -429,8 +489,14 @@ async def remove_kind(
                 "inventory item"
             )
         marker: type[
-            Item | Being | Fact | Location | Map | Connection | Relationship | SocialWeb
+            Item | Being | Fact | Location | Map | Connection | Relationship | SocialWeb | Feature
         ] = Item
+    elif kind == "feature":
+        if await feature_is_held(session, tenant_id=tenant_id, feature_id=entity_id):
+            raise EntityKindInUseError(
+                detail=f"Entry {entity_id} is held as a feature: remove the instances first."
+            )
+        marker = Feature
     elif kind == "location":
         marker = Location
     elif kind == "map":
@@ -495,6 +561,23 @@ async def inventory_items_inherit(
     )
 
 
+async def feature_is_held(
+    session: AsyncSession, *, tenant_id: uuid.UUID, feature_id: uuid.UUID
+) -> bool:
+    """Whether some holder has an instance of this feature (its direct prototype), ADR 0454."""
+    return bool(
+        await session.scalar(
+            select(
+                exists().where(
+                    EntityPrototype.prototype_id == feature_id,
+                    EntityPrototype.tenant_id == tenant_id,
+                    EntityPrototype.entity_id == FeatureInstance.entity_id,
+                )
+            )
+        )
+    )
+
+
 async def kinds_of_entry(session: AsyncSession, entity_id: uuid.UUID) -> set[str]:
     """The entry's kinds."""
     return {
@@ -517,6 +600,8 @@ async def kinds_of_entry(session: AsyncSession, entity_id: uuid.UUID) -> set[str
             ("connection", Connection),
             ("relationship", Relationship),
             ("social_web", SocialWeb),
+            ("feature", Feature),
+            ("feature_instance", FeatureInstance),
             ("calendar_period", CalendarPeriod),
             ("observance", CalendarObservance),
             ("event", StoryEvent),
@@ -626,6 +711,17 @@ async def require_deletable(
             detail=f"Entry {entity_id} is an inventory item: delete it with "
             f"DELETE /tenants/{tenant_id}/item-instances/{entity_id}"
         )
+    if "feature_instance" in kinds:
+        raise InventoryItemKindError(
+            detail=f"Entry {entity_id} is a feature a holder has: remove it with "
+            f"DELETE /tenants/{tenant_id}/features/{entity_id}"
+        )
+    if "feature" in kinds and await feature_is_held(
+        session, tenant_id=tenant_id, feature_id=entity_id
+    ):
+        raise EntityKindInUseError(
+            detail=f"Entry {entity_id} is held as a feature: remove the instances first."
+        )
     if "character" in kinds and not allow_character:
         raise EntityKindInUseError(
             detail=f"Entry {entity_id} is a character: demote it with "
@@ -692,6 +788,8 @@ KIND_WORDS = {
     "event": "event",
     "observance": "observance",
     "item": "item",
+    "feature": "feature",
+    "feature_instance": "feature a holder has",
     "item_instance": "inventory item",
     "being": "being",
     "character": "character",

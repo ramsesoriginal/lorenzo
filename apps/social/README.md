@@ -9,7 +9,7 @@ goes through [`apps/api`](../api); the app holds no durable private cache and no
 ## What it does
 
 - Libraries first, then **Relationships**: a searchable list of what the person may see, and for those
-  who write relationships (Owners, Organizers, Authors and GMs) a form that makes one from two ends,
+  who write relationships (Owners, Organizers, Authors and GMs, and a player for a being they control) a form that makes one from two ends,
   a direction, an optional type and an audience (restricted unless opened).
 - One relationship's page: the sentence that says it, what it is of, what it holds, and the changes a
   writer may make (swap the ends, one way or both, who may see it, delete).
@@ -17,6 +17,14 @@ goes through [`apps/api`](../api); the app holds no durable private cache and no
   with its own audience.
 - A relationship is shown only with both ends visible to the reader; the API decides, the page only
   words what it is told.
+- **Types**: a screen for relationship types and standings, with their scales, and a starter set of types
+  offered to an empty library.
+- **Webs**: a saved view of relationships (the entries it shows, the types it is limited to and a layout),
+  drawn as a graph with circle, radial, stress, ForceAtlas2, manual or layered layouts by
+  [`@lorenzo/graph-renderer`](../../packages/graph-renderer), and read through a calendar date or as an
+  Event's participants read it.
+- **The matrix**: a web's entries on both sides with a standing in every cell, edited with the keyboard
+  and saved in batches.
 
 ## Running it
 

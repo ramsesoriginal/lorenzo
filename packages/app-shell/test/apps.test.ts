@@ -1,6 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { appsByJob } from '../src/apps';
-import { clockText, splitTabs } from '../src/pure';
+import {
+  clockLocale,
+  clockText,
+  densityOf,
+  motionOf,
+  splitTabs,
+  themeChoiceOf,
+  timeText,
+} from '../src/pure';
 
 describe('appsByJob', () => {
   it('lists the deployed apps by job, in the order of the design', () => {
@@ -43,7 +51,42 @@ describe('splitTabs', () => {
 });
 
 describe('clockText', () => {
-  it('writes the day and the time', () => {
-    expect(clockText(new Date(2026, 10, 6, 9, 41), 'en-GB')).toBe('Fri 6 Nov, 09:41');
+  it('writes the day and the time as the design draws them', () => {
+    expect(clockText(new Date(2026, 10, 6, 9, 41), 'en-GB')).toBe('Fri 6 November at 09:41');
+  });
+
+  it('writes the time alone for "Synced 19:40"', () => {
+    expect(timeText(new Date(2026, 10, 6, 19, 40), 'en-GB')).toBe('19:40');
+  });
+
+  it('writes plain English the day-first way, and any other language as it is', () => {
+    expect(clockLocale('en')).toBe('en-GB');
+    expect(clockLocale('EN')).toBe('en-GB');
+    expect(clockLocale('de')).toBe('de');
+    expect(clockLocale('en-US')).toBe('en-US');
+    expect(clockLocale('')).toBeUndefined();
+    expect(clockLocale(undefined)).toBeUndefined();
+  });
+});
+
+describe('what is chosen in Appearance', () => {
+  it('knows the theme: one of the two, or the system’s when nothing is saved', () => {
+    expect(themeChoiceOf('dark')).toBe('dark');
+    expect(themeChoiceOf('light')).toBe('light');
+    expect(themeChoiceOf(null)).toBe('system');
+    expect(themeChoiceOf('purple')).toBe('system');
+  });
+
+  it('knows the density, and is comfortable for anything else', () => {
+    expect(densityOf('compact')).toBe('compact');
+    expect(densityOf('dense')).toBe('dense');
+    expect(densityOf(null)).toBe('comfortable');
+    expect(densityOf('tiny')).toBe('comfortable');
+  });
+
+  it('knows motion, and follows the system for anything else', () => {
+    expect(motionOf('reduced')).toBe('reduced');
+    expect(motionOf(null)).toBe('system');
+    expect(motionOf('none')).toBe('system');
   });
 });

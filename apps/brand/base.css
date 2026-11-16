@@ -13,6 +13,16 @@ html {
   scrollbar-gutter: stable;
 }
 
+/* The web shell's bars, its sheet and its dimmer all run to the window's edge: a gutter held open
+   beside a page that does not scroll is a strip they stop short of (D18). The page's own scrollbar
+   still takes its width when it has one. */
+html:has(.shell-header) {
+  scrollbar-gutter: auto;
+  /* The status bar (and on a phone the tab bar) is sticky over the page's foot: what is scrolled into
+     view, by a link to it, a key or a script, stops above them, not under them. */
+  scroll-padding-bottom: 6rem;
+}
+
 body {
   background: var(--surface-canvas);
   color: var(--text-primary);

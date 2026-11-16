@@ -97,25 +97,28 @@ async def test_a_definition_name_that_is_taken_or_empty_is_refused(
     await delete_tenant(tenant_id)
 
 
-async def test_a_stat_the_api_reads_by_name_is_not_renamed(
+async def test_a_stat_the_api_reads_may_be_renamed(
     client: AsyncClient, test_user_id: uuid.UUID
 ) -> None:
+    """ADR 0449: the API reads a stat by its role, so the holder of one is renamed freely and
+    keeps the role; the `none` of a binding stays reserved (test_api_roles)."""
     tenant_id = await make_tenant(test_user_id)
     group = await _group(client, tenant_id)
     weight = await _definition(client, tenant_id, group["id"], "weight")
     url = f"/tenants/{tenant_id}/stat-definitions/{weight['id']}"
 
-    refused = await client.patch(url, json={"name": "heft"})
-    still = await client.patch(url, json={"name": "weight", "pin": True})
+    renamed = await client.patch(url, json={"name": "heft"})
     made = await _definition(client, tenant_id, group["id"], "mass")
     renamed_to = await client.patch(
         f"/tenants/{tenant_id}/stat-definitions/{made['id']}", json={"name": "size"}
     )
 
-    assert refused.status_code == 409
-    assert refused.json()["type"].endswith("stat-name-reserved")
-    assert still.status_code == 200  # no rename, nothing refused
-    assert renamed_to.status_code == 200  # as making one called `size` is
+    assert (renamed.status_code, renamed.json()["name"], renamed.json()["role"]) == (
+        200,
+        "heft",
+        "weight",
+    )
+    assert renamed_to.status_code == 200
     await delete_tenant(tenant_id)
 
 

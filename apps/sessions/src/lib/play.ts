@@ -157,6 +157,137 @@ export async function playPanel(
         ),
       )
     : [];
+  // The design's way to record play (screen 19): one dialog that proposes the outline as played,
+  // with each Scene's status and the Events presented in it, saved on purpose. The API takes the
+  // statuses and each presentation as separate writes against the Session's version, so a save is
+  // those writes one after another, and one that stops says which were kept.
+  if (manager && saved.appearances.length) {
+    const open = button('Propose the outline as played', () => {
+      const dialog = document.createElement('dialog');
+      dialog.className = 'played-dialog';
+      dialog.setAttribute('aria-label', 'Propose the outline as played');
+      const body = el('div', '', 'stack');
+      body.append(
+        el('h2', 'Propose the outline as played'),
+        el(
+          'p',
+          'This is a draft. Mark what was played or skipped and which Events were presented. Nothing is saved until you save the record. Later preparation edits will not change it.',
+          'status-text',
+        ),
+      );
+      const rows = saved.appearances.map((appearance) => {
+        const already = new Set(
+          saved.presentations
+            .filter((p) => p.appearance_id === appearance.id)
+            .map((p) => p.event_id),
+        );
+        const status = select(
+          `${appearance.name}: played or skipped`,
+          [
+            ['played', 'Played'],
+            ['skipped', 'Skipped'],
+          ],
+          appearance.status === 'skipped' ? 'skipped' : 'played',
+        );
+        const section = el('section', '', 'stack-tight');
+        const head = el('div', '', 'row');
+        head.append(el('h3', appearance.name, 'item-title grow'), status.label);
+        const choices = el('div', '', 'row');
+        const boxes = events.map((event) => {
+          const label = el('label', '', 'row-tight');
+          const input = el('input') as HTMLInputElement;
+          input.type = 'checkbox';
+          input.checked = already.has(event.id);
+          input.disabled = already.has(event.id);
+          label.append(input, document.createTextNode(event.name));
+          choices.append(label);
+          return { id: event.id, input };
+        });
+        section.append(head, choices);
+        body.append(section);
+        return { appearance, status, boxes, already };
+      });
+      body.append(
+        el(
+          'p',
+          'Presenting an Event does not make it happen, and an Event can be presented in more than one Scene. One already recorded stays until it is removed in the list below.',
+          'caption',
+        ),
+      );
+      const note = statusLine();
+      const save = button(
+        'Save the record',
+        async () => {
+          save.disabled = true;
+          let current = version;
+          const kept: string[] = [];
+          // Each write moves the version the next one must send, and the answer to a write does not
+          // carry it, so it is read again from the record.
+          const reread = async () => {
+            const latest = await client.GET('/tenants/{tenant_id}/sessions/{session_id}/play', {
+              params: { path },
+              cache: 'no-store',
+            });
+            await unwrap(latest);
+            current = latest.response.headers.get('etag') ?? current;
+          };
+          try {
+            const result = await client.PUT('/tenants/{tenant_id}/sessions/{session_id}/play', {
+              params: { path, header: { 'if-match': current } },
+              body: {
+                played_appearance_ids: rows
+                  .filter((r) => r.status.input.value === 'played')
+                  .map((r) => r.appearance.id),
+                skipped_appearance_ids: rows
+                  .filter((r) => r.status.input.value === 'skipped')
+                  .map((r) => r.appearance.id),
+              },
+            });
+            await unwrap(result);
+            await reread();
+            kept.push('the Scenes played and skipped');
+            for (const row of rows)
+              for (const box of row.boxes) {
+                if (!box.input.checked || row.already.has(box.id)) continue;
+                const made = await client.POST(
+                  '/tenants/{tenant_id}/sessions/{session_id}/scenes/{appearance_id}/presentations',
+                  {
+                    params: {
+                      path: { ...path, appearance_id: row.appearance.id },
+                      header: { 'if-match': current },
+                    },
+                    body: { id: crypto.randomUUID(), event_id: box.id, is_shared: false },
+                  },
+                );
+                await unwrap(made);
+                await reread();
+                kept.push(`${row.appearance.name}: ${box.input.parentElement?.textContent ?? ''}`);
+              }
+            dialog.close();
+            dialog.remove();
+            await refresh();
+          } catch (error) {
+            say(
+              note,
+              `${error instanceof Error ? error.message : String(error)} ${kept.length ? `Saved so far: ${kept.join('; ')}. ` : 'Nothing was saved. '}Your draft is still here; review the saved record before saving again.`,
+              true,
+            );
+            save.disabled = false;
+          }
+        },
+        { variant: 'primary' },
+      );
+      const cancel = button('Cancel', () => {
+        dialog.close();
+        dialog.remove();
+      });
+      body.append(note, actions(cancel, save));
+      dialog.append(body);
+      document.body.append(dialog);
+      dialog.showModal();
+    });
+    summary.after(open);
+  }
   for (const appearance of saved.appearances) {
     const section = card();
     section.body.append(el('h3', `${appearance.name} · ${appearance.status}`, 'item-title'));

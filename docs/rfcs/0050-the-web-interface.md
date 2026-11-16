@@ -1,6 +1,6 @@
 # RFC 0050: The web interface: one shell, one grammar, and the order to build it in
 
-- **Status:** accepted, decided with the maintainer (2026-11-06), from clickable prototypes agreed with them one decision at a time. The open questions below stay open; each is settled in the ADR of the slice that needs it.
+- **Status:** accepted, decided with the maintainer (2026-11-06), from clickable prototypes agreed with them one decision at a time. The open questions below stay open; each is settled in the ADR of the slice that needs it. Built so far: UI-A to UI-D and Calendars and Sessions of UI-E (ADR 0426 to 0428, 0433, 0440 to 0442); the rest is tracked in #1020.
 - **Builds on:** [RFC 0049](0049-lorenzo-social-relationships-and-social-webs.md) (Lorenzo Social), [RFC 0047](0047-lorenzo-writing.md) (Writing), [RFC 0048](0048-locations-maps-connections-and-optional-dates.md) (Maps), [RFC 0046](0046-sessions-scenes-and-lived-order.md) (Sessions), [ADR 0273](../adr/0273-app-links-registry.md) (app links), [identity](../brand/identity.md).
 - **Picture:** [docs/design/web](../design/web/README.md) and its clickable prototypes, one per app.
 

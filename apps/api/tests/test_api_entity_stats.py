@@ -1,4 +1,5 @@
 import uuid
+from unittest.mock import ANY
 
 from _admin_db import admin_session_factory
 from conftest import delete_tenant, make_campaign, make_character, make_tenant
@@ -86,7 +87,17 @@ async def test_set_entity_stat_creates_a_value(
     body = response.json()
     assert body["id"] == str(entity_id)
     assert body["stats"] == [
-        {"name": "weight", "value": 5, "own": True, "from_entity": None, "computed": False}
+        {
+            "stat_definition_id": ANY,
+            "group_id": ANY,
+            "system": None,
+            "name": "weight",
+            "value": 5,
+            "own": True,
+            "from_entity": None,
+            "from_hidden": None,
+            "computed": False,
+        }
     ]
 
     async with admin_session_factory() as session:
@@ -115,7 +126,17 @@ async def test_set_entity_stat_overwrites_an_existing_value(
 
     assert response.status_code == 200
     assert response.json()["stats"] == [
-        {"name": "weight", "value": 9, "own": True, "from_entity": None, "computed": False}
+        {
+            "stat_definition_id": ANY,
+            "group_id": ANY,
+            "system": None,
+            "name": "weight",
+            "value": 9,
+            "own": True,
+            "from_entity": None,
+            "from_hidden": None,
+            "computed": False,
+        }
     ]
 
     await delete_tenant(tenant_id)
@@ -152,7 +173,17 @@ async def test_set_entity_stat_on_own_character_directly(
 
     assert response.status_code == 200
     assert response.json()["stats"] == [
-        {"name": "hp", "value": 12, "own": True, "from_entity": None, "computed": False}
+        {
+            "stat_definition_id": ANY,
+            "group_id": ANY,
+            "system": None,
+            "name": "hp",
+            "value": 12,
+            "own": True,
+            "from_entity": None,
+            "from_hidden": None,
+            "computed": False,
+        }
     ]
 
     await delete_tenant(tenant_id)
@@ -515,7 +546,17 @@ async def test_effective_stats_resolve_through_prototype_chain_and_survive_conta
     )
     assert override_response.status_code == 200
     assert override_response.json()["stats"] == [
-        {"name": "weight", "value": 99, "own": True, "from_entity": None, "computed": False}
+        {
+            "stat_definition_id": ANY,
+            "group_id": ANY,
+            "system": None,
+            "name": "weight",
+            "value": 99,
+            "own": True,
+            "from_entity": None,
+            "from_hidden": None,
+            "computed": False,
+        }
     ]
 
     overridden_get = await client.get(f"/tenants/{tenant_id}/item-instances/{ashfang_id}")

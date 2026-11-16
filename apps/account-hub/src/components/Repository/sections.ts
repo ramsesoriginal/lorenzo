@@ -3,7 +3,15 @@
 // says its own failure in its own place, and is dropped if another repository was shown meanwhile.
 
 import { knownNames } from '../../lib/activityNames';
+import { askFirst } from '../../lib/askFirst';
 import { describeError } from '../../lib/describeError';
+import {
+  breakingNote,
+  notHidableReason,
+  notOfferedReason,
+  notShowableReason,
+  offeredChoices,
+} from '../../lib/inclusion';
 import {
   breakingLines,
   countsLines,
@@ -48,6 +56,7 @@ import {
 } from '../../lib/using';
 import { renderActivityLog } from '../ActivityLog/renderer';
 import { renderTenantInviteLinks } from '../TenantInviteLinks/renderer';
+import { createInclusionChoice } from './inclusion';
 
 const required = requiredIn('Repository');
 
@@ -114,7 +123,8 @@ export function createUsing(root: HTMLElement, onChanged: () => void): Section {
         // Only an Owner stops an invitation, and only where there is one.
         stop.hidden = !(canChangePeople(repository.role) && row.granted_at !== null);
         stop.addEventListener('click', async () => {
-          if (!window.confirm(stopInvitingConfirmation(row.name))) return;
+          if (!(await askFirst(stopInvitingConfirmation(row.name), { confirm: 'Stop inviting' })))
+            return;
 
           stop.disabled = true;
           say(rowStatus, 'Stopping…');
@@ -240,6 +250,30 @@ export function createBuiltOn(root: HTMLElement): Section {
             state.textContent = SHELF_STATE_LABEL[row.state];
             review.hidden = !row.checkable;
             review.href = updatesHref(repository.slug, row.id);
+
+            // A repository that copied this one chooses how it carries it (RFC 0051 H1, ADR 0431).
+            if (row.inclusion !== null) {
+              required<HTMLElement>(item, '[data-built-on-body]').append(
+                createInclusionChoice({
+                  repositoryId: repository.id,
+                  sourceId: row.id,
+                  name: row.name,
+                  inclusion: row.inclusion,
+                  offered: offeredChoices(row.includable, row.inclusion, row.showable, row.hidable),
+                  notOffered:
+                    [
+                      notOfferedReason(row.name, row.includable),
+                      notShowableReason(row.name, row.showable),
+                      notHidableReason(row.name, row.hidable),
+                    ]
+                      .filter((reason): reason is string => reason !== null)
+                      .join(' ') || null,
+                  protected: row.protected,
+                  note: breakingNote({ inclusion_in_release: row.inclusionInRelease }),
+                  editable: repository.role === 'owner',
+                }),
+              );
+            }
 
             return item;
           }),

@@ -1,8 +1,9 @@
 // Deleting your account (ADR 0170). Leaving a library and stepping down as a campaign GM are part of
-// the Tenant component. Asks first with window.confirm, the pattern "Leave this campaign" uses. On
+// the Tenant component. Asks first with a dialog (askFirst), the pattern "Leave this campaign" uses. On
 // success the person is logged out through Authgear: their Lorenzo account is gone, and the
 // Authgear login is not (deleteAccountConfirmation says so).
 
+import { askFirst } from '../../lib/askFirst';
 import { logout } from '../../lib/auth';
 import { deleteAccountConfirmation, soleOwnerMessage } from '../../lib/exits';
 import { gmWords } from '../../lib/gmTitle';
@@ -27,7 +28,14 @@ export function renderDeleteAccount(
   required<HTMLElement>(root, '[data-gm-title]').textContent = gmTitle;
 
   button.addEventListener('click', async () => {
-    if (!window.confirm(deleteAccountConfirmation(gmTitle))) return;
+    if (
+      !(await askFirst(deleteAccountConfirmation(gmTitle), {
+        confirm: 'Delete my account',
+        cancel: 'Keep my account',
+      }))
+    ) {
+      return;
+    }
 
     button.disabled = true;
     say(status, 'Deleting…');

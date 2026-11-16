@@ -6,12 +6,15 @@
 // `&updates=1` (with or without a repository, for its updates or the library's inbox); all are
 // plain links, so they can be opened, shared and gone back to.
 
+import { pageState } from '@lorenzo/app-shell';
 import { onCacheRefreshed } from '../../lib/cache';
+import { BRANDING_CSS_URL } from '../../lib/config';
 import { copyTargets } from '../../lib/discover';
 import { getStorefront } from '../../lib/discoverApi';
 import { isEditingIn } from '../../lib/editing';
-import { avatarInitial } from '../../lib/format';
+import { avatarInitial, byName } from '../../lib/format';
 import { showLorenzoScript } from '../../lib/lorenzoScript';
+import { getMe } from '../../lib/me';
 import type { PreviewLevel } from '../../lib/preview';
 import { librarySource } from '../../lib/previewApi';
 import { releasePlace } from '../../lib/releases';
@@ -32,6 +35,8 @@ import {
   kindLabel,
   type OutlineNode,
   outlineOf,
+  PROTECTED_NOTE,
+  PROTECTED_PILL,
   parentsLine,
   readShelfLocation,
   SHELF_STATE_EXPLANATION,
@@ -46,8 +51,10 @@ import {
   updatesHref,
 } from '../../lib/shelf';
 import { sayError } from '../../lib/statusLine';
+import { CREATE_NOT_OPEN, repositoriesMode, roleLabel, studioHref } from '../../lib/studio';
+import { bindTabs } from '../../lib/tabs';
 import { cloneRoot, requiredIn } from '../../lib/template';
-import { isRepository } from '../../lib/tenantKind';
+import { canCreateTenants, isRepository } from '../../lib/tenantKind';
 import { listMyTenants, tenantPictureUrl } from '../../lib/tenants';
 import type {
   RepositoryEntityOut,
@@ -144,6 +151,13 @@ export async function renderRepositoriesPanel(root: HTMLElement): Promise<void> 
   const updatesView = createUpdatesView(root, updatesViewElement);
   const inboxViewElement = required<HTMLElement>(root, '[data-inbox-view]');
   const inbox = createInbox(root, inboxViewElement);
+  // Overview, and Use in a library, for one repository (the design's two tabs for one who uses it).
+  const detailTabs = bindTabs(required<HTMLElement>(detailView, '[data-detail-tabs]'));
+  const yoursSection = required<HTMLElement>(root, '[data-yours]');
+  const yoursList = required<HTMLElement>(root, '[data-yours-list]');
+  const yoursEmpty = required<HTMLElement>(root, '[data-yours-empty]');
+  const newRepository = required<HTMLElement>(root, '[data-new-repository]');
+  const usedHeading = required<HTMLElement>(root, '[data-used-heading]');
   const checkUpdates = required<HTMLElement>(listView, '[data-check-updates]');
   const inboxLink = required<HTMLAnchorElement>(listView, '[data-inbox-link]');
 
@@ -158,6 +172,8 @@ export async function renderRepositoriesPanel(root: HTMLElement): Promise<void> 
     initial: required<HTMLElement>(detailView, '[data-initial]'),
     name: required<HTMLElement>(detailView, '[data-name]'),
     state: required<HTMLElement>(detailView, '[data-state]'),
+    protectedPill: required<HTMLElement>(detailView, '[data-protected-pill]'),
+    protectedNote: required<HTMLElement>(detailView, '[data-protected-note]'),
     explanation: required<HTMLElement>(detailView, '[data-explanation]'),
     retired: required<HTMLElement>(detailView, '[data-retired]'),
     retiredPill: required<HTMLElement>(detailView, '[data-retired-pill]'),
@@ -188,10 +204,41 @@ export async function renderRepositoriesPanel(root: HTMLElement): Promise<void> 
 
   // A library, or a repository that copies from another (ADR 0205), that the person runs. Libraries
   // first, so that is what opens when the address names none.
-  const libraries = copyTargets((await listMyTenants()).items);
+  const [mine, me] = await Promise.all([listMyTenants(), getMe()]);
+  const libraries = copyTargets(mine.items);
+
+  // The repositories the person works on, above the ones their libraries draw on: Studio's list, as
+  // cards that open Studio. Shown with the list of this page, not with a repository's or a copy.
+  const worksOn = mine.items.filter(isRepository).sort((a, b) => byName(a.name, b.name));
+  const mayMake = canCreateTenants(me);
+  const showYours = worksOn.length > 0 || mayMake || libraries.length === 0;
+
+  yoursList.replaceChildren(
+    ...worksOn.map((repository) => {
+      const item = cloneRoot(root, '[data-yours-item-template]');
+      const link = required<HTMLAnchorElement>(item, '[data-link]');
+
+      link.textContent = repository.name;
+      link.href = studioHref(repository.slug);
+      required<HTMLElement>(item, '[data-role]').textContent = roleLabel(repository.role);
+
+      return item;
+    }),
+  );
+  yoursEmpty.hidden = worksOn.length > 0;
+  required<HTMLElement>(root, '[data-create-closed]').hidden = mayMake;
+  required<HTMLElement>(root, '[data-create-closed]').textContent = CREATE_NOT_OPEN;
+  newRepository.hidden = !mayMake;
+
+  // Whether that group (and the heading of the ones below it) is shown: only on this page's list.
+  function landing(on: boolean): void {
+    yoursSection.hidden = !(on && showYours);
+    usedHeading.hidden = !(on && showYours);
+  }
 
   if (libraries.length === 0) {
     noLibrary.hidden = false;
+    landing(true);
     root.hidden = false;
 
     return;
@@ -239,6 +286,12 @@ export async function renderRepositoriesPanel(root: HTMLElement): Promise<void> 
         );
         stateElement(required<HTMLElement>(card, '[data-state]'), shelfState(subscription));
 
+        // Held through a public repository built on it (RFC 0051 H3, ADR 0434): a pill, and no name.
+        const protectedBox = required<HTMLElement>(card, '[data-protected-card]');
+
+        protectedBox.hidden = !subscription.protected;
+        required<HTMLElement>(card, '[data-protected-pill]').textContent = PROTECTED_PILL;
+
         // Retired by its Owner (ADR 0384): said on the card, with the Owner's words.
         const retired = retiredHere(subscription.deprecated, subscription.copied_at !== null);
         const retiredBox = required<HTMLElement>(card, '[data-retired]');
@@ -254,6 +307,20 @@ export async function renderRepositoriesPanel(root: HTMLElement): Promise<void> 
       }),
     );
     empty.hidden = subscriptions.length > 0;
+    // Nothing offered to this library: a page state with the mascot, in words either way.
+    empty.replaceChildren(
+      ...(subscriptions.length === 0
+        ? [
+            pageState(BRANDING_CSS_URL, {
+              art: 'empty-entries',
+              level: 2,
+              title: 'No repository offered yet',
+              text: 'No repository is offered to this library yet. The owner of a repository invites a library to it; ask them to invite this one.',
+              alt: 'An empty shelf',
+            }),
+          ]
+        : []),
+    );
     // The inbox checks every copy, so it is offered where there is one.
     checkUpdates.hidden = !subscriptions.some((s) => s.copied_at !== null);
     inboxLink.href = updatesHref(library.slug);
@@ -390,8 +457,11 @@ export async function renderRepositoriesPanel(root: HTMLElement): Promise<void> 
     const { repository } = subscription;
     const state = shelfState(subscription);
     // Only a repository that is offered and published can be looked inside.
+    // A protected repository held through another is not looked inside: it is read only as a step of
+    // the copy of the repository that brings it (ADR 0434).
+    const through = subscription.protected === true;
     const canLookInside =
-      state === 'not-copied' || state === 'copied' || state === 'update-announced';
+      !through && (state === 'not-copied' || state === 'copied' || state === 'update-announced');
     const plan = canLookInside ? await getCopyPlan(library.id, repository.id) : null;
 
     if (turn !== latest) return;
@@ -414,6 +484,10 @@ export async function renderRepositoriesPanel(root: HTMLElement): Promise<void> 
     showPicture(detail.picture, detail.initial, repository);
     detail.name.textContent = repository.name;
     stateElement(detail.state, state);
+    detail.protectedPill.hidden = !through;
+    detail.protectedPill.textContent = PROTECTED_PILL;
+    detail.protectedNote.hidden = !through;
+    detail.protectedNote.textContent = PROTECTED_NOTE;
     // Retired by its Owner (ADR 0384): the library keeps what it copied and its updates, cannot copy
     // it again, and reads the Owner's words. A library that never copied it is told only that.
     const retired = retiredHere(subscription.deprecated, subscription.copied_at !== null);
@@ -434,9 +508,9 @@ export async function renderRepositoriesPanel(root: HTMLElement): Promise<void> 
     detail.updatesLink.href = updatesHref(library.slug, repository.id);
 
     // Copying: a first copy of what is offered and not yet copied, another of what is copied.
-    detail.actions.hidden = state !== 'not-copied' || retired !== null;
+    detail.actions.hidden = state !== 'not-copied' || retired !== null || through;
     detail.copyLink.href = shelfHref(library.slug, repository.id, 'new');
-    detail.more.hidden = subscription.copied_at === null || retired !== null;
+    detail.more.hidden = subscription.copied_at === null || retired !== null || through;
     detail.more.open = false;
     detail.copyAgainLink.href = shelfHref(library.slug, repository.id, 'again');
     showLorenzoScript(detail.description, repository.description);
@@ -576,6 +650,7 @@ export async function renderRepositoriesPanel(root: HTMLElement): Promise<void> 
         inbox.close();
         updatesViewElement.hidden = true;
         inboxViewElement.hidden = true;
+        landing(false);
         listView.hidden = true;
         detailView.hidden = true;
         copyView.hidden = false;
@@ -606,6 +681,7 @@ export async function renderRepositoriesPanel(root: HTMLElement): Promise<void> 
         detailView.hidden = true;
         updatesViewElement.hidden = !wanted;
         inboxViewElement.hidden = !!wanted;
+        landing(false);
 
         return;
       }
@@ -623,11 +699,20 @@ export async function renderRepositoriesPanel(root: HTMLElement): Promise<void> 
 
       if (turn !== latest) return;
 
+      landing(false);
       listView.hidden = true;
       detailView.hidden = false;
+
+      // It opens where something is to be done (copy it, check it for updates), else on what it is.
+      const toDo = !detail.updatesActions.hidden || !detail.actions.hidden || !detail.more.hidden;
+
+      detailTabs.reset();
+      detailTabs.refresh();
+      detailTabs.select(toDo ? 1 : 0);
     } else {
       shown = null;
       paintCards(library, subscriptions);
+      landing(true);
       detailView.hidden = true;
       listView.hidden = false;
     }
@@ -650,6 +735,9 @@ export async function renderRepositoriesPanel(root: HTMLElement): Promise<void> 
     if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
       return;
     }
+    // A link to the workspace of a repository one works on (or to the form for a new one) is the other
+    // half of this page: the browser loads it, since this half cannot show it.
+    if (repositoriesMode(new URL(link.href).search) === 'workspace') return;
 
     event.preventDefault();
     window.history.pushState(null, '', link.href);

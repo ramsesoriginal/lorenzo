@@ -41,15 +41,21 @@ export function collisionSentence(collision: CollisionOut): string {
       return `Your library already has a stat group called “${collision.name}”.`;
     case 'stat_definition':
       return `Your library already has a stat called “${collision.name}”.`;
+    case 'stat_role':
+      return `Your library already has a stat that does the same job as “${collision.name}”.`;
     case 'slug':
       return `Your library already has an entry with the link name “${collision.name}”.`;
+    case 'template':
+      return `Your library already has a template called “${collision.name}”.`;
   }
 }
 
 const THING: Record<CollisionOut['kind'], string> = {
   stat_group: 'stat group',
   stat_definition: 'stat',
+  stat_role: 'stat',
   slug: 'link name',
+  template: 'template',
 };
 
 // What a choice does, for the clash it is a choice for. Leaving out a stat group or a stat leaves
@@ -70,9 +76,12 @@ export function choiceExplanation(collision: CollisionOut, action: ChoiceAction)
         case 'stat_group':
           return 'It is not copied, and nor are its stats or any value or formula that uses them.';
         case 'stat_definition':
+        case 'stat_role':
           return 'It is not copied, and nor is any value or formula that uses it.';
         case 'slug':
           return 'The entry is copied without a link name.';
+        case 'template':
+          return 'The template is not copied.';
       }
   }
 }
@@ -200,7 +209,12 @@ function tallyClauses(
   for (const collision of collisions) {
     const action = choices.get(collisionKey(collision))?.action;
 
-    if (action === 'merge') count.merge[collision.kind] += 1;
+    // A stat that holds a role the library's own stat holds is merged like a stat of one name.
+    if (action === 'merge') {
+      const merged = collision.kind === 'stat_role' ? 'stat_definition' : collision.kind;
+      // A template is renamed or left out, never merged (ADR 0469).
+      if (merged !== 'template') count.merge[merged] += 1;
+    }
     if (action === 'rename') count.rename += 1;
     if (action === 'skip') count.skip += 1;
   }
