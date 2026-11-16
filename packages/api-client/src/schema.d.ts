@@ -9615,7 +9615,7 @@ export interface components {
              * Kind
              * @enum {string}
              */
-            kind: "linear" | "comparison" | "sum" | "contents" | "min" | "max" | "product" | "ratio" | "select";
+            kind: "linear" | "comparison" | "sum" | "contents" | "min" | "max" | "product" | "ratio" | "select" | "dice_value" | "dice";
         };
         /**
          * ComputedStatOut
@@ -9634,7 +9634,7 @@ export interface components {
              */
             stat_definition_id: string;
             /** Formula */
-            formula: components["schemas"]["LinearFormulaBody-Output"] | components["schemas"]["ComparisonFormulaBody-Output"] | components["schemas"]["SumFormulaBody-Output"] | components["schemas"]["ContentsFormulaBody-Output"] | components["schemas"]["MinFormulaBody-Output"] | components["schemas"]["MaxFormulaBody-Output"] | components["schemas"]["ProductFormulaBody-Output"] | components["schemas"]["RatioFormulaBody-Output"] | components["schemas"]["SelectFormulaBody-Output"];
+            formula: components["schemas"]["LinearFormulaBody-Output"] | components["schemas"]["ComparisonFormulaBody-Output"] | components["schemas"]["SumFormulaBody-Output"] | components["schemas"]["ContentsFormulaBody-Output"] | components["schemas"]["MinFormulaBody-Output"] | components["schemas"]["MaxFormulaBody-Output"] | components["schemas"]["ProductFormulaBody-Output"] | components["schemas"]["RatioFormulaBody-Output"] | components["schemas"]["SelectFormulaBody-Output"] | components["schemas"]["DiceValueFormulaBody"] | components["schemas"]["DiceFormulaBody"];
             /**
              * Updated At
              * Format: date-time
@@ -9650,7 +9650,7 @@ export interface components {
          */
         ComputedStatPreviewIn: {
             /** Formula */
-            formula?: (components["schemas"]["LinearFormulaBody-Input"] | components["schemas"]["ComparisonFormulaBody-Input"] | components["schemas"]["SumFormulaBody-Input"] | components["schemas"]["ContentsFormulaBody-Input"] | components["schemas"]["MinFormulaBody-Input"] | components["schemas"]["MaxFormulaBody-Input"] | components["schemas"]["ProductFormulaBody-Input"] | components["schemas"]["RatioFormulaBody-Input"] | components["schemas"]["SelectFormulaBody-Input"]) | null;
+            formula?: (components["schemas"]["LinearFormulaBody-Input"] | components["schemas"]["ComparisonFormulaBody-Input"] | components["schemas"]["SumFormulaBody-Input"] | components["schemas"]["ContentsFormulaBody-Input"] | components["schemas"]["MinFormulaBody-Input"] | components["schemas"]["MaxFormulaBody-Input"] | components["schemas"]["ProductFormulaBody-Input"] | components["schemas"]["RatioFormulaBody-Input"] | components["schemas"]["SelectFormulaBody-Input"] | components["schemas"]["DiceValueFormulaBody"] | components["schemas"]["DiceFormulaBody"]) | null;
         };
         /**
          * ComputedStatPreviewOut
@@ -10465,6 +10465,98 @@ export interface components {
             device_code: string;
         };
         /**
+         * DiceDropIn
+         * @description The dice a value drops: the `count` lowest or highest results. Checked with the notation's
+         *     limits by the route (422 `invalid-dice` naming the part), not by the schema.
+         */
+        DiceDropIn: {
+            /** Mode */
+            mode: string;
+            /** Count */
+            count: number;
+        };
+        /** DiceDropOut */
+        DiceDropOut: {
+            /**
+             * Mode
+             * @enum {string}
+             */
+            mode: "lowest" | "highest";
+            /** Count */
+            count: number;
+        };
+        /**
+         * DiceFormulaBody
+         * @description A dice value built from a count and a number of sides - ADR 0464. Each is a whole-number
+         *     stat of the same entry or a constant, exactly one of the two: a count from 1 to 100, sides from
+         *     2 to 1000. The result is the dice, `3d8` for a count of 3 and 8 sides, and it has no value when
+         *     a stat has none or holds a number the dice cannot have. It is for a `dice` stat.
+         */
+        DiceFormulaBody: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "dice";
+            /** Count Stat Definition Id */
+            count_stat_definition_id?: string | null;
+            /** Count Constant */
+            count_constant?: number | null;
+            /** Sides Stat Definition Id */
+            sides_stat_definition_id?: string | null;
+            /** Sides Constant */
+            sides_constant?: number | null;
+        };
+        /**
+         * DiceIn
+         * @description A dice value given as its parts instead of its notation: `{"count": 4, "sides": 6,
+         *     "drop": {"mode": "lowest", "count": 1}}` is `4d6dl1`.
+         */
+        DiceIn: {
+            /** Count */
+            count: number;
+            /** Sides */
+            sides: number;
+            drop?: components["schemas"]["DiceDropIn"] | null;
+        };
+        /**
+         * DiceOut
+         * @description A dice value as its parts. The stat's `value` is its notation in the canonical form.
+         */
+        DiceOut: {
+            /** Count */
+            count: number;
+            /** Sides */
+            sides: number;
+            drop?: components["schemas"]["DiceDropOut"] | null;
+        };
+        /**
+         * DiceValueFormulaBody
+         * @description `round(min, max or average of the dice)`, read from a dice stat of the same entry - ADR 0463.
+         *     `as` says what is read: the `min`, the `max` or the exact `average` of the dice (a drop
+         *     included), divided at 28 digits then rounded by the mode. An `int` stat needs a rounding mode
+         *     for an `average`. No value when the dice stat has none.
+         */
+        DiceValueFormulaBody: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "dice_value";
+            /**
+             * Source Stat Definition Id
+             * Format: uuid
+             */
+            source_stat_definition_id: string;
+            /**
+             * As
+             * @enum {string}
+             */
+            as: "min" | "max" | "average";
+            /** @default none */
+            round_mode: components["schemas"]["RoundMode"];
+        };
+        /**
          * DiscoverFacetOut
          * @description A value a listing can be narrowed by, and how many listed repositories have it.
          */
@@ -10662,6 +10754,7 @@ export interface components {
             system?: string | null;
             /** Value */
             value: number | string | boolean;
+            dice?: components["schemas"]["DiceOut"] | null;
             /** Own */
             own: boolean;
             from_entity?: components["schemas"]["EntitySummary"] | null;
@@ -10980,6 +11073,7 @@ export interface components {
             name: string;
             /** Value */
             value: number | string | boolean;
+            dice?: components["schemas"]["DiceOut"] | null;
             /** Own */
             own: boolean;
             from_entity?: components["schemas"]["EntitySummary"] | null;
@@ -17656,7 +17750,7 @@ export interface components {
          */
         SetEntityStatRequest: {
             /** Value */
-            value: number | string | boolean;
+            value: number | string | boolean | components["schemas"]["DiceIn"];
             /**
              * Acquire Group
              * @default false
@@ -18269,6 +18363,7 @@ export interface components {
             name: string;
             /** Value */
             value: number | string | boolean;
+            dice?: components["schemas"]["DiceOut"] | null;
             /** Own */
             own: boolean;
             /** Computed */
@@ -18277,7 +18372,7 @@ export interface components {
             /** From Hidden */
             from_hidden?: boolean | null;
             /** Formula */
-            formula: (components["schemas"]["LinearFormulaBody-Output"] | components["schemas"]["ComparisonFormulaBody-Output"] | components["schemas"]["SumFormulaBody-Output"] | components["schemas"]["ContentsFormulaBody-Output"] | components["schemas"]["MinFormulaBody-Output"] | components["schemas"]["MaxFormulaBody-Output"] | components["schemas"]["ProductFormulaBody-Output"] | components["schemas"]["RatioFormulaBody-Output"] | components["schemas"]["SelectFormulaBody-Output"]) | null;
+            formula: (components["schemas"]["LinearFormulaBody-Output"] | components["schemas"]["ComparisonFormulaBody-Output"] | components["schemas"]["SumFormulaBody-Output"] | components["schemas"]["ContentsFormulaBody-Output"] | components["schemas"]["MinFormulaBody-Output"] | components["schemas"]["MaxFormulaBody-Output"] | components["schemas"]["ProductFormulaBody-Output"] | components["schemas"]["RatioFormulaBody-Output"] | components["schemas"]["SelectFormulaBody-Output"] | components["schemas"]["DiceValueFormulaBody"] | components["schemas"]["DiceFormulaBody"]) | null;
             /** Inputs */
             inputs: components["schemas"]["PreviewInputOut"][];
             contents: components["schemas"]["ContentsExplanationOut"] | null;
@@ -18393,7 +18488,7 @@ export interface components {
          * @description Which of entity_stat's value_* columns a stat's value lives in.
          * @enum {string}
          */
-        StatValueType: "int" | "text" | "float" | "bool" | "enum";
+        StatValueType: "int" | "text" | "float" | "bool" | "enum" | "dice";
         /** StepOut */
         StepOut: {
             /**
@@ -18878,6 +18973,7 @@ export interface components {
             name: string;
             /** Value */
             value: number | string | boolean;
+            dice?: components["schemas"]["DiceOut"] | null;
             /** Own */
             own: boolean;
             from_entity?: components["schemas"]["EntitySummary"] | null;
@@ -43029,7 +43125,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["LinearFormulaBody-Input"] | components["schemas"]["ComparisonFormulaBody-Input"] | components["schemas"]["SumFormulaBody-Input"] | components["schemas"]["ContentsFormulaBody-Input"] | components["schemas"]["MinFormulaBody-Input"] | components["schemas"]["MaxFormulaBody-Input"] | components["schemas"]["ProductFormulaBody-Input"] | components["schemas"]["RatioFormulaBody-Input"] | components["schemas"]["SelectFormulaBody-Input"];
+                "application/json": components["schemas"]["LinearFormulaBody-Input"] | components["schemas"]["ComparisonFormulaBody-Input"] | components["schemas"]["SumFormulaBody-Input"] | components["schemas"]["ContentsFormulaBody-Input"] | components["schemas"]["MinFormulaBody-Input"] | components["schemas"]["MaxFormulaBody-Input"] | components["schemas"]["ProductFormulaBody-Input"] | components["schemas"]["RatioFormulaBody-Input"] | components["schemas"]["SelectFormulaBody-Input"] | components["schemas"]["DiceValueFormulaBody"] | components["schemas"]["DiceFormulaBody"];
             };
         };
         responses: {

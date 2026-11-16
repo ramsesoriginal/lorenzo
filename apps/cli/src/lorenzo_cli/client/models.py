@@ -659,6 +659,8 @@ class Kind6(StrEnum):
     product = "product"
     ratio = "ratio"
     select = "select"
+    dice_value = "dice_value"
+    dice = "dice"
 
 
 class ComputedStatDependentOut(BaseModel):
@@ -985,6 +987,53 @@ class DeviceTokenRequest(BaseModel):
     device_code: constr(min_length=1, max_length=200) = Field(..., title="Device Code")
 
 
+class DiceDropIn(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    mode: str = Field(..., title="Mode")
+    count: int = Field(..., title="Count")
+
+
+class Mode1(StrEnum):
+    lowest = "lowest"
+    highest = "highest"
+
+
+class DiceDropOut(BaseModel):
+    mode: Mode1 = Field(..., title="Mode")
+    count: int = Field(..., title="Count")
+
+
+class DiceFormulaBody(BaseModel):
+    kind: Literal["dice"] = Field("dice", title="Kind")
+    count_stat_definition_id: UUID | None = Field(None, title="Count Stat Definition Id")
+    count_constant: int | None = Field(None, title="Count Constant")
+    sides_stat_definition_id: UUID | None = Field(None, title="Sides Stat Definition Id")
+    sides_constant: int | None = Field(None, title="Sides Constant")
+
+
+class DiceIn(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    count: int = Field(..., title="Count")
+    sides: int = Field(..., title="Sides")
+    drop: DiceDropIn | None = None
+
+
+class DiceOut(BaseModel):
+    count: int = Field(..., title="Count")
+    sides: int = Field(..., title="Sides")
+    drop: DiceDropOut | None = None
+
+
+class As(StrEnum):
+    min = "min"
+    max = "max"
+    average = "average"
+
+
 class DiscoverFacetOut(BaseModel):
     value: str = Field(..., title="Value")
     count: int = Field(..., title="Count")
@@ -1002,7 +1051,7 @@ class DiscoverReleaseOut(BaseModel):
     released_at: AwareDatetime = Field(..., title="Released At")
 
 
-class Mode1(StrEnum):
+class Mode2(StrEnum):
     route = "route"
     straight = "straight"
 
@@ -1417,7 +1466,7 @@ class GmRosterEntryOut(BaseModel):
     campaign_id: UUID = Field(..., title="Campaign Id")
 
 
-class Mode2(StrEnum):
+class Mode3(StrEnum):
     all = "all"
     choose = "choose"
 
@@ -1429,7 +1478,7 @@ class Lasts(StrEnum):
 
 class GrantRuleIn(BaseModel):
     label: str | None = Field(None, title="Label")
-    mode: Mode2 = Field(..., title="Mode")
+    mode: Mode3 = Field(..., title="Mode")
     min_count: conint(ge=0) | None = Field(0, title="Min Count")
     max_count: conint(ge=1) | None = Field(None, title="Max Count")
     count_stat_definition_id: UUID | None = Field(None, title="Count Stat Definition Id")
@@ -1444,7 +1493,7 @@ class GrantRuleIn(BaseModel):
 
 class GrantRuleUpdate(BaseModel):
     label: str | None = Field(None, title="Label")
-    mode: Mode2 = Field(..., title="Mode")
+    mode: Mode3 = Field(..., title="Mode")
     min_count: conint(ge=0) | None = Field(0, title="Min Count")
     max_count: conint(ge=1) | None = Field(None, title="Max Count")
     count_stat_definition_id: UUID | None = Field(None, title="Count Stat Definition Id")
@@ -1645,13 +1694,13 @@ class JoinAcknowledgement(BaseModel):
     destination_id: UUID = Field(..., title="Destination Id")
 
 
-class Mode5(StrEnum):
+class Mode6(StrEnum):
     previous = "previous"
     parent = "parent"
 
 
 class JoinChapters(BaseModel):
-    mode: Mode5 | None = Field("previous", title="Mode")
+    mode: Mode6 | None = Field("previous", title="Mode")
     destination_id: UUID = Field(..., title="Destination Id")
     parent_id: UUID = Field(..., title="Parent Id")
     destination_version: str = Field(..., title="Destination Version")
@@ -2867,13 +2916,13 @@ class PreviewStatOut(BaseModel):
     value: Any = Field(..., title="Value")
 
 
-class Mode6(StrEnum):
+class Mode7(StrEnum):
     keep = "keep"
     purge = "purge"
 
 
 class PreviousCopyOut(BaseModel):
-    mode: Mode6 = Field(..., title="Mode")
+    mode: Mode7 = Field(..., title="Mode")
     entities: int = Field(..., title="Entities")
     stat_groups: int = Field(..., title="Stat Groups")
     stat_definitions: int = Field(..., title="Stat Definitions")
@@ -3518,7 +3567,7 @@ class SegmentPreview(BaseModel):
     days: list[DayPreview] = Field(..., title="Days")
 
 
-class Mode7(StrEnum):
+class Mode8(StrEnum):
     threshold = "threshold"
     match = "match"
 
@@ -3626,7 +3675,7 @@ class SetContainerRequest(BaseModel):
 
 
 class SetEntityStatRequest(BaseModel):
-    value: int | str | float | bool = Field(..., title="Value")
+    value: int | str | float | bool | DiceIn = Field(..., title="Value")
     acquire_group: bool | None = Field(False, title="Acquire Group")
 
 
@@ -3917,6 +3966,7 @@ class StatValueType(StrEnum):
     float = "float"
     bool = "bool"
     enum = "enum"
+    dice = "dice"
 
 
 class Via(StrEnum):
@@ -4102,6 +4152,7 @@ class TemplateStatOut(BaseModel):
     system: str | None = Field(None, title="System")
     name: str = Field(..., title="Name")
     value: int | str | float | bool = Field(..., title="Value")
+    dice: DiceOut | None = None
     own: bool = Field(..., title="Own")
     from_entity: EntitySummary | None = None
     from_hidden: bool | None = Field(None, title="From Hidden")
@@ -4673,6 +4724,13 @@ class DescriptionOut(BaseModel):
     from_hidden: bool | None = Field(None, title="From Hidden")
 
 
+class DiceValueFormulaBody(BaseModel):
+    kind: Literal["dice_value"] = Field("dice_value", title="Kind")
+    source_stat_definition_id: UUID = Field(..., title="Source Stat Definition Id")
+    as_: As = Field(..., alias="as", title="As")
+    round_mode: RoundMode | None = "none"
+
+
 class DiscoverItemOut(BaseModel):
     id: UUID = Field(..., title="Id")
     name: str = Field(..., title="Name")
@@ -4698,7 +4756,7 @@ class DiscoverPageOut(BaseModel):
 
 
 class DistanceOut(BaseModel):
-    mode: Mode1 = Field(..., title="Mode")
+    mode: Mode2 = Field(..., title="Mode")
     state: State3 = Field(..., title="State")
     value: float | None = Field(None, title="Value")
     at_least: float | None = Field(None, title="At Least")
@@ -4721,6 +4779,7 @@ class EffectiveStatOut(BaseModel):
     group_id: UUID = Field(..., title="Group Id")
     system: str | None = Field(None, title="System")
     value: int | str | float | bool = Field(..., title="Value")
+    dice: DiceOut | None = None
     own: bool = Field(..., title="Own")
     from_entity: EntitySummary | None = None
     from_hidden: bool | None = Field(None, title="From Hidden")
@@ -4733,6 +4792,7 @@ class EntityStatValueOut(BaseModel):
     system: str | None = Field(None, title="System")
     name: str = Field(..., title="Name")
     value: int | str | float | bool = Field(..., title="Value")
+    dice: DiceOut | None = None
     own: bool = Field(..., title="Own")
     from_entity: EntitySummary | None = None
     from_hidden: bool | None = Field(None, title="From Hidden")
@@ -4783,7 +4843,7 @@ class GrantRuleOut(BaseModel):
     entry_name: str = Field(..., title="Entry Name")
     label: str | None = Field(..., title="Label")
     position: int = Field(..., title="Position")
-    mode: Mode2 = Field(..., title="Mode")
+    mode: Mode3 = Field(..., title="Mode")
     min_count: int = Field(..., title="Min Count")
     max_count: int | None = Field(..., title="Max Count")
     count_stat_definition_id: UUID | None = Field(..., title="Count Stat Definition Id")
@@ -5639,7 +5699,7 @@ class RowRefOut(BaseModel):
 class SelectFormulaBodyInput(BaseModel):
     kind: Literal["select"] = Field("select", title="Kind")
     source_stat_definition_id: UUID = Field(..., title="Source Stat Definition Id")
-    mode: Mode7 = Field(..., title="Mode")
+    mode: Mode8 = Field(..., title="Mode")
     steps: list[SelectStepBodyInput] = Field(..., max_length=64, min_length=1, title="Steps")
     otherwise: SelectResultBodyInput | None = None
 
@@ -5647,7 +5707,7 @@ class SelectFormulaBodyInput(BaseModel):
 class SelectFormulaBodyOutput(BaseModel):
     kind: Literal["select"] = Field("select", title="Kind")
     source_stat_definition_id: UUID = Field(..., title="Source Stat Definition Id")
-    mode: Mode7 = Field(..., title="Mode")
+    mode: Mode8 = Field(..., title="Mode")
     steps: list[SelectStepBodyOutput] = Field(..., max_length=64, min_length=1, title="Steps")
     otherwise: SelectResultBodyOutput | None = None
 
@@ -5931,6 +5991,8 @@ class ComputedStatOut(BaseModel):
         | ProductFormulaBodyOutput
         | RatioFormulaBodyOutput
         | SelectFormulaBodyOutput
+        | DiceValueFormulaBody
+        | DiceFormulaBody
     ) = Field(..., discriminator="kind", title="Formula")
     updated_at: AwareDatetime = Field(..., title="Updated At")
     warnings: list[FindingOut] | None = Field(None, title="Warnings")
@@ -5947,6 +6009,8 @@ class ComputedStatPreviewIn(BaseModel):
         | ProductFormulaBodyInput
         | RatioFormulaBodyInput
         | SelectFormulaBodyInput
+        | DiceValueFormulaBody
+        | DiceFormulaBody
         | None
     ) = Field(None, title="Formula")
 
@@ -6185,6 +6249,7 @@ class StatExplanationOut(BaseModel):
     system: str | None = Field(None, title="System")
     name: str = Field(..., title="Name")
     value: int | float | str | bool = Field(..., title="Value")
+    dice: DiceOut | None = None
     own: bool = Field(..., title="Own")
     computed: bool = Field(..., title="Computed")
     from_entity: EntitySummary | None
@@ -6199,6 +6264,8 @@ class StatExplanationOut(BaseModel):
         | ProductFormulaBodyOutput
         | RatioFormulaBodyOutput
         | SelectFormulaBodyOutput
+        | DiceValueFormulaBody
+        | DiceFormulaBody
         | None
     ) = Field(..., title="Formula")
     inputs: list[PreviewInputOut] = Field(..., title="Inputs")

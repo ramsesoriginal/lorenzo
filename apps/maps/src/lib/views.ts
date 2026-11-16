@@ -28,6 +28,7 @@ import {
 } from './dom';
 import { canManage, libraryName, myLibraries } from './names';
 import { start } from './sign-in';
+import { queue } from './thumbnail';
 
 type Stub = Schema<'LocationStub'>;
 type Place = Schema<'LocationOut'>;
@@ -71,6 +72,87 @@ export async function mountHome() {
   }
 }
 
+/** Whether this reader writes Locations here: only then is a row told whether it is open to the library. */
+let writing = false;
+const enqueueRow = queue(4);
+
+/**
+ * What a row of the tree says beyond its name (MP1): the dates it is tied to, and for a writer whether
+ * it is open to the library. Read when the row comes into view, a few at a time; a row that cannot be
+ * read stays as its list gave it.
+ */
+function rowFacts(row: HTMLElement, tenant: string, id: string) {
+  const when = el('span', '', 'status-text place-when');
+  const state = el('span', '', 'place-state');
+  row.append(when, state);
+  const fill = async () => {
+    const [dates, place] = await Promise.all([
+      client
+        .GET('/tenants/{tenant_id}/entities/{entity_id}/dates', {
+          params: { path: { tenant_id: tenant, entity_id: id } },
+          cache: 'no-cache',
+        })
+        .then((r) => r.data ?? [])
+        .catch(() => []),
+      writing
+        ? client
+            .GET('/tenants/{tenant_id}/locations/{location_id}', {
+              params: { path: { tenant_id: tenant, location_id: id } },
+              cache: 'no-cache',
+            })
+            .then((r) => r.data)
+            .catch(() => undefined)
+        : undefined,
+    ]);
+    if (!row.isConnected) return;
+    when.textContent = dates
+      .slice(0, 2)
+      .map((d) => d.name)
+      .join(' · ');
+    if (place && place.is_public !== null && place.is_public !== undefined)
+      state.replaceChildren(audienceBadge(place.is_public ? 'Open' : 'Closed', place.is_public));
+  };
+  if ('IntersectionObserver' in window) {
+    const watch = new IntersectionObserver((seen) => {
+      if (!seen.some((entry) => entry.isIntersecting)) return;
+      watch.disconnect();
+      enqueueRow(fill);
+    });
+    watch.observe(row);
+  } else enqueueRow(fill);
+}
+
+/** The Locations above this one, nearest first, as far as they can be read. */
+async function ancestors(tenant: string, place: Place): Promise<Stub[]> {
+  const found: Stub[] = [];
+  let next = place.within;
+  while (next && found.length < 12) {
+    found.push(next);
+    next = await client
+      .GET('/tenants/{tenant_id}/locations/{location_id}', {
+        params: { path: { tenant_id: tenant, location_id: next.id } },
+      })
+      .then((r) => r.data?.within ?? null)
+      .catch(() => null);
+  }
+
+  return found;
+}
+
+/** "in A, within B, within C": where it sits, each step a link (the tree is not containment). */
+function ancestryLine(tenant: string, above: readonly Stub[]): HTMLElement | null {
+  if (above.length === 0) return null;
+  const line = el('p', '', 'lede place-ancestry');
+  above.forEach((stub, index) => {
+    line.append(
+      document.createTextNode(index === 0 ? 'in ' : ', within '),
+      link(stub.name, locationHref(tenant, stub.id, stub.slug)),
+    );
+  });
+
+  return line;
+}
+
 /** The roots of the tree, or the flat list when searching or when a date is asked for (ADR 0377). */
 async function roots(tenant: string, q?: string, date: ReturnType<typeof dateQuery> = {}) {
   const dated = Object.keys(date).length > 0;
@@ -99,6 +181,7 @@ function datedItem(tenant: string, stub: Stub & { tie?: Tie | null }) {
   const others = stub.kinds.filter((kind) => kind !== 'location');
   if (others.length) row.append(el('span', others.join(', ').replaceAll('_', ' '), 'chip'));
   if (stub.tie) row.append(el('span', TIE_WORDS[stub.tie], 'chip'));
+  rowFacts(row, tenant, stub.id);
   item.append(row);
   return item;
 }
@@ -152,6 +235,7 @@ function treeItem(tenant: string, stub: Stub) {
   );
   const others = stub.kinds.filter((kind) => kind !== 'location');
   if (others.length) row.append(el('span', others.join(', ').replaceAll('_', ' '), 'chip'));
+  rowFacts(row, tenant, stub.id);
   item.append(row, inside);
   return item;
 }
@@ -209,21 +293,72 @@ export async function mountLocations() {
   if (!me || !tenant || !host.isConnected) return;
   try {
     host.replaceChildren(loading('Opening Locations…'));
-    const [name, manage] = await Promise.all([libraryName(tenant), canManage(tenant)]);
+    const manage = await canManage(tenant);
+    writing = manage;
     const view = el('div', '', 'stack view');
-    view.append(
-      pageHead('Locations', {
-        crumbs: [backLink('Libraries', '/')],
-        lede: name ? `In ${name}.` : undefined,
-      }),
-    );
     const search = field('Find a Location');
     search.input.type = 'search';
     const list = el('ul', '', 'place-tree');
     const status = statusLine();
     const note = el('p', '', 'status-text');
     note.setAttribute('role', 'status');
-    const lens = await dateLens(tenant, () => void show(), 'Locations');
+    const when = el('button', '', 'btn btn-secondary');
+    when.type = 'button';
+    const lens = await dateLens(
+      tenant,
+      () => {
+        when.replaceChildren(
+          icon('kind-calendar'),
+          document.createTextNode(lens?.chosen() ? 'A date is chosen' : 'Any date'),
+        );
+        void show();
+      },
+      'Locations',
+    );
+    // The page's own actions (MP1): looking through a date, and adding a Location, first.
+    const headActions: HTMLElement[] = [];
+    when.append(icon('kind-calendar'), document.createTextNode('Any date'));
+    const lensPanel = el('section', '', 'card card-body map-lens-panel');
+    lensPanel.hidden = true;
+    lensPanel.id = 'map-lens-panel';
+    if (lens) {
+      when.setAttribute('aria-controls', lensPanel.id);
+      when.setAttribute('aria-expanded', 'false');
+      when.addEventListener('click', () => {
+        lensPanel.hidden = !lensPanel.hidden;
+        when.setAttribute('aria-expanded', String(!lensPanel.hidden));
+      });
+      lensPanel.append(lens.element);
+      headActions.push(when);
+    }
+    const add = manage ? el('section', '', 'card card-body map-make') : null;
+    if (add) {
+      add.hidden = true;
+      add.id = 'map-add-location';
+      add.append(
+        createForm(tenant, null, (place) =>
+          location.assign(locationHref(tenant, place.id, place.slug)),
+        ),
+      );
+      const open = el('button', '', 'btn btn-primary');
+      open.type = 'button';
+      open.setAttribute('aria-controls', add.id);
+      open.setAttribute('aria-expanded', 'false');
+      open.append(icon('add'), document.createTextNode('Add a Location'));
+      open.addEventListener('click', () => {
+        add.hidden = !add.hidden;
+        open.setAttribute('aria-expanded', String(!add.hidden));
+      });
+      headActions.push(open);
+    }
+    view.append(
+      pageHead('Locations', {
+        lede: 'A tree of “part of”. It is not containment.',
+        actions: headActions,
+      }),
+    );
+    if (add) view.append(add);
+    view.append(lensPanel, search.label, status, note, list);
     let sequence = 0;
     async function show() {
       const mine = ++sequence;
@@ -253,23 +388,6 @@ export async function mountLocations() {
       }
     }
     search.input.addEventListener('input', () => void show());
-    const section = el('section', '', 'stack');
-    section.append(sectionHead('Where things are'), search.label);
-    if (lens) section.append(lens.element);
-    section.append(status, note, list);
-    view.append(section);
-    if (manage) {
-      const add = el('section', '', 'stack');
-      add.append(
-        sectionHead('Add a Location'),
-        card(
-          createForm(tenant, null, (place) =>
-            location.assign(locationHref(tenant, place.id, place.slug)),
-          ),
-        ).root,
-      );
-      view.append(add);
-    }
     host.replaceChildren(view);
     await show();
   } catch (error) {
@@ -308,13 +426,14 @@ export async function mountLocation() {
       });
       const place = await unwrap(result);
       const version = result.response.headers.get('etag') ?? '';
-      const [name, parts] = await Promise.all([libraryName(tenant), partsOf(tenant, place.id)]);
+      writing = place.can_manage === true;
+      const [name, parts, above] = await Promise.all([
+        libraryName(tenant),
+        partsOf(tenant, place.id),
+        ancestors(tenant, place),
+      ]);
       const view = el('div', '', 'stack view');
       const crumbs = [backLink('Locations', `/locations/?${new URLSearchParams({ tenant })}`)];
-      if (place.within)
-        crumbs.push(
-          link(`In ${place.within.name}`, locationHref(tenant, place.within.id, place.within.slug)),
-        );
       const meta: Node[] = [];
       if (name) meta.push(metaLine('kind-location', name));
       const others = place.kinds.filter((kind) => kind !== 'location');
@@ -323,7 +442,11 @@ export async function mountLocation() {
         meta.push(
           audienceBadge(place.is_public ? 'Visible to everyone' : 'Restricted', place.is_public),
         );
-      view.append(pageHead(place.name, { crumbs, meta }));
+      const head = pageHead(place.name, { crumbs, meta });
+      // Where it sits, nearest first, in words (the tree is not containment, so "in" and "within").
+      const where = ancestryLine(tenant, above);
+      if (where) head.querySelector('h1')?.parentElement?.after(where);
+      view.append(head);
       const inside = el('section', '', 'stack');
       const list = el('ul', '', 'place-tree');
       list.append(
@@ -332,8 +455,12 @@ export async function mountLocation() {
           : [el('li', 'Nothing inside yet.', 'status-text')]),
       );
       inside.append(sectionHead('Inside', { count: parts.length }), list);
-      view.append(inside);
-      view.append(
+      // The parts and the connections are cards side by side where there is room (screen 05).
+      const grid = el('div', '', 'map-location-grid');
+      const insideCard = el('div', '', 'card card-body');
+      insideCard.append(inside);
+      const connectionsCard = el('div', '', 'card card-body');
+      connectionsCard.append(
         await connectionsSection({
           tenant,
           place,
@@ -341,6 +468,8 @@ export async function mountLocation() {
           again: render,
         }),
       );
+      grid.append(insideCard, connectionsCard);
+      view.append(grid);
       if (place.can_manage) view.append(manageSections(tenant, place, version, render));
       host.replaceChildren(view);
     } catch (error) {

@@ -3,6 +3,7 @@ import AxeBuilder from '@axe-core/playwright';
 import { type Browser, expect, type Page, test } from '@playwright/test';
 import { apiAs, ok, refreshTokenFor } from './support/api.ts';
 import { REFRESH_TOKEN_KEY, SITE_URL } from './support/env.ts';
+import { openPanel } from './support/map-ui.ts';
 
 async function signedIn(browser: Browser, subject: string, theme?: 'light' | 'dark') {
   const token = await refreshTokenFor(subject);
@@ -131,6 +132,7 @@ async function world() {
 const onMap = (tenant: string, id: string) => `/map/?tenant=${tenant}&id=${id}`;
 
 async function measure(page: Page, from: string, to: string, stat?: string) {
+  await openPanel(page, 'Places');
   await page.getByLabel('Measure from').selectOption({ label: from });
   await page.getByLabel('Measure to').selectOption({ label: to });
   if (stat) await page.getByLabel('By the connections, measured in').selectOption({ label: stat });
@@ -169,6 +171,7 @@ test('a writer sets how a grid counts diagonals and reads the straight line betw
     await w.draw(made.id, keep.id, [25, 25]);
     await w.draw(made.id, marsh.id, [175, 125]);
     await page.reload();
+    await openPanel(page, 'Places');
     await expect(page.getByRole('heading', { name: 'Distance' })).toBeVisible();
     await measure(page, 'Keep', 'Marsh');
     await expect(
@@ -179,6 +182,7 @@ test('a writer sets how a grid counts diagonals and reads the straight line betw
     await expect(page.getByText(/^Straight line: 0 feet/)).toBeVisible();
 
     // The way of counting is set again in Settings and read at once.
+    await openPanel(page, 'Settings');
     await page.getByLabel('Diagonals count as').selectOption('manhattan');
     await page.getByRole('button', { name: 'Save settings' }).click();
     await expect
@@ -282,6 +286,7 @@ test('two places with no connection between them say there is no known route', a
     await expect(page.getByText('By the connections: no known route.')).toBeVisible();
     // Nothing is chosen yet.
     await page.reload();
+    await openPanel(page, 'Places');
     await page.getByRole('button', { name: 'Measure', exact: true }).click();
     await expect(page.getByText('Choose the two places to measure between.')).toBeVisible();
   } finally {
@@ -322,6 +327,7 @@ for (const theme of ['light', 'dark'] as const) {
     const page = await signedIn(browser, w.subject, theme);
     try {
       await page.goto(onMap(w.tenant.id, chart.id));
+      await openPanel(page, 'Places');
       await expect(page.getByRole('heading', { name: 'Distance' })).toBeVisible();
       const before = await new AxeBuilder({ page }).exclude('.shell-bottom').analyze();
       expect(before.violations.map((v) => `${v.id}: ${v.nodes[0]?.html}`)).toEqual([]);
