@@ -330,6 +330,53 @@ test('a plane draws a grid over itself, a hex Map under places refuses to turn i
   }
 });
 
+test('snapping is an option of the tool: off in the Options tab, on again from the command line', async ({
+  browser,
+}) => {
+  const w = await world();
+  const chart = await w.makeMap('Hexes', HEX);
+  await w.place('Keep');
+  const page = await signedIn(browser, w.subject);
+  try {
+    await page.goto(`/map/?tenant=${w.tenant.id}&id=${chart.id}`);
+    await expect(page.getByRole('heading', { name: 'Hexes', exact: true })).toBeVisible();
+    await page.getByRole('button', { name: 'Edit this map' }).click();
+    await page.getByRole('button', { name: 'Pin', exact: true }).click();
+    // The option is drawn with the tool, in the panel, and is on at first.
+    const snap = page.getByRole('group', { name: 'Options of Pin' }).getByLabel('Snap to the grid');
+    await expect(snap).toBeChecked();
+    await snap.uncheck();
+    await page.getByLabel('Find an entry by name').fill('Keep');
+    await page
+      .locator('.map-edit-panel')
+      .getByRole('button', { name: /^Keep location$/ })
+      .click();
+    await clickSheet(page, 0.4, 0.4);
+    await expect.poll(async () => (await w.read(chart.id)).length).toBe(1);
+    const pinned = geometryOf((await w.read(chart.id))[0]).parts[0]?.at as [number, number];
+    const grid = HEX as unknown as GridSpec;
+    const centre = cellCentre(grid, [0, 0, 1000, 800], cellAt(grid, [0, 0, 1000, 800], pinned));
+
+    // Not snapped: the pin is where the click was, not at its cell's centre.
+    expect(Math.hypot(pinned[0] - centre[0], pinned[1] - centre[1])).toBeGreaterThan(0.5);
+
+    // The same option from the command line, for the tool that is on (Select shares it).
+    const command = page.getByLabel('Command', { exact: true });
+    const answer = page.locator('.map-command-answer');
+    await command.fill('SNAP ON');
+    await command.press('Enter');
+    await expect(answer).toHaveText('Snap to the grid is on.');
+    await expect(
+      page.getByRole('group', { name: 'Options of Select' }).getByLabel('Snap to the grid'),
+    ).toBeChecked();
+    await command.fill('SNAP sideways');
+    await command.press('Enter');
+    await expect(answer).toHaveText('SNAP takes ON or OFF.');
+  } finally {
+    await page.context().close();
+  }
+});
+
 test('a player sees the grid and the cell words and none of the tools', async ({ browser }) => {
   const w = await world();
   const chart = await w.makeMap('Squares', SQUARE);
