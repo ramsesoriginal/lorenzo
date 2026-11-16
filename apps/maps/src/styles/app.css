@@ -673,3 +673,11 @@
 .map-command-answer[data-failed="true"] {
   color: var(--text-secondary);
 }
+
+.map-shortcuts {
+  max-inline-size: 32rem;
+  padding: var(--space-4);
+}
+.map-shortcuts::backdrop {
+  background: var(--fill-soft);
+}

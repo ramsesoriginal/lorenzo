@@ -20,6 +20,7 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from lorenzo_api import dice
 from lorenzo_api.models import (
     Being,
     Book,
@@ -36,6 +37,8 @@ from lorenzo_api.models import (
     ComputedStat,
     ComputedStatComparison,
     ComputedStatContents,
+    ComputedStatDice,
+    ComputedStatDiceValue,
     ComputedStatExtremum,
     ComputedStatExtremumInput,
     ComputedStatLinear,
@@ -146,12 +149,18 @@ class StatValue:
     value_text: str | None
     value_float: float | None
     value_bool: bool | None
+    # A dice value as its parts (RFC 0056), all None for any other.
+    dice_count: int | None = None
+    dice_sides: int | None = None
+    dice_drop_mode: str | None = None
+    dice_drop_count: int | None = None
 
     def as_json(self) -> Any:
         for value in (self.value_int, self.value_text, self.value_float, self.value_bool):
             if value is not None:
                 return value
-        return None
+        held = dice.of_row(self)
+        return None if held is None else held.notation
 
 
 @dataclass
@@ -203,9 +212,22 @@ class Formula:
     select_mode: str | None = None
     steps: list[SelectStepData] | None = None
     otherwise: SelectResultData | None = None
+    # A `dice_value` (ADR 0463): `source` is its dice stat, and this is what it reads of it, `min`,
+    # `max` or `average`.
+    read_as: str | None = None
+    # A `dice` (ADR 0464): the stat or the constant each of its count and its sides comes from, one
+    # of the two for each.
+    count: uuid.UUID | None = None
+    count_constant: int | None = None
+    sides: uuid.UUID | None = None
+    sides_constant: int | None = None
 
     def inputs(self) -> list[uuid.UUID]:
-        own = [i for i in (self.source, self.left, self.right, self.where) if i is not None]
+        own = [
+            i
+            for i in (self.source, self.left, self.right, self.where, self.count, self.sides)
+            if i is not None
+        ]
         results = [step.result for step in self.steps or []]
         if self.otherwise is not None:
             results.append(self.otherwise)
@@ -820,16 +842,20 @@ async def load_content(session: AsyncSession, tenant_id: uuid.UUID) -> Content:
             where=EntityStatGroup.tenant_id == t,
         )
     ]
-    for e, d, vi, vt, vf, vb in await rows(
+    for e, d, vi, vt, vf, vb, dc, ds, dm, dn in await rows(
         EntityStat.entity_id,
         EntityStat.stat_definition_id,
         EntityStat.value_int,
         EntityStat.value_text,
         EntityStat.value_float,
         EntityStat.value_bool,
+        EntityStat.dice_count,
+        EntityStat.dice_sides,
+        EntityStat.dice_drop_mode,
+        EntityStat.dice_drop_count,
         where=EntityStat.tenant_id == t,
     ):
-        c.stats[(e, d)] = StatValue(vi, vt, vf, vb)
+        c.stats[(e, d)] = StatValue(vi, vt, vf, vb, dc, ds, dm, dn)
     linear = {
         (row.entity_id, row.stat_definition_id): row
         for row in (
@@ -866,6 +892,20 @@ async def load_content(session: AsyncSession, tenant_id: uuid.UUID) -> Content:
         for row in (
             await session.scalars(
                 select(ComputedStatContents).where(ComputedStatContents.tenant_id == t)
+            )
+        )
+    }
+    built_dice = {
+        (row.entity_id, row.stat_definition_id): row
+        for row in (
+            await session.scalars(select(ComputedStatDice).where(ComputedStatDice.tenant_id == t))
+        )
+    }
+    dice_values = {
+        (row.entity_id, row.stat_definition_id): row
+        for row in (
+            await session.scalars(
+                select(ComputedStatDiceValue).where(ComputedStatDiceValue.tenant_id == t)
             )
         )
     }
@@ -987,6 +1027,23 @@ async def load_content(session: AsyncSession, tenant_id: uuid.UUID) -> Content:
                 kind=extrema[(e, d)].pick,
                 round_mode=extrema[(e, d)].round_mode,
                 operands=operands[(e, d)],
+            )
+        elif (e, d) in built_dice:
+            built = built_dice[(e, d)]
+            c.formulas[(e, d)] = Formula(
+                kind="dice",
+                count=built.count_stat_definition_id,
+                count_constant=built.count_constant,
+                sides=built.sides_stat_definition_id,
+                sides_constant=built.sides_constant,
+            )
+        elif (e, d) in dice_values:
+            reading = dice_values[(e, d)]
+            c.formulas[(e, d)] = Formula(
+                kind="dice_value",
+                source=reading.source_stat_definition_id,
+                read_as=reading.read_as,
+                round_mode=reading.round_mode,
             )
         elif (e, d) in linear:
             lin = linear[(e, d)]
@@ -1487,6 +1544,22 @@ def _formula_json(formula: Formula, name: Namer) -> dict[str, Any]:
             "source": name("stat_definition", formula.source),
             "multiplier": str(formula.multiplier),
             "offset": str(formula.offset),
+            "round_mode": formula.round_mode,
+        }
+    if formula.kind == "dice":
+        return {
+            "kind": "dice",
+            "count": None if formula.count is None else name("stat_definition", formula.count),
+            "count_constant": formula.count_constant,
+            "sides": None if formula.sides is None else name("stat_definition", formula.sides),
+            "sides_constant": formula.sides_constant,
+        }
+    if formula.kind == "dice_value":
+        assert formula.source is not None
+        return {
+            "kind": "dice_value",
+            "source": name("stat_definition", formula.source),
+            "as": formula.read_as,
             "round_mode": formula.round_mode,
         }
     if formula.kind == "select":

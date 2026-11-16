@@ -510,3 +510,55 @@ test('the command line takes a tool by name, places a place by a typed point and
     await page.context().close();
   }
 });
+
+test('the Shortcuts dialog changes a tool key, refuses a taken one and puts the keys back', async ({
+  browser,
+}) => {
+  const w = await world();
+  const page = await signedIn(browser, w.subject);
+  try {
+    await page.goto(`/map/?tenant=${w.tenant.id}&id=${w.chart.id}`);
+    await expect(page.getByRole('heading', { name: 'Sword Coast', exact: true })).toBeVisible();
+    await page.getByRole('button', { name: 'Edit this map' }).click();
+    await page.getByRole('button', { name: 'Shortcuts', exact: true }).click();
+    const dialog = page.getByRole('dialog', { name: 'Shortcuts' });
+    await expect(dialog).toBeVisible();
+
+    // A key somebody else has is refused; a free one is taken.
+    await dialog.getByRole('button', { name: 'Change the key of Line' }).click();
+    await page.keyboard.press('p');
+    await expect(dialog).toContainText("P is Pin's key");
+    await dialog.getByRole('button', { name: 'Change the key of Line' }).click();
+    await page.keyboard.press('q');
+    await expect(dialog).toContainText('Line is now Q');
+    await dialog.getByRole('button', { name: 'Close' }).click();
+
+    // The new key picks the tool, the old one no longer does, and it is kept for the next visit.
+    await page.locator('.map-stage').click();
+    await page.keyboard.press('l');
+    await expect(page.getByRole('button', { name: 'Line', exact: true })).toHaveAttribute(
+      'aria-pressed',
+      'false',
+    );
+    await page.keyboard.press('q');
+    await expect(page.getByRole('button', { name: 'Line', exact: true })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    await page.reload();
+    await page.getByRole('button', { name: 'Edit this map' }).click();
+    await expect(page.getByRole('button', { name: 'Line', exact: true })).toHaveAttribute(
+      'aria-keyshortcuts',
+      'Q',
+    );
+
+    await page.getByRole('button', { name: 'Shortcuts', exact: true }).click();
+    await page.getByRole('button', { name: 'Put every key back' }).click();
+    await expect(page.getByRole('button', { name: 'Line', exact: true })).toHaveAttribute(
+      'aria-keyshortcuts',
+      'L',
+    );
+  } finally {
+    await page.context().close();
+  }
+});
