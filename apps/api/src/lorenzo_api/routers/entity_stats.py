@@ -3,10 +3,11 @@ from __future__ import annotations
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Header, Request, Response
+from fastapi import APIRouter, Depends, Header, Query, Request, Response
 from sqlalchemy import func, select
 from sqlalchemy.orm import selectinload
 
+from lorenzo_api import dice
 from lorenzo_api.campaign_access import (
     campaign_ids_for_character,
     can_author_entry,
@@ -27,10 +28,13 @@ from lorenzo_api.exceptions import (
     ComputedStatConflictError,
     EntityStatManagementForbiddenError,
     EntityStatNotFoundError,
+    InvalidDiceError,
+    InvalidStatScaleError,
     InvalidStatValueError,
     InvalidStatValueTypeError,
     StatDefinitionNotFoundError,
 )
+from lorenzo_api.grants import revoke_after_stat_write
 from lorenzo_api.information_visibility import resolve_information_visibility
 from lorenzo_api.models import (
     ComputedStat,
@@ -40,6 +44,7 @@ from lorenzo_api.models import (
     Ownership,
     StatDefinition,
     StatDefinitionEnumValue,
+    StatGroup,
     StatValueType,
     VEffectiveStat,
     formula_load_options,
@@ -47,15 +52,31 @@ from lorenzo_api.models import (
 from lorenzo_api.routers.entities import entity_detail_reader, get_entity_detail_or_404
 from lorenzo_api.schemas.common import EntitySummary
 from lorenzo_api.schemas.computed_stats import (
+    ChosenStepExplanationOut,
     ContentsExplanationOut,
+    PickedExplanationOut,
     PreviewInputOut,
     StatExplanationOut,
     formula_body_of,
 )
+from lorenzo_api.schemas.dice import DiceIn, dice_out
 from lorenzo_api.schemas.entities import EntityDetailOut, EntityStatWriteOut, PreviousOwnStat
 from lorenzo_api.schemas.stats import SetEntityStatRequest
 from lorenzo_api.stat_contents import load_contents
-from lorenzo_api.stat_evaluation import ContentsFormula, evaluate, formula_of, input_ids
+from lorenzo_api.stat_evaluation import (
+    ContentsFormula,
+    ExtremumFormula,
+    RatioFormula,
+    SelectFormula,
+    choose_step,
+    evaluate,
+    formula_of,
+    input_ids,
+    numeric_value,
+    picked_operand,
+    ratio_was_rounded,
+)
+from lorenzo_api.vocabulary_check import WARNINGS_HELP, warnings_for_write
 
 # get_tenant_or_404 here, not get_tenant_context (mirrors
 # routers/item_instances.py's identical ADR 0032/RFC 0005 precedent) -
@@ -133,8 +154,10 @@ async def _authorize_entity_stat_write(
 
 
 async def _validate_value(
-    session: SessionDep, value: int | str | float | bool, stat_definition: StatDefinition
-) -> None:
+    session: SessionDep,
+    value: int | str | float | bool | DiceIn,
+    stat_definition: StatDefinition,
+) -> int | str | float | bool:
     """Real type-checking at the application level (ADR 0014's own gap:
     entity_stat's CHECK constraint only enforces "exactly one value_* column
     is set," not which one matches stat_definition.value_type). bool is
@@ -144,8 +167,19 @@ async def _validate_value(
     fractional/exponent part, matching this project's existing preference
     for real typed columns over a single untyped one every write has to be
     trusted against. An `enum` stat takes a string that must be one of its
-    allowed values (ADR 0103).
+    allowed values (ADR 0103). A `dice` stat takes its notation or its parts (RFC 0056, ADR 0462),
+    and what comes back is the value to store: for dice its canonical notation, whichever way it
+    was written.
     """
+    if stat_definition.value_type is StatValueType.DICE:
+        return _validate_dice(value, stat_definition)
+    if isinstance(value, DiceIn):
+        raise InvalidStatValueTypeError(
+            detail=(
+                f"Stat {stat_definition.name!r} is declared "
+                f"{stat_definition.value_type.value}, got a dice value"
+            )
+        )
     if isinstance(value, bool):
         actual = StatValueType.BOOL
     elif isinstance(value, int):
@@ -166,13 +200,58 @@ async def _validate_value(
             raise InvalidStatValueError(
                 detail=f"{value!r} is not an allowed value of stat {stat_definition.name!r}"
             )
-        return
+        return value
     if actual is not expected:
         raise InvalidStatValueTypeError(
             detail=(
                 f"Stat {stat_definition.name!r} is declared "
                 f"{expected.value}, got a {actual.value} value"
             )
+        )
+    check_scale(value, stat_definition)
+    return value
+
+
+def _validate_dice(
+    value: int | str | float | bool | DiceIn, stat_definition: StatDefinition
+) -> str:
+    """A dice stat's value as its canonical notation: a notation or the parts, within the limits
+    (422 `invalid-dice` naming the part that failed, ADR 0462)."""
+    try:
+        if isinstance(value, DiceIn):
+            drop = value.drop
+            return dice.from_parts(
+                value.count,
+                value.sides,
+                None if drop is None else drop.mode,
+                None if drop is None else drop.count,
+            ).notation
+        if isinstance(value, str):
+            return dice.parse(value).notation
+    except dice.InvalidDice as error:
+        raise InvalidDiceError(detail=f"{error.part}: {error}") from error
+    actual = StatValueType.BOOL if isinstance(value, bool) else StatValueType.INT
+    if isinstance(value, float):
+        actual = StatValueType.FLOAT
+    raise InvalidStatValueTypeError(
+        detail=f"Stat {stat_definition.name!r} is declared dice, got a {actual.value} value"
+    )
+
+
+def check_scale(value: int | str | float | bool, stat_definition: StatDefinition) -> None:
+    """An own number outside the stat's optional minimum and maximum is a 422 that names them
+    (ADR 0403). A computed value is never checked here: a formula result is shown as it is."""
+    if isinstance(value, bool) or not isinstance(value, int | float):
+        return
+    low, high = stat_definition.min_value, stat_definition.max_value
+    if (low is not None and value < low) or (high is not None and value > high):
+        bounds = " ".join(
+            f"{label} {bound:g}"
+            for label, bound in (("from", low), ("up to", high))
+            if bound is not None
+        )
+        raise InvalidStatScaleError(
+            detail=f"{value:g} is outside the scale of stat {stat_definition.name!r}: {bounds}"
         )
 
 
@@ -191,7 +270,12 @@ def _apply_stat_value(
     stat.value_text = None
     stat.value_float = None
     stat.value_bool = None
-    if value_type is StatValueType.INT:
+    stat.dice_count = stat.dice_sides = stat.dice_drop_mode = stat.dice_drop_count = None
+    if value_type is StatValueType.DICE:
+        assert isinstance(value, str)
+        for column, part in dice.columns(dice.parse(value)).items():
+            setattr(stat, column, part)
+    elif value_type is StatValueType.INT:
         assert isinstance(value, int) and not isinstance(value, bool)
         stat.value_int = value
     elif value_type in (StatValueType.TEXT, StatValueType.ENUM):
@@ -227,6 +311,9 @@ def _own_value(stat: EntityStat, value_type: StatValueType) -> int | str | float
         return stat.value_text
     if value_type is StatValueType.FLOAT:
         return stat.value_float
+    if value_type is StatValueType.DICE:
+        held = dice.of_row(stat)
+        return None if held is None else held.notation
     return stat.value_bool
 
 
@@ -295,6 +382,15 @@ async def _write_own_value(
             )
     if changed:
         _touch(entity, user)
+        await session.flush()
+        # A condition of a grant that lasts while its source does may read this stat (ADR 0456).
+        await revoke_after_stat_write(
+            session,
+            tenant_id=tenant_id,
+            actor_id=user.id,
+            entity_id=entity_id,
+            stat_definition_id=stat_definition.id,
+        )
     return previous
 
 
@@ -322,13 +418,26 @@ async def _write_out(
     request: Request,
     user: CurrentUser,
     previous: PreviousOwnStat,
+    stat_definition_id: uuid.UUID | None = None,
+    warnings: bool = False,
 ) -> EntityStatWriteOut:
     """The entry after the write, with what it replaced, and its new version as the ETag."""
     detail = await _entity_detail(
         session, tenant_id=tenant_id, entity_id=entity_id, request=request, user=user
     )
     response.headers["ETag"] = etag_for(detail.updated_at)
-    return EntityStatWriteOut(**dict(detail), previous=previous)
+    found = (
+        await warnings_for_write(
+            session,
+            tenant_id=tenant_id,
+            user_id=user.id,
+            entity_id=entity_id,
+            stat_definition_id=stat_definition_id,
+        )
+        if warnings and stat_definition_id is not None
+        else None
+    )
+    return EntityStatWriteOut(**dict(detail), previous=previous, warnings=found)
 
 
 @router.put("/stats/{stat_definition_id}")
@@ -342,6 +451,7 @@ async def set_entity_stat(
     session: SessionDep,
     user: CurrentUser,
     if_match: Annotated[str | None, Header()] = None,
+    warnings: Annotated[bool, Query(description=WARNINGS_HELP)] = False,
 ) -> EntityStatWriteOut:
     """Deliberately not recorded in the activity log (ADR 0084: stat-value
     writes are descriptive-content edits, not structural changes).
@@ -373,7 +483,7 @@ async def set_entity_stat(
     entity = await get_entity_or_404(session, entity_id, tenant_id)
     stat_definition = await _get_stat_definition_or_404(session, stat_definition_id, tenant_id)
     await _authorize_entity_stat_write(session, tenant_id=tenant_id, user=user, entity_id=entity.id)
-    await _validate_value(session, body.value, stat_definition)
+    value = await _validate_value(session, body.value, stat_definition)
 
     previous = await _write_own_value(
         session,
@@ -382,7 +492,7 @@ async def set_entity_stat(
         tenant_id=tenant_id,
         entity_id=entity_id,
         stat_definition=stat_definition,
-        value=body.value,
+        value=value,
         if_match=if_match,
         acquire_group=body.acquire_group,
     )
@@ -396,6 +506,8 @@ async def set_entity_stat(
         request=request,
         user=user,
         previous=previous,
+        stat_definition_id=stat_definition_id,
+        warnings=warnings,
     )
 
 
@@ -410,6 +522,7 @@ async def _set_tag(
     response: Response,
     user: CurrentUser,
     if_match: str | None,
+    warnings: bool = False,
 ) -> EntityStatWriteOut:
     entity = await get_entity_or_404(session, entity_id, tenant_id)
     stat_definition = await _get_stat_definition_or_404(session, stat_definition_id, tenant_id)
@@ -436,6 +549,8 @@ async def _set_tag(
         request=request,
         user=user,
         previous=previous,
+        stat_definition_id=stat_definition_id,
+        warnings=warnings,
     )
 
 
@@ -449,6 +564,7 @@ async def set_entity_tag(
     session: SessionDep,
     user: CurrentUser,
     if_match: Annotated[str | None, Header()] = None,
+    warnings: Annotated[bool, Query(description=WARNINGS_HELP)] = False,
 ) -> EntityStatWriteOut:
     """Sets a bool stat to `true` on this entity itself, and adds the
     stat's group to the entity if missing - ADR 0103/RFC 0016. No body.
@@ -465,6 +581,7 @@ async def set_entity_tag(
         response=response,
         user=user,
         if_match=if_match,
+        warnings=warnings,
     )
 
 
@@ -478,6 +595,7 @@ async def unset_entity_tag(
     session: SessionDep,
     user: CurrentUser,
     if_match: Annotated[str | None, Header()] = None,
+    warnings: Annotated[bool, Query(description=WARNINGS_HELP)] = False,
 ) -> EntityStatWriteOut:
     """Sets a bool stat to an explicit `false` on this entity itself - an
     override of whatever a prototype says, not silence (ADR 0103: the door
@@ -494,6 +612,7 @@ async def unset_entity_tag(
         response=response,
         user=user,
         if_match=if_match,
+        warnings=warnings,
     )
 
 
@@ -547,6 +666,14 @@ async def clear_entity_stat(
         )
         await session.delete(existing)
         _touch(entity, user)
+        await session.flush()
+        await revoke_after_stat_write(
+            session,
+            tenant_id=tenant_id,
+            actor_id=user.id,
+            entity_id=entity_id,
+            stat_definition_id=stat_definition_id,
+        )
         await session.commit()
         await set_tenant_rls_context(session, tenant_id)
     return await _write_out(
@@ -592,6 +719,14 @@ async def clear_entity_tag(
         previous = PreviousOwnStat(had_own_value=True, value=existing.value_bool)
         await session.delete(existing)
         _touch(entity, user)
+        await session.flush()
+        await revoke_after_stat_write(
+            session,
+            tenant_id=tenant_id,
+            actor_id=user.id,
+            entity_id=entity_id,
+            stat_definition_id=stat_definition_id,
+        )
         await session.commit()
         await set_tenant_rls_context(session, tenant_id)
     return await _write_out(
@@ -627,6 +762,12 @@ async def explain_entity_stat(
             .where(VEffectiveStat.entity_id == entity_id, VEffectiveStat.tenant_id == tenant_id)
             .options(
                 selectinload(VEffectiveStat.stat_definition),
+                selectinload(VEffectiveStat.stat_definition).selectinload(
+                    StatDefinition.enum_values
+                ),
+                selectinload(VEffectiveStat.stat_definition)
+                .joinedload(StatDefinition.stat_group)
+                .joinedload(StatGroup.system),
                 selectinload(VEffectiveStat.source_entity),
                 *formula_load_options(selectinload(VEffectiveStat.computed_stat)),
             )
@@ -638,7 +779,8 @@ async def explain_entity_stat(
         if any(s.computed_stat is not None and s.computed_stat.contents for s in stats)
         else None
     )
-    values = evaluate(stats, entity_id=entity_id, contents=contents)
+    counted: dict[tuple[uuid.UUID | None, ContentsFormula], int] = {}
+    values = evaluate(stats, entity_id=entity_id, contents=contents, counted=counted)
     winner = next((s for s in stats if s.stat_definition_id == definition.id), None)
     if winner is None or definition.id not in values:
         raise EntityStatNotFoundError(
@@ -653,7 +795,9 @@ async def explain_entity_stat(
     names = {s.stat_definition_id: s.stat_definition.name for s in stats}
     wanted = [] if formula is None else input_ids(formula)
     if isinstance(formula, ContentsFormula):
-        wanted = [formula.source_stat_definition_id]
+        wanted = (
+            [] if formula.source_stat_definition_id is None else [formula.source_stat_definition_id]
+        )
     missing = [i for i in wanted if i not in names]
     if missing:
         names |= {
@@ -666,15 +810,68 @@ async def explain_entity_stat(
         }
     visibility = await resolve_information_visibility(session, user_id=user.id, tenant_id=tenant_id)
     own = winner.source_entity_id == entity_id
+    picked = None
+    if isinstance(formula, ExtremumFormula):
+        definitions = {s.stat_definition_id: s.stat_definition for s in stats}
+        position = picked_operand(
+            formula, lambda i: numeric_value(values.get(i), definitions.get(i))
+        )
+        if position is not None:
+            operand = formula.inputs[position]
+            source = operand.stat_definition_id
+            constant = operand.constant
+            picked_value: int | float | str | bool | None
+            if source is not None:
+                picked_value = values.get(source)
+            elif constant is not None and constant == constant.to_integral_value():
+                picked_value = int(constant)
+            else:
+                picked_value = None if constant is None else float(constant)
+            picked = PickedExplanationOut(
+                position=position,
+                stat_definition_id=source,
+                name=None if source is None else names.get(source),
+                value=picked_value,
+            )
+    chosen = None
+    if isinstance(formula, SelectFormula):
+        chosen_definitions = {s.stat_definition_id: s.stat_definition for s in stats}
+        step = choose_step(
+            formula, values.get(formula.source), chosen_definitions.get(formula.source)
+        )
+        key: int | float | str | None = None
+        if step is not None:
+            threshold = formula.steps[step].threshold
+            if threshold is None:
+                key = formula.steps[step].match_value
+            else:
+                key = (
+                    int(threshold)
+                    if threshold == threshold.to_integral_value()
+                    else float(threshold)
+                )
+        chosen = ChosenStepExplanationOut(position=step, otherwise=step is None, key=key)
+    division_rounded = None
+    if isinstance(formula, RatioFormula):
+        definitions = {s.stat_definition_id: s.stat_definition for s in stats}
+        division_rounded = ratio_was_rounded(
+            formula, lambda i: numeric_value(values.get(i), definitions.get(i))
+        )
     return StatExplanationOut(
         stat_definition_id=definition.id,
+        group_id=definition.stat_group_id,
+        system=winner.system_slug(),
         name=definition.name,
         value=values[definition.id],
+        dice=dice_out(definition.value_type, values[definition.id]),
         own=own,
         computed=winner.computed_entity_id is not None,
         from_entity=None
         if own or not visibility.can_see_entry(winner.source_entity_id)
         else EntitySummary.from_entity(winner.source_entity),
+        from_hidden=(
+            True if not own and not visibility.can_see_entry(winner.source_entity_id) else None
+        ),
         formula=None if formula is None else formula_body_of(formula),
         inputs=[]
         if formula is None or isinstance(formula, ContentsFormula)
@@ -685,10 +882,17 @@ async def explain_entity_stat(
         contents=(
             ContentsExplanationOut(
                 source_stat_definition_id=formula.source_stat_definition_id,
-                source_name=names.get(formula.source_stat_definition_id, ""),
-                things=len(contents.children.get(entity_id, ())) if contents is not None else 0,
+                source_name=(
+                    None
+                    if formula.source_stat_definition_id is None
+                    else names.get(formula.source_stat_definition_id, "")
+                ),
+                things=counted.get((entity_id, formula), 0),
             )
             if isinstance(formula, ContentsFormula)
             else None
         ),
+        picked=picked,
+        division_rounded=division_rounded,
+        chosen=chosen,
     )

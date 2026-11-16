@@ -18,8 +18,10 @@ import {
   releaseGroups,
   releaseHeading,
   reportHref,
+  unlistedNote,
 } from '../../lib/discover';
 import { getStorefront, listPublicDependencies, listPublicReleases } from '../../lib/discoverApi';
+import { includesLines } from '../../lib/inclusion';
 import { showLorenzoScript } from '../../lib/lorenzoScript';
 import { visitorSource } from '../../lib/previewApi';
 import { shelfHref } from '../../lib/shelf';
@@ -32,7 +34,7 @@ import { showCover } from './cover';
 const required = requiredIn('Storefront');
 
 export type Storefront = {
-  // Paints a repository's page. Resolves to false when it is not listed, and shows nothing, for
+  // Paints a repository's page. Resolves to false when it cannot be opened, and shows nothing, for
   // the page to say so.
   show(repositoryId: string, isCurrent: () => boolean): Promise<boolean>;
 };
@@ -63,12 +65,15 @@ function externalLink(url: string, text: string): HTMLAnchorElement {
 export function createStorefront(root: HTMLElement, view: HTMLElement): Storefront {
   const cover = required<HTMLImageElement>(view, '[data-cover]');
   const name = required<HTMLElement>(view, '[data-name]');
+  const unlistedLine = required<HTMLElement>(view, '[data-unlisted-note]');
   const summary = required<HTMLElement>(view, '[data-summary]');
   const publishedBy = required<HTMLElement>(view, '[data-published-by]');
   const tags = required<HTMLElement>(view, '[data-tags]');
   const facts = required<HTMLElement>(view, '[data-facts]');
   const description = required<HTMLElement>(view, '[data-description]');
   const licence = required<HTMLElement>(view, '[data-licence]');
+  const includesSection = required<HTMLElement>(view, '[data-includes-section]');
+  const includes = required<HTMLElement>(view, '[data-includes]');
   const creditsSection = required<HTMLElement>(view, '[data-credits-section]');
   const credits = required<HTMLElement>(view, '[data-credits]');
   const reportLine = required<HTMLElement>(view, '[data-report-line]');
@@ -251,6 +256,25 @@ export function createStorefront(root: HTMLElement, view: HTMLElement): Storefro
 
       showCover(cover, null, item, isCurrent);
       name.textContent = item.name;
+
+      // Its Owners are told it is not on Discover; nobody else is told anything. Read after the page is
+      // drawn, since it needs the person's libraries and repositories and must not hold the page up.
+      unlistedLine.hidden = true;
+
+      if (!profile.listed) {
+        void listMyTenants()
+          .then((tenants) => {
+            const note = unlistedNote(profile, tenants.items, item.id);
+
+            if (!isCurrent() || note === null) return;
+
+            unlistedLine.textContent = note;
+            unlistedLine.hidden = false;
+          })
+          .catch(() => {
+            // A note that cannot be read is not shown; the page does not depend on it.
+          });
+      }
       summary.textContent = item.summary;
       summary.hidden = item.summary === '';
 
@@ -293,6 +317,23 @@ export function createStorefront(root: HTMLElement, view: HTMLElement): Storefro
       licence.replaceChildren(
         licenceText.url ? externalLink(licenceText.url, licenceText.text) : licenceText.text,
       );
+
+      // What it includes of other repositories, with their licences as they were when it was released.
+      const included = includesLines(profile.includes);
+
+      includes.replaceChildren(
+        ...included.map((line) => {
+          const li = document.createElement('li');
+
+          li.append(
+            `Includes content from ${line.name}, `,
+            line.url ? externalLink(line.url, line.licence) : line.licence,
+          );
+
+          return li;
+        }),
+      );
+      includesSection.hidden = included.length === 0;
 
       credits.replaceChildren(
         ...profile.credits.map((credit) => {

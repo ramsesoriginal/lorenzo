@@ -13,8 +13,14 @@ from sqlalchemy import delete, func, select, update
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from lorenzo_api.exceptions import EntityPrototypeCycleError, InvalidPrototypeError
-from lorenzo_api.models import Entity, EntityPrototype
+from lorenzo_api.entry_visibility import hidden_among
+from lorenzo_api.exceptions import (
+    EntityNotFoundError,
+    EntityPrototypeCycleError,
+    InvalidPrototypeError,
+)
+from lorenzo_api.grants import revoke_orphans
+from lorenzo_api.models import Containment, Entity, EntityPrototype
 
 
 async def replace_parents(
@@ -33,8 +39,9 @@ async def replace_parents(
     are part of what the entry is, since they decide its resolved stats (ADR 0037/0039).
 
     Raises EntityPrototypeCycleError for the entry itself or a loop (the BEFORE INSERT trigger of
-    ADR 0015 finds a transitive one) and InvalidPrototypeError for an id that is not an entry of
-    this tenant. The flush happens here, so the caller's commit is the only thing left to do.
+    ADR 0015 finds a transitive one), InvalidPrototypeError for an id that is not an entry of
+    this tenant, and EntityNotFoundError for one the library hides (ADR 0437, ADR 0443). The
+    flush happens here, so the caller's commit is the only thing left to do.
     """
     entity_id = entity.id
     ordered = list(dict.fromkeys(parent_ids))
@@ -57,6 +64,12 @@ async def replace_parents(
                     f"Parent id(s) {sorted(str(i) for i in missing)} do not exist "
                     f"in tenant {tenant_id}"
                 )
+            )
+        # An entry the library hides is not found by its id here, as a read by address finds
+        # none (ADR 0437, ADR 0443).
+        if hidden := await hidden_among(session, tenant_id=tenant_id, entity_ids=wanted):
+            raise EntityNotFoundError(
+                detail=f"No entity with id {sorted(hidden, key=str)[0]} in tenant {tenant_id}"
             )
 
     current = list(
@@ -115,4 +128,15 @@ async def replace_parents(
         raise EntityPrototypeCycleError(
             detail=f"Replacing entry {entity_id}'s parents would create an inheritance cycle"
         ) from exc
+    # What the entry gave while it had its old ancestors, or what it holds as a source, may no
+    # longer hold (ADR 0456): the entry itself, and whoever holds it.
+    above = await session.scalar(
+        select(Containment.parent_entity_id).where(Containment.child_entity_id == entity_id)
+    )
+    await revoke_orphans(
+        session,
+        tenant_id=tenant_id,
+        actor_id=user_id,
+        holder_ids={entity_id, *([above] if above else [])},
+    )
     return True

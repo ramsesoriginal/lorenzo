@@ -25,7 +25,16 @@ from lorenzo_api.models import (
     ComputedStat,
     ComputedStatComparison,
     ComputedStatContents,
+    ComputedStatDice,
+    ComputedStatDiceValue,
+    ComputedStatExtremum,
+    ComputedStatExtremumInput,
     ComputedStatLinear,
+    ComputedStatProduct,
+    ComputedStatProductFactor,
+    ComputedStatRatio,
+    ComputedStatSelect,
+    ComputedStatSelectStep,
     ComputedStatSum,
     ComputedStatSumTerm,
     Connection,
@@ -48,7 +57,14 @@ from lorenzo_api.models import (
     EventRelationship,
     Fact,
     FactAbout,
+    Feature,
+    FeatureInstance,
+    FeaturePrerequisite,
     Frame,
+    GrantRecord,
+    GrantRule,
+    GrantRuleCondition,
+    GrantRuleOption,
     GroupMember,
     Information,
     Item,
@@ -70,10 +86,14 @@ from lorenzo_api.models import (
     PayloadDocument,
     PayloadNumber,
     PayloadPicture,
+    Relationship,
+    RelationshipThrough,
     RepositoryCopy,
     RepositoryCopyLinkEntity,
     RepositoryCopyLinkStatDefinition,
     RepositoryCopyLinkStatGroup,
+    RepositoryCopyLinkSystem,
+    RepositoryCopyLinkTemplate,
     RepositoryRelease,
     RepositoryReleaseBlob,
     RepositoryReleaseDocument,
@@ -81,11 +101,19 @@ from lorenzo_api.models import (
     RepositoryShowcase,
     Scene,
     SceneTelling,
+    SocialWeb,
+    SocialWebEntry,
+    SocialWebType,
     StatDefinition,
     StatDefinitionEnumValue,
     StatGroup,
     StatValueType,
     StoryEvent,
+    System,
+    Template,
+    TemplateSlot,
+    TemplateSlotExclusion,
+    TemplateSlotStat,
     WritingBiography,
 )
 from lorenzo_api.models.story_context import SceneBeing, SceneEvent, SceneFact
@@ -126,8 +154,16 @@ async def seed_every_content_table(
     fact = entity("The blade belongs to Elminster")
     chart = entity("Fixture map")
     road = entity("Fixture road")
+    bond = entity("Fixture bond")
+    second_bond = entity("Fixture second bond")
+    web = entity("Fixture web")
+    feature = entity("Fixture feature")
+    feature_held = entity("Fixture feature held")
     group = StatGroup(tenant_id=tenant_id, name="Abilities")
     session.add(group)
+    # A game system, which a repository holds as content (ADR 0448).
+    fixture_system = System(tenant_id=tenant_id, slug="fx", name="Fixture system")
+    session.add(fixture_system)
     await session.flush()
 
     session.add_all(
@@ -137,6 +173,16 @@ async def seed_every_content_table(
             Location(entity_id=room.id, tenant_id=tenant_id),
             Connection(
                 entity_id=road.id, tenant_id=tenant_id, end_a=place.id, end_b=room.id, one_way=True
+            ),
+            bond_marker := Relationship(
+                entity_id=bond.id, tenant_id=tenant_id, end_a=place.id, end_b=room.id, one_way=None
+            ),
+            Relationship(
+                entity_id=second_bond.id,
+                tenant_id=tenant_id,
+                end_a=room.id,
+                end_b=place.id,
+                one_way=True,
             ),
             Map(
                 entity_id=chart.id,
@@ -170,6 +216,12 @@ async def seed_every_content_table(
         [
             FactAbout(fact_entity_id=fact.id, subject_entity_id=blade.id, tenant_id=tenant_id),
             EntityKnowledge(entity_id=fact.id, knower_entity_id=guild.id, tenant_id=tenant_id),
+            RelationshipThrough(
+                relationship_entity_id=bond.id,
+                step=1,
+                via_entity_id=second_bond.id,
+                tenant_id=tenant_id,
+            ),
         ]
     )
 
@@ -200,6 +252,32 @@ async def seed_every_content_table(
         ]
     )
     await session.flush()
+    # The fixture bond is bounded by the two fixture Events (ADR 0405).
+    bond_marker.starts_at = event.id
+    bond_marker.ends_at = later_event.id
+    await session.flush()
+    session.add(
+        SocialWeb(
+            entity_id=web.id,
+            tenant_id=tenant_id,
+            layout="manual",
+            layout_seed=3,
+            theme_hint=None,
+            view={"labels": True},
+            standing_stat_id=None,
+            as_of_event=event.id,
+        )
+    )
+    await session.flush()
+    session.add_all(
+        [
+            SocialWebEntry(
+                web_entity_id=web.id, entry_entity_id=place.id, tenant_id=tenant_id, x=1.0, y=2.0
+            ),
+            SocialWebEntry(web_entity_id=web.id, entry_entity_id=room.id, tenant_id=tenant_id),
+            SocialWebType(web_entity_id=web.id, type_entity_id=chart.id, tenant_id=tenant_id),
+        ]
+    )
     session.add_all(
         [
             EntityLocation(entity_id=calendar.id, location_entity_id=place.id, tenant_id=tenant_id),
@@ -295,13 +373,62 @@ async def seed_every_content_table(
     load = StatDefinition(
         tenant_id=tenant_id, stat_group_id=group.id, name="Load", value_type=StatValueType.INT
     )
-    session.add_all([strength, modifier, strong, alignment, might, load])
+    hit_dice = StatDefinition(
+        tenant_id=tenant_id, stat_group_id=group.id, name="Hit dice", value_type=StatValueType.DICE
+    )
+    session.add_all([strength, modifier, strong, alignment, might, load, hit_dice])
     session.add_all(
         [
-            Item(entity_id=sword.id, tenant_id=tenant_id),
+            Item(entity_id=sword.id, tenant_id=tenant_id, starts_inactive=True),
             ItemInstance(entity_id=blade.id, tenant_id=tenant_id),
             Item(entity_id=chest.id, tenant_id=tenant_id),
             Being(entity_id=elminster.id, tenant_id=tenant_id),
+            Feature(entity_id=feature.id, tenant_id=tenant_id, repeatable=True),
+            FeatureInstance(entity_id=feature_held.id, tenant_id=tenant_id),
+        ]
+    )
+    await session.flush()
+    rule = GrantRule(
+        tenant_id=tenant_id,
+        entry_id=guild.id,
+        label="Fixture rule",
+        position=0,
+        mode="choose",
+        max_count=1,
+    )
+    session.add(rule)
+    await session.flush()
+    session.add_all(
+        [
+            GrantRuleCondition(
+                tenant_id=tenant_id,
+                rule_id=rule.id,
+                position=0,
+                subject="holder",
+                stat_definition_id=strength.id,
+                comparator="ge",
+                right_constant=Decimal(10),
+            ),
+            GrantRuleOption(
+                rule_id=rule.id, option_entry_id=feature.id, tenant_id=tenant_id, position=0
+            ),
+            FeaturePrerequisite(
+                tenant_id=tenant_id,
+                feature_id=feature.id,
+                position=0,
+                stat_definition_id=strength.id,
+                comparator="ge",
+                right_constant=Decimal(10),
+            ),
+            GrantRecord(
+                tenant_id=tenant_id,
+                holder_id=elminster.id,
+                rule_id=rule.id,
+                source_ref_id=guild.id,
+                feature_id=feature.id,
+                feature_instance_id=feature_held.id,
+                state="active",
+            ),
         ]
     )
     await session.flush()
@@ -320,12 +447,67 @@ async def seed_every_content_table(
                 tenant_id=tenant_id,
                 value_int=16,
             ),
+            EntityStat(
+                entity_id=sword.id,
+                stat_definition_id=hit_dice.id,
+                tenant_id=tenant_id,
+                dice_count=4,
+                dice_sides=6,
+                dice_drop_mode="lowest",
+                dice_drop_count=1,
+            ),
             ComputedStat(entity_id=sword.id, stat_definition_id=modifier.id, tenant_id=tenant_id),
             ComputedStat(entity_id=sword.id, stat_definition_id=strong.id, tenant_id=tenant_id),
             ComputedStat(entity_id=sword.id, stat_definition_id=might.id, tenant_id=tenant_id),
             ComputedStat(entity_id=chest.id, stat_definition_id=load.id, tenant_id=tenant_id),
+            ComputedStat(entity_id=blade.id, stat_definition_id=load.id, tenant_id=tenant_id),
+            ComputedStat(entity_id=blade.id, stat_definition_id=strong.id, tenant_id=tenant_id),
+            ComputedStat(entity_id=guild.id, stat_definition_id=load.id, tenant_id=tenant_id),
+            ComputedStat(entity_id=chest.id, stat_definition_id=might.id, tenant_id=tenant_id),
+            ComputedStat(entity_id=chest.id, stat_definition_id=modifier.id, tenant_id=tenant_id),
+            ComputedStat(entity_id=guild.id, stat_definition_id=modifier.id, tenant_id=tenant_id),
+            ComputedStat(entity_id=guild.id, stat_definition_id=hit_dice.id, tenant_id=tenant_id),
             Containment(child_entity_id=blade.id, parent_entity_id=chest.id, tenant_id=tenant_id),
             Ownership(owned_entity_id=blade.id, owner_character_id=guild.id, tenant_id=tenant_id),
+        ]
+    )
+    await session.flush()
+    template = Template(
+        tenant_id=tenant_id,
+        name="Fixture template",
+        required_kind="item",
+        required_ancestor_entry_id=sword.id,
+    )
+    session.add(template)
+    await session.flush()
+    shown = TemplateSlot(
+        tenant_id=tenant_id,
+        template_id=template.id,
+        position=0,
+        kind="stats",
+        stat_group_id=group.id,
+    )
+    held = TemplateSlot(
+        tenant_id=tenant_id,
+        template_id=template.id,
+        position=1,
+        kind="held",
+        held_order="name",
+    )
+    session.add_all([shown, held])
+    await session.flush()
+    session.add_all(
+        [
+            TemplateSlotExclusion(
+                slot_id=shown.id, stat_definition_id=modifier.id, tenant_id=tenant_id
+            ),
+            TemplateSlotStat(
+                slot_id=held.id,
+                position=0,
+                tenant_id=tenant_id,
+                stat_definition_id=strength.id,
+                label="Str",
+            ),
         ]
     )
     await session.flush()
@@ -355,6 +537,70 @@ async def seed_every_content_table(
                 tenant_id=tenant_id,
                 source_stat_definition_id=strength.id,
             ),
+            # The Blade's Load: the smaller of its Strength and 10 (ADR 0444).
+            ComputedStatExtremum(
+                entity_id=blade.id,
+                stat_definition_id=load.id,
+                tenant_id=tenant_id,
+                pick="min",
+                round_mode="none",
+            ),
+            # The Guild's Load: the largest Strength of what is on and strong inside, 5 for nothing
+            # (ADR 0447).
+            ComputedStatContents(
+                entity_id=guild.id,
+                stat_definition_id=load.id,
+                tenant_id=tenant_id,
+                source_stat_definition_id=strength.id,
+                aggregate="max",
+                only_active=True,
+                only_kind="item_instance",
+                where_stat_definition_id=strong.id,
+                if_none=Decimal("5"),
+            ),
+            # The Blade's Strong: from a Strength of 10, otherwise not (ADR 0446).
+            ComputedStatSelect(
+                entity_id=blade.id,
+                stat_definition_id=strong.id,
+                tenant_id=tenant_id,
+                source_stat_definition_id=strength.id,
+                mode="threshold",
+                otherwise_bool=False,
+            ),
+            # The Chest's Might: Strength x Modifier x 2 (ADR 0445).
+            ComputedStatProduct(
+                entity_id=chest.id,
+                stat_definition_id=might.id,
+                tenant_id=tenant_id,
+                multiplier=Decimal("2"),
+                offset=Decimal("0"),
+                round_mode="none",
+            ),
+            # The Chest's Modifier: Strength over 2, rounded down (ADR 0445).
+            ComputedStatRatio(
+                entity_id=chest.id,
+                stat_definition_id=modifier.id,
+                tenant_id=tenant_id,
+                numerator_stat_definition_id=strength.id,
+                denominator_constant=Decimal("2"),
+                round_mode="floor",
+            ),
+            # The Guild's Modifier: the fewest its Hit dice can show (ADR 0463).
+            ComputedStatDiceValue(
+                entity_id=guild.id,
+                stat_definition_id=modifier.id,
+                tenant_id=tenant_id,
+                source_stat_definition_id=hit_dice.id,
+                read_as="min",
+            ),
+            # The Guild's Hit dice: as many d8 as its Strength (ADR 0464).
+            ComputedStatDice(
+                entity_id=guild.id,
+                stat_definition_id=hit_dice.id,
+                tenant_id=tenant_id,
+                count_stat_definition_id=strength.id,
+                sides_constant=8,
+            ),
             # Might = Strength + 2 × Modifier + 1 (ADR 0126).
             ComputedStatSum(
                 entity_id=sword.id,
@@ -365,6 +611,47 @@ async def seed_every_content_table(
             ),
             GroupMember(
                 group_entity_id=guild.id, character_entity_id=elminster.id, tenant_id=tenant_id
+            ),
+        ]
+    )
+    await session.flush()
+    session.add_all(
+        [
+            ComputedStatSelectStep(
+                entity_id=blade.id,
+                stat_definition_id=strong.id,
+                tenant_id=tenant_id,
+                position=0,
+                threshold=Decimal("10"),
+                result_bool=True,
+            ),
+            ComputedStatProductFactor(
+                entity_id=chest.id,
+                stat_definition_id=might.id,
+                tenant_id=tenant_id,
+                position=0,
+                source_stat_definition_id=strength.id,
+            ),
+            ComputedStatProductFactor(
+                entity_id=chest.id,
+                stat_definition_id=might.id,
+                tenant_id=tenant_id,
+                position=1,
+                source_stat_definition_id=modifier.id,
+            ),
+            ComputedStatExtremumInput(
+                entity_id=blade.id,
+                stat_definition_id=load.id,
+                tenant_id=tenant_id,
+                position=0,
+                source_stat_definition_id=strength.id,
+            ),
+            ComputedStatExtremumInput(
+                entity_id=blade.id,
+                stat_definition_id=load.id,
+                tenant_id=tenant_id,
+                position=1,
+                constant=Decimal("10"),
             ),
         ]
     )
@@ -596,6 +883,10 @@ async def seed_every_content_table(
             RepositoryCopyLinkStatDefinition(
                 **link, stat_definition_id=strength.id, source_id=uuid.uuid4(), mode="copied"
             ),
+            RepositoryCopyLinkSystem(
+                **link, system_id=fixture_system.id, source_id=uuid.uuid4(), mode="copied"
+            ),
+            RepositoryCopyLinkTemplate(**link, template_id=template.id, source_id=uuid.uuid4()),
         ]
     )
     await session.flush()

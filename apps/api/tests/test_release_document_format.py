@@ -17,7 +17,12 @@ from _content_compare import differences
 from _content_fixtures import DOCUMENT, PICTURE, full_content
 
 from lorenzo_api import release_document as rd
-from lorenzo_api.repository_content import Content, Formula
+from lorenzo_api.repository_content import (
+    Content,
+    Formula,
+    SelectResultData,
+    SelectStepData,
+)
 
 GOLDEN = Path(__file__).parent / "data" / "release_document_v1.json"
 
@@ -92,6 +97,31 @@ def test_decimals_keep_their_scale_and_floats_their_last_digit() -> None:
     assert isinstance(number, Decimal) and str(number) == "2.50"
 
 
+# What a formula record of a later version holds that version 1 did not: operands (format 38,
+# ADR 0444) and a select (format 39, ADR 0446).
+_NEW_FORMULA_FIELDS = {
+    "operands": None,
+    "select_mode": None,
+    "steps": None,
+    "otherwise": None,
+    "aggregate": None,
+    "only_active": None,
+    "only_kind": None,
+    "where": None,
+    "if_none": None,
+    "read_as": None,
+    "count": None,
+    "count_constant": None,
+    "sides": None,
+    "sides_constant": None,
+}
+
+
+def _contents_defaults(record: dict) -> dict:
+    """A contents formula of a version before 40 reads as the sum of everything inside."""
+    return {"aggregate": "sum", "only_active": False} if record["kind"] == "contents" else {}
+
+
 def test_version_one_is_read_as_it_was_written() -> None:
     """The golden file is a version 1 document. A change that cannot read it is a new version
     with a reader of its own, and the old reader stays (ADR 0214)."""
@@ -99,10 +129,35 @@ def test_version_one_is_read_as_it_was_written() -> None:
 
     assert differences(full_content(), rd.decode(golden, _files(), format=1)) == []
     # V3 adds calendars; V1 and V2 remain readable unchanged.
-    assert rd.FORMAT == 31
+    assert rd.FORMAT == 49
+    nothing = dict.fromkeys(("dice_count", "dice_sides", "dice_drop_mode", "dice_drop_count"))
     assert rd.encode(full_content())[0] == {
         **golden,
+        "links": {"system": {}, "template": {}, **golden["links"]},
+        "stats": [
+            [entity, definition, {**nothing, **value}]
+            for entity, definition, value in golden["stats"]
+        ],
+        "repeatable": {},
+        "grant_rules": {},
+        "prerequisites": {},
+        "grant_records": {},
+        "groups": {
+            key: {"role": None, "system": None, **group} for key, group in golden["groups"].items()
+        },
+        "systems": {},
+        "templates": {},
+        "formulas": [
+            [entity, definition, {**_NEW_FORMULA_FIELDS, **_contents_defaults(record), **record}]
+            for entity, definition, record in golden["formulas"]
+        ],
+        "starts_inactive": {},
+        "definitions": {
+            key: {"min_value": None, "max_value": None, "role": None, **definition}
+            for key, definition in golden["definitions"].items()
+        },
         "calendars": {},
+        "sources": {},
         "location_parts": {},
         "entity_locations": {},
         "frames": {},
@@ -111,6 +166,11 @@ def test_version_one_is_read_as_it_was_written() -> None:
         "map_placements": [],
         "map_layers": {},
         "connections": {},
+        "relationships": {},
+        "relationship_through": {},
+        "social_webs": {},
+        "social_web_entries": [],
+        "social_web_types": [],
         "clocks": {},
         "clock_readings": [],
         "clock_relationships": [],
@@ -318,7 +378,11 @@ def test_connections_survive_a_round_trip() -> None:
     identity, first, second = uuid.UUID(int=90), uuid.UUID(int=91), uuid.UUID(int=92)
     content = full_content()
     content.connections = {
-        identity: {"end_a": first, "end_b": second, "one_way": True},
+        identity: {
+            "end_a": first,
+            "end_b": second,
+            "one_way": True,
+        },
         uuid.UUID(int=93): {"end_a": second, "end_b": first, "one_way": None},
     }
 
@@ -388,3 +452,498 @@ def test_contents_format_and_previous_reader() -> None:
     assert rd.decode(document, files).manuscript_contents == content.manuscript_contents
     old = {key: value for key, value in document.items() if key != "manuscript_contents"}
     assert rd.decode(old, files, format=30).manuscript_contents == {}
+
+
+def test_version_thirty_one_has_no_relationships() -> None:
+    """A repository written before relationships reads with none (ADR 0399)."""
+    document, files = rd.encode(full_content())
+    old = {key: value for key, value in document.items() if key != "relationships"}
+
+    assert rd.READERS[31](old, files).relationships == {}
+
+
+def test_relationships_survive_a_round_trip() -> None:
+    identity, first, second = uuid.UUID(int=190), uuid.UUID(int=191), uuid.UUID(int=192)
+    content = full_content()
+    content.relationships = {
+        identity: {
+            "end_a": first,
+            "end_b": second,
+            "one_way": True,
+            "starts_at": None,
+            "ends_at": None,
+        },
+        uuid.UUID(int=193): {
+            "end_a": second,
+            "end_b": first,
+            "one_way": None,
+            "starts_at": first,
+            "ends_at": None,
+        },
+    }
+
+    document, files = rd.encode(content)
+
+    assert rd.decode(document, files).relationships == content.relationships
+
+
+def test_version_thirty_two_has_no_stat_scales() -> None:
+    """A repository written before stat scales reads with none (ADR 0403)."""
+    document, files = rd.encode(full_content())
+    old = {
+        **document,
+        "definitions": {
+            key: {k: v for k, v in definition.items() if k not in ("min_value", "max_value")}
+            for key, definition in document["definitions"].items()
+        },
+    }
+
+    back = rd.READERS[32](old, files)
+
+    assert all(d["min_value"] is None and d["max_value"] is None for d in back.definitions.values())
+
+
+def test_stat_scales_survive_a_round_trip() -> None:
+    content = full_content()
+    first = next(iter(content.definitions))
+    content.definitions[first]["min_value"] = -10.0
+    content.definitions[first]["max_value"] = 10.0
+
+    document, files = rd.encode(content)
+
+    back = rd.decode(document, files)
+    assert (back.definitions[first]["min_value"], back.definitions[first]["max_value"]) == (
+        -10.0,
+        10.0,
+    )
+
+
+def test_version_thirty_three_has_no_relationship_chains() -> None:
+    """A repository written before chains reads with none (ADR 0402)."""
+    document, files = rd.encode(full_content())
+    old = {key: value for key, value in document.items() if key != "relationship_through"}
+
+    assert rd.READERS[33](old, files).relationship_through == {}
+
+
+def test_relationship_chains_survive_a_round_trip_in_order() -> None:
+    head, one, two, three = (uuid.UUID(int=n) for n in (200, 201, 202, 203))
+    content = full_content()
+    content.relationship_through = {head: [three, one, two]}
+
+    document, files = rd.encode(content)
+
+    assert rd.decode(document, files).relationship_through == {head: [three, one, two]}
+
+
+def test_version_thirty_four_has_no_relationship_limits() -> None:
+    """A repository written before limits in time reads with none (ADR 0405)."""
+    identity, first, second = uuid.UUID(int=210), uuid.UUID(int=211), uuid.UUID(int=212)
+    content = full_content()
+    content.relationships = {
+        identity: {
+            "end_a": first,
+            "end_b": second,
+            "one_way": None,
+            "starts_at": None,
+            "ends_at": None,
+        }
+    }
+    document, files = rd.encode(content)
+    old = {
+        **document,
+        "relationships": {
+            key: {k: v for k, v in tied.items() if k not in ("starts_at", "ends_at")}
+            for key, tied in document["relationships"].items()
+        },
+    }
+
+    back = rd.READERS[34](old, files)
+
+    assert back.relationships == content.relationships
+
+
+def test_version_thirty_five_has_no_social_webs() -> None:
+    """A repository written before social webs reads with none (ADR 0406)."""
+    document, files = rd.encode(full_content())
+    old = {
+        key: value
+        for key, value in document.items()
+        if key not in ("social_webs", "social_web_entries", "social_web_types")
+    }
+
+    back = rd.READERS[35](old, files)
+
+    assert (back.social_webs, back.social_web_entries, back.social_web_types) == ({}, {}, set())
+
+
+def test_social_webs_survive_a_round_trip() -> None:
+    web, member, kind, stat = (uuid.UUID(int=n) for n in (220, 221, 222, 223))
+    content = full_content()
+    content.social_webs = {
+        web: {
+            "layout": "manual",
+            "layout_seed": 7,
+            "theme_hint": "parchment",
+            "view": {"labels": True},
+            "standing_stat": stat,
+            "as_of_event": None,
+        }
+    }
+    content.social_web_entries = {(web, member): {"x": 1.5, "y": -2.0}}
+    content.social_web_types = {(web, kind)}
+
+    document, files = rd.encode(content)
+
+    back = rd.decode(document, files)
+    assert back.social_webs == content.social_webs
+    assert back.social_web_entries == content.social_web_entries
+    assert back.social_web_types == content.social_web_types
+
+
+def test_version_thirty_six_has_no_sources() -> None:
+    """A release written before a repository could include one it is built on says nothing of how
+    it carried what it was built on (ADR 0431)."""
+    document, files = rd.encode(full_content())
+    old = {key: value for key, value in document.items() if key != "sources"}
+
+    back = rd.READERS[36](old, files)
+
+    assert back.sources == {}
+    assert differences(full_content(), back) == []
+
+
+def test_sources_survive_a_round_trip() -> None:
+    included, shown = uuid.UUID(int=240), uuid.UUID(int=241)
+    content = full_content()
+    content.sources = {
+        included: {
+            "inclusion": "include",
+            "name": "Armoury",
+            "licence": {
+                "label": "CC BY 4.0",
+                "url": "https://creativecommons.org/licenses/by/4.0/",
+            },
+        },
+        shown: {"inclusion": "show", "name": "Rules", "licence": {"label": "OGL", "url": None}},
+    }
+
+    document, files = rd.encode(content)
+
+    back = rd.decode(rd.loads(rd.dumps(document)), files)
+    assert differences(content, back) == []
+    assert back.sources == content.sources
+
+
+def test_a_source_with_a_field_the_format_does_not_write_is_refused() -> None:
+    content = full_content()
+    content.sources = {
+        uuid.UUID(int=240): {"inclusion": "include", "name": "A", "licence": None, "x": 1}
+    }
+
+    with pytest.raises(rd.ContentFieldNotSerialisedError):
+        rd.encode(content)
+
+
+def test_a_min_formula_round_trips_with_a_stat_and_a_constant() -> None:
+    """ADR 0444: the operands of a min, max or product are stored with a stat or a constant each,
+    and a document of version 37, which has none, reads with none."""
+    content = full_content()
+    key = (uuid.UUID(int=10), uuid.UUID(int=34))
+    operands = [(uuid.UUID(int=31), None), (None, Decimal("2.50"))]
+    content.formulas[key] = Formula(kind="min", round_mode="none", operands=operands)
+
+    document, files = rd.encode(content)
+    back = rd.decode(rd.loads(rd.dumps(document)), files)
+
+    assert back.formulas[key].operands == operands
+    assert str(back.formulas[key].operands[1][1]) == "2.50"
+    v37 = {
+        **document,
+        "formulas": [row for row in document["formulas"] if row[:2] != [str(key[0]), str(key[1])]],
+    }
+    for _, _, record in v37["formulas"]:
+        for field in _NEW_FORMULA_FIELDS:
+            del record[field]
+    assert all(
+        formula.operands is None for formula in rd.decode(v37, files, format=37).formulas.values()
+    )
+
+
+def test_a_select_formula_round_trips_every_kind_of_result() -> None:
+    """ADR 0446: a select's steps and its otherwise are stored, a result being a number, a text, a
+    flag or a stat, and a document of version 38 reads with none."""
+    content = full_content()
+    key = (uuid.UUID(int=10), uuid.UUID(int=35))
+    steps = [
+        SelectStepData(Decimal("1"), None, SelectResultData(number=Decimal("2.50"))),
+        SelectStepData(Decimal("5"), None, SelectResultData(stat=uuid.UUID(int=31))),
+        SelectStepData(None, "heavy", SelectResultData(text="slow")),
+        SelectStepData(None, "light", SelectResultData(flag=False)),
+    ]
+    otherwise = SelectResultData(text="none")
+    content.formulas[key] = Formula(
+        kind="select",
+        source=uuid.UUID(int=31),
+        select_mode="threshold",
+        steps=steps,
+        otherwise=otherwise,
+    )
+
+    document, files = rd.encode(content)
+    back = rd.decode(rd.loads(rd.dumps(document)), files)
+
+    assert back.formulas[key].steps == steps
+    assert back.formulas[key].otherwise == otherwise
+    assert str(back.formulas[key].steps[0].result.number) == "2.50"
+    v38 = {
+        **document,
+        "formulas": [row for row in document["formulas"] if row[:2] != [str(key[0]), str(key[1])]],
+    }
+    for _, _, record in v38["formulas"]:
+        for field in ("select_mode", "steps", "otherwise"):
+            del record[field]
+    assert all(
+        formula.steps is None and formula.otherwise is None
+        for formula in rd.decode(v38, files, format=38).formulas.values()
+    )
+
+
+def test_the_options_of_a_contents_formula_and_an_items_switch_round_trip() -> None:
+    """ADR 0447: a contents formula's aggregate and options, and which items start their instances
+    inactive, are stored; a document of version 39 reads a contents formula as a sum of every
+    thing inside and every item as starting active."""
+    content = full_content()
+    key = (uuid.UUID(int=10), uuid.UUID(int=36))
+    content.formulas[key] = Formula(
+        kind="contents",
+        aggregate="max",
+        only_active=True,
+        only_kind="item_instance",
+        where=uuid.UUID(int=31),
+        if_none=Decimal("10"),
+    )
+    content.starts_inactive = {uuid.UUID(int=10): True}
+
+    document, files = rd.encode(content)
+    back = rd.decode(rd.loads(rd.dumps(document)), files)
+
+    formula = back.formulas[key]
+    assert (formula.aggregate, formula.only_active, formula.only_kind) == (
+        "max",
+        True,
+        "item_instance",
+    )
+    assert formula.where == uuid.UUID(int=31) and formula.if_none == Decimal("10")
+    assert back.starts_inactive == {uuid.UUID(int=10): True}
+    v39 = {
+        **document,
+        "formulas": [row for row in document["formulas"] if row[:2] != [str(key[0]), str(key[1])]],
+    }
+    del v39["starts_inactive"]
+    for _, _, record in v39["formulas"]:
+        for field in ("aggregate", "only_active", "only_kind", "where", "if_none"):
+            del record[field]
+    old = rd.decode(v39, files, format=39)
+    contents = [f for f in old.formulas.values() if f.kind == "contents"]
+    assert contents and all(f.aggregate == "sum" and f.only_active is False for f in contents)
+    assert old.starts_inactive == {}
+
+
+def test_a_role_of_a_stat_and_of_a_group_round_trips_and_an_old_document_derives_it() -> None:
+    """ADR 0449: a stat and a group carry the role they hold; a document of version 40, which had
+    none, reads a stat or a group with a role's name as holding it, as the migration gave it."""
+    content = full_content()
+    stat, group = next(iter(content.definitions)), next(iter(content.groups))
+    content.definitions[stat]["role"] = "weight"
+    content.groups[group]["role"] = "tags"
+
+    document, files = rd.encode(content)
+    back = rd.decode(rd.loads(rd.dumps(document)), files)
+
+    assert back.definitions[stat]["role"] == "weight" and back.groups[group]["role"] == "tags"
+    v40 = {
+        **document,
+        "groups": {
+            key: {k: v for k, v in record.items() if k != "role"}
+            for key, record in document["groups"].items()
+        },
+        "definitions": {
+            key: {k: v for k, v in record.items() if k != "role"}
+            for key, record in document["definitions"].items()
+        },
+    }
+    v40["definitions"][str(stat)]["name"] = "weight"
+    v40["groups"][str(group)]["name"] = "physical"
+    old = rd.decode(v40, files, format=40)
+    assert old.definitions[stat]["role"] == "weight"
+    assert old.groups[group]["role"] == "physical"
+    assert all(d["role"] is None for key, d in old.definitions.items() if key != stat)
+
+
+def test_systems_and_templates_round_trip_and_an_old_document_has_none() -> None:
+    """ADR 0453: a library's game systems, the system each stat group belongs to and its templates
+    are in the document; a document of version 41, which had none, reads every group as neutral."""
+    content = full_content()
+    ds, template = uuid.UUID(int=80), uuid.UUID(int=81)
+    group = next(iter(content.groups))
+    stat = next(iter(content.definitions))
+    root = next(iter(content.entities))
+    content.systems = {ds: {"slug": "ds", "name": "Draw Steel", "root": root}}
+    content.groups[group]["system"] = ds
+    content.templates = {
+        template: {
+            "name": "Sheet",
+            "system": ds,
+            "kind": "being",
+            "ancestor": root,
+            "slots": [
+                {
+                    "kind": "stats",
+                    "label": "Abilities",
+                    "group": group,
+                    "information_type": None,
+                    "held_order": None,
+                    "stats": [],
+                    "exclude": [stat],
+                },
+                {
+                    "kind": "held",
+                    "label": None,
+                    "group": None,
+                    "information_type": None,
+                    "held_order": "prototype",
+                    "stats": [(stat, "Strength")],
+                    "exclude": [],
+                },
+            ],
+        }
+    }
+
+    document, files = rd.encode(content)
+    back = rd.decode(rd.loads(rd.dumps(document)), files)
+
+    assert differences(content, back) == []
+    v41 = {key: value for key, value in document.items() if key not in ("systems", "templates")}
+    v41["groups"] = {
+        key: {k: v for k, v in record.items() if k != "system"}
+        for key, record in document["groups"].items()
+    }
+    old = rd.decode(v41, files, format=41)
+    assert old.systems == {} and old.templates == {}
+    assert all(g["system"] is None for g in old.groups.values())
+
+
+def test_features_round_trip_and_an_old_document_has_none() -> None:
+    """ADR 0454: an entry of the kind `feature` says whether it is `repeatable` and whether its
+    instances start inactive; a document of version 42, which had no features, reads none as
+    repeatable."""
+    content = full_content()
+    feature, instance = uuid.UUID(int=90), uuid.UUID(int=91)
+    content.entities[feature] = "Fireball"
+    content.entities[instance] = "Fireball"
+    content.kinds[feature] = {"feature"}
+    content.kinds[instance] = {"feature_instance"}
+    content.repeatable = {feature: True}
+    content.starts_inactive = {feature: True}
+
+    document, files = rd.encode(content)
+    back = rd.decode(rd.loads(rd.dumps(document)), files)
+
+    assert differences(content, back) == []
+    assert back.repeatable == {feature: True}
+    assert back.kinds[feature] == {"feature"} and back.kinds[instance] == {"feature_instance"}
+    v42 = {key: value for key, value in document.items() if key != "repeatable"}
+    old = rd.decode(v42, files, format=42)
+    assert old.repeatable == {}
+
+
+def test_grant_rules_and_prerequisites_round_trip_and_an_old_document_has_none() -> None:
+    """ADR 0455: a library's rules (conditions and options in order) and the prerequisites of its
+    features are in the document; a document of version 43, which had none, reads none."""
+    content = full_content()
+    source, feature, other, rule = (uuid.UUID(int=n) for n in (92, 93, 94, 95))
+    stat = next(iter(content.definitions))
+    content.entities.update({source: "Fighter", feature: "Second Wind", other: "Action Surge"})
+    content.kinds[feature] = {"feature"}
+    content.grant_rules = {
+        rule: {
+            "entry": source,
+            "label": "Level 1",
+            "position": 0,
+            "mode": "choose",
+            "min": 1,
+            "max": None,
+            "count_stat": stat,
+            "category": None,
+            "lasts": "permanent",
+            "changeable": True,
+            "conditions": [
+                {
+                    "subject": "source",
+                    "stat": stat,
+                    "comparator": "ge",
+                    "constant": Decimal("2.5"),
+                    "right_stat": None,
+                },
+                {
+                    "subject": "holder",
+                    "stat": stat,
+                    "comparator": "lt",
+                    "constant": None,
+                    "right_stat": stat,
+                },
+            ],
+            "options": [feature, other],
+        }
+    }
+    content.prerequisites = {
+        feature: [{"stat": stat, "comparator": "gt", "constant": Decimal("12"), "right_stat": None}]
+    }
+
+    document, files = rd.encode(content)
+    back = rd.decode(rd.loads(rd.dumps(document)), files)
+
+    assert differences(content, back) == []
+    assert back.grant_rules[rule]["conditions"][0]["constant"] == Decimal("2.5")
+    assert back.grant_rules[rule]["options"] == [feature, other]
+    assert back.prerequisites[feature][0]["constant"] == Decimal("12")
+    v43 = {k: v for k, v in document.items() if k not in ("grant_rules", "prerequisites")}
+    old = rd.decode(v43, files, format=43)
+    assert old.grant_rules == {} and old.prerequisites == {}
+
+
+def test_grant_records_round_trip_and_an_old_document_has_none() -> None:
+    """ADR 0456: how a holder came to have a feature (its rule and source, or an award) is in the
+    document; a document of version 44, which had none, reads none."""
+    content = full_content()
+    holder, feature, instance, rule, source, record, award = (
+        uuid.UUID(int=n) for n in (96, 97, 98, 99, 100, 101, 102)
+    )
+    content.entities.update(
+        {holder: "Hero", feature: "Second Wind", instance: "Second Wind", source: "Fighter"}
+    )
+    content.grant_records = {
+        record: {
+            "holder": holder,
+            "rule": rule,
+            "source": source,
+            "feature": feature,
+            "instance": instance,
+        },
+        award: {
+            "holder": holder,
+            "rule": None,
+            "source": None,
+            "feature": feature,
+            "instance": instance,
+        },
+    }
+
+    document, files = rd.encode(content)
+    back = rd.decode(rd.loads(rd.dumps(document)), files)
+
+    assert differences(content, back) == []
+    assert back.grant_records[award]["rule"] is None
+    v44 = {k: v for k, v in document.items() if k != "grant_records"}
+    assert rd.decode(v44, files, format=44).grant_records == {}

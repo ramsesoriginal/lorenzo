@@ -1,0 +1,127 @@
+---
+import LegalLinks from './LegalLinks.astro';
+import type { Lang } from './legal';
+import { splitTabs } from './pure';
+import type { NavItem } from './pure';
+
+// The web shell's bottom (ADR 0410): the slim status bar, the phone's tab bar above which it sits,
+// and the sheet that "Apps and about" and "More" open. The sheet is filled by bindShell from the
+// app registry.
+interface Props {
+  // The product, for the line at the foot of the sheet: "Lorenzo Account 0.12.0 · ..."
+  product: string;
+  brandingUrl: string;
+  nav?: NavItem[];
+  // Where its source is in the repository: "apps/calendars"
+  path: string;
+  // The release, and the licence's name, shown in the sheet
+  version?: string;
+  // A static address, shown at once; otherwise the registry names them (ADR 0439).
+  legal?: { notice?: string; privacy?: string };
+  lang?: Lang;
+}
+
+const { product, brandingUrl, nav = [], path, version, legal, lang = 'en' } = Astro.props;
+const icons = `${brandingUrl}/icons.svg`;
+const { tabs, rest } = splitTabs(nav, 3);
+---
+
+<div class="shell-bottom">
+  <div class="save-bar" data-shell-savebar></div>
+  <div class="toast-region" data-shell-toasts role="region" aria-label="Messages"></div>
+  <div class="shell-status" data-shell-status>
+    <span class="sync" data-shell-sync data-kind="synced" hidden>
+      <svg class="icon" aria-hidden="true">
+        <use href={`${icons}#icon-select-item`} data-shell-sync-icon></use>
+      </svg>
+      <span data-shell-sync-text>Synced</span>
+    </span>
+    <span class="wide" data-shell-meta hidden></span>
+    <span class="grow"></span>
+    <time class="wide" data-shell-clock></time>
+    <button
+      type="button"
+      class="btn btn-secondary only-wide"
+      data-shell-open-sheet
+      aria-haspopup="dialog"
+      aria-expanded="false"
+    >
+      Apps and about
+      <svg class="icon chevron" aria-hidden="true">
+        <use href={`${icons}#icon-expand`}></use>
+      </svg>
+    </button>
+  </div>
+  <nav class="shell-tabbar" aria-label="Pages" data-shell-tabbar>
+    {tabs.map((item) => (
+      <a
+        href={item.href}
+        data-path={item.href}
+        data-needs-library={item.needsLibrary ? '' : undefined}
+
+        data-requires={item.requires}
+        data-also={item.also?.join(' ')}
+        hidden={item.needsLibrary || Boolean(item.requires)}
+      >
+        {item.icon && (
+          <svg class="icon" aria-hidden="true">
+            <use href={`${icons}#icon-${item.icon}`}></use>
+          </svg>
+        )}
+        {item.label}
+      </a>
+    ))}
+    <button type="button" data-shell-open-sheet aria-haspopup="dialog">
+      <svg class="icon" aria-hidden="true">
+        <use href={`${icons}#icon-more`}></use>
+      </svg>
+      More
+    </button>
+  </nav>
+</div>
+
+<dialog class="shell-sheet" data-shell-sheet aria-label="Apps and about">
+  <div class="sheet-grip" aria-hidden="true"></div>
+  <div class="shell-drawer">
+    {rest.length > 0 && (
+      <div class="more">
+        <div class="menu-label">More pages</div>
+        <div class="apps" data-shell-more>
+          {rest.map((item) => (
+            <a
+              class="l"
+              href={item.href}
+              data-path={item.href}
+              data-needs-library={item.needsLibrary ? '' : undefined}
+
+              data-requires={item.requires}
+              data-also={item.also?.join(' ')}
+              hidden={item.needsLibrary || Boolean(item.requires)}
+            >
+              {item.icon && (
+                <svg class="icon" aria-hidden="true">
+                  <use href={`${icons}#icon-${item.icon}`}></use>
+                </svg>
+              )}
+              {item.label}
+            </a>
+          ))}
+        </div>
+      </div>
+    )}
+    <div class="cols">
+      <div class="apps" data-shell-apps></div>
+      <div class="about">
+        <div class="menu-label">About</div>
+        <LegalLinks lang={lang} notice={legal?.notice} privacy={legal?.privacy} />
+        <a class="l" href={`https://github.com/ramsesoriginal/lorenzo/tree/main/${path}`}>
+          Source code
+        </a>
+      </div>
+    </div>
+    <div class="foot">
+      Lorenzo {product}
+      {version ? ` ${version}` : ''} · licensed AGPL-3.0 · <time data-shell-foot-clock></time>
+    </div>
+  </div>
+</dialog>

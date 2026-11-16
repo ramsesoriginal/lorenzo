@@ -36,6 +36,17 @@ const sheets = ['normalize', 'tokens', 'fonts', 'base', 'layout', 'components', 
           : window.matchMedia('(prefers-color-scheme: dark)').matches
             ? 'dark'
             : 'light';
+      // The density and the motion chosen in Appearance, set here too so a page does not change
+      // height or move once it has painted.
+      try {
+        const density = localStorage.getItem('lorenzo:density');
+        if (density === 'compact' || density === 'dense')
+          document.documentElement.dataset.density = density;
+        if (localStorage.getItem('lorenzo:motion') === 'reduced')
+          document.documentElement.dataset.motion = 'reduced';
+      } catch {
+        // The defaults apply when preference storage is blocked.
+      }
     })();
   </script>
   <slot />

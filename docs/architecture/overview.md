@@ -7,7 +7,7 @@ Every deployable app lives under `apps/`, one directory per app, named by purpos
 | Component type | Role | Multiplicity |
 | --- | --- | --- |
 | Backend API | Source of truth. Multi-tenant REST API over PostgreSQL, with Authgear-backed auth and personal access tokens. | One — [`apps/api`](../../apps/api) |
-| Web frontend(s) | Static UI for GMs and players (zero-JS by default), one app per purpose ([ADR 0004](../adr/0004-static-astro-frontend.md), [ADR 0071](../adr/0071-account-hub-stack-auth-deploy.md)). | One per purpose, more as they are scoped |
+| Web frontend(s) | Static UI for GMs and players (zero-JS by default), one app per purpose ([ADR 0004](../adr/0004-static-astro-frontend.md), [ADR 0071](../adr/0071-account-hub-stack-auth-deploy.md)), on one shared web shell that the apps move into one by one ([RFC 0050](../rfcs/0050-the-web-interface.md)). | One per purpose, more as they are scoped |
 | Authoring app | Repository content editing through the API. | One — [`apps/bench`](../../apps/bench); persistent offline work remains a later slice of [RFC 0039](../rfcs/0039-bench-authoring-offline-and-extensibility.md) |
 | Brand site | Shared identity assets and preview. | One — [`apps/brand`](../../apps/brand), consumed through `packages/brand` |
 | Discord bot(s) | Talks to the API — loot and inventory. Runs on Google Cloud Run over Discord's HTTP Interactions Endpoint rather than its Gateway ([ADR 0053](../adr/0053-loot-bot-http-interactions-and-cloud-run-deploy.md)). | One today — [`apps/loot-bot`](../../apps/loot-bot); more bots are possible |

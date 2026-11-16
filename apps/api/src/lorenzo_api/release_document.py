@@ -42,10 +42,15 @@ from lorenzo_api.repository_content import (
     InformationData,
     Links,
     PayloadData,
+    SelectResultData,
+    SelectStepData,
     StatValue,
 )
+from lorenzo_api.roles import DEFINITION_ROLES, GROUP_ROLES
 
-FORMAT = 31
+FORMAT = 49
+_DEFINITION_ROLES = frozenset(DEFINITION_ROLES)
+_GROUP_ROLES = frozenset(GROUP_ROLES)
 
 Document = dict[str, Any]
 Files = dict[str, bytes]
@@ -152,6 +157,18 @@ def _pair_set(first: _Codec, second: _Codec) -> _Codec:
 
 _ID_SET = _Codec(lambda s, f: sorted(str(v) for v in s), lambda s, f: {uuid.UUID(v) for v in s})
 _TEXT_SET = _Codec(lambda s, f: sorted(s), lambda s, f: set(s))
+# An ordered list of ids: a list, in the order it has (a chain, ADR 0402).
+_ID_LIST = _Codec(
+    lambda items, f: [str(v) for v in items], lambda items, f: [uuid.UUID(v) for v in items]
+)
+
+
+def _list(value: _Codec) -> _Codec:
+    """A list of values, in order."""
+    return _Codec(
+        lambda items, f: [value.encode(v, f) for v in items],
+        lambda items, f: [value.decode(v, f) for v in items],
+    )
 
 
 def _keyed(value: _Codec) -> _Codec:
@@ -272,12 +289,49 @@ _STAT_VALUE = _dataclass(
         "value_text": _PLAIN,
         "value_float": _optional(_FLOAT),
         "value_bool": _PLAIN,
+        # A dice value as its parts (format 46, ADR 0462).
+        "dice_count": _PLAIN,
+        "dice_sides": _PLAIN,
+        "dice_drop_mode": _PLAIN,
+        "dice_drop_count": _PLAIN,
     },
+)
+
+_SELECT_RESULT = _dataclass(
+    SelectResultData,
+    {"number": _optional(_DECIMAL), "text": _PLAIN, "flag": _PLAIN, "stat": _optional(_ID)},
+)
+
+_SELECT_STEP = _dataclass(
+    SelectStepData,
+    {"threshold": _optional(_DECIMAL), "match_value": _PLAIN, "result": _SELECT_RESULT},
 )
 
 _FORMULA = _dataclass(
     Formula,
     {
+        # A contents formula (ADR 0447): its aggregate, options and the stat it filters by.
+        "aggregate": _PLAIN,
+        "only_active": _PLAIN,
+        "only_kind": _PLAIN,
+        "where": _optional(_ID),
+        "if_none": _optional(_DECIMAL),
+        # A select (ADR 0446): its mode, its steps and the result when none applies.
+        "select_mode": _PLAIN,
+        "steps": _optional(
+            _Codec(
+                lambda steps, f: [_SELECT_STEP.encode(step, f) for step in steps],
+                lambda steps, f: [_SELECT_STEP.decode(step, f) for step in steps],
+            )
+        ),
+        "otherwise": _optional(_SELECT_RESULT),
+        # What a `dice_value` reads of its dice stat (format 47, ADR 0463).
+        "read_as": _PLAIN,
+        # What a `dice` is built from (format 48, ADR 0464).
+        "count": _optional(_ID),
+        "count_constant": _PLAIN,
+        "sides": _optional(_ID),
+        "sides_constant": _PLAIN,
         "kind": _PLAIN,
         "source": _optional(_ID),
         "multiplier": _optional(_DECIMAL),
@@ -293,6 +347,19 @@ _FORMULA = _dataclass(
             _Codec(
                 lambda terms, f: [[str(s), str(c)] for s, c in terms],
                 lambda terms, f: [(uuid.UUID(s), Decimal(c)) for s, c in terms],
+            )
+        ),
+        # A min, max or product's inputs: a stat or a constant each (ADR 0444, 0445).
+        "operands": _optional(
+            _Codec(
+                lambda operands, f: [
+                    [None if s is None else str(s), None if c is None else str(c)]
+                    for s, c in operands
+                ],
+                lambda operands, f: [
+                    (None if s is None else uuid.UUID(s), None if c is None else Decimal(c))
+                    for s, c in operands
+                ],
             )
         ),
     },
@@ -315,6 +382,9 @@ _LINKS = _dataclass(
         "entity": _id_map(_ID),
         "stat_group": _id_map(_ID),
         "stat_definition": _id_map(_ID),
+        # The links of a game system and of a template (format 49, ADR 0469).
+        "system": _id_map(_ID),
+        "template": _id_map(_ID),
         "origin_tenant": _id_map(_ID),
         "merged": _ID_SET,
         "deleted": _text_map(_ID_SET),
@@ -331,12 +401,105 @@ _CONTENT = _dataclass(
         "entities": _id_map(_PLAIN),
         "kinds": _id_map(_TEXT_SET),
         "in_public_catalog": _id_map(_PLAIN),
+        "starts_inactive": _id_map(_PLAIN),
+        "repeatable": _id_map(_PLAIN),
         "slugs": _id_map(_PLAIN),
         "prototypes": _pairs(_ID, _ID),
         "groups": _id_map(
             _record(
-                {"name": _PLAIN, "priority": _PLAIN, "mandatory": _PLAIN},
+                {
+                    "name": _PLAIN,
+                    "priority": _PLAIN,
+                    "mandatory": _PLAIN,
+                    "role": _PLAIN,
+                    "system": _optional(_ID),
+                },
                 name="Content.groups",
+            )
+        ),
+        "systems": _id_map(
+            _record(
+                {"slug": _PLAIN, "name": _PLAIN, "root": _optional(_ID)}, name="Content.systems"
+            )
+        ),
+        "templates": _id_map(
+            _record(
+                {
+                    "name": _PLAIN,
+                    "system": _optional(_ID),
+                    "kind": _PLAIN,
+                    "ancestor": _optional(_ID),
+                    "slots": _list(
+                        _record(
+                            {
+                                "kind": _PLAIN,
+                                "label": _PLAIN,
+                                "group": _optional(_ID),
+                                "information_type": _PLAIN,
+                                "held_order": _PLAIN,
+                                "stats": _pairs(_ID, _PLAIN),
+                                "exclude": _ID_LIST,
+                            },
+                            name="Content.templates.slots",
+                        )
+                    ),
+                },
+                name="Content.templates",
+            )
+        ),
+        "grant_rules": _id_map(
+            _record(
+                {
+                    "entry": _ID,
+                    "label": _PLAIN,
+                    "position": _PLAIN,
+                    "mode": _PLAIN,
+                    "min": _PLAIN,
+                    "max": _PLAIN,
+                    "count_stat": _optional(_ID),
+                    "category": _optional(_ID),
+                    "lasts": _PLAIN,
+                    "changeable": _PLAIN,
+                    "conditions": _list(
+                        _record(
+                            {
+                                "subject": _PLAIN,
+                                "stat": _ID,
+                                "comparator": _PLAIN,
+                                "constant": _optional(_DECIMAL),
+                                "right_stat": _optional(_ID),
+                            },
+                            name="Content.grant_rules.conditions",
+                        )
+                    ),
+                    "options": _ID_LIST,
+                },
+                name="Content.grant_rules",
+            )
+        ),
+        "prerequisites": _id_map(
+            _list(
+                _record(
+                    {
+                        "stat": _ID,
+                        "comparator": _PLAIN,
+                        "constant": _optional(_DECIMAL),
+                        "right_stat": _optional(_ID),
+                    },
+                    name="Content.prerequisites",
+                )
+            )
+        ),
+        "grant_records": _id_map(
+            _record(
+                {
+                    "holder": _ID,
+                    "rule": _optional(_ID),
+                    "source": _optional(_ID),
+                    "feature": _ID,
+                    "instance": _ID,
+                },
+                name="Content.grant_records",
             )
         ),
         "definitions": _id_map(
@@ -345,11 +508,14 @@ _CONTENT = _dataclass(
                     "name": _PLAIN,
                     "value_type": _VALUE_TYPE,
                     "group": _ID,
+                    "role": _PLAIN,
                     "unit": _PLAIN,
                     "adjustable_in_play": _PLAIN,
                     "pin": _PLAIN,
                     "signed": _PLAIN,
                     "position": _PLAIN,
+                    "min_value": _optional(_FLOAT),
+                    "max_value": _optional(_FLOAT),
                     "hints": _record(
                         {
                             "max_hint": _optional(_ID),
@@ -432,6 +598,39 @@ _CONTENT = _dataclass(
                 name="Content.connections",
             )
         ),
+        "relationships": _id_map(
+            _record(
+                {
+                    "end_a": _ID,
+                    "end_b": _ID,
+                    "one_way": _optional(_PLAIN),
+                    "starts_at": _optional(_ID),
+                    "ends_at": _optional(_ID),
+                },
+                name="Content.relationships",
+            )
+        ),
+        "relationship_through": _id_map(_ID_LIST),
+        "social_webs": _id_map(
+            _record(
+                {
+                    "layout": _PLAIN,
+                    "layout_seed": _PLAIN,
+                    "theme_hint": _PLAIN,
+                    "view": _PLAIN,
+                    "standing_stat": _optional(_ID),
+                    "as_of_event": _optional(_ID),
+                },
+                name="Content.social_webs",
+            )
+        ),
+        "social_web_entries": _keyed(
+            _record(
+                {"x": _optional(_FLOAT), "y": _optional(_FLOAT)},
+                name="Content.social_web_entries",
+            )
+        ),
+        "social_web_types": _pair_set(_ID, _ID),
         "location_parts": _id_map(
             _record({"parent": _ID, "ordinal": _PLAIN}, name="Content.location_parts")
         ),
@@ -492,6 +691,21 @@ _CONTENT = _dataclass(
         "entry_audiences": _id_map(_PLAIN),
         "entry_knowledge": _pairs(_ID, _ID),
         "fact_about": _pairs(_ID, _ID),
+        "sources": _id_map(
+            _record(
+                {
+                    "inclusion": _PLAIN,
+                    "name": _PLAIN,
+                    "licence": _optional(
+                        _record(
+                            {"label": _PLAIN, "url": _optional(_PLAIN)},
+                            name="Content.sources.licence",
+                        )
+                    ),
+                },
+                name="Content.sources",
+            )
+        ),
         "links": _LINKS,
     },
 )
@@ -640,6 +854,162 @@ def _read_v30(document: Document, files: Mapping[str, bytes]) -> Content:
 
 
 def _read_v31(document: Document, files: Mapping[str, bytes]) -> Content:
+    return _read_v32({**document, "relationships": {}}, files)
+
+
+def _read_v32(document: Document, files: Mapping[str, bytes]) -> Content:
+    # Before format 33 a stat definition had no scale (ADR 0403).
+    definitions = {
+        key: {"min_value": None, "max_value": None, **definition}
+        for key, definition in document["definitions"].items()
+    }
+    return _read_v33({**document, "definitions": definitions}, files)
+
+
+def _read_v33(document: Document, files: Mapping[str, bytes]) -> Content:
+    return _read_v34({**document, "relationship_through": {}}, files)
+
+
+def _read_v34(document: Document, files: Mapping[str, bytes]) -> Content:
+    # Before format 35 a relationship had no limits in time (ADR 0405).
+    relationships = {
+        key: {"starts_at": None, "ends_at": None, **relationship}
+        for key, relationship in document["relationships"].items()
+    }
+    return _read_v35({**document, "relationships": relationships}, files)
+
+
+def _read_v35(document: Document, files: Mapping[str, bytes]) -> Content:
+    return _read_v36(
+        {**document, "social_webs": {}, "social_web_entries": [], "social_web_types": []}, files
+    )
+
+
+def _read_v36(document: Document, files: Mapping[str, bytes]) -> Content:
+    # Before format 37 a release did not say how it carried what it is built on (ADR 0431).
+    return _read_v37({**document, "sources": {}}, files)
+
+
+def _read_v37(document: Document, files: Mapping[str, bytes]) -> Content:
+    # Before format 38 a formula had no list of operands: min, max and product came later
+    # (ADR 0444).
+    formulas = [
+        [entity, definition, {"operands": None, **record}]
+        for entity, definition, record in document["formulas"]
+    ]
+    return _read_v38({**document, "formulas": formulas}, files)
+
+
+def _read_v38(document: Document, files: Mapping[str, bytes]) -> Content:
+    # Before format 39 a formula had no select mode, steps or otherwise: select came later
+    # (ADR 0446).
+    formulas = [
+        [
+            entity,
+            definition,
+            {"select_mode": None, "steps": None, "otherwise": None, **record},
+        ]
+        for entity, definition, record in document["formulas"]
+    ]
+    return _read_v39({**document, "formulas": formulas}, files)
+
+
+def _read_v39(document: Document, files: Mapping[str, bytes]) -> Content:
+    # Before format 40 a contents formula had no options and an item no `starts_inactive`
+    # (ADR 0447): a contents formula is a sum of every thing inside, an item starts active.
+    formulas = [
+        [
+            entity,
+            definition,
+            {
+                "aggregate": "sum" if record["kind"] == "contents" else None,
+                "only_active": False if record["kind"] == "contents" else None,
+                "only_kind": None,
+                "where": None,
+                "if_none": None,
+                **record,
+            },
+        ]
+        for entity, definition, record in document["formulas"]
+    ]
+    return _read_v40({**document, "formulas": formulas, "starts_inactive": {}}, files)
+
+
+def _read_v40(document: Document, files: Mapping[str, bytes]) -> Content:
+    # Before format 41 a stat or a group had no role: the API read it by name, so a stat or a
+    # group with a role's name holds that role (ADR 0449), as the migration gave it.
+    groups = {
+        key: {"role": group["name"] if group["name"] in _GROUP_ROLES else None, **group}
+        for key, group in document["groups"].items()
+    }
+    definitions = {
+        key: {"role": d["name"] if d["name"] in _DEFINITION_ROLES else None, **d}
+        for key, d in document["definitions"].items()
+    }
+    return _read_v41({**document, "groups": groups, "definitions": definitions}, files)
+
+
+def _read_v41(document: Document, files: Mapping[str, bytes]) -> Content:
+    # Before format 42 a library had no game systems and no templates (ADR 0453): every group is
+    # neutral.
+    groups = {key: {**group, "system": None} for key, group in document["groups"].items()}
+    return _read_v42({**document, "groups": groups, "systems": {}, "templates": {}}, files)
+
+
+def _read_v42(document: Document, files: Mapping[str, bytes]) -> Content:
+    # Before format 43 there were no features (ADR 0454): no entry is one, and none is repeatable.
+    return _read_v43({**document, "repeatable": {}}, files)
+
+
+def _read_v43(document: Document, files: Mapping[str, bytes]) -> Content:
+    # Before format 44 there were no grant rules and no prerequisites (ADR 0455).
+    return _read_v44({**document, "grant_rules": {}, "prerequisites": {}}, files)
+
+
+def _read_v44(document: Document, files: Mapping[str, bytes]) -> Content:
+    # Before format 45 there were no grant records (ADR 0456): a feature instance has no record.
+    return _read_v45({**document, "grant_records": {}}, files)
+
+
+def _read_v45(document: Document, files: Mapping[str, bytes]) -> Content:
+    # Before format 46 there were no dice values (ADR 0462): a stat holds none of the four parts.
+    nothing = {
+        "dice_count": None,
+        "dice_sides": None,
+        "dice_drop_mode": None,
+        "dice_drop_count": None,
+    }
+    stats = [[a, b, {**nothing, **value}] for a, b, value in document["stats"]]
+    return _read_v46({**document, "stats": stats}, files)
+
+
+def _read_v46(document: Document, files: Mapping[str, bytes]) -> Content:
+    # Before format 47 there was no `dice_value` formula (ADR 0463): none reads anything.
+    formulas = [
+        [entity, definition, {"read_as": None, **record}]
+        for entity, definition, record in document["formulas"]
+    ]
+    return _read_v47({**document, "formulas": formulas}, files)
+
+
+def _read_v47(document: Document, files: Mapping[str, bytes]) -> Content:
+    # Before format 48 there was no `dice` formula (ADR 0464): none is built from anything.
+    nothing = dict.fromkeys(("count", "count_constant", "sides", "sides_constant"))
+    formulas = [
+        [entity, definition, {**nothing, **record}]
+        for entity, definition, record in document["formulas"]
+    ]
+    return _read_v48({**document, "formulas": formulas}, files)
+
+
+def _read_v48(document: Document, files: Mapping[str, bytes]) -> Content:
+    # Before format 49 a system and a template had no copy links (ADR 0469): none is a copy.
+    return _read_v49(
+        {**document, "links": {"system": {}, "template": {}, **document["links"]}}, files
+    )
+
+
+def _read_v49(document: Document, files: Mapping[str, bytes]) -> Content:
     content: Content = _CONTENT.decode(document, dict(files))
     return content
 
@@ -678,6 +1048,24 @@ READERS: dict[int, Callable[[Document, Mapping[str, bytes]], Content]] = {
     29: _read_v29,
     30: _read_v30,
     31: _read_v31,
+    32: _read_v32,
+    33: _read_v33,
+    34: _read_v34,
+    35: _read_v35,
+    36: _read_v36,
+    37: _read_v37,
+    38: _read_v38,
+    39: _read_v39,
+    40: _read_v40,
+    41: _read_v41,
+    42: _read_v42,
+    43: _read_v43,
+    44: _read_v44,
+    45: _read_v45,
+    46: _read_v46,
+    47: _read_v47,
+    48: _read_v48,
+    49: _read_v49,
 }
 
 

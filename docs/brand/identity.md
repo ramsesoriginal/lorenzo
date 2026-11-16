@@ -1038,6 +1038,16 @@ Avoid generic fantasy cosplay imagery as the default brand representation.
 
 For screenshots and product imagery, show real information architecture and meaningful data relationships. The product itself is visually interesting; it does not need fantasy dressing.
 
+### 8.6 The web shell, widths and saving
+
+The web apps share one shell and one set of page templates ([docs/design/web](../design/web/README.md), [RFC 0050](../rfcs/0050-the-web-interface.md)). The rules that hold for every web screen:
+
+- **Widths** are read from the container, not the window, with steps at 720, 1100 and 1700px; 430px is the phone design width and every screen is checked there. §8.5's single breakpoint is the first of these steps.
+- **Density** has two levels, comfortable and compact; a screen is complete at either, and the choice is a person's setting.
+- **The header** is one row with a single library and two tiers with several; on a phone the app's links are a bottom tab bar. A state strip appears only when something needs attention. A slim status bar is always shown, with the sync state, the app's own meta and the real date and time.
+- **A control has a visible edge** at a contrast of at least 3 to 1 against its surface (WCAG 1.4.11).
+- **Saving** is one of two kinds per page: a field saves as it changes and says so, or the page has a save bar that batches and shows the count. A refusal is shown next to the field as the API gave it and the draft is kept.
+
 ---
 
 ## 11. Motion
@@ -1052,6 +1062,8 @@ Motion should feel like orientation and discovery, not spectacle.
 - short
 - reversible where possible
 - respectful of reduced-motion preferences
+
+Every opening, closing, moving or switching element has a short transition that shows where it came from. Hover may add decoration but never function or information. All of it is removed by reduced motion (§15.4).
 
 ### 11.2 Brand-mark motion
 
@@ -1110,6 +1122,8 @@ UI:
 - Archive Blue interactions
 - Gold sparingly for brand and special emphasis
 - Newsreader for world/entity titles only when it improves character rather than density
+
+The web apps' shell, page templates and per-app designs are in [docs/design/web](../design/web/README.md); the rules that apply everywhere are §8.6, §15.7 and §18.5.
 
 Do not decorate every record with the mascot or star.
 
@@ -1477,6 +1491,21 @@ for repositories only, so the two relations never share a phrase.
 | **Update** | A change in the repository since you copied. It is New, Changed, Removed upstream, or in Conflict (you changed it too). | Sync |
 | **Name clash** | A name already in use when copying. The choices read Keep both, Use the existing one, Leave it out. | Collision, merge, skip |
 | **Built on** | One repository builds on another | Bridge, depends on, draws on |
+| **Include in this repository** | How a repository built on another carries it: the other's entries become this repository's own when a release is made, and a library that copies it never needs the other. The API calls this `include`. | Flatten, merge, absorb |
+| **Keep separate and visible** | How a repository built on another carries it by default: the other stays a repository of its own, and a library that copies this one is given it too. The API calls this `show`. | Link, reference |
+| **May be included** | The switch of a repository's Owner: whether a repository built on it may include it. Under "How repositories built on this one may use it". | Allow flattening, share |
+| **Includes content from** | The line of a repository's page that names what it includes, with its licence. | Based on, derived from |
+| **Listed on Discover** | The switch of a public repository's Owner: whether Discover shows it. Off, it is still public: its page and its address work, and a library can copy it. The API calls this `listed`. | Visible, searchable, hidden, private |
+| **Protected** | A repository that is on no listing and that no library copies on its own: a library gets it with a public repository built on it, and reads it for as long as it holds one. The API calls this `protected`. | Hidden, unlisted, secret, internal |
+| **A protected repository** | What a library calls a protected repository it holds through another: it is never named to it. | The name of the repository, its address |
+| **How repositories built on this one may use it** | The card of a repository's Owner with the presets and the switches that say what a repository built on it may do with it. | Permissions, licence, sharing |
+| **Open** | The preset: a repository built on this one may include it, or keep it separate, visible or hidden. | Public, free |
+| **Stay hidden** | The preset: a repository built on this one may include it or keep it separate and hidden, and may not keep it separate and visible. Only a protected repository can ask for it. | Sealed, locked, private |
+| **May be shown** | The switch of a protected repository's Owner: whether a repository built on it may keep it separate and visible. | Allow link, expose |
+| **Keep separate and hidden** | How a repository built on another carries it: the other stays a repository of its own, and a library that copies this one holds its entries and does not see them. The API calls this `hide`. | Conceal, secret, private |
+| **May be hidden** | The switch of a protected repository's Owner: whether a repository built on it may keep it separate and hidden. | Allow concealing, seal |
+| **A hidden entry** | What a library calls an entry it holds and does not see, wherever a name would give it away: where a value or a text comes from ("From a hidden entry"), a change in an update. | The name of the entry, its address |
+| **Changes to hidden entries** | The words for what an update does to entries a library hides: a count and no names, taken with the rest ("3 changes to hidden entries"). | Hidden rows, updates to the source |
 | **Check first** | Try a copy or an update without changing anything | Dry run |
 
 An attachment (a parent that a repository adds to something a library copied) has
@@ -1544,6 +1573,10 @@ account**. Neither "identity" nor the name of the sign-in provider is shown.
 | subscription, grant | invite a library, libraries using it | subscribe, grant |
 | `copy-plan`, dry run | copy, check first | |
 | `published_at`, release | published, release | version |
+| `relationship`, standing | relationship, standing | link, score |
+| social web | web | network, graph (as a name) |
+| unreadable by this reader | absent (not shown) | hidden, locked |
+| no value for the date | unknown | none, N/A |
 
 ---
 
@@ -1607,6 +1640,16 @@ An icon-only control names the control, not the artwork inside it:
 ```
 
 Prefer visible text where practical. Use native `<button>`, `<a>`, `<details>`, and other semantic elements rather than making a bare SVG interactive. See §17 for the icon system itself.
+
+### 15.7 Keyboard, pointer and sight on the web
+
+- **A keyboard path for everything.** Single-key shortcuts can be switched off or remapped (WCAG 2.1.4); the palette reaches every command.
+- **Hover never carries a function or information.** Remove every hover style and nothing is lost.
+- **Tables that edit are an ARIA grid** with arrow keys, and the edit state is announced.
+- **A graph can be read without sight:** the same facts are in a list or matrix view, and labels sit outside focusable elements.
+- **A refusal and a state change are announced** in a live region; an error toast stays until closed.
+
+See [docs/design/web](../design/web/README.md).
 
 ---
 
@@ -1735,6 +1778,8 @@ Create a custom icon only when Lorenzo has a genuine domain concept that Tabler 
 
 A custom icon should visually belong beside Tabler and follow the same geometry and stroke conventions. Keep Lorenzo-owned custom icons separate from third-party originals. The spark is a brand asset, not a fallback custom icon.
 
+A Relationship is two overlapping rings and a Social web is the hub-and-spokes mark of `icon-social`; both are added with the Social app ([ADR 0424](../adr/0424-social-redesign.md)).
+
 ### 17.5 Semantic naming
 
 Application-facing icon names describe meaning, not upstream artwork. Prefer `icon-delete`, `icon-private`, `icon-location`, `icon-warning`, `icon-history` over `icon-trash`, `icon-lock`, `icon-pin`, `icon-triangle`, `icon-clock`.
@@ -1834,6 +1879,10 @@ The same primitives should carry across every surface that draws one of these, n
 - **world map** — ordinary locations vs. canonical/reference anchors
 
 That consistency is the actual payoff: Lorenzo should have one recognizable way of saying direct, derived, uncertain, selected, restricted, and canonical — not a different visual language for every feature that happens to draw a graph.
+
+### 18.5 Standings, dates and reading as someone else
+
+Where a number is a standing (a stat on a relationship), it is told as a number, a quiet bar and a mark and a word per state (inherited, derived, unknown, two fills one cell), never by colour alone. A date lens and "as read by" are switches with a line saying what is on and a way to clear it; unknown is dotted in a graph and worded "unknown" elsewhere, and something the reader may not see is absent, not greyed. Focus dims everything but the selection and its neighbours. See [docs/design/web](../design/web/README.md)/social.
 
 ---
 

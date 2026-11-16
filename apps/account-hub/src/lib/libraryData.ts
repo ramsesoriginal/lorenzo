@@ -2,6 +2,7 @@
 // the hover prefetch (lib/prefetch.ts), so warming a library asks for exactly what opening it does.
 import { ApiError } from './apiError';
 import { campaignRoleFor, isTenantAdmin } from './format';
+import { listLibraryRepositories } from './repositories';
 import {
   getCampaign,
   getTenant,
@@ -13,9 +14,11 @@ import {
 } from './tenants';
 import type {
   CampaignSummaryOut,
+  GmOut,
   MeOut,
   PlayerSummaryOut,
   RosterEntry,
+  SubscriptionOut,
   TenantSummaryOut,
 } from './types';
 
@@ -28,8 +31,26 @@ export type LibraryReads = {
   // Null where the caller isn't an administrator: it isn't fetched at all.
   roster: RosterEntry[] | null;
   gmsByCampaign: Map<string, string[]>;
+  // The same GMs with their names, for the campaigns the caller manages.
+  gmEntriesByCampaign: Map<string, GmOut[]>;
   playersByCampaign: Map<string, PlayerSummaryOut[]>;
+  // Campaigns whose people the caller may not read: an administrator who opted out of playing in one
+  // still lists it (the administrative axis), but its people are not theirs to see.
+  peopleHidden: Set<string>;
+  // The repositories offered to or copied by this library, for an administrator; null where they
+  // could not be read (the overview then leaves them out).
+  subscriptions: SubscriptionOut[] | null;
 };
+
+// A read the API refuses with "no such campaign" (an administrator's opt-out): null, not a failure.
+async function orHidden<T>(read: Promise<T>): Promise<T | null> {
+  try {
+    return await read;
+  } catch (cause) {
+    if (cause instanceof ApiError && cause.status === 404) return null;
+    throw cause;
+  }
+}
 
 export async function readLibrary(tenant: TenantSummaryOut, me: MeOut): Promise<LibraryReads> {
   const admin = isTenantAdmin(tenant);
@@ -40,13 +61,15 @@ export async function readLibrary(tenant: TenantSummaryOut, me: MeOut): Promise<
   // this for every tenant listMyTenants() returns, including
   // participant-only ones (Player/CampaignGm standing, no Membership),
   // 404'd uncaught and broke this whole page for that caller.
-  const [campaignPage, rosterPage, detail] = await Promise.all([
+  const [campaignPage, rosterPage, detail, , offered] = await Promise.all([
     listTenantCampaigns(tenant.id),
     admin ? listTenantRoster(tenant.id) : null,
     // The summary has no description; the detail read does.
     getTenant(tenant.id),
     // The activity log is drawn from its own read; asking now holds it for then, alongside the rest.
     admin ? listActivityLog(tenant.id).catch(() => undefined) : null,
+    // What the library draws on, for the overview; where it cannot be read the overview leaves it out.
+    admin ? listLibraryRepositories(tenant.id).catch(() => null) : null,
   ]);
   const campaigns = campaignPage.items;
   // The players of every campaign the caller manages: where a player's
@@ -59,8 +82,9 @@ export async function readLibrary(tenant: TenantSummaryOut, me: MeOut): Promise<
 
   // Everything that needs the campaigns, at once: one round after the first, not three.
   const [gmLists, playerPages, details] = await Promise.all([
-    admin ? Promise.all(campaigns.map((c) => listCampaignGms(tenant.id, c.id))) : [],
-    Promise.all(managed.map((c) => listCampaignPlayers(tenant.id, c.id))),
+    // Everyone who manages a campaign sees its GMs by name, a GM with no library membership too.
+    Promise.all(managed.map((c) => orHidden(listCampaignGms(tenant.id, c.id)))),
+    Promise.all(managed.map((c) => orHidden(listCampaignPlayers(tenant.id, c.id)))),
     // The list has no descriptions; each campaign's own read does.
     Promise.all(
       readable.map(async (c) => {
@@ -80,9 +104,10 @@ export async function readLibrary(tenant: TenantSummaryOut, me: MeOut): Promise<
     descriptions: new Map(details.flatMap((c) => (c ? [[c.id, c.description] as const] : []))),
     campaigns,
     roster: rosterPage?.items ?? null,
-    gmsByCampaign: new Map(
-      campaigns.map((c, i) => [c.id, (gmLists[i] ?? []).map((g) => g.user_id)]),
-    ),
+    gmsByCampaign: new Map(managed.map((c, i) => [c.id, (gmLists[i] ?? []).map((g) => g.user_id)])),
+    gmEntriesByCampaign: new Map(managed.map((c, i) => [c.id, gmLists[i] ?? []])),
     playersByCampaign: new Map(managed.map((c, i) => [c.id, playerPages[i]?.items ?? []])),
+    subscriptions: offered ?? null,
+    peopleHidden: new Set(managed.filter((_, i) => playerPages[i] === null).map((c) => c.id)),
   };
 }

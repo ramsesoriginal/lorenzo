@@ -2,7 +2,9 @@
 // What is open is in the address (`?repository=` a link name or id, or `?new=1` for the form that
 // makes one), so a link, Back and a reload all land where they were. Only the open one is loaded.
 
+import { pageState } from '@lorenzo/app-shell';
 import { onCacheRefreshed } from '../../lib/cache';
+import { BRANDING_CSS_URL } from '../../lib/config';
 import { isEditingIn } from '../../lib/editing';
 import { say, sayError } from '../../lib/statusLine';
 import { CREATE_NOT_OPEN, readStudioLocation, STUDIO_NEW_HREF, studioHref } from '../../lib/studio';
@@ -97,7 +99,7 @@ export async function renderStudioPanel(root: HTMLElement, me: MeOut): Promise<v
       }
 
       event.preventDefault();
-      navigate(view);
+      void navigate(view);
     });
     links.set(keyOf(view), link);
 
@@ -129,6 +131,19 @@ export async function renderStudioPanel(root: HTMLElement, me: MeOut): Promise<v
     createView.hidden = view.type !== 'new';
     emptyView.hidden = view.type !== 'empty';
 
+    // Nothing to work on: a page state with the mascot, in words either way.
+    if (view.type === 'empty' && emptyView.childElementCount === 0) {
+      emptyView.replaceChildren(
+        pageState(BRANDING_CSS_URL, {
+          art: 'empty-entries',
+          level: 2,
+          title: 'No repository yet',
+          text: 'You do not work on a repository yet. The Owner of a repository can add you to it.',
+          alt: 'An empty shelf',
+        }),
+      );
+    }
+
     if (view.type !== 'repository') repositoryView.hide();
 
     if (view.type === 'new') {
@@ -141,9 +156,9 @@ export async function renderStudioPanel(root: HTMLElement, me: MeOut): Promise<v
     if (view.type === 'repository') await repositoryView.show(view.repository);
   }
 
-  function navigate(view: View): void {
+  async function navigate(view: View): Promise<void> {
     // Something typed in a profile and not saved: asked about before the page goes elsewhere (ADR 0385).
-    if (current.type === 'repository' && !repositoryView.mayLeave()) return;
+    if (current.type === 'repository' && !(await repositoryView.mayLeave())) return;
 
     say(notice, '');
     window.history.pushState(null, '', urlFor(view));
@@ -186,7 +201,7 @@ export async function renderStudioPanel(root: HTMLElement, me: MeOut): Promise<v
 
       const repository = repositories.find((r) => r.id === created.id);
 
-      if (repository) navigate({ type: 'repository', repository });
+      if (repository) void navigate({ type: 'repository', repository });
       else await show(defaultView());
     } catch (cause) {
       sayError(error, cause);

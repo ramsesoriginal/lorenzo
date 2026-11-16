@@ -9,7 +9,7 @@ import {
   setLevel,
   watchAnswers,
 } from './preview-support';
-import { invite, newLibrary, newUser, publish, signedInPage } from './support';
+import { invite, newLibrary, newUser, publish, showOverview, signedInPage } from './support';
 
 // ADR 0293: what a reader may look at of a repository before copying it, on its page in Discover (a
 // visitor) and in Shelf (a library that holds it). The launcher sets PUBLIC_REPOSITORIES_ENABLED for
@@ -277,6 +277,7 @@ test('a library that holds the repository sees every name and the text the switc
 
   // At showcase: the featured entry with its text, on the repository's page.
   await page.goto(shelf);
+  await showOverview(page);
   await expect(page.locator('[data-detail-view]')).toBeVisible();
   await expect(look.getByRole('heading', { name: 'Look inside', level: 3 })).toBeVisible();
   await expect(look.locator('[data-preview-featured] > li')).toHaveCount(1);
@@ -307,6 +308,7 @@ test('a library that holds the repository sees every name and the text the switc
   // At public the Owner's switch opens every entry's text to a holder too.
   await setLevel(world.owner.api, world.repository.id, 'public');
   await page.goto(shelf);
+  await showOverview(page);
   await page.locator('[data-entries-section] summary').click();
   await page.getByRole('button', { name: 'Look at Basilisk' }).click();
   await expect(look.locator('[data-preview-dialog]')).toContainText('Turns the unwary to stone.');
@@ -315,6 +317,7 @@ test('a library that holds the repository sees every name and the text the switc
   // At off the names stay and there is nothing to look at: no featured card, no button.
   await setLevel(world.owner.api, world.repository.id, 'off');
   await page.goto(shelf);
+  await showOverview(page);
   await expect(look.locator('[data-preview-line]')).toContainText(
     'The Owner has not opened the text of this repository for a look.',
   );
@@ -377,6 +380,7 @@ test('at 375 pixels a holder`s look inside fits and its buttons are easy to pres
   });
 
   await page.goto(`/repositories/?tenant=${library.slug}&repository=${world.repository.id}`);
+  await showOverview(page);
 
   const look = page.locator('[data-detail-view] [data-preview]');
 

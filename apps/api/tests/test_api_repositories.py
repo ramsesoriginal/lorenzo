@@ -64,6 +64,11 @@ async def test_granting_publishing_browsing_and_removing(
         by_name = {e["name"]: e for e in entities["items"]}
         assert set(by_name) == {
             "Fixture road",
+            "Fixture bond",
+            "Fixture second bond",
+            "Fixture web",
+            "Fixture feature",
+            "Fixture feature held",
             "Blade",
             "Chest",
             "Elminster",

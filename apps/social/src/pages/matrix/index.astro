@@ -1,0 +1,11 @@
+---
+import Base from '../../layouts/Base.astro';
+---
+
+<Base title="Matrix — Lorenzo Social">
+  <div id="social-matrix" class="stack"></div>
+  <script>
+    import { mountMatrix } from '../../lib/matrix-view';
+    document.addEventListener('astro:page-load', () => void mountMatrix());
+  </script>
+</Base>
