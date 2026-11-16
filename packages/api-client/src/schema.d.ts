@@ -3792,6 +3792,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/tenants/{tenant_id}/locations/{location_id}/whereabouts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Location Whereabouts
+         * @description Where this Location is, as each character the reader may ask for would say it (ADR 0334,
+         *     ADR 0466), by character name. A reader who reaches every character is asked for all of them;
+         *     any other reader for their own and the ones their campaigns' GMs reach. Nothing is stored.
+         */
+        get: operations["location_whereabouts"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/tenants/{tenant_id}/entities/{entity_id}/address": {
         parameters: {
             query?: never;
@@ -9232,6 +9254,19 @@ export interface components {
             owner_player_id?: string | null;
         };
         /**
+         * CharacterWhereaboutsOut
+         * @description One character's answer to "where is it?": the character, and what they would say.
+         */
+        CharacterWhereaboutsOut: {
+            character: components["schemas"]["PlaceOut"];
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "with_you" | "stashed" | "elsewhere" | "unknown";
+            place?: components["schemas"]["PlaceOut"] | null;
+        };
+        /**
          * ChosenStepExplanationOut
          * @description The step a select took (ADR 0446): its position and key (a `from` or a value), or that none
          *     applied and `otherwise` gave the result.
@@ -13177,6 +13212,8 @@ export interface components {
             kinds: ("item" | "item_instance" | "being" | "character" | "fact" | "calendar" | "clock" | "location" | "map" | "connection" | "relationship" | "social_web" | "feature" | "feature_instance" | "calendar_period" | "event" | "observance" | "book" | "carrier" | "edition" | "chapter" | "scene_telling" | "scene" | "scene_appearance" | "session")[];
             /** Level Ordinal */
             level_ordinal?: string | null;
+            /** Map Count */
+            map_count?: number | null;
             /** Tie */
             tie?: ("tied" | "untied" | "other") | null;
         };
@@ -13195,6 +13232,8 @@ export interface components {
             kinds: ("item" | "item_instance" | "being" | "character" | "fact" | "calendar" | "clock" | "location" | "map" | "connection" | "relationship" | "social_web" | "feature" | "feature_instance" | "calendar_period" | "event" | "observance" | "book" | "carrier" | "edition" | "chapter" | "scene_telling" | "scene" | "scene_appearance" | "session")[];
             /** Level Ordinal */
             level_ordinal?: string | null;
+            /** Map Count */
+            map_count?: number | null;
             within?: components["schemas"]["LocationStub"] | null;
             /**
              * Updated At
@@ -13224,6 +13263,8 @@ export interface components {
             kinds: ("item" | "item_instance" | "being" | "character" | "fact" | "calendar" | "clock" | "location" | "map" | "connection" | "relationship" | "social_web" | "feature" | "feature_instance" | "calendar_period" | "event" | "observance" | "book" | "carrier" | "edition" | "chapter" | "scene_telling" | "scene" | "scene_appearance" | "session")[];
             /** Level Ordinal */
             level_ordinal?: string | null;
+            /** Map Count */
+            map_count?: number | null;
         };
         /**
          * MadePrivateOut
@@ -14436,6 +14477,19 @@ export interface components {
         Page_CharacterSummaryOut_: {
             /** Items */
             items: components["schemas"]["CharacterSummaryOut"][];
+            /** Total */
+            total: number;
+            /** Page */
+            page: number;
+            /** Size */
+            size: number;
+            /** Pages */
+            pages: number;
+        };
+        /** Page[CharacterWhereaboutsOut] */
+        Page_CharacterWhereaboutsOut_: {
+            /** Items */
+            items: components["schemas"]["CharacterWhereaboutsOut"][];
             /** Total */
             total: number;
             /** Page */
@@ -34682,6 +34736,75 @@ export interface operations {
             };
         };
     };
+    location_whereabouts: {
+        parameters: {
+            query?: {
+                page?: number;
+                size?: number;
+            };
+            header?: never;
+            path: {
+                tenant_id: string;
+                location_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_CharacterWhereaboutsOut_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
     get_address: {
         parameters: {
             query?: never;
@@ -34831,6 +34954,8 @@ export interface operations {
                 tied_day?: number | null;
                 /** @description Leave out the Maps tied only to other dates (with a date). */
                 exclude_other?: boolean;
+                /** @description Only the Maps this entry is placed on (an entry the reader may see). */
+                placed?: string | null;
                 page?: number;
                 size?: number;
             };
