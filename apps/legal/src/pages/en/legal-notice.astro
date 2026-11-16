@@ -1,0 +1,19 @@
+---
+import DocView from '../../components/DocView.astro';
+import Legal from '../../layouts/Legal.astro';
+import { pageFor } from '../../lib/site';
+
+const page = pageFor('notice', 'en');
+---
+
+<Legal
+  lang="en"
+  title={page.title}
+  profile={page.profile}
+  changed={page.changed}
+  other={page.other}
+  notice={page.paths.notice}
+  policy={page.paths.policy}
+>
+  <DocView doc={page.doc} lang="en" />
+</Legal>

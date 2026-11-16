@@ -78,6 +78,15 @@ describe('a row in a line', () => {
     ).toBe('Invited 2026-10-01, copied 2026-10-02.');
   });
 
+  it('says to the Owner that a repository includes it in its own release', () => {
+    expect(usingLine(subscriber({ copied_at: '2026-10-02T10:00:00Z', inclusion: 'include' }))).toBe(
+      'Invited 2026-10-01, copied 2026-10-02, includes it in its own release.',
+    );
+    expect(usingLine(subscriber({ copied_at: '2026-10-02T10:00:00Z', inclusion: 'show' }))).toBe(
+      'Invited 2026-10-01, copied 2026-10-02.',
+    );
+  });
+
   it('says what a copy that outlived its invitation means', () => {
     expect(usingLine(subscriber({ granted_at: null, copied_at: '2026-10-02T10:00:00Z' }))).toBe(
       'copied 2026-10-02. It keeps its copy and gets no more updates unless you invite it again.',
@@ -179,6 +188,28 @@ describe('built on', () => {
       checkable: true,
       line: 'copied 2026-10-02, last updated 2026-10-04.',
     });
+  });
+
+  it('carries how a repository that copied it carries it, and whether the Owner may include it', () => {
+    const [shown, library] = builtOn([
+      subscription({
+        name: 'Armoury',
+        copied_at: '2026-10-02T10:00:00Z',
+        inclusion: 'show',
+        includable: { allowed: true, by: 'terms' },
+        inclusion_in_release: 'include',
+      }),
+      subscription({ name: 'Zeta', copied_at: '2026-10-02T10:00:00Z' }),
+    ]);
+
+    expect(shown).toMatchObject({
+      inclusion: 'show',
+      includable: { allowed: true, by: 'terms' },
+      inclusionInRelease: 'include',
+    });
+    // A library, or an invitation not yet used, has no choice to make.
+    expect(library).toMatchObject({ inclusion: null, includable: null, inclusionInRelease: null });
+    expect(builtOn([subscription({ name: 'Core', inclusion: 'show' })])[0]?.inclusion).toBeNull();
   });
 
   it('checks only a copy of what is still offered and published', () => {

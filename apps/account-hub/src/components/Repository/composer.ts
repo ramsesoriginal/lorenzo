@@ -5,6 +5,7 @@
 // ReleaseComposer.astro.
 
 import { ApiError } from '../../lib/apiError';
+import { inclusionChangeLines, inclusionChangesOf } from '../../lib/inclusion';
 import {
   ACKNOWLEDGE_TEXT,
   breakingLines,
@@ -19,7 +20,7 @@ import {
   warningLines,
 } from '../../lib/releases';
 import { requiredIn } from '../../lib/template';
-import type { BreakingRowOut, ReleasePreviewOut } from '../../lib/types';
+import type { BreakingRowOut, InclusionChangeOut, ReleasePreviewOut } from '../../lib/types';
 
 const required = requiredIn('Repository');
 
@@ -28,8 +29,9 @@ export type Composer = {
   // Empties the form and shows what a release made now would contain.
   show(preview: ReleasePreviewOut): void;
   form(): ComposerForm;
-  // What the release would break, as the preview or the API's refusal says.
-  hits(): BreakingRowOut[];
+  // What the release would break, as the preview or the API's refusal says: the rows, and the
+  // repositories it would carry differently from the last public release (ADR 0431).
+  hits(): (BreakingRowOut | InclusionChangeOut)[];
   // The API refused for what the preview did not see: the rows are shown, to be acknowledged. True
   // when that is what the refusal was.
   refused(cause: unknown): boolean;
@@ -65,11 +67,15 @@ export function createComposer(dialog: ParentNode): Composer {
   label.maxLength = LABEL_MAX;
 
   let hits: BreakingRowOut[] = [];
+  let changes: InclusionChangeOut[] = [];
 
-  function showHits(rows: BreakingRowOut[]): void {
+  function showHits(rows: BreakingRowOut[], carried: InclusionChangeOut[] = []): void {
     hits = rows;
-    breaksLines.replaceChildren(...breakingLines(rows).map(item));
-    breaksBox.hidden = rows.length === 0;
+    changes = carried;
+    breaksLines.replaceChildren(
+      ...[...inclusionChangeLines(carried), ...breakingLines(rows)].map(item),
+    );
+    breaksBox.hidden = rows.length === 0 && carried.length === 0;
   }
 
   // What the release only says: said, never refused, nothing to acknowledge.
@@ -94,7 +100,7 @@ export function createComposer(dialog: ParentNode): Composer {
 
       hint.textContent = description ?? '';
       hint.hidden = description === null;
-      showHits(preview.breaking);
+      showHits(preview.breaking, preview.inclusion_changes ?? []);
       showWarnings(preview.warnings);
     },
 
@@ -108,7 +114,7 @@ export function createComposer(dialog: ParentNode): Composer {
     },
 
     hits() {
-      return hits;
+      return [...changes, ...hits];
     },
 
     refused(cause) {
@@ -118,7 +124,10 @@ export function createComposer(dialog: ParentNode): Composer {
 
       const rows = cause.problem.breaking_rows;
 
-      showHits(Array.isArray(rows) ? (rows as BreakingRowOut[]) : []);
+      showHits(
+        Array.isArray(rows) ? (rows as BreakingRowOut[]) : [],
+        inclusionChangesOf(cause.problem),
+      );
       acknowledge.checked = false;
 
       return true;

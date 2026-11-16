@@ -72,8 +72,22 @@ describe('statRows and sourceOf', () => {
     ],
     {
       stats: [
-        { name: 'weight', value: 3, own: true, computed: false },
-        { name: 'reach', value: 1.5, own: false, computed: false },
+        {
+          stat_definition_id: 'sd-1',
+          group_id: 'g-1',
+          name: 'weight',
+          value: 3,
+          own: true,
+          computed: false,
+        },
+        {
+          stat_definition_id: 'sd-2',
+          group_id: 'g-1',
+          name: 'reach',
+          value: 1.5,
+          own: false,
+          computed: false,
+        },
       ],
     },
   );

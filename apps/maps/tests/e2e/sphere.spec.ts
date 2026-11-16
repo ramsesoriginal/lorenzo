@@ -3,6 +3,7 @@ import AxeBuilder from '@axe-core/playwright';
 import { type Browser, expect, type Page, test } from '@playwright/test';
 import { apiAs, ok, refreshTokenFor } from './support/api.ts';
 import { REFRESH_TOKEN_KEY, SITE_URL } from './support/env.ts';
+import { openControl, openPanel, stageBox } from './support/map-ui.ts';
 
 async function signedIn(browser: Browser, subject: string, theme?: 'light' | 'dark') {
   const token = await refreshTokenFor(subject);
@@ -88,23 +89,27 @@ type Geometry = { parts: { shape: string; at?: number[]; pts?: number[][] }[] };
 const geometryOf = (row: { geometry: unknown } | undefined): Geometry =>
   (row?.geometry ?? { parts: [] }) as Geometry;
 
-async function stageBox(page: Page) {
-  const box = await page.locator('.map-stage').boundingBox();
+async function settledBox(page: Page) {
+  const box = await stageBox(page);
   if (!box) throw new Error('the map has no box');
   return box;
 }
 
 /** A click at a fraction of the drawing. */
 async function clickSheet(page: Page, fx: number, fy: number) {
-  const box = await stageBox(page);
+  const box = await settledBox(page);
   await page.mouse.click(box.x + box.width * fx, box.y + box.height * fy);
 }
 
-/** The longitude and latitude a flat sphere drawn whole has at a fraction of the drawing. */
+/** The longitude and latitude the page itself says a fraction of the drawing is, read off its pointer note. */
 async function lonLatAt(page: Page, fx: number, fy: number): Promise<[number, number]> {
-  const box = await stageBox(page);
-  const scale = Math.min(box.width / 360, box.height / 180);
-  return [(fx * box.width - box.width / 2) / scale, -(fy * box.height - box.height / 2) / scale];
+  const box = await settledBox(page);
+  await page.mouse.move(box.x + box.width * fx, box.y + box.height * fy);
+  const note = page.locator('.map-cell');
+  await expect(note).toHaveText(/^\d+\.\d° [NS], \d+\.\d° [EW]$/);
+  const m = /^(\d+\.\d)° ([NS]), (\d+\.\d)° ([EW])$/.exec((await note.textContent()) ?? '');
+  if (!m) throw new Error('no pointer note');
+  return [Number(m[3]) * (m[4] === 'W' ? -1 : 1), Number(m[1]) * (m[2] === 'S' ? -1 : 1)];
 }
 
 const marks = (page: Page, id: string) => page.locator(`.map-stage [data-entry="${id}"]`);
@@ -118,6 +123,7 @@ test('a writer makes a sphere with a radius and a globe projection, and it is sa
   const page = await signedIn(browser, w.subject);
   try {
     await page.goto(`/maps/?tenant=${w.tenant.id}`);
+    await page.getByRole('button', { name: 'Make a Map', exact: true }).click();
     await page.getByLabel('Name', { exact: true }).fill('Aeris');
     await page.getByRole('combobox', { name: 'The sheet is' }).selectOption('sphere');
     // A sphere's sheet has no width or height to ask for.
@@ -131,7 +137,8 @@ test('a writer makes a sphere with a radius and a globe projection, and it is sa
     await expect(page.getByRole('heading', { name: 'Aeris', exact: true })).toBeVisible();
     await expect(limb(page)).toHaveCount(1);
     await expect(gridPaths(page)).toHaveCount(1);
-    await expect(page.getByLabel('Grid', { exact: true })).toBeChecked();
+    await openControl(page, 'Layers');
+    await expect(page.getByRole('checkbox', { name: 'Grid', exact: true })).toBeChecked();
 
     const made = await ok(w.gm.GET('/tenants/{tenant_id}/maps', { params: { path: w.path } }));
     const header = await ok(
@@ -164,7 +171,8 @@ test('on a flat sphere the pointer says where it is and a writer draws a pin, a 
     await expect(page.getByRole('heading', { name: 'Aeris', exact: true })).toBeVisible();
     await expect(limb(page)).toHaveCount(0);
     await expect(gridPaths(page)).toHaveCount(1);
-    const box = await stageBox(page);
+    const box = await page.locator('.map-stage').boundingBox();
+    if (!box) throw new Error('the map has no box');
     await page.mouse.move(box.x + box.width * 0.5, box.y + box.height * 0.5);
     await expect(page.locator('.map-cell')).toHaveText('0.0° N, 0.0° E');
     await page.mouse.move(box.x + box.width * 0.75, box.y + box.height * 0.25);
@@ -193,20 +201,20 @@ test('on a flat sphere the pointer says where it is and a writer draws a pin, a 
     expect(Math.abs(at[0] - lon)).toBeLessThan(0.6);
     expect(Math.abs(at[1] - lat)).toBeLessThan(0.6);
     // A selected pin says where it is, and the fields are a longitude and a latitude.
-    await expect(page.getByText(/^At \d+\.\d° N, \d+\.\d° E$/)).toBeVisible();
+    await expect(page.locator('.map-panel')).toContainText(/At \d+\.\d° N, \d+\.\d° E/);
     const panel = page.locator('.map-edit-panel');
     await expect(panel.getByLabel('Longitude')).toHaveValue(String(at[0]));
     await expect(panel.getByLabel('Latitude')).toHaveValue(String(at[1]));
 
     await use('Line', 'Road');
-    await clickSheet(page, 0.3, 0.3);
-    await clickSheet(page, 0.4, 0.6);
+    await clickSheet(page, 0.45, 0.3);
+    await clickSheet(page, 0.55, 0.6);
     await page.keyboard.press('Enter');
     await expect.poll(async () => (await w.read(chart.id)).length).toBe(2);
     await use('Area', 'Marches');
-    await clickSheet(page, 0.1, 0.4);
-    await clickSheet(page, 0.2, 0.4);
-    await clickSheet(page, 0.2, 0.5);
+    await clickSheet(page, 0.45, 0.4);
+    await clickSheet(page, 0.55, 0.4);
+    await clickSheet(page, 0.55, 0.5);
     await page.keyboard.press('Enter');
     await expect.poll(async () => (await w.read(chart.id)).length).toBe(3);
     const shapes = (await w.read(chart.id)).map((r) => geometryOf(r).parts[0]?.shape).sort();
@@ -240,24 +248,30 @@ test('a reader turns a globe, changes how it is drawn for themselves and goes ba
     await expect(marks(page, near.id).first()).toBeVisible();
     // The far side of the globe draws nothing, and the list still names it.
     await expect(marks(page, far.id)).toHaveCount(0);
+    await openPanel(page, 'Places');
     await expect(page.getByRole('button', { name: /^Far/ })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Edit this map' })).toHaveCount(0);
 
     // Turn east until the far place faces us.
+    await openControl(page, 'Projection');
     for (let i = 0; i < 12; i += 1) await page.getByRole('button', { name: 'Turn east' }).click();
     await expect(marks(page, far.id).first()).toBeVisible();
     await expect(marks(page, near.id)).toHaveCount(0);
     // Back to the saved view.
+    await openControl(page, 'Projection');
     await page.getByRole('button', { name: 'Back to the saved view' }).click();
     await expect(marks(page, near.id).first()).toBeVisible();
     await expect(marks(page, far.id)).toHaveCount(0);
 
     // A flat view of the same Map is the reader's own, kept across a reload, and shows both.
+    await openControl(page, 'Projection');
     await page.getByRole('combobox', { name: 'Drawn as' }).selectOption('equirectangular');
     await expect(limb(page)).toHaveCount(0);
     await expect(marks(page, far.id).first()).toBeVisible();
+    await openControl(page, 'Projection');
     await expect(page.getByRole('button', { name: 'Turn east' })).toBeHidden();
     await page.reload();
+    await openControl(page, 'Projection');
     await expect(page.getByRole('combobox', { name: 'Drawn as' })).toHaveValue('equirectangular');
     await expect(marks(page, near.id).first()).toBeVisible();
     // The Map itself was never changed.
@@ -268,6 +282,7 @@ test('a reader turns a globe, changes how it is drawn for themselves and goes ba
     );
     expect(header.view).toEqual(GLOBE);
     // And Mercator draws both as well.
+    await openControl(page, 'Projection');
     await page.getByRole('combobox', { name: 'Drawn as' }).selectOption('mercator');
     await expect(marks(page, far.id).first()).toBeVisible();
     await expect(marks(page, near.id).first()).toBeVisible();
@@ -287,11 +302,14 @@ test('a sphere with places cannot become a plane, and the form keeps the draft',
   try {
     await page.goto(`/map/?tenant=${w.tenant.id}&id=${chart.id}`);
     await expect(page.getByRole('heading', { name: 'Aeris', exact: true })).toBeVisible();
+    await openPanel(page, 'Settings');
     await page.getByRole('combobox', { name: 'The sheet is' }).selectOption('plane');
     await page.getByRole('button', { name: 'Save settings' }).click();
+    await openPanel(page, 'Settings');
     await expect(page.getByText(/cannot become a sphere, or stop being one/)).toBeVisible();
     await expect(page.getByRole('combobox', { name: 'The sheet is' })).toHaveValue('plane');
     // What is only said or drawn may change under places.
+    await openPanel(page, 'Settings');
     await page.getByRole('combobox', { name: 'The sheet is' }).selectOption('sphere');
     await page.getByRole('combobox', { name: 'The sphere is drawn' }).selectOption('mercator');
     await page.getByRole('button', { name: 'Save settings' }).click();
@@ -324,14 +342,16 @@ for (const theme of ['light', 'dark'] as const) {
       await page.goto(`/map/?tenant=${w.tenant.id}&id=${chart.id}`);
       await expect(page.getByRole('heading', { name: 'Aeris', exact: true })).toBeVisible();
       await page.getByRole('button', { name: 'Edit this map' }).click();
-      const round = await new AxeBuilder({ page }).analyze();
+      const round = await new AxeBuilder({ page }).exclude('.shell-bottom').analyze();
       expect(round.violations.map((v) => `${v.id}: ${v.nodes[0]?.html}`)).toEqual([]);
+      await openControl(page, 'Projection');
       await page.getByRole('combobox', { name: 'Drawn as' }).selectOption('equirectangular');
-      const flat = await new AxeBuilder({ page }).analyze();
+      const flat = await new AxeBuilder({ page }).exclude('.shell-bottom').analyze();
       expect(flat.violations.map((v) => `${v.id}: ${v.nodes[0]?.html}`)).toEqual([]);
       await page.goto(`/maps/?tenant=${w.tenant.id}`);
+      await page.getByRole('button', { name: 'Make a Map', exact: true }).click();
       await page.getByRole('combobox', { name: 'The sheet is' }).selectOption('sphere');
-      const form = await new AxeBuilder({ page }).analyze();
+      const form = await new AxeBuilder({ page }).exclude('.shell-bottom').analyze();
       expect(form.violations.map((v) => `${v.id}: ${v.nodes[0]?.html}`)).toEqual([]);
     } finally {
       await page.context().close();

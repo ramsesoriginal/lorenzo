@@ -11,6 +11,12 @@ export type NavItem = {
   needsLibrary?: boolean;
   // An id in the brand's icons.svg without the `icon-` prefix, for the phone's tab bar.
   icon?: string;
+  // The link stays hidden until the app says the person may have it (`shell.allow(requires)`): a page
+  // that has nothing for someone is not offered to them.
+  requires?: string;
+  // Other pages that belong to this one, which keep it marked as the current page: the calendar's own
+  // page and an entry belong to the list of calendars.
+  also?: string[];
 };
 
 /** The saved choice if there is one, otherwise what the system prefers. */
@@ -18,6 +24,29 @@ export function initialTheme(saved: string | null, prefersDark: boolean): Theme 
   if (saved === 'light' || saved === 'dark') return saved;
 
   return prefersDark ? 'dark' : 'light';
+}
+
+/** What a person chose for the theme: one of the two, or the system's (nothing saved). */
+export type ThemeChoice = 'system' | 'light' | 'dark';
+
+export function themeChoiceOf(saved: string | null): ThemeChoice {
+  return saved === 'light' || saved === 'dark' ? saved : 'system';
+}
+
+/** How tall a row is, and how much room around it (D22): never the type's size. */
+export type Density = 'comfortable' | 'compact' | 'dense';
+
+export const DENSITIES: Density[] = ['comfortable', 'compact', 'dense'];
+
+export function densityOf(saved: string | null): Density {
+  return saved === 'compact' || saved === 'dense' ? saved : 'comfortable';
+}
+
+/** Motion: the system's wish (reduced motion or not), or reduced whatever the system says. */
+export type Motion = 'system' | 'reduced';
+
+export function motionOf(saved: string | null): Motion {
+  return saved === 'reduced' ? 'reduced' : 'system';
 }
 
 export function otherTheme(theme: Theme): Theme {
@@ -40,22 +69,35 @@ export function navHref(item: Pick<NavItem, 'href' | 'needsLibrary'>, library: s
 }
 
 /** Whether a link to `href` is the page at `pathname`, with or without a trailing slash. */
-export function isCurrentPage(href: string, pathname: string): boolean {
+export function isCurrentPage(href: string, pathname: string, also: string[] = []): boolean {
   const normal = (path: string) => (path.endsWith('/') ? path : `${path}/`);
 
-  return normal(href) === normal(pathname);
+  return [href, ...also].some((path) => normal(path) === normal(pathname));
 }
 
-/** The real date and time for the status bar, e.g. "Thu 6 Nov, 09:41", in the reader's language. */
+/** The locale the clock is written in: the page's language, and for plain English the day-first form the design draws. */
+export function clockLocale(lang: string | null | undefined): string | undefined {
+  const tag = (lang ?? '').trim();
+
+  if (tag === '') return undefined;
+
+  return tag.toLowerCase() === 'en' ? 'en-GB' : tag;
+}
+
+/** The real date and time for the status bar, e.g. "Wed 4 November at 20:59", in the reader's language. */
 export function clockText(now: Date, locale?: string): string {
-  const day = new Intl.DateTimeFormat(locale, {
+  return new Intl.DateTimeFormat(locale, {
     weekday: 'short',
     day: 'numeric',
-    month: 'short',
+    month: 'long',
+    hour: '2-digit',
+    minute: '2-digit',
   }).format(now);
-  const time = new Intl.DateTimeFormat(locale, { hour: '2-digit', minute: '2-digit' }).format(now);
+}
 
-  return `${day}, ${time}`;
+/** The time of day alone, "19:40", for "Synced 19:40". */
+export function timeText(at: Date, locale?: string): string {
+  return new Intl.DateTimeFormat(locale, { hour: '2-digit', minute: '2-digit' }).format(at);
 }
 
 /**

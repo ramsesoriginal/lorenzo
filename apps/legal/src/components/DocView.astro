@@ -1,0 +1,49 @@
+---
+import type { Doc, Lang } from '../lib/doc';
+
+interface Props {
+  doc: Doc;
+  lang: Lang;
+}
+
+const { doc, lang } = Astro.props;
+---
+
+{doc.sections.map((section) => (
+  <section class="stack" id={section.id} aria-labelledby={`${section.id}-h`}>
+    <h2 id={`${section.id}-h`}>{section.heading[lang]}</h2>
+    {section.blocks.map((block) => {
+      if ('p' in block) return <p>{block.p[lang]}</p>;
+      if ('ul' in block)
+        return (
+          <ul>
+            {block.ul.map((item) => (
+              <li>{item[lang]}</li>
+            ))}
+          </ul>
+        );
+      return (
+        <div style="overflow-x: auto">
+          <table>
+            <thead>
+              <tr>
+                {block.table.head.map((cell) => (
+                  <th scope="col">{cell[lang]}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {block.table.rows.map((row) => (
+                <tr>
+                  {row.map((cell) => (
+                    <td>{cell[lang]}</td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      );
+    })}
+  </section>
+))}

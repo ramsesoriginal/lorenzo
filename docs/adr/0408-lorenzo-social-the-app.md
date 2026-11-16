@@ -82,3 +82,19 @@ Offline use, an installable shell, a native app, a matrix on a phone, and Bench'
 - The type pickers (a relationship's type, the matrix, a web's limit) offer only the **types** the library has: what
   `GET /relationship-types` returns, which is an entry that relationships are of, that holds the library's type stats,
   or that a type inherits from.
+
+## Addendum: notes on relationships and webs (2026-11-06)
+
+- A relationship and a web are entries, so they hold **notes** like every entry (RFC 0044, ADR 0304). Their pages have a
+  Notes section that reads the notes the person may read and, for who may, adds and changes them. Nothing is added to
+  the API: it is the entry's own information, read from `GET /entities/{id}` and written through the same bundle calls
+  as the other apps.
+- The controls are the ones the other apps share: the LorenzoScript editor with its toolbar (the date tool is left out, as
+  in the Calendars and Sessions apps), ordered text and picture parts, and the audience control a note
+  has of its own (restricted when made; opened to the library or to named characters, groups and players afterwards).
+  `@lorenzo/information-editor`, `@lorenzo/lorenzoscript` and `@lorenzo/lorenzoscript-editor` are therefore
+  dependencies of the app.
+- A link to an entry in a note goes to the app that draws it: here for a relationship or a web, otherwise the address in
+  the registry of app links (ADR 0273), and the text of the entry's name when none is known.
+- The section draws itself again after a save, so the drawing of a web and a form being filled in on the page are left
+  as they are.

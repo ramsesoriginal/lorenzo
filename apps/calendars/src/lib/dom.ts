@@ -1,3 +1,4 @@
+import { type MascotId, pageState } from '@lorenzo/app-shell';
 import { namedParams, tenantAddress } from './addresses';
 import { BRANDING_CSS_URL } from './config';
 import { prefetchCalendar, prefetchEntry } from './prefetch';
@@ -187,8 +188,16 @@ export function failure(text: string): HTMLElement {
   return p;
 }
 
-/** Nothing here yet: what is missing, and what to do about it. */
-export function emptyState(title: string, text: string): HTMLElement {
+/**
+ * Nothing here yet: what is missing, and what to do about it. With a mascot id the shared page state
+ * draws the brand's image; until the image is delivered its alt text and these words stand.
+ */
+export function emptyState(title: string, text: string, art?: MascotId): HTMLElement {
+  if (art) {
+    const state = pageState(BRANDING_CSS_URL, { art, level: 2, title, text });
+    state.classList.add('card', 'card-body', 'empty-state');
+    return state;
+  }
   const box = el('div', '', 'card card-body stack-tight empty-state');
   box.append(el('p', title, 'display empty-title'), el('p', text, 'lede'));
   return box;
