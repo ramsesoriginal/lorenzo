@@ -827,3 +827,63 @@ def template_summary(template: Template, slugs: dict[uuid.UUID, str]) -> Templat
 
 async def system_slugs(session: SessionDep, tenant_id: uuid.UUID) -> dict[uuid.UUID, str]:
     return await _slugs(session, tenant_id)
+
+
+# How many stats a card takes from a template (the card of an item takes four, ADR 0264).
+CARD_STATS = 4
+
+
+async def card_stats(
+    session: SessionDep,
+    *,
+    tenant_id: uuid.UUID,
+    entity_id: uuid.UUID,
+    kinds: Sequence[str],
+    stats: Sequence[EntityStatValueOut],
+) -> list[tuple[str, int | float | str | bool]]:
+    """The stats the card of an entry shows when the library says which, by a template (ADR 0468):
+    the first template, by name, whose filter matches the entry and that has a `stats` slot, and the
+    stats of that slot's first such slot in its order, as the template labels them (a group's by the
+    entry's own order, less what it leaves out), the ones the entry has a value for, tags left out,
+    at most `CARD_STATS`. Empty when no template says."""
+    templates = (
+        await session.scalars(
+            select(Template)
+            .where(
+                Template.tenant_id == tenant_id,
+                await unhidden(session, tenant_id, Template.required_ancestor_entry_id),
+            )
+            .options(*_SLOT_LOAD)
+            .order_by(Template.name, Template.id)
+        )
+    ).all()
+    if not templates:
+        return []
+    ancestors = await _prototype_ancestors(session, tenant_id, entity_id)
+    for template in templates:
+        if not _matches(template, kinds, ancestors):
+            continue
+        slot = next((s for s in template.slots if s.kind == "stats"), None)
+        if slot is None:
+            continue
+        labels = {x.stat_definition_id: x.label for x in slot.stats}
+        if slot.stat_group_id is not None:
+            left_out = {e.stat_definition_id for e in slot.exclusions}
+            shown = [
+                s
+                for s in stats
+                if s.group_id == slot.stat_group_id and s.stat_definition_id not in left_out
+            ]
+        else:
+            by_value = {s.stat_definition_id: s for s in stats}
+            shown = [
+                by_value[x.stat_definition_id]
+                for x in slot.stats
+                if x.stat_definition_id in by_value
+            ]
+        return [
+            (labels.get(s.stat_definition_id) or s.name, s.value)
+            for s in shown
+            if not isinstance(s.value, bool)
+        ][:CARD_STATS]
+    return []

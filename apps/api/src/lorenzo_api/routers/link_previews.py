@@ -38,6 +38,7 @@ from lorenzo_api.models import (
     formula_load_options,
 )
 from lorenzo_api.models.entity_view_mixin import description_pairs
+from lorenzo_api.routers.templates import card_stats
 from lorenzo_api.schemas.entities import _kinds_out, _stats_out
 from lorenzo_api.schemas.link_previews import LinkPreviewOut, LinkPreviewStatOut
 from lorenzo_api.stat_contents import attach_contents
@@ -128,6 +129,9 @@ async def get_entity_preview(
             selectinload(Entity.item_instance),
             selectinload(Entity.location),
             selectinload(Entity.map),
+            # What makes an entry a feature, or one a holder has (ADR 0454): its card needs it.
+            selectinload(Entity.feature_marker),
+            selectinload(Entity.feature_instance_marker),
             selectinload(Entity.being).selectinload(Being.character),
         )
     )
@@ -147,6 +151,18 @@ async def get_entity_preview(
         for stat in entity.effective_stats
         if stat.stat_definition.role is not None
     }
+    # A feature, or one a holder has, shows the stats a template of the library names (ADR 0468);
+    # any other kind has the card its kind has (ADR 0264).
+    if {"feature", "feature_instance"} & set(kinds):
+        picked = await card_stats(
+            session,
+            tenant_id=tenant_id,
+            entity_id=entity.id,
+            kinds=kinds,
+            stats=_stats_out(entity, visibility),
+        )
+    else:
+        picked = pick_stats(template, values, roles)
     return LinkPreviewOut(
         entity_id=entity.id,
         name=entity.name,
@@ -156,7 +172,7 @@ async def get_entity_preview(
         picture_url=_main_picture_url(sources, request, visibility),
         stats=[
             LinkPreviewStatOut(name=name, value=value)
-            for name, value in pick_stats(template, values, roles)
+            for name, value in picked
             if not isinstance(value, bool)
         ],
         excerpt=_excerpt(sources, template, visibility),

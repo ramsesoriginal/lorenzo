@@ -14,6 +14,7 @@ copies of its dependencies.
 import re
 import uuid
 from collections import defaultdict
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from decimal import Decimal
 from typing import Any, Literal
@@ -126,6 +127,8 @@ from lorenzo_api.repository_content import (
     origin_namer,
     stat_definition_snapshot,
     stat_group_snapshot,
+    system_snapshot,
+    template_snapshot,
 )
 from lorenzo_api.repository_deprecation import copy_refusal
 from lorenzo_api.repository_hiding import carries_of, refresh_hidden
@@ -133,7 +136,7 @@ from lorenzo_api.repository_reach import PROTECTED_NAME
 from lorenzo_api.repository_upstream import load_upstream, upstream_copies, visibility_of
 from lorenzo_api.svg_lint import SvgRefused, check_svg
 
-CollisionKind = Literal["stat_group", "stat_definition", "stat_role", "slug"]
+CollisionKind = Literal["stat_group", "stat_definition", "stat_role", "slug", "template"]
 Action = Literal["rename", "merge", "skip"]
 
 # ADR 0107's slug grammar (schemas.common.Slug).
@@ -467,7 +470,8 @@ class _Planner:
         # Origin id -> local id, per kind: the tenant's links, then every
         # row this plan copies or merges.
         self.local = {
-            kind: links.local_of(kind) for kind in ("entity", "stat_group", "stat_definition")
+            kind: links.local_of(kind)
+            for kind in ("entity", "stat_group", "stat_definition", "system", "template")
         }
         self.group_names: dict[str, uuid.UUID] = {}
         # The library's game systems by slug, then every one this plan makes, and the names of its
@@ -614,16 +618,22 @@ class _Planner:
             step.dropped.append(Dropped(kind, source_id, reason))
 
         # Game systems are joined by slug when the library has one (its name and root stay) and
-        # made when it has not; a repository added to by an update brings none (ADR 0453). The
-        # rows come once the entries have ids, since a system's root is an entry.
+        # made when it has not (ADR 0453); each is linked, as a stat group is, so an update can find
+        # what changed (ADR 0469). The rows come once the entries have ids, since a system's root is
+        # an entry.
         new_systems: list[tuple[uuid.UUID, dict[str, Any]]] = []
-        if only is None:
-            for system_id in sorted(c.systems, key=lambda s: c.systems[s]["slug"]):
-                system = c.systems[system_id]
-                if system["slug"] not in self.system_ids:
-                    self.system_ids[system["slug"]] = uuid.uuid4()
-                    new_systems.append((self.system_ids[system["slug"]], system))
-                    step.systems += 1
+        linked_systems: list[tuple[uuid.UUID, str]] = []
+        for system_id in sorted(
+            (s for s in c.systems if copies("system", s)), key=lambda s: c.systems[s]["slug"]
+        ):
+            system = c.systems[system_id]
+            if system["slug"] not in self.system_ids:
+                self.system_ids[system["slug"]] = uuid.uuid4()
+                new_systems.append((self.system_ids[system["slug"]], system))
+                step.systems += 1
+                linked_systems.append((system_id, "copied"))
+            else:
+                linked_systems.append((system_id, "merged"))
 
         # Stat groups.
         for g in sorted(
@@ -812,6 +822,19 @@ class _Planner:
         own = [e for e in c.entities if copies("entity", e)]
         for e in own:
             self.local["entity"][e] = uuid.uuid4()
+        for system_id, mode in linked_systems:
+            if system_id in self.local["system"]:
+                continue
+            self.local["system"][system_id] = self.system_ids[c.systems[system_id]["slug"]]
+            self.rows["link_system"].append(
+                self._link(
+                    repository_id,
+                    system_id,
+                    self.local["system"][system_id],
+                    system_snapshot(c, system_id, origin_namer(c)),
+                    mode,
+                )
+            )
         for system_id, system in new_systems:
             root = system["root"]
             self.rows["system"].append(
@@ -1882,8 +1905,8 @@ class _Planner:
 
         self._plan_grant_rules(step)
         self._plan_grant_records(step)
+        self._plan_templates(step, copies, update=only is not None)
         if only is None:
-            self._plan_templates(step)
             self._plan_attachments(step)
 
         if record_copy:
@@ -1943,14 +1966,21 @@ class _Planner:
         system = c.systems.get(group_system) if group_system is not None else None
         return self.system_ids.get(system["slug"]) if system is not None else None
 
-    def _plan_templates(self, step: Step) -> None:
+    def _plan_templates(
+        self, step: Step, copies: Callable[[str, uuid.UUID], bool], *, update: bool = False
+    ) -> None:
         """Plans a repository's templates (ADR 0453), after its groups, stats and entries, whose
         ids they are re-pointed to. A template is left out, and reported, when the library has one
         of its name, or when its ancestor entry, a stat group or a stat it shows was not copied:
-        a template that shows less than it says would be a wrong one."""
+        a template that shows less than it says would be a wrong one. Each one made is linked, as
+        a stat group is, and the repository's own are all there are to copy (ADR 0469). An update
+        that adds one the library has a name for asks, to rename it or to skip it."""
         c = step.content
         assert c is not None
-        for template_id in sorted(c.templates, key=lambda t: c.templates[t]["name"]):
+        for template_id in sorted(
+            (t for t in c.templates if copies("template", t)),
+            key=lambda t: c.templates[t]["name"],
+        ):
             template = c.templates[template_id]
             name = template["name"]
 
@@ -1958,8 +1988,15 @@ class _Planner:
                 step.dropped.append(Dropped("template", template_id, reason))
 
             if name in self.template_names:
-                drop(f"the library already has a template called {name!r}")
-                continue
+                if not update:
+                    drop(f"the library already has a template called {name!r}")
+                    continue
+                choice = self._resolve(
+                    step, "template", template_id, name, None, ["rename", "skip"]
+                )
+                if choice is None or choice.action == "skip":
+                    continue
+                name = self._new_name(choice, taken=dict.fromkeys(self.template_names))
             ancestor = None
             if template["ancestor"] is not None:
                 ancestor = self._local(c, "entity", template["ancestor"])
@@ -1996,6 +2033,15 @@ class _Planner:
             self.template_names.add(name)
             system = c.systems.get(template["system"])
             new = uuid.uuid4()
+            self.local["template"][template_id] = new
+            self.rows["link_template"].append(
+                self._link(
+                    step.repository_id,
+                    template_id,
+                    new,
+                    template_snapshot(c, template_id, origin_namer(c)),
+                )
+            )
             self.rows["template"].append(
                 {
                     "id": new,

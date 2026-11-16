@@ -48,7 +48,7 @@ from lorenzo_api.repository_content import (
 )
 from lorenzo_api.roles import DEFINITION_ROLES, GROUP_ROLES
 
-FORMAT = 48
+FORMAT = 49
 _DEFINITION_ROLES = frozenset(DEFINITION_ROLES)
 _GROUP_ROLES = frozenset(GROUP_ROLES)
 
@@ -382,6 +382,9 @@ _LINKS = _dataclass(
         "entity": _id_map(_ID),
         "stat_group": _id_map(_ID),
         "stat_definition": _id_map(_ID),
+        # The links of a game system and of a template (format 49, ADR 0469).
+        "system": _id_map(_ID),
+        "template": _id_map(_ID),
         "origin_tenant": _id_map(_ID),
         "merged": _ID_SET,
         "deleted": _text_map(_ID_SET),
@@ -1000,6 +1003,13 @@ def _read_v47(document: Document, files: Mapping[str, bytes]) -> Content:
 
 
 def _read_v48(document: Document, files: Mapping[str, bytes]) -> Content:
+    # Before format 49 a system and a template had no copy links (ADR 0469): none is a copy.
+    return _read_v49(
+        {**document, "links": {"system": {}, "template": {}, **document["links"]}}, files
+    )
+
+
+def _read_v49(document: Document, files: Mapping[str, bytes]) -> Content:
     content: Content = _CONTENT.decode(document, dict(files))
     return content
 
@@ -1055,6 +1065,7 @@ READERS: dict[int, Callable[[Document, Mapping[str, bytes]], Content]] = {
     46: _read_v46,
     47: _read_v47,
     48: _read_v48,
+    49: _read_v49,
 }
 
 

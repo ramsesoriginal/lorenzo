@@ -58,11 +58,15 @@ from lorenzo_api.models import (
     RepositoryCopyLinkEntity,
     RepositoryCopyLinkStatDefinition,
     RepositoryCopyLinkStatGroup,
+    RepositoryCopyLinkSystem,
+    RepositoryCopyLinkTemplate,
     RepositoryProfile,
     RepositoryRelease,
     RepositorySubscription,
     StatDefinition,
     StatGroup,
+    System,
+    Template,
     Tenant,
     TenantKind,
 )
@@ -1052,7 +1056,7 @@ async def list_repository_contributions(
     repository_id: uuid.UUID,
     session: SessionDep,
     params: ParamsDep,
-    kind: Literal["entity", "stat_group", "stat_definition"] | None = None,
+    kind: Literal["entity", "stat_group", "stat_definition", "system", "template"] | None = None,
 ) -> Page[ContributionOut]:
     """The rows a copy of this repository contributed, still here or
     deleted since (ADR 0119). Reads only this tenant's own data, so it
@@ -1074,6 +1078,8 @@ async def list_repository_contributions(
             RepositoryCopyLinkStatDefinition.stat_definition_id,
             StatDefinition,
         ),
+        ("system", RepositoryCopyLinkSystem, RepositoryCopyLinkSystem.system_id, System),
+        ("template", RepositoryCopyLinkTemplate, RepositoryCopyLinkTemplate.template_id, Template),
     ]
     for row_kind, model, local, target in sources:
         if kind is not None and kind != row_kind:

@@ -455,7 +455,7 @@ class ContributionOut(BaseModel):
     tenant deleted it; `mode` is `copied` or `merged` for a stat group or
     definition, null for an entity."""
 
-    kind: Literal["entity", "stat_group", "stat_definition"]
+    kind: Literal["entity", "stat_group", "stat_definition", "system", "template"]
     local_id: uuid.UUID | None
     source_id: uuid.UUID
     name: str
@@ -518,7 +518,7 @@ class RepositoryStatGroupOut(BaseModel):
     definitions: list[RepositoryStatDefinitionOut]
 
 
-CollisionKindName = Literal["stat_group", "stat_definition", "stat_role", "slug"]
+CollisionKindName = Literal["stat_group", "stat_definition", "stat_role", "slug", "template"]
 ActionName = Literal["rename", "merge", "skip"]
 
 
@@ -646,7 +646,7 @@ class CopyOut(BaseModel):
 
 # --- Updates (ADR 0121) ---------------------------------------------------------
 
-RowKindName = Literal["entity", "stat_group", "stat_definition"]
+RowKindName = Literal["entity", "stat_group", "stat_definition", "system", "template"]
 
 
 class FieldChangeOut(BaseModel):

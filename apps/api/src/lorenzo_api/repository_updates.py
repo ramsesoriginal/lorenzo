@@ -75,11 +75,18 @@ from lorenzo_api.models import (
     RepositoryCopyLinkEntity,
     RepositoryCopyLinkStatDefinition,
     RepositoryCopyLinkStatGroup,
+    RepositoryCopyLinkSystem,
+    RepositoryCopyLinkTemplate,
     RepositorySubscription,
     StatDefinition,
     StatDefinitionEnumValue,
     StatGroup,
     StatValueType,
+    System,
+    Template,
+    TemplateSlot,
+    TemplateSlotExclusion,
+    TemplateSlotStat,
     Tenant,
     TenantKind,
 )
@@ -96,6 +103,8 @@ from lorenzo_api.repository_content import (
     origin_namer,
     stat_definition_snapshot,
     stat_group_snapshot,
+    system_snapshot,
+    template_snapshot,
 )
 from lorenzo_api.repository_copying import (
     LOOP_REASON,
@@ -107,6 +116,9 @@ from lorenzo_api.repository_copying import (
     check_formula_cycles,
     write_attachments,
     write_rows,
+)
+from lorenzo_api.repository_digest import (
+    KINDS as DIGEST_KINDS,
 )
 from lorenzo_api.repository_digest import (
     BreakingNote,
@@ -131,10 +143,23 @@ from lorenzo_api.repository_releases import ReleaseRef
 from lorenzo_api.repository_upstream import load_upstream
 from lorenzo_api.stat_enum_values import enum_value_uses, formulas_reading_as_number
 
-RowKind = Literal["entity", "stat_group", "stat_definition"]
-_ROW_KINDS: tuple[RowKind, ...] = ("entity", "stat_group", "stat_definition")
-# Groups before definitions before entities: the order additions need.
-_ADD_ORDER: tuple[RowKind, ...] = ("stat_group", "stat_definition", "entity")
+RowKind = Literal["entity", "stat_group", "stat_definition", "system", "template"]
+_ROW_KINDS: tuple[RowKind, ...] = (
+    "entity",
+    "stat_group",
+    "stat_definition",
+    "system",
+    "template",
+)
+# Systems before groups before definitions before entities before templates: the order additions
+# need (a template shows groups, stats and entries; ADR 0469).
+_ADD_ORDER: tuple[RowKind, ...] = (
+    "system",
+    "stat_group",
+    "stat_definition",
+    "entity",
+    "template",
+)
 State = Literal["clean", "conflict", "not_applicable"]
 
 # `kinds` is a set like the others: an entry gaining or losing a kind is shown, and a kind is added
@@ -166,12 +191,16 @@ _LINK_MODELS: dict[str, Any] = {
         RepositoryCopyLinkStatDefinition,
         RepositoryCopyLinkStatDefinition.stat_definition_id,
     ),
+    "system": (RepositoryCopyLinkSystem, RepositoryCopyLinkSystem.system_id),
+    "template": (RepositoryCopyLinkTemplate, RepositoryCopyLinkTemplate.template_id),
 }
 # What an added row of each kind can collide on (ADR 0119).
 COLLISION_KIND: dict[str, Any] = {
     "entity": "slug",
     "stat_group": "stat_group",
     "stat_definition": "stat_definition",
+    "system": "stat_group",
+    "template": "template",
 }
 
 
@@ -344,6 +373,10 @@ def _snapshot(
         return entity_snapshot(content, index, row_id, namer)
     if kind == "stat_group":
         return stat_group_snapshot(content, row_id)
+    if kind == "system":
+        return system_snapshot(content, row_id, namer)
+    if kind == "template":
+        return template_snapshot(content, row_id, namer)
     return stat_definition_snapshot(content, row_id, namer)
 
 
@@ -352,6 +385,8 @@ def _rows(content: Content, kind: str) -> dict[uuid.UUID, Any]:
         "entity": content.entities,
         "stat_group": content.groups,
         "stat_definition": content.definitions,
+        "system": content.systems,
+        "template": content.templates,
     }
     return rows[kind]
 
@@ -437,6 +472,8 @@ def mentioned(change: FieldChange) -> list[tuple[str, str]]:
         found += [("stat_definition", value) for value in values if isinstance(value, str)]
     elif change.field == "stat_group":
         found += [("stat_group", value) for value in values if isinstance(value, str)]
+    elif change.field in ("root", "ancestor"):
+        found += [("entity", value) for value in values if isinstance(value, str)]
     elif change.field.partition(":")[0] in _KEYED:
         prefix, _, definition = change.field.partition(":")
         found.append((_KEY_KIND[prefix], definition))
@@ -521,6 +558,7 @@ async def compute_updates(
     local_group_names = {g["name"] for g in local.groups.values()}
     local_def_names = {d["name"] for d in local.definitions.values()}
     local_slugs = set(local.slugs.values())
+    local_template_names = {t["name"] for t in local.templates.values()}
     for kind in _ADD_ORDER:
         for row_id in _rows(upstream, kind):
             if not upstream.own(kind, row_id) or row_id in links.snapshots:
@@ -539,6 +577,10 @@ async def compute_updates(
                     name,
                     None,
                     ["rename", "merge", "skip"],
+                )
+            elif kind == "template" and name in local_template_names:
+                collision = Collision(
+                    repository_id, "template", row_id, name, None, ["rename", "skip"]
                 )
             elif kind == "entity" and upstream.slugs.get(row_id) in local_slugs:
                 collision = Collision(
@@ -562,7 +604,9 @@ def _mark(updates: Updates, stored: dict[Key, Any] | None) -> None:
     live = live_rows(updates.upstream) if stored is not None else {}
 
     def mark(item: Any, key: Key) -> None:
-        item.state = state_of(stored, live, key) if stored is not None else None
+        # A game system and a template are not in the digest (ADR 0469): no state is said of them.
+        known = stored is not None and key[0] in DIGEST_KINDS
+        item.state = state_of(stored, live, key) if known and stored is not None else None
         item.breaking = updates.breaking.get(key, [])
 
     rows: list[Any] = [
@@ -1843,6 +1887,18 @@ class _Applier:
 
     async def _stat_group(self, row: RowChange, change: FieldChange) -> bool:
         g, t, s = row.local_id, self.tenant_id, self.session
+        if change.field == "system":
+            # The game system is named by its slug, which is the same in every library (ADR 0469).
+            system = await self._system_by_slug(change.upstream)
+            if change.upstream is not None and system is None:
+                self.skip(row, "system", f"the library has no game system {change.upstream!r}")
+                return False
+            await s.execute(
+                update(StatGroup)
+                .where(StatGroup.id == g, StatGroup.tenant_id == t)
+                .values(system_id=system)
+            )
+            return True
         if change.field == "name":
             taken = await s.scalar(
                 select(StatGroup.id).where(
@@ -1857,6 +1913,145 @@ class _Applier:
             .where(StatGroup.id == g, StatGroup.tenant_id == t)
             .values(**{change.field: change.upstream})
         )
+        return True
+
+    async def _system_by_slug(self, slug: str | None) -> uuid.UUID | None:
+        if slug is None:
+            return None
+        found: uuid.UUID | None = await self.session.scalar(
+            select(System.id).where(System.tenant_id == self.tenant_id, System.slug == slug)
+        )
+        return found
+
+    # game system ------------------------------------------------------------
+
+    async def _system(self, row: RowChange, change: FieldChange) -> bool:
+        system, t, s = row.local_id, self.tenant_id, self.session
+        values: dict[str, Any]
+        if change.field == "name":
+            values = {"name": change.upstream}
+        elif change.field == "root":
+            root = None if change.upstream is None else self.resolve("entity", change.upstream)
+            if change.upstream is not None and root is None:
+                self.skip(row, "root", "that entry wasn't copied here")
+                return False
+            values = {"root_entry_id": root}
+        else:
+            return False
+        await s.execute(
+            update(System).where(System.id == system, System.tenant_id == t).values(**values)
+        )
+        return True
+
+    # template ---------------------------------------------------------------
+
+    async def _template(self, row: RowChange, change: FieldChange) -> bool:
+        template, t, s = row.local_id, self.tenant_id, self.session
+        values: dict[str, Any]
+        if change.field == "name":
+            taken = await s.scalar(
+                select(Template.id).where(
+                    Template.tenant_id == t,
+                    Template.name == change.upstream,
+                    Template.id != template,
+                )
+            )
+            if taken is not None:
+                self.skip(row, "name", f"{change.upstream!r} is taken here")
+                return False
+            values = {"name": change.upstream}
+        elif change.field == "system":
+            system = await self._system_by_slug(change.upstream)
+            if change.upstream is not None and system is None:
+                self.skip(row, "system", f"the library has no game system {change.upstream!r}")
+                return False
+            values = {"system_id": system}
+        elif change.field == "kind":
+            values = {"required_kind": change.upstream}
+        elif change.field == "ancestor":
+            ancestor = None if change.upstream is None else self.resolve("entity", change.upstream)
+            if change.upstream is not None and ancestor is None:
+                self.skip(row, "ancestor", "that entry wasn't copied here")
+                return False
+            values = {"required_ancestor_entry_id": ancestor}
+        elif change.field == "slots":
+            return await self._template_slots(row, change)
+        else:
+            return False
+        await s.execute(
+            update(Template)
+            .where(Template.id == template, Template.tenant_id == t)
+            .values(**values)
+        )
+        return True
+
+    async def _template_slots(self, row: RowChange, change: FieldChange) -> bool:
+        """Replaces a template's slots by the repository's, every group and stat re-pointed to the
+        library's copy. A template that would show less than it says is not changed (ADR 0453)."""
+        template, t, s = row.local_id, self.tenant_id, self.session
+        planned: list[
+            tuple[dict[str, Any], uuid.UUID | None, list[uuid.UUID], list[uuid.UUID]]
+        ] = []
+        for slot in change.upstream or []:
+            group = None
+            if slot["group"] is not None:
+                group = self.resolve("stat_group", slot["group"])
+                if group is None:
+                    self.skip(row, "slots", "a stat group it shows wasn't copied here")
+                    return False
+            listed = [self.resolve("stat_definition", stat) for stat, _ in slot["stats"]]
+            left_out = [self.resolve("stat_definition", stat) for stat in slot["exclude"]]
+            if any(stat is None for stat in listed + left_out):
+                self.skip(row, "slots", "a stat it lists wasn't copied here")
+                return False
+            planned.append(
+                (
+                    slot,
+                    group,
+                    [stat for stat in listed if stat is not None],
+                    [stat for stat in left_out if stat is not None],
+                )
+            )
+        await s.execute(
+            delete(TemplateSlot).where(
+                TemplateSlot.template_id == template, TemplateSlot.tenant_id == t
+            )
+        )
+        for position, (slot, group, listed_ids, left_out_ids) in enumerate(planned):
+            slot_id = uuid.uuid4()
+            await s.execute(
+                insert(TemplateSlot).values(
+                    id=slot_id,
+                    tenant_id=t,
+                    template_id=template,
+                    position=position,
+                    kind=slot["kind"],
+                    label=slot["label"],
+                    stat_group_id=group,
+                    information_type=slot["information_type"],
+                    held_order=slot["held_order"],
+                )
+            )
+            taken: set[uuid.UUID] = set()
+            for stat, (_, label) in zip(listed_ids, slot["stats"], strict=True):
+                if stat in taken:
+                    continue
+                taken.add(stat)
+                await s.execute(
+                    insert(TemplateSlotStat).values(
+                        slot_id=slot_id,
+                        position=len(taken) - 1,
+                        tenant_id=t,
+                        stat_definition_id=stat,
+                        label=label,
+                    )
+                )
+            for stat in dict.fromkeys(left_out_ids):
+                await s.execute(
+                    insert(TemplateSlotExclusion).values(
+                        slot_id=slot_id, stat_definition_id=stat, tenant_id=t
+                    )
+                )
         return True
 
     # stat definition --------------------------------------------------------
@@ -2318,6 +2513,8 @@ async def _add(
         "entity": set(),
         "stat_group": set(),
         "stat_definition": set(),
+        "system": set(),
+        "template": set(),
     }
     for a in additions:
         only[a.kind].add(a.source_id)

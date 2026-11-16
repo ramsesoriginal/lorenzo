@@ -22,6 +22,8 @@ class Kind(StrEnum):
     entity = "entity"
     stat_group = "stat_group"
     stat_definition = "stat_definition"
+    system = "system"
+    template = "template"
 
 
 class State(StrEnum):
@@ -467,6 +469,13 @@ class CharacterUpdate(BaseModel):
     owner_player_id: UUID | None = Field(None, title="Owner Player Id")
 
 
+class State3(StrEnum):
+    with_you = "with_you"
+    stashed = "stashed"
+    elsewhere = "elsewhere"
+    unknown = "unknown"
+
+
 class ChosenStepExplanationOut(BaseModel):
     position: int | None = Field(..., title="Position")
     otherwise: bool = Field(..., title="Otherwise")
@@ -563,6 +572,7 @@ class Kind5(StrEnum):
     stat_definition = "stat_definition"
     stat_role = "stat_role"
     slug = "slug"
+    template = "template"
 
 
 class Choice(StrEnum):
@@ -851,6 +861,8 @@ class Kind8(StrEnum):
     entity = "entity"
     stat_group = "stat_group"
     stat_definition = "stat_definition"
+    system = "system"
+    template = "template"
 
 
 class Mode(StrEnum):
@@ -1056,7 +1068,7 @@ class Mode2(StrEnum):
     straight = "straight"
 
 
-class State3(StrEnum):
+class State4(StrEnum):
     known = "known"
     partial = "partial"
     unknown = "unknown"
@@ -1365,7 +1377,7 @@ class FeatureColumnsOut(BaseModel):
     starts_inactive: bool = Field(..., title="Starts Inactive")
 
 
-class State4(StrEnum):
+class State5(StrEnum):
     clean = "clean"
     conflict = "conflict"
     not_applicable = "not_applicable"
@@ -1374,7 +1386,7 @@ class State4(StrEnum):
 class FieldChangeOut(BaseModel):
     field: str = Field(..., title="Field")
     label: str | None = Field(..., title="Label")
-    state: State4 = Field(..., title="State")
+    state: State5 = Field(..., title="State")
     base: Any = Field(..., title="Base")
     upstream: Any = Field(..., title="Upstream")
     local: Any = Field(..., title="Local")
@@ -1949,6 +1961,7 @@ class LocationListItem(BaseModel):
     level_ordinal: constr(pattern=r"^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$") | None = Field(
         None, title="Level Ordinal"
     )
+    map_count: int | None = Field(None, title="Map Count")
     tie: Tie | None = Field(None, title="Tie")
 
 
@@ -1963,6 +1976,7 @@ class LocationStub(BaseModel):
     level_ordinal: constr(pattern=r"^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$") | None = Field(
         None, title="Level Ordinal"
     )
+    map_count: int | None = Field(None, title="Map Count")
 
 
 class MadePrivateOut(BaseModel):
@@ -3367,6 +3381,7 @@ class Kind36(StrEnum):
     stat_definition = "stat_definition"
     stat_role = "stat_role"
     slug = "slug"
+    template = "template"
 
 
 class Action1(StrEnum):
@@ -3464,9 +3479,11 @@ class Kind39(StrEnum):
     entity = "entity"
     stat_group = "stat_group"
     stat_definition = "stat_definition"
+    system = "system"
+    template = "template"
 
 
-class State5(StrEnum):
+class State6(StrEnum):
     released = "released"
     edited = "edited"
 
@@ -3490,6 +3507,8 @@ class Kind41(StrEnum):
     entity = "entity"
     stat_group = "stat_group"
     stat_definition = "stat_definition"
+    system = "system"
+    template = "template"
 
 
 class RuleOptionOut(BaseModel):
@@ -4194,6 +4213,7 @@ class TenantOut(BaseModel):
         description="Whether every GM of the library reads the GM-only text of the entries no campaign owns: the beings that are in no campaign, and what a copy of a repository brought, such as its catalog items. On (the default), every GM reads them; off, only the GMs who wrote an entry, or who share a campaign with whoever did, read it. An entry a campaign owns, because one of its characters holds it or stands in it, is read only by that campaign's GMs either way. Owners and Organizers read everything.",
         title="Npcs Shared With Gms",
     )
+    controllers_award_features: bool | None = Field(False, title="Controllers Award Features")
     being_stat_group_id: UUID | None = Field(None, title="Being Stat Group Id")
     weapon_stat_group_id: UUID | None = Field(..., title="Weapon Stat Group Id")
     ability_information_type: str | None = Field(..., title="Ability Information Type")
@@ -4230,6 +4250,7 @@ class TenantUpdate(BaseModel):
         description="Whether every GM of the library reads the GM-only text of the entries no campaign owns: the beings that are in no campaign, and what a copy of a repository brought, such as its catalog items. On (the default), every GM reads them; off, only the GMs who wrote an entry, or who share a campaign with whoever did, read it. An entry a campaign owns, because one of its characters holds it or stands in it, is read only by that campaign's GMs either way. Owners and Organizers read everything.",
         title="Npcs Shared With Gms",
     )
+    controllers_award_features: bool | None = Field(None, title="Controllers Award Features")
     being_stat_group_id: UUID | None = Field(None, title="Being Stat Group Id")
     weapon_stat_group_id: UUID | None = Field(None, title="Weapon Stat Group Id")
     ability_information_type: constr(min_length=1, max_length=100) | None = Field(
@@ -4274,6 +4295,8 @@ class Kind49(StrEnum):
     entity = "entity"
     stat_group = "stat_group"
     stat_definition = "stat_definition"
+    system = "system"
+    template = "template"
 
 
 class Action2(StrEnum):
@@ -4327,7 +4350,7 @@ class Week(BaseModel):
     weekday: conint(ge=0, le=99) | None = Field(0, title="Weekday")
 
 
-class State7(StrEnum):
+class State8(StrEnum):
     with_you = "with_you"
     stashed = "stashed"
     elsewhere = "elsewhere"
@@ -4335,7 +4358,7 @@ class State7(StrEnum):
 
 
 class WhereaboutsOut(BaseModel):
-    state: State7 = Field(..., title="State")
+    state: State8 = Field(..., title="State")
     place: PlaceOut | None = None
 
 
@@ -4585,6 +4608,12 @@ class CharacterOut(BaseModel):
     updated_by: UUID | None = Field(..., title="Updated By")
 
 
+class CharacterWhereaboutsOut(BaseModel):
+    character: PlaceOut
+    state: State3 = Field(..., title="State")
+    place: PlaceOut | None = None
+
+
 class ClockCandidate(BaseModel):
     source_clock_id: UUID = Field(..., title="Source Clock Id")
     source_clock_name: str = Field(..., title="Source Clock Name")
@@ -4757,7 +4786,7 @@ class DiscoverPageOut(BaseModel):
 
 class DistanceOut(BaseModel):
     mode: Mode2 = Field(..., title="Mode")
-    state: State3 = Field(..., title="State")
+    state: State4 = Field(..., title="State")
     value: float | None = Field(None, title="Value")
     at_least: float | None = Field(None, title="At Least")
     unit: str | None = Field(None, title="Unit")
@@ -5094,6 +5123,7 @@ class LocationOut(BaseModel):
     level_ordinal: constr(pattern=r"^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$") | None = Field(
         None, title="Level Ordinal"
     )
+    map_count: int | None = Field(None, title="Map Count")
     within: LocationStub | None = None
     updated_at: AwareDatetime = Field(..., title="Updated At")
     can_manage: bool = Field(..., title="Can Manage")
@@ -5246,6 +5276,14 @@ class PageAnnotatedUnionMembershipRosterEntryOutPlayerRosterEntryOutGmRosterEntr
     BaseModel
 ):
     items: list[Items] = Field(..., title="Items")
+    total: conint(ge=0) = Field(..., title="Total")
+    page: conint(ge=1) = Field(..., title="Page")
+    size: conint(ge=1) = Field(..., title="Size")
+    pages: conint(ge=0) = Field(..., title="Pages")
+
+
+class PageCharacterWhereaboutsOut(BaseModel):
+    items: list[CharacterWhereaboutsOut] = Field(..., title="Items")
     total: conint(ge=0) = Field(..., title="Total")
     page: conint(ge=1) = Field(..., title="Page")
     size: conint(ge=1) = Field(..., title="Size")
@@ -5683,7 +5721,7 @@ class RowChangeOut(BaseModel):
     local_id: UUID = Field(..., title="Local Id")
     name: str = Field(..., title="Name")
     fields: list[FieldChangeOut] = Field(..., title="Fields")
-    state: State5 | None = Field(..., title="State")
+    state: State6 | None = Field(..., title="State")
     breaking: list[BreakingNoteOut] = Field(..., title="Breaking")
 
 
@@ -5692,7 +5730,7 @@ class RowRefOut(BaseModel):
     source_id: UUID = Field(..., title="Source Id")
     local_id: UUID | None = Field(..., title="Local Id")
     name: str = Field(..., title="Name")
-    state: State5 | None = Field(..., title="State")
+    state: State6 | None = Field(..., title="State")
     breaking: list[BreakingNoteOut] = Field(..., title="Breaking")
 
 
@@ -6193,6 +6231,7 @@ class PublishedOut(BaseModel):
         description="Whether every GM of the library reads the GM-only text of the entries no campaign owns: the beings that are in no campaign, and what a copy of a repository brought, such as its catalog items. On (the default), every GM reads them; off, only the GMs who wrote an entry, or who share a campaign with whoever did, read it. An entry a campaign owns, because one of its characters holds it or stands in it, is read only by that campaign's GMs either way. Owners and Organizers read everything.",
         title="Npcs Shared With Gms",
     )
+    controllers_award_features: bool | None = Field(False, title="Controllers Award Features")
     being_stat_group_id: UUID | None = Field(None, title="Being Stat Group Id")
     weapon_stat_group_id: UUID | None = Field(..., title="Weapon Stat Group Id")
     ability_information_type: str | None = Field(..., title="Ability Information Type")
