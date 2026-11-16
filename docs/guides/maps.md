@@ -11,6 +11,8 @@ Log in and the **Libraries** page lists your Libraries. Choose one to reach its 
 A **Location** is an entry kind: a universe, a continent, a village and one floor of a building are all Locations. Each Location sits in at most one other, so Locations form a tree, and the tree can skip levels. A floor is a Location in the building above it, and a building need not be in a street.
 
 - The **Locations** page shows the tree. Open a Location to see what is **Inside** it and **Where things are**.
+- A row says **"1 Map"**, **"3 Maps"** when the Location is drawn on Maps you can see, and its page lists them under **On these Maps**. A Map you cannot see is not counted and not listed.
+- **Where is…** on a Location's page says, for each character you may ask for, how the Location is for them: here, close by, elsewhere or unknown.
 - The tree says only "in" or "within". It is not containment of things: it neither moves items nor decides who may reach what.
 - If a level in between is hidden from you, a Location appears directly under the nearest one you can see, and nothing marks the gap.
 

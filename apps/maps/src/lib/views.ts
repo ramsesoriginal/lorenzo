@@ -72,6 +72,14 @@ export async function mountHome() {
   }
 }
 
+/** "1 Map", "3 Maps": on how many Maps this reader sees it drawn; nothing is said of none. */
+function mapCount(stub: Stub): HTMLElement | null {
+  const n = stub.map_count;
+  return typeof n === 'number' && n > 0
+    ? el('span', `${n} ${n === 1 ? 'Map' : 'Maps'}`, 'chip')
+    : null;
+}
+
 /** Whether this reader writes Locations here: only then is a row told whether it is open to the library. */
 let writing = false;
 const enqueueRow = queue(4);
@@ -181,6 +189,8 @@ function datedItem(tenant: string, stub: Stub & { tie?: Tie | null }) {
   const others = stub.kinds.filter((kind) => kind !== 'location');
   if (others.length) row.append(el('span', others.join(', ').replaceAll('_', ' '), 'chip'));
   if (stub.tie) row.append(el('span', TIE_WORDS[stub.tie], 'chip'));
+  const maps = mapCount(stub);
+  if (maps) row.append(maps);
   rowFacts(row, tenant, stub.id);
   item.append(row);
   return item;
@@ -235,9 +245,80 @@ function treeItem(tenant: string, stub: Stub) {
   );
   const others = stub.kinds.filter((kind) => kind !== 'location');
   if (others.length) row.append(el('span', others.join(', ').replaceAll('_', ' '), 'chip'));
+  const maps = mapCount(stub);
+  if (maps) row.append(maps);
   rowFacts(row, tenant, stub.id);
   item.append(row, inside);
   return item;
+}
+
+/** What each answer of "where is it?" says when the thing asked about is a place: how it is for them. */
+const WHEREABOUTS_WORDS = {
+  with_you: 'here',
+  stashed: 'close by',
+  elsewhere: 'elsewhere',
+  unknown: 'unknown',
+} as const;
+
+/** The Maps this Location is drawn on, among those this reader may see ("On these Maps", screen 05). */
+async function onTheseMaps(tenant: string, place: Place): Promise<HTMLElement> {
+  const section = el('section', '', 'stack');
+  try {
+    const found = await unwrap(
+      await client.GET('/tenants/{tenant_id}/maps', {
+        params: { path: { tenant_id: tenant }, query: { placed: place.id, size: 50 } },
+      }),
+    );
+    const list = el('ul', '', 'list');
+    for (const chart of found.items) {
+      const item = el('li');
+      item.append(
+        icon('kind-map'),
+        link(chart.name, `/map/?${new URLSearchParams({ tenant, id: chart.id })}`),
+      );
+      list.append(item);
+    }
+    section.append(
+      sectionHead('On these Maps', { count: found.items.length }),
+      found.items.length ? list : empty('It is not drawn on any Map you can see.'),
+    );
+  } catch (error) {
+    section.append(sectionHead('On these Maps'), errorNotice(error));
+  }
+  return section;
+}
+
+/** What each character the reader may ask for would say about where this Location is ("Where is…"). */
+async function whereIs(tenant: string, place: Place): Promise<HTMLElement> {
+  const section = el('section', '', 'stack');
+  try {
+    const found = await unwrap(
+      await client.GET('/tenants/{tenant_id}/locations/{location_id}/whereabouts', {
+        params: { path: { tenant_id: tenant, location_id: place.id }, query: { size: 50 } },
+      }),
+    );
+    const list = el('ul', '', 'list');
+    for (const answer of found.items) {
+      const item = el('li', '', 'row-tight');
+      item.append(el('span', answer.character.name, 'grow'));
+      const words = el('span', WHEREABOUTS_WORDS[answer.state], 'status-text');
+      item.append(words);
+      // A place asked about is its own place, so naming it again says nothing.
+      if (answer.place && answer.place.id !== place.id)
+        item.append(
+          document.createTextNode(' at '),
+          link(answer.place.name, locationHref(tenant, answer.place.id, answer.place.slug)),
+        );
+      list.append(item);
+    }
+    section.append(
+      sectionHead('Where is…', { count: found.items.length }),
+      found.items.length ? list : empty('There is no character here to ask.'),
+    );
+  } catch (error) {
+    section.append(sectionHead('Where is…'), errorNotice(error));
+  }
+  return section;
 }
 
 /** A form that makes a Location: a root, or a part of `parent`. */
@@ -470,6 +551,17 @@ export async function mountLocation() {
       );
       grid.append(insideCard, connectionsCard);
       view.append(grid);
+      const askGrid = el('div', '', 'map-location-grid');
+      const mapsCard = el('div', '', 'card card-body');
+      const whereCard = el('div', '', 'card card-body');
+      const [onMaps, whereabouts] = await Promise.all([
+        onTheseMaps(tenant, place),
+        whereIs(tenant, place),
+      ]);
+      mapsCard.append(onMaps);
+      whereCard.append(whereabouts);
+      askGrid.append(mapsCard, whereCard);
+      view.append(askGrid);
       if (place.can_manage) view.append(manageSections(tenant, place, version, render));
       host.replaceChildren(view);
     } catch (error) {
