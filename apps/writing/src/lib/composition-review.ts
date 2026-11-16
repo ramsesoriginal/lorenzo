@@ -16,14 +16,16 @@ const record = (value: unknown): Value =>
   value && typeof value === 'object' && !Array.isArray(value) ? (value as Value) : {};
 const list = (value: unknown): unknown[] => (Array.isArray(value) ? value : []);
 
-function describe(value: unknown, names: Record<string, string>): string {
+function describeComposition(value: unknown, names: Record<string, string>): string {
   if (value === null || value === undefined) return 'Not present';
   const row = record(value);
   const name = (id: unknown) => names[String(id)] ?? 'Writing element';
   if ('bundle' in row) {
-    return [String(row.name), describe(row.bundle, names), describe(row.structure, names)].join(
-      '\n\n',
-    );
+    return [
+      String(row.name),
+      describeComposition(row.bundle, names),
+      describeComposition(row.structure, names),
+    ].join('\n\n');
   }
   if ('payloads' in row) {
     return [
@@ -158,10 +160,10 @@ export function compositionReview(tenant: string, id: string, apply?: ApplyRepos
               was: row.baseline_known
                 ? row.base === null
                   ? 'Not present'
-                  : describe(row.base, comparison.names)
+                  : describeComposition(row.base, comparison.names)
                 : 'Original not recorded',
-              mine: describe(row.local, comparison.names),
-              theirs: describe(row.upstream, comparison.names),
+              mine: describeComposition(row.local, comparison.names),
+              theirs: describeComposition(row.upstream, comparison.names),
             },
           })),
           {
