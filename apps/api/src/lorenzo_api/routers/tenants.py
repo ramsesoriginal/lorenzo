@@ -419,14 +419,14 @@ async def delete_tenant(
         public = await session.scalar(
             select(func.count()).where(
                 RepositorySubscription.repository_tenant_id == tenant_id,
-                RepositorySubscription.source == "public",
+                RepositorySubscription.source.in_(("public", "protected")),
             )
         )
         raise RepositoryStillGrantedError(
             detail=f"Tenant {tenant_id} is still granted to {grants} tenant(s)"
             + (
-                f", {public} of them by copying it while it was public: make it private first, "
-                "which revokes those grants (ADR 0290)"
+                f", {public} of them by copying it while it was public or through another "
+                "repository: make it private first, which revokes those grants (ADR 0290)"
                 if public
                 else ""
             )

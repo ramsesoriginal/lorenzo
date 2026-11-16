@@ -19,6 +19,8 @@ export type {
 export { bindShell } from './header';
 export type { KeyInput } from './keys';
 export { createKeymap, GO_KEYS, goChord } from './keys';
+export type { Lang, LegalLinks, LegalRegistry } from './legal';
+export { bindLegalLinks, bindLegalLinksFromApi, LEGAL_LABELS, langOf, legalLinks } from './legal';
 export type { MenuItem } from './menu';
 export { openMenu, placeMenu } from './menu';
 export type { PaletteItem, PaletteScope, Section } from './palette';
@@ -31,17 +33,24 @@ export {
   SCOPES,
   search,
 } from './palette';
-export type { NavItem, Theme } from './pure';
+export type { Density, Motion, NavItem, Theme, ThemeChoice } from './pure';
 export {
+  clockLocale,
   clockText,
+  DENSITIES,
+  densityOf,
   initials,
   initialTheme,
   isCurrentPage,
+  motionOf,
   navHref,
   otherTheme,
   splitTabs,
+  themeChoiceOf,
   themeToggleLabel,
 } from './pure';
+export type { RecentPage } from './recent';
+export { agoText, pageTitle, parseRecent, RECENT_MAX, rememberPage } from './recent';
 export type { RetryReadOptions } from './retry';
 export { backoffMs, retryRead } from './retry';
 export type { SaveBar, SaveBarHandlers } from './save-bar';

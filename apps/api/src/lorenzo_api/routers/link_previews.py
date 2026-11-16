@@ -33,6 +33,7 @@ from lorenzo_api.models import (
     Payload,
     PayloadPicture,
     StatDefinition,
+    StatGroup,
     VEffectiveStat,
     formula_load_options,
 )
@@ -51,10 +52,12 @@ router = APIRouter(
 def _main_picture_url(
     sources: list[Entity], request: Request, visibility: InformationVisibility
 ) -> str | None:
-    """The first main picture the caller may see, the entry's own before an ancestor's."""
-    for entity in sources:
+    """The first main picture the caller may see, the entry's own before an ancestor's (which an
+    entry the repository it came with hides still gives, ADR 0437)."""
+    for index, entity in enumerate(sources):
+        can_see = visibility.can_see if index == 0 else visibility.can_see_inherited
         for info in entity.information:
-            if info.type != "main_picture" or not visibility.can_see(info):
+            if info.type != "main_picture" or not can_see(info):
                 continue
             for payload in info.payloads:
                 if payload.picture is not None:
@@ -69,8 +72,8 @@ def _main_picture_url(
 def _excerpt(
     sources: list[Entity], template: PreviewTemplate, visibility: InformationVisibility
 ) -> str:
-    for entity in sources:
-        for content, _locale in description_pairs(entity, visibility):
+    for index, entity in enumerate(sources):
+        for content, _locale in description_pairs(entity, visibility, inherited=index > 0):
             text = excerpt_of(content, template.excerpt_chars)
             if text:
                 return text
@@ -95,7 +98,11 @@ async def get_entity_preview(
         .options(
             selectinload(Entity.effective_stats)
             .selectinload(VEffectiveStat.stat_definition)
-            .selectinload(StatDefinition.stat_group),
+            .selectinload(StatDefinition.stat_group)
+            .joinedload(StatGroup.system),
+            selectinload(Entity.effective_stats)
+            .selectinload(VEffectiveStat.stat_definition)
+            .selectinload(StatDefinition.enum_values),
             # Where an inherited value comes from (ADR 0276).
             selectinload(Entity.effective_stats).selectinload(VEffectiveStat.source_entity),
             *formula_load_options(
@@ -135,6 +142,11 @@ async def get_entity_preview(
     if template.inherits:
         sources += await ancestors_of(session, tenant_id=tenant_id, entity_id=entity.id)
     values = {stat.name: stat.value for stat in _stats_out(entity, visibility)}
+    roles = {
+        stat.stat_definition.role: stat.stat_definition.name
+        for stat in entity.effective_stats
+        if stat.stat_definition.role is not None
+    }
     return LinkPreviewOut(
         entity_id=entity.id,
         name=entity.name,
@@ -144,7 +156,7 @@ async def get_entity_preview(
         picture_url=_main_picture_url(sources, request, visibility),
         stats=[
             LinkPreviewStatOut(name=name, value=value)
-            for name, value in pick_stats(template, values)
+            for name, value in pick_stats(template, values, roles)
             if not isinstance(value, bool)
         ],
         excerpt=_excerpt(sources, template, visibility),

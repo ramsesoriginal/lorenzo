@@ -8,10 +8,10 @@ import LinkOnce from '../LinkOnce/LinkOnce.astro';
 ---
 
 <div class="stack" data-tenant-invite-links>
-  <strong data-heading></strong>
+  <h3 class="hub-heading" data-heading></h3>
   <p class="caption" data-help></p>
 
-  <form class="stack card card-body" data-form>
+  <form class="hub-card stack" data-form>
     <div class="row">
       <label class="field" data-role-field>
         <span class="field-label">Makes</span>
@@ -34,7 +34,7 @@ import LinkOnce from '../LinkOnce/LinkOnce.astro';
       </label>
     </div>
     <div class="row">
-      <button type="submit" data-create>
+      <button type="submit" class="btn btn-secondary" data-create>
         Make a link
       </button>
       <span class="status-text" role="status" data-links-status hidden></span>
@@ -43,18 +43,18 @@ import LinkOnce from '../LinkOnce/LinkOnce.astro';
 
   <div data-created></div>
   <span class="status-text" role="status" data-list-status hidden></span>
-  <ul class="list" data-list></ul>
+  <ul class="list hub-rows hub-table" data-list></ul>
 
   <template data-link-once-template>
     <LinkOnce />
   </template>
 
   <template data-invite-template>
-    <li class="stack-tight">
+    <li class="stack-tight hub-link">
       <div class="row">
         <span class="badge" data-state></span>
         <span class="campaign-meta grow" data-meta></span>
-        <button type="button" data-revoke>
+        <button type="button" class="btn btn-text" data-revoke>
           Revoke
         </button>
       </div>

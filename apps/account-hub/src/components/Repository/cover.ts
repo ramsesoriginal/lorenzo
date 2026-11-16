@@ -9,6 +9,7 @@
 // fetched with the token (lib/pictureFetch.ts). The cover is not counted by the quotas (ADR 0298), so
 // nothing here says anything of them.
 
+import { askFirst } from '../../lib/askFirst';
 import { avatarInitial } from '../../lib/format';
 import {
   COVER_CANCEL,
@@ -243,10 +244,12 @@ export function createCoverControls(
     })();
   });
 
-  remove.addEventListener('click', () => {
+  remove.addEventListener('click', async () => {
     const repository = shown;
 
-    if (!repository || !window.confirm(COVER_REMOVE_CONFIRM)) return;
+    if (!repository || !(await askFirst(COVER_REMOVE_CONFIRM, { confirm: 'Remove the cover' }))) {
+      return;
+    }
 
     remove.disabled = true;
     say(status, COVER_REMOVING);

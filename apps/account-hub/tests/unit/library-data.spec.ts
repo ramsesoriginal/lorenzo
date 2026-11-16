@@ -1,9 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from '../../src/lib/apiError';
 import { readLibrary } from '../../src/lib/libraryData';
+import * as repositories from '../../src/lib/repositories';
 import * as tenants from '../../src/lib/tenants';
 import type { CampaignSummaryOut, MeOut, TenantSummaryOut } from '../../src/lib/types';
 
+vi.mock('../../src/lib/repositories', () => ({ listLibraryRepositories: vi.fn() }));
 vi.mock('../../src/lib/tenants', () => ({
   getCampaign: vi.fn(),
   getTenant: vi.fn(),
@@ -26,6 +28,7 @@ const played: CampaignSummaryOut = {
   name: 'My table',
   slug: 'played',
   game_system: 'test',
+  system_id: null,
   secret: false,
   gm_title: 'GM',
   gm_title_plural: 'GMs',
@@ -77,6 +80,7 @@ beforeEach(() => {
     etag: 'version',
   });
   vi.mocked(tenants.listTenantRoster).mockResolvedValue(page([]));
+  vi.mocked(repositories.listLibraryRepositories).mockResolvedValue([]);
   vi.mocked(tenants.listActivityLog).mockResolvedValue(page([]));
   vi.mocked(tenants.listCampaignGms).mockResolvedValue([]);
   vi.mocked(tenants.listCampaignPlayers).mockResolvedValue(page([]));
@@ -108,6 +112,30 @@ describe('library campaign reads', () => {
     expect(result.descriptions).toEqual(new Map([[other.id, 'other description']]));
     expect(tenants.getCampaign).toHaveBeenCalledExactlyOnceWith(library.id, other.id);
     expect(tenants.listCampaignPlayers).toHaveBeenCalledExactlyOnceWith(library.id, other.id);
+  });
+
+  it('says which campaigns an administrator who opted out may not read the people of', async () => {
+    vi.mocked(tenants.listCampaignPlayers).mockImplementation(async (_tenantId, id) => {
+      if (id === other.id) throw new ApiError('No campaign', 404);
+
+      return page([]);
+    });
+    vi.mocked(tenants.listCampaignGms).mockImplementation(async (_tenantId, id) => {
+      if (id === other.id) throw new ApiError('No campaign', 404);
+
+      return [];
+    });
+    const result = await readLibrary({ ...library, role: 'owner' }, me);
+    expect(result.peopleHidden).toEqual(new Set([other.id]));
+    expect(result.campaigns).toEqual([played, other]);
+  });
+
+  it('reads what an administrator draws on, and nothing for anyone else', async () => {
+    await readLibrary({ ...library, role: 'owner' }, me);
+    expect(repositories.listLibraryRepositories).toHaveBeenCalledExactlyOnceWith(library.id);
+    vi.mocked(repositories.listLibraryRepositories).mockClear();
+    await readLibrary(library, me);
+    expect(repositories.listLibraryRepositories).not.toHaveBeenCalled();
   });
 
   it.each(['owner', 'orga'] as const)(

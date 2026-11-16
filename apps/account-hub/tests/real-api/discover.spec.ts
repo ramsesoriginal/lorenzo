@@ -108,10 +108,10 @@ test('a public repository is found by a word and by a tag, and its storefront op
 
   // Discover is in the nav, and the page shows the list.
   await expect(
-    page.getByRole('navigation', { name: 'Subpages' }).getByRole('link', { name: 'Discover' }),
+    page.getByRole('navigation', { name: 'Pages' }).getByRole('link', { name: 'Discover' }),
   ).toBeVisible();
   await page
-    .getByRole('navigation', { name: 'Subpages' })
+    .getByRole('navigation', { name: 'Pages' })
     .getByRole('link', { name: 'Discover' })
     .click();
   await expect(page).toHaveURL(/\/discover\/$/);
@@ -272,7 +272,7 @@ test('a private repository, a draft and a repository that is not there are not f
   for (const id of [hidden.id, draft.id, crypto.randomUUID(), 'not-an-id']) {
     await page.goto(`/discover/?repository=${id}`);
     await expect(page.locator('[data-not-listed]')).toHaveText(
-      'This repository is not listed. It may be private, it may not have a release yet, or it may not exist.',
+      'This repository cannot be opened. It may be private, it may not have a release yet, it may have been retired, or it may not exist.',
     );
     await expect(storefront(page)).toBeHidden();
   }
@@ -487,10 +487,10 @@ test('there is no link to Discover where the deployment has no public repositori
   await page.evaluate(() => sessionStorage.clear());
   await page.goto('/profile/');
   await expect(
-    page.getByRole('navigation', { name: 'Subpages' }).getByRole('link', { name: 'Libraries' }),
+    page.getByRole('navigation', { name: 'Pages' }).getByRole('link', { name: 'Libraries' }),
   ).toBeVisible();
   await expect(
-    page.getByRole('navigation', { name: 'Subpages' }).getByRole('link', { name: 'Discover' }),
+    page.getByRole('navigation', { name: 'Pages' }).getByRole('link', { name: 'Discover' }),
   ).toHaveCount(0);
 
   // By its address, the page says nothing is public yet, and shows no search.

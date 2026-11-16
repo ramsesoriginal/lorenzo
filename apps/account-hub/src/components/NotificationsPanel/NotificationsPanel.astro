@@ -7,21 +7,23 @@ import { BRANDING_CSS_URL } from '../../lib/config';
 <div class="stack" data-notifications-panel hidden>
   <p class="error-text" role="alert" data-error hidden></p>
 
-  <div class="row">
+  <div class="notif-head">
     <p class="grow" role="status" data-summary></p>
-    <label class="field-row">
-      <input type="checkbox" data-unread-only />
-      Unread only
-    </label>
-    <button type="button" class="btn-secondary" data-refresh>
-      Refresh
+    <div class="segmented-control" role="radiogroup" aria-label="Show">
+      <button type="button" role="radio" aria-checked="true" data-filter="all">
+        All
+      </button>
+      <button type="button" role="radio" aria-checked="false" data-filter="unread">
+        Unread
+      </button>
+    </div>
+    <button type="button" class="btn btn-secondary" data-mark-all>
+      Mark all as read
     </button>
   </div>
 
-  <p data-empty hidden>
-    No notifications.
-  </p>
-  <ul class="list" data-list></ul>
+  <div data-empty hidden></div>
+  <ul class="list notif-list" data-list></ul>
 
   <section class="stack">
     <div>
@@ -39,27 +41,31 @@ import { BRANDING_CSS_URL } from '../../lib/config';
   </section>
 
   <template data-notification-template>
-    <li class="row" data-notification>
+    <li class="notif" data-notification>
+      <span class="notif-dot-slot" aria-hidden="true">
+        <span class="notif-dot" data-dot hidden></span>
+      </span>
       <div class="tree grow">
         <details>
           <summary data-open>
             <span class="stack-tight grow">
-              <span class="row-tight">
-                <strong data-title></strong>
-                <span class="badge" data-unread-badge hidden>
-                  Unread
+              <strong>
+                <span class="visually-hidden" data-unread-word hidden>
+                  Unread.{' '}
                 </span>
-              </span>
-              <span class="caption notification-meta" data-meta></span>
+                <span data-title></span>
+              </strong>
+              <span class="caption" data-when></span>
             </span>
             <svg class="icon tree-toggle" aria-hidden="true" data-chevron>
               <use href={`${BRANDING_CSS_URL}/icons.svg#icon-expand`}></use>
             </svg>
           </summary>
           <p class="notification-body" data-body></p>
+          <p class="caption notification-meta" data-meta></p>
         </details>
       </div>
-      <button type="button" class="btn-secondary" data-mark-read hidden>
+      <button type="button" class="btn btn-secondary" data-mark-read hidden>
         Mark read
       </button>
       <span class="status-text" role="status" data-status hidden></span>

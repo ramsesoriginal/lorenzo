@@ -30,6 +30,10 @@ FLIPPED_LINE = (
     "It is now public: you read its releases, so what its author changes between releases is not "
     "visible to your library until the next one."
 )
+FLIPPED_PROTECTED_LINE = (
+    "It is protected now: you read its releases, so what its author changes between releases is "
+    "not visible to your library until the next one."
+)
 NOTHING_SAID = "Check its updates to see what changed."
 FIRST_PUBLISH_BODY = "You can browse it and copy it into your tenant."
 
@@ -83,18 +87,24 @@ def cut(text: str, limit: int = NOTICE_NOTES_LENGTH) -> str:
 
 
 def release_notice(
-    *, repository_name: str, release: RepositoryRelease, first: bool, flipped: bool = False
+    *,
+    repository_name: str,
+    release: RepositoryRelease,
+    first: bool,
+    flipped: bool = False,
+    protected: bool = False,
 ) -> tuple[str, str]:
     """The title and body the libraries a repository is granted to are told when it
     publishes: the release's label in the title, its notes (cut) and a line when it
     is breaking in the body. The first publish keeps its own words, and adds the
-    notes if there are any. `flipped` says the repository was made public by this release, and
-    what that means for a library that already reads it."""
+    notes if there are any. `flipped` says the repository was made public by this release (or
+    protected, with `protected`, ADR 0434), and what that means for a library that already reads
+    it."""
     said = [cut(release.notes)] if release.notes else []
     if release.breaking:
         said.append(BREAKING_LINE)
     if flipped:
-        said.append(FLIPPED_LINE)
+        said.append(FLIPPED_PROTECTED_LINE if protected else FLIPPED_LINE)
     if first:
         return f"{repository_name} is published", "\n\n".join([FIRST_PUBLISH_BODY, *said])
     return (

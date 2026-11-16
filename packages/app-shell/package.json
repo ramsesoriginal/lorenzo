@@ -6,7 +6,9 @@
   "description": "The head, header, footer and page frame of the apps that share it (Calendars, Sessions, Writing and Maps), over the shared brand (ADR 0322).",
   "exports": {
     ".": "./src/index.ts",
-    "./AppPage.astro": "./src/AppPage.astro"
+    "./AppPage.astro": "./src/AppPage.astro",
+    "./LegalLinks.astro": "./src/LegalLinks.astro",
+    "./legal": "./src/legal.ts"
   },
   "scripts": {
     "lint": "biome check . && tsc --noEmit && prettier --check \"**/*.astro\"",
@@ -14,7 +16,7 @@
     "test": "vitest run"
   },
   "devDependencies": {
-    "@biomejs/biome": "~2.5.14",
+    "@biomejs/biome": "^2.6.4",
     "@types/jsdom": "^21.1.7",
     "@types/node": "^26.6.6",
     "astro": "^7.4.5",

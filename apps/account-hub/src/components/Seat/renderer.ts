@@ -3,6 +3,7 @@
 // a character, create one, use one of your characters from another campaign of the library
 // (RFC 0014), stop using a linked one (ADR 0170), leave the campaign (RFC 0017 (c)).
 
+import { askFirst } from '../../lib/askFirst';
 import { createCharacter, linkCharacterToPlayer, updateCharacter } from '../../lib/characters';
 import { reusableCharactersFor } from '../../lib/format';
 import { bindInlineRename } from '../../lib/inlineRename';
@@ -27,6 +28,8 @@ export type SeatInput = {
   // Who owns each of the seat's characters, if it could be read (loadSeatOwners).
   owners: Map<string, string | null>;
   onChanged: () => void;
+  // Inside the campaign's own card in its library, which already says the name.
+  withinCampaign?: boolean;
 };
 
 // One character of the seat: its name, Rename (in place), and "Stop using here" where that applies.
@@ -96,6 +99,7 @@ export function renderSeat(root: HTMLElement, input: SeatInput): void {
 
   required<HTMLElement>(root, '[data-name]').textContent = campaign.name;
   required<HTMLElement>(root, '[data-where]').textContent = ` in ${libraryName}`;
+  required<HTMLElement>(root, '[data-heading]').hidden = input.withinCampaign === true;
 
   const characters = required<HTMLElement>(root, '[data-characters]');
   const noCharacters = required<HTMLElement>(root, '[data-no-characters]');
@@ -169,8 +173,9 @@ export function renderSeat(root: HTMLElement, input: SeatInput): void {
   const leaveStatus = required<HTMLElement>(root, '[data-leave-status]');
 
   leaveButton.addEventListener('click', async () => {
-    const confirmed = window.confirm(
+    const confirmed = await askFirst(
       `Leave "${campaign.name}"? This removes every character link this grants you here - it can't be undone from this page.`,
+      { confirm: 'Leave the campaign', cancel: 'Stay' },
     );
 
     if (!confirmed) return;

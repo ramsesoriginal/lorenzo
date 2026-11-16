@@ -3,6 +3,7 @@
 // opens empty, has no "today" and is not on the page at all when the library has no calendar.
 import { createPeriodPicker, loadCalendars } from '@lorenzo/period-picker';
 import '@lorenzo/period-picker/period-picker.css';
+import { createTimeFilter } from '@lorenzo/time-filter';
 import { client } from './api';
 import { type DateChoice, dateQuery } from './date-words';
 import { el, field } from './dom';
@@ -49,8 +50,74 @@ export async function dateLens(
   clear.addEventListener('click', () => picker.setSelection([]));
   leave.input.addEventListener('change', changed);
   const root = el('div', '', 'stack-tight map-date-lens');
-  root.append(picker.element, leave.label, clear);
+  // The strip of a year (CS2, CS7): one date on it, a day of the calendar and year chosen beside it.
+  // The picker below still reaches a month or a whole year, which a day on the strip cannot say.
+  const stripHost = el('div', '', 'stack-tight');
+  const calendarSelect = el('select', '', 'select');
+  calendarSelect.setAttribute('aria-label', 'Calendar for the date strip');
+  for (const c of calendars as { id: string; name?: string }[]) {
+    const option = el('option', c.name ?? c.id);
+    option.value = c.id;
+    calendarSelect.append(option);
+  }
+  const yearInput = el('input', '', 'input') as HTMLInputElement;
+  yearInput.type = 'number';
+  yearInput.setAttribute('aria-label', 'Year for the date strip');
+  yearInput.value = '0';
+  async function drawStrip() {
+    const year = Number(yearInput.value);
+    if (!Number.isInteger(year)) return;
+    try {
+      const calculated = await client
+        .GET('/tenants/{tenant_id}/calendars/{entity_id}/years/{year}', {
+          params: { path: { tenant_id: tenant, entity_id: calendarSelect.value, year } },
+        })
+        .then((r) => r.data);
+      if (!calculated) return;
+      const segments = calculated.segments.map((x) => ({
+        key: x.key,
+        name: x.name,
+        days: x.days.length,
+        festival: x.month_ordinal === null,
+      }));
+      const filter = createTimeFilter({
+        mode: 'point',
+        segments,
+        onChange(range) {
+          let at = range?.from ?? 0;
+          let hit: (typeof segments)[number] | undefined;
+          for (const seg of segments) {
+            if (at <= seg.days) {
+              hit = seg;
+              break;
+            }
+            at -= seg.days;
+          }
+          picker.setSelection([]);
+          choice = hit
+            ? {
+                calendarId: calendarSelect.value,
+                year,
+                segment: hit.key,
+                day: at,
+              }
+            : null;
+          leave.label.hidden = clear.hidden = !choice;
+          changed();
+        },
+      });
+      stripHost.replaceChildren(filter.element);
+    } catch {
+      stripHost.replaceChildren();
+    }
+  }
+  for (const input of [calendarSelect, yearInput])
+    input.addEventListener('change', () => void drawStrip());
+  const strip = el('div', '', 'stack-tight');
+  strip.append(calendarSelect, yearInput, stripHost);
+  root.append(strip, picker.element, leave.label, clear);
   await picker.ready;
+  await drawStrip();
 
   return {
     element: root,

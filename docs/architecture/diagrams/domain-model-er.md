@@ -1,6 +1,6 @@
 # ER diagram: domain model
 
-A snapshot of the stored API tables, checked against [`models/`](../../../apps/api/src/lorenzo_api/models) on 2026-10-28. The diagrams are grouped to keep the entry/component core, stat vocabulary, information, calendars, Events and Facts, Sessions and Scenes, Writing, Locations and Maps, Clocks, accounts and repository machinery readable. A table referenced from another group appears there by name only; its columns are defined in its own group.
+A snapshot of the stored API tables, checked against [`models/`](../../../apps/api/src/lorenzo_api/models) on 2026-11-09. The diagrams are grouped to keep the entry/component core, stat vocabulary, information, calendars, Events and Facts, Sessions and Scenes, Writing, Locations and Maps, Clocks, Relationships and Social Webs, accounts and repository machinery readable. A table referenced from another group appears there by name only; its columns are defined in its own group.
 
 Columns show primary and foreign keys and nullable values. Routine `created_at`/`updated_at` and `created_by`/`updated_by` columns and their attribution edges are omitted; timestamps and attribution differ by table, so consult the model and [ADR 0029](../../adr/0029-attribution-created-by-updated-by.md) for their exact shape. Views (`v_item`, `v_item_instance`, `v_character`, `v_effective_stat`) are reads over these tables, not stored tables.
 
@@ -172,6 +172,8 @@ erDiagram
         uuid max_hint_id FK "nullable"
         uuid min_hint_id FK "nullable"
         uuid resolved_hint_id FK "nullable"
+        float min_value "nullable"
+        float max_value "nullable"
     }
     STAT_DEFINITION_ENUM_VALUE {
         uuid id PK
@@ -291,6 +293,9 @@ erDiagram
     REPOSITORY_RELEASE |o..o{ TENANT : "current_release_id"
     STAT_GROUP |o..o{ TENANT : "being_stat_group_id"
     STAT_GROUP |o..o{ TENANT : "weapon_stat_group_id"
+    STAT_DEFINITION |o..o{ TENANT : "relationship_directed_stat_id"
+    STAT_DEFINITION |o..o{ TENANT : "relationship_reads_as_stat_id"
+    STAT_DEFINITION |o..o{ TENANT : "relationship_reads_as_back_stat_id"
     APP_USER |o..o{ TENANT : "delisted_by"
     CAMPAIGN ||..o{ TENANT_ADMIN_CAMPAIGN_OPT_OUT : "campaign_id"
     APP_USER ||..o{ TENANT_ADMIN_CAMPAIGN_OPT_OUT : "user_id"
@@ -443,6 +448,9 @@ erDiagram
         uuid being_stat_group_id FK "nullable"
         uuid weapon_stat_group_id FK "nullable"
         string ability_information_type "nullable"
+        uuid relationship_directed_stat_id FK "nullable"
+        uuid relationship_reads_as_stat_id FK "nullable"
+        uuid relationship_reads_as_back_stat_id FK "nullable"
     }
     TENANT_ADMIN_CAMPAIGN_OPT_OUT {
         uuid tenant_id PK,FK
@@ -860,9 +868,40 @@ erDiagram
     APP_USER ||..o{ WRITING_REVIEW_GRANT : "user_id"
     EDITION ||..o{ WRITING_REVIEW_NOTE : "edition_id"
     ENTITY ||..o{ WRITING_REVIEW_NOTE : "entry_id"
+    ENTITY ||..o{ CARRIER : "entity_id"
+    CARRIER ||..o{ CARRIER_COVERAGE : "carrier_id"
+    ENTITY |o..o{ CARRIER_COVERAGE : "target_entity_id"
+    PAYLOAD |o..o{ CARRIER_COVERAGE : "target_payload_id"
+    PAYLOAD |o..o{ CARRIER_COVERAGE : "before_payload_id"
+    ENTITY ||..o{ MANUSCRIPT_NUMBERING : "entity_id"
+    ENTITY ||..o{ MANUSCRIPT_CONTENTS : "entity_id"
+    ENTITY ||..o{ MANUSCRIPT_GOAL : "entry_id"
+    APP_USER ||..o{ MANUSCRIPT_GOAL : "author_id"
+    ENTITY ||..o{ MANUSCRIPT_REDIRECT : "source_id"
+    ENTITY |o..o{ MANUSCRIPT_REDIRECT : "destination_id"
+    PAYLOAD |o..o{ MANUSCRIPT_REDIRECT : "payload_id"
+    ENTITY |o..o{ MANUSCRIPT_REDIRECT : "child_id"
+    ENTITY ||..o{ MANUSCRIPT_JOIN : "source_id"
+    ENTITY ||..o{ MANUSCRIPT_JOIN : "destination_id"
+    ENTITY ||..o{ MANUSCRIPT_SCENE_EXTRACTION : "source_id"
+    ENTITY ||..o{ MANUSCRIPT_SCENE_EXTRACTION : "scene_id"
+    ENTITY ||..o{ MANUSCRIPT_SCENE_EXTRACTION : "telling_id"
     BOOK {
         uuid entity_id PK,FK
         uuid tenant_id FK
+    }
+    CARRIER {
+        uuid entity_id PK,FK
+        uuid tenant_id FK
+    }
+    CARRIER_COVERAGE {
+        uuid id PK
+        uuid tenant_id FK
+        uuid carrier_id FK
+        uuid target_entity_id FK "nullable"
+        uuid target_payload_id FK "nullable"
+        uuid before_payload_id FK "nullable"
+        int position
     }
     CHAPTER {
         uuid entity_id PK,FK
@@ -873,11 +912,32 @@ erDiagram
         uuid tenant_id FK
         uuid book_entity_id FK
     }
+    MANUSCRIPT_CONTENTS {
+        uuid entity_id PK,FK
+        uuid tenant_id FK
+        json settings
+    }
     MANUSCRIPT_EXTRACTION {
         uuid id PK
         uuid tenant_id FK
         uuid source_id FK
         uuid chapter_id FK
+        string request_hash
+        json checkpoint
+    }
+    MANUSCRIPT_GOAL {
+        uuid entry_id PK,FK
+        uuid author_id PK,FK
+        string scope PK
+        uuid tenant_id FK
+        int target_words "nullable"
+        int version
+    }
+    MANUSCRIPT_JOIN {
+        uuid id PK
+        uuid tenant_id FK
+        uuid source_id FK
+        uuid destination_id FK
         string request_hash
         json checkpoint
     }
@@ -889,6 +949,11 @@ erDiagram
         json acknowledgement
         json checkpoint
     }
+    MANUSCRIPT_NUMBERING {
+        uuid entity_id PK,FK
+        uuid tenant_id FK
+        json settings
+    }
     MANUSCRIPT_PLACEMENT {
         uuid child_entity_id PK,FK
         uuid tenant_id FK
@@ -896,12 +961,28 @@ erDiagram
         uuid before_payload_id FK "nullable"
         int position
     }
+    MANUSCRIPT_REDIRECT {
+        uuid source_id PK,FK
+        uuid tenant_id FK
+        uuid destination_id FK "nullable"
+        uuid payload_id FK "nullable"
+        uuid child_id FK "nullable"
+    }
     MANUSCRIPT_REVISION {
         uuid id PK
         uuid tenant_id FK
         uuid information_id FK
         int transaction_id
         json snapshot
+    }
+    MANUSCRIPT_SCENE_EXTRACTION {
+        uuid id PK
+        uuid tenant_id FK
+        uuid source_id FK
+        uuid scene_id FK
+        uuid telling_id FK
+        string request_hash
+        json checkpoint
     }
     MANUSCRIPT_SPLIT {
         uuid id PK
@@ -1066,6 +1147,63 @@ erDiagram
     }
 ```
 
+## Relationships and Social Webs
+
+```mermaid
+erDiagram
+    ENTITY ||..o{ RELATIONSHIP : "entity_id"
+    ENTITY ||..o{ RELATIONSHIP : "end_a"
+    ENTITY ||..o{ RELATIONSHIP : "end_b"
+    STORY_EVENT |o..o{ RELATIONSHIP : "starts_at"
+    STORY_EVENT |o..o{ RELATIONSHIP : "ends_at"
+    RELATIONSHIP ||..o{ RELATIONSHIP_THROUGH : "relationship_entity_id"
+    RELATIONSHIP ||..o{ RELATIONSHIP_THROUGH : "via_entity_id"
+    ENTITY ||..o{ SOCIAL_WEB : "entity_id"
+    STAT_DEFINITION |o..o{ SOCIAL_WEB : "standing_stat_id"
+    STORY_EVENT |o..o{ SOCIAL_WEB : "as_of_event"
+    SOCIAL_WEB ||..o{ SOCIAL_WEB_ENTRY : "web_entity_id"
+    ENTITY ||..o{ SOCIAL_WEB_ENTRY : "entry_entity_id"
+    SOCIAL_WEB ||..o{ SOCIAL_WEB_TYPE : "web_entity_id"
+    ENTITY ||..o{ SOCIAL_WEB_TYPE : "type_entity_id"
+    RELATIONSHIP {
+        uuid entity_id PK,FK
+        uuid tenant_id FK
+        uuid end_a FK
+        uuid end_b FK
+        boolean one_way "nullable"
+        uuid starts_at FK "nullable"
+        uuid ends_at FK "nullable"
+    }
+    RELATIONSHIP_THROUGH {
+        uuid relationship_entity_id PK,FK
+        int step PK
+        uuid via_entity_id FK
+        uuid tenant_id FK
+    }
+    SOCIAL_WEB {
+        uuid entity_id PK,FK
+        uuid tenant_id FK
+        string layout
+        int layout_seed
+        string theme_hint "nullable"
+        json view "nullable"
+        uuid standing_stat_id FK "nullable"
+        uuid as_of_event FK "nullable"
+    }
+    SOCIAL_WEB_ENTRY {
+        uuid web_entity_id PK,FK
+        uuid entry_entity_id PK,FK
+        uuid tenant_id FK
+        float x "nullable"
+        float y "nullable"
+    }
+    SOCIAL_WEB_TYPE {
+        uuid web_entity_id PK,FK
+        uuid type_entity_id PK,FK
+        uuid tenant_id FK
+    }
+```
+
 ## Rules the lines do not show
 
 - **Tenant isolation:** tenant data has `tenant_id` and `FORCE ROW LEVEL SECURITY`, read through a restricted app role (ADR 0002, 0021). Tenant-to-tenant foreign keys include `tenant_id` (ADR 0117). `repository_subscription` is the deliberate cross-tenant grant table, with policies on both ends.
@@ -1076,8 +1214,11 @@ erDiagram
 - **Calendars:** a calendar's `definition` is a validated document (ADR 0308). A `calendar_period` row exists only once something is authored against it; browsing a year creates none, and `entry_calendar_period` is the date association of an entry (ADR 0309). An observance stores a rule, never its occurrences (ADR 0310). `calendar_import` is local provenance and retry receipts for a CLI import, not content (ADR 0311).
 - **Events and Facts:** `event_relationship` stores explicit `order` and `causes` assertions between Events with a per-assertion `is_shared`; the order a reader sees is derived from them (ADR 0312, 0315). `event_participant` records who took part and nothing more: `event_learning` is a separate, optional record of what a participant learned (ADR 0313, 0314), and `lived_before` is a being's own lived order, anchored to two of its participations (ADR 0319). `entity_audience` and `entity_knowledge` hold the explicit outer audience of an entry such as an Event or Fact (ADR 0305, 0316). `event_group_creation` is a retry receipt for creating a group from an Event's participants.
 - **Sessions and Scenes:** a Session belongs to one campaign; its GMs, players and the characters players bring are explicit rows. A Scene is reusable and carries its own references (`scene_fact`, `scene_event`, `scene_being`); a `scene_appearance` places one in a Session, with its own preparation `position`, optional played position and sharing flag (ADR 0317, 0318). References and presentations record no learning, participation or lived order. Repository copies and releases carry the reusable rows (calendars, periods, observances, Events, Facts, Scenes and their references, lived-before assertions); the operational rows (`story_session`, `session_*`, `scene_appearance`, `event_presentation`, `calendar_import`, `event_group_creation`, `release_fanout`) are local and never copied (`copyable_tables.py`).
-- **Writing:** `book`, `edition`, `chapter` and `scene_telling` are entry kinds; `manuscript_placement` orders chapters and tellings under a parent in a graph of its own, separate from containment and prototypes, with `before_payload_id` interleaving a placement among the parent's text and picture payloads (ADR 0327, 0341, 0342). `manuscript_revision`, `manuscript_move`, `manuscript_extraction` and `manuscript_split` are private recovery history and retry receipts, never repository content. Review grants and notes are operational: a grant names one user for one Edition and creates no membership (ADR 0328, 0343 to 0347).
+- **Writing:** `book`, `edition`, `chapter` and `scene_telling` are entry kinds; `manuscript_placement` orders chapters and tellings under a parent in a graph of its own, separate from containment and prototypes, with `before_payload_id` interleaving a placement among the parent's text and picture payloads (ADR 0327, 0341, 0342). `manuscript_revision`, `manuscript_move`, `manuscript_extraction`, `manuscript_scene_extraction`, `manuscript_join` and `manuscript_split` are private recovery history and retry receipts, never repository content (ADR 0378). Review grants and notes are operational: a grant names one user for one Edition and creates no membership (ADR 0328, 0343 to 0347).
+- **Carriers, joins, numbering and goals:** `carrier` is an entry kind and `carrier_coverage` is its ordered list of references, each to one whole entry (`target_entity_id`) or one manuscript payload (`target_payload_id`), never both; `before_payload_id` interleaves a reference among the Carrier's own text, and coverage grants no access and cannot form a cycle, since a Carrier is not a target (ADR 0379). `manuscript_redirect` is left by joining a Chapter into another: it names the destination and the first moved element (`payload_id` or `child_id`, not both); deleting either clears that column and keeps the marker, so the joined source stays joined (ADR 0348, 0374). `manuscript_numbering` and `manuscript_contents` hold the numbering policy and the structural contents settings of an Edition or Chapter as validated JSON, presentation only (ADR 0380, 0381). `manuscript_goal` is one personal word target per library, account, entry and scope (`direct` or `assembled`); it is operational and never copied or released (ADR 0383). The other five tables here are content that copies and releases carry, with remapped identifiers.
 - **Locations, Maps, connections and frames:** `location_part` is a single-parent tree of its own and `entity_location` says an entry is at a Location now; neither is containment and neither feeds a GM's reach (ADR 0330, 0333). A `map_placement` is where an entry is drawn, never where it is; `map_layer` points at an Information of the Map and shows its first picture, at most eight per Map (ADR 0336, 0361). A `connection` is an entry with two ends and no other kind; deleting an end removes the marker and leaves the entry (ADR 0363). `frame` is a designation on an entry, not a kind, and `entity_frame` puts an entry on at most one frame per axis; the axis is part of the key and the axes are a closed list in code (ADR 0369).
 - **Clocks:** a Clock is an entry that is ticking or timeless, and readings, reckonings and relationships may reference only ticking ones (the `ticking` column is part of their keys). A relationship is stored once per unordered pair (`clock_entity_id` sorts before `reference_clock_entity_id`). Rows start private (`is_shared`), derived readings are never stored, and none of these tables says anything about Event order (ADR 0320, 0321).
+- **Relationships:** a `relationship` is an entry with two ends of any kind and no other kind; `one_way` is null for a tie both ways and true from `end_a` to `end_b`, the ends differ, and an end is never itself a relationship. Deleting an end removes the marker and leaves the entry (ADR 0399). Its type is a prototype and a standing is a stat on the entry, so neither has a table; the three `relationship_*_stat_id` columns of `tenant` say which stat definitions mark a type as directed and give the verb from each end (ADR 0400). A standing's scale is the optional `min_value` and `max_value` of its stat definition, checked on write and never applied to a computed value (ADR 0403). `starts_at` and `ends_at` name Events that bound the tie in time and set no order; deleting an Event clears only that column (ADR 0405). A relationship to a group says a role or standing, never membership, which stays `group_member`; no relationship feeds access, knowledge or reach (ADR 0401). `relationship_through` is an authored, ordered, acyclic chain of the relationships another one is stated to hold through; nothing derives anything from it (ADR 0402).
+- **Social Webs:** a `social_web` is an entry that shows exactly the entries with a `social_web_entry` row, drawn at `x` and `y` when placed by hand (both set or both null). Its edges are the visible relationships between members, limited to the `social_web_type` entries when it has any. `layout` names an engine from a closed list in code, and `standing_stat_id` and `as_of_event` save the matrix's standing and date lens, cleared when their target is deleted. A web says what it shows, not what is true, and gives access to nothing (ADR 0406, 0407). These tables and `relationship` and `relationship_through` are content that copies and releases carry.
 - **Credentials:** personal tokens and device authorizations belong to a user, not a tenant; only hashes of credentials are stored (ADR 0268).
 - **Activity:** logs and change-feed records keep identifiers of deleted objects without foreign keys to those objects. A notification can later be marked read; its `read_at` changes even though its authored message stays fixed (ADR 0058, 0099).

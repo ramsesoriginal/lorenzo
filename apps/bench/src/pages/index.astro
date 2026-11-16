@@ -38,9 +38,11 @@ import '../styles/bench.css';
     <main id="bench"></main>
     <footer class="statusbar" id="statusbar"></footer>
     <script>
+      import { bindLegalLinksFromApi } from '@lorenzo/app-shell/legal';
       import { Bench } from '../core/bench';
       import { SampleTransport } from '../core/sample';
       import type { Transport } from '../core/transport';
+      import { API_BASE_URL } from '../lib/config';
       import { apiTransport } from '../lib/transport';
       import { LiveBanner } from '../shell/liveBanner';
       import { chooseRepository, loadSession, signOut } from '../shell/session';
@@ -51,6 +53,9 @@ import '../styles/bench.css';
       import { openStartScreen, showWelcome } from '../shell/repositories';
       import { decorateTopBar } from '../shell/topbar';
       import { renderTitleBar } from '../shell/titlebar';
+
+      // The legal notice, the privacy policy and the support link, when the deployment has them (ADR 0439).
+      void bindLegalLinksFromApi(API_BASE_URL);
 
       const root = document.getElementById('bench');
       const bar = document.getElementById('titlebar');

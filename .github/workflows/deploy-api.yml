@@ -141,6 +141,8 @@ jobs:
           # means no link. PUBLIC_REPOSITORIES_ENABLED (ADR 0290): whether a repository can be made
           # public; an unset GitHub variable means off. Both are set under Settings, Secrets and
           # variables, Actions, Variables; see docs/operations/public-launch.md.
+          # LEGAL_URL, SUPPORT_URL (ADR 0439): the legal notice and privacy policy app, and an optional
+          # support link; both unset (empty) means no link, and LEGAL_URL has no default.
           # ACCOUNT_HUB_URL, INVENTORY_WEB_URL, BEINGS_URL, BENCH_URL, CALENDARS_URL, SESSIONS_URL, MAPS_URL, WRITING_URL,
           # SOCIAL_URL, APP_LINK_TEMPLATES
           # (ADR 0273): the registry GET /app-links serves. All optional: unset (empty)
@@ -164,6 +166,8 @@ jobs:
             BENCH_URL=${{ vars.BENCH_URL }}
             APP_LINK_TEMPLATES=${{ vars.APP_LINK_TEMPLATES }}
             REPORT_ADDRESS=${{ vars.REPORT_ADDRESS }}
+            LEGAL_URL=${{ vars.LEGAL_URL }}
+            SUPPORT_URL=${{ vars.SUPPORT_URL }}
             PUBLIC_REPOSITORIES_ENABLED=${{ vars.PUBLIC_REPOSITORIES_ENABLED || 'false' }}
             INVITE_RATE_LIMIT_TRUSTED_PROXY_HOPS=1
 

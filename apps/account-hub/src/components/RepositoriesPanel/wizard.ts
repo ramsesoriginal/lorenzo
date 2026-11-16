@@ -22,7 +22,7 @@ import {
   type WizardStep,
 } from '../../lib/copyWizard';
 import { copyRepository, getCopyPlan } from '../../lib/repositories';
-import { type CopyMode, type CopySubject, shelfHref } from '../../lib/shelf';
+import { type CopyMode, type CopySubject, shelfHref, stepReadable } from '../../lib/shelf';
 import { sayError } from '../../lib/statusLine';
 import { requiredIn } from '../../lib/template';
 import type {
@@ -195,9 +195,7 @@ export function createCopyWizard(panel: HTMLElement, view: HTMLElement): CopyWiz
       return;
     }
 
-    const missing = plan.steps.filter(
-      (step) => !step.already_copied && !(step.published && (step.granted || step.public)),
-    );
+    const missing = plan.steps.filter((step) => !step.already_copied && !stepReadable(step));
 
     if (missing.length > 0) {
       blocked(

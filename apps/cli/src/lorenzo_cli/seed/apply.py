@@ -11,7 +11,7 @@ from uuid import UUID
 
 from lorenzo_cli import descriptions
 from lorenzo_cli.client.models import (
-    ContentsFormulaBody,
+    ContentsFormulaBodyInput,
     InformationCreate,
     ItemCreate,
     SetEntityStatRequest,
@@ -137,10 +137,10 @@ def apply_plan(client: LorenzoClient, spec: SeedSpec, plan: SeedPlan, state: Ten
         else:
             recipe = next(r for r in spec.recipes if f"{r.node}: {r.stat}" == action.name)
             # `kind` is set explicitly: a defaulted field isn't sent, and the API needs it.
-            body: ContentsFormulaBody | SumFormulaBodyInput
+            body: ContentsFormulaBodyInput | SumFormulaBodyInput
             if recipe.kind == "contents":
                 assert recipe.source is not None
-                body = ContentsFormulaBody(
+                body = ContentsFormulaBodyInput(
                     kind="contents", source_stat_definition_id=definitions[recipe.source]
                 )
             else:
