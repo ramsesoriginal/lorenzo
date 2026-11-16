@@ -148,6 +148,27 @@ export function explain(explanation: Explanation, names: ReadonlyMap<string, str
         parts,
       };
     }
+    case 'dice_value': {
+      // ADR 0463: what is read of a dice stat, the way it is said.
+      const read = { min: 'smallest', max: 'largest', average: 'average' }[formula.as];
+      const rounding = ROUNDING[formula.round_mode] ?? '';
+
+      return {
+        text: `The ${read} roll of ${label(formula.source_stat_definition_id)}${rounding}`,
+        parts,
+      };
+    }
+    case 'dice': {
+      // ADR 0464: the dice a count and a number of sides make, each a stat or a constant.
+      const count = formula.count_stat_definition_id
+        ? label(formula.count_stat_definition_id)
+        : String(formula.count_constant ?? '');
+      const sides = formula.sides_stat_definition_id
+        ? label(formula.sides_stat_definition_id)
+        : String(formula.sides_constant ?? '');
+
+      return { text: `${count} dice of ${sides} sides`, parts };
+    }
     case 'select': {
       // A value from a table (ADR 0446): which step the source reached.
       const chosen = explanation.chosen;

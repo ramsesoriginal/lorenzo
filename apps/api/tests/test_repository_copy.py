@@ -81,7 +81,7 @@ async def test_copying_a_repository(
         plan = (await gm.get(f"/tenants/{table}/repositories/{faerun}/copy-plan")).json()
         assert plan["collisions"] == []
         (step,) = plan["steps"]
-        assert (step["entities"], step["stat_groups"], step["stat_definitions"]) == (29, 1, 6)
+        assert (step["entities"], step["stat_groups"], step["stat_definitions"]) == (29, 1, 7)
         assert (step["granted"], step["published"], step["already_copied"]) == (True, True, False)
 
         copied = await gm.post(f"/tenants/{table}/repositories/{faerun}/copy")
@@ -101,7 +101,14 @@ async def test_copying_a_repository(
         # and the sum 16 + 2 * 3 + 1 = 23 (ADR 0126).
         sword = (await gm.get(f"/tenants/{table}/entities/{mine['Sword']}")).json()
         stats = {s["name"]: s["value"] for s in sword["stats"]}
-        assert stats == {"Strength": 16, "Modifier": 3, "Strong": True, "Might": 23}
+        # The Hit dice are the Sword's own dice value, copied as its parts (ADR 0462).
+        assert stats == {
+            "Strength": 16,
+            "Modifier": 3,
+            "Strong": True,
+            "Might": 23,
+            "Hit dice": "4d6dl1",
+        }
         # The Chest's Load adds up the Strength of what's in it: the Blade,
         # which inherits 16 from the Sword (ADR 0127).
         chest = (await gm.get(f"/tenants/{table}/entities/{mine['Chest']}")).json()
@@ -283,6 +290,7 @@ async def test_collisions_need_a_choice(
                 "Strong",
                 "Alignment",
                 "Might",
+                "Hit dice",
                 "Load",
             }
             strength_values = (
