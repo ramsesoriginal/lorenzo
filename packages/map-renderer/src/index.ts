@@ -20,6 +20,7 @@ export { createMapView } from './mapView';
 export type { PaintOptions, TreeNode } from './paint';
 export { iconHref, paintSvg, sceneToSvg, sceneTree } from './paint';
 export { project, unproject } from './project';
+export { hashString, seeded } from './random';
 export type { Arc } from './relief';
 export { reliefArcs } from './relief';
 export type {

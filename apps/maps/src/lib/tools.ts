@@ -6,6 +6,8 @@
 // A tool that the data cannot hold yet, or that is not built yet, is `planned`: it is listed, says
 // why, and does nothing. Each is built later, with its own ADR (ADR 0421).
 
+import { ROLE_WORDS, ROLES } from '@lorenzo/map-renderer';
+
 export type ToolGroup = 'select' | 'place' | 'draw' | 'terrain' | 'generate';
 
 export const GROUP_NAMES: Record<ToolGroup, string> = {
@@ -21,7 +23,7 @@ export const GROUPS: ToolGroup[] = ['select', 'place', 'draw', 'terrain', 'gener
 /**
  * An option of a tool (ADR 0470): the Options tab draws it and the command line sets it by its word.
  * A type is built with the first tool that has one: `toggle` for snapping, `number` for a spline,
- * `text` for a height line's unit, `seed` for the generators.
+ * `text` for a height line's unit, `seed` and `choice` for the generators.
  */
 export type ToolOption = {
   id: string;
@@ -53,6 +55,12 @@ export type ToolOption = {
       type: 'seed';
     }
   | {
+      /** One of a closed list, each a value and what it is called; the first is where it starts. */
+      type: 'choice';
+      first: string;
+      choices: readonly (readonly [string, string])[];
+    }
+  | {
       type: 'text';
       /** Empty when the person gives it before the tool can finish. */
       first: string;
@@ -65,6 +73,7 @@ export type ToggleOption = Extract<ToolOption, { type: 'toggle' }>;
 export type NumberOption = Extract<ToolOption, { type: 'number' }>;
 export type TextOption = Extract<ToolOption, { type: 'text' }>;
 export type SeedOption = Extract<ToolOption, { type: 'seed' }>;
+export type ChoiceOption = Extract<ToolOption, { type: 'choice' }>;
 
 export type OptionValue = boolean | number | string | null;
 
@@ -114,6 +123,70 @@ export const TOLERANCE: NumberOption = {
 /** The seed of a generator (ADR 0475): each generator lists it, and each keeps its own. */
 export const SEED: SeedOption = { id: 'seed', name: 'Seed', word: 'seed', type: 'seed' };
 
+/**
+ * The role of what a generator draws (ADR 0475): the person's to choose, and none at first. The
+ * list is the renderer's closed list of roles (ADR 0337).
+ */
+export const ROLE: ChoiceOption = {
+  id: 'role',
+  name: 'Role',
+  word: 'role',
+  type: 'choice',
+  first: '',
+  choices: [
+    ['', 'None'],
+    ...ROLES.map(
+      (role) =>
+        [role, ROLE_WORDS[role].charAt(0).toUpperCase() + ROLE_WORDS[role].slice(1)] as const,
+    ),
+  ],
+};
+
+/** The options of the Cave system (ADR 0476). */
+export const CAVE_SIZE: NumberOption = {
+  id: 'size',
+  name: 'Size (cells across)',
+  word: 'size',
+  type: 'number',
+  first: 48,
+  least: 16,
+  most: 96,
+  step: 1,
+};
+
+export const CAVE_DENSITY: NumberOption = {
+  id: 'density',
+  name: 'Density',
+  word: 'density',
+  type: 'number',
+  first: 0.46,
+  least: 0.3,
+  most: 0.6,
+  step: 0.01,
+};
+
+export const CAVE_PASSES: NumberOption = {
+  id: 'passes',
+  name: 'Passes',
+  word: 'passes',
+  type: 'number',
+  first: 4,
+  least: 0,
+  most: 8,
+  step: 1,
+};
+
+export const CAVE_SMALLEST: NumberOption = {
+  id: 'smallest',
+  name: 'Smallest cave (cells)',
+  word: 'smallest',
+  type: 'number',
+  first: 6,
+  least: 1,
+  most: 60,
+  step: 1,
+};
+
 /** The height a height line carries (ADR 0473): never assumed, so it starts empty. */
 export const HEIGHT: NumberOption = {
   id: 'height',
@@ -155,6 +228,8 @@ export type ToolDecl = {
   needsGrid?: boolean;
   /** Not on a sphere. */
   notOnSphere?: boolean;
+  /** It previews and applies (ADR 0475): its behaviour is in `generators.ts`. */
+  generator?: boolean;
   /** What a person can set for it (ADR 0470). */
   options?: ToolOption[];
 };
@@ -285,8 +360,10 @@ export const TOOLS: ToolDecl[] = [
     key: 'k',
     input: 'a region and a seed',
     output: 'areas',
-    state: 'planned',
-    reason: later,
+    state: 'ready',
+    notOnSphere: true,
+    generator: true,
+    options: [CAVE_SIZE, CAVE_DENSITY, CAVE_PASSES, CAVE_SMALLEST, ROLE, SEED],
   },
   {
     id: 'marching-squares',
@@ -350,6 +427,7 @@ export type OptionValues = {
   get(tool: ToolDecl, option: ToggleOption): boolean;
   get(tool: ToolDecl, option: NumberOption): number | null;
   get(tool: ToolDecl, option: TextOption): string;
+  get(tool: ToolDecl, option: ChoiceOption): string;
   get(tool: ToolDecl, option: SeedOption): number | null;
   get(tool: ToolDecl, option: ToolOption): OptionValue;
   set(tool: ToolDecl, option: ToolOption, value: OptionValue): void;

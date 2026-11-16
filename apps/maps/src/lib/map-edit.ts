@@ -28,7 +28,18 @@ import {
 import { HELP, parseCommand } from './command-line';
 import { button, el, field, groupTitle, message, select, statusLine } from './dom';
 import { strokeLine, unitsPerPixel } from './freehand';
-import { nextSeed, SEED_MOST, seedFrom, seedOf } from './generator';
+import {
+  type Fit,
+  fits,
+  nextSeed,
+  type Region,
+  regionOf,
+  SEED_MOST,
+  seedFrom,
+  seedOf,
+  stepName,
+} from './generator';
+import { GENERATORS } from './generators';
 import {
   type Editable,
   editableOf,
@@ -78,9 +89,12 @@ import {
   GROUP_NAMES,
   GROUPS,
   HEIGHT,
+  type NumberOption,
   numberFor,
   type OptionValue,
   optionsOf,
+  ROLE,
+  SEED,
   SNAP,
   searchTools,
   TENSION,
@@ -138,7 +152,8 @@ type ToolName =
   | 'freehand'
   | 'area'
   | 'cells'
-  | 'height-line';
+  | 'height-line'
+  | 'cave-system';
 
 const TOOLS: [ToolName, string][] = [
   ['select', 'Select'],
@@ -148,6 +163,7 @@ const TOOLS: [ToolName, string][] = [
   ['spline', 'Spline'],
   ['freehand', 'Freehand'],
   ['height-line', 'Height line'],
+  ['cave-system', 'Cave system'],
   ['area', 'Area'],
   ['cells', 'Cells'],
 ];
@@ -217,6 +233,19 @@ export function createEditor(context: EditorContext): Editor {
   // The selected shape while a handle or the shape is being dragged, drawn as an overlay.
   let working: Editable | null = null;
   let dragging: { handle: string | null; base: Editable; start: Pt; by: Pt } | null = null;
+  // A generator (ADR 0475): the placement its region was taken from, whether the view is split to
+  // compare, where, and the result last worked out with what it was worked out from.
+  let regionId: string | null = null;
+  let compare = false;
+  let divide = 0.5;
+  let made: {
+    key: string;
+    region: Region;
+    geometry: Geometry | null;
+    count: string;
+    fit: Fit;
+  } | null = null;
+  let syncGenerator: () => void = () => {};
   // The part of the selected placement being changed, when it has several (ADR 0474).
   let selectedPart: PartRef | null = null;
   let busy = false;
@@ -280,6 +309,47 @@ export function createEditor(context: EditorContext): Editor {
     };
   }
 
+  /** The generator that is the tool, when the tool is one. */
+  const generator = () => (toolDecl().generator ? GENERATORS[toolName] : undefined);
+
+  /** The seed of the tool that is on: the page draws the first, from the browser's randomness. */
+  function seedNow(): number {
+    const decl = toolDecl();
+    const kept = optionValues.get(decl, SEED);
+    if (kept !== null) return kept;
+    const first = seedFrom(crypto.getRandomValues(new Uint32Array(1))[0] ?? 0);
+    optionValues.set(decl, SEED, first);
+    return first;
+  }
+
+  /**
+   * What the generator that is on would draw, from the Map as it is and the options as they are
+   * set (ADR 0475). Worked out again only when one of those has changed; never stored.
+   */
+  function generated() {
+    const def = generator();
+    if (!def) return null;
+    const decl = toolDecl();
+    const from = rowOf(regionId);
+    const seed = seedNow();
+    const numbers = (decl.options ?? []).flatMap((option) =>
+      option.type === 'number' ? [optionValues.get(decl, option)] : [],
+    );
+    const key = JSON.stringify([toolName, seed, numbers, from?.id ?? null, from?.geometry ?? null]);
+    if (made?.key === key) return made;
+    const region = regionOf(
+      from ? { name: from.name, geometry: from.geometry as unknown as Geometry } : null,
+      context.extent,
+    );
+    const result = def.run(
+      region,
+      seed,
+      (option: NumberOption) => optionValues.get(decl, option) ?? 0,
+    );
+    made = { key, region, ...result, fit: fits(result.geometry, def.hints) };
+    return made;
+  }
+
   // --- what is drawn over the map -------------------------------------------------------------
 
   function shapeOverlay(shape: Editable, id: string, handles: boolean, active?: string): Overlay {
@@ -313,6 +383,16 @@ export function createEditor(context: EditorContext): Editor {
     if (toolName === 'freehand') {
       return stroke && stroke.length > 1 ? [{ id: 'stroke', kind: 'line', pts: stroke }] : [];
     }
+    if (generator()) {
+      // The preview: what Apply would write, drawn over the Map and never stored.
+      return (generated()?.geometry?.parts ?? []).flatMap((part, i): Overlay[number][] =>
+        part.shape === 'polygon'
+          ? [{ id: `made${i}`, kind: 'area', rings: part.rings, clipped: true }]
+          : part.shape === 'polyline'
+            ? [{ id: `made${i}`, kind: 'line', pts: part.pts, clipped: true }]
+            : [],
+      );
+    }
     if (toolName !== 'select') {
       if (draft.length === 0) return [];
       const last = draft[draft.length - 1] as Pt;
@@ -344,7 +424,10 @@ export function createEditor(context: EditorContext): Editor {
     return shape ? shapeOverlay(shape, 'shape', true, dragging?.handle ?? undefined) : [];
   }
 
-  const refresh = () => context.view().setOverlay(overlay());
+  const refresh = () => {
+    context.view().setOverlay(overlay());
+    syncGenerator();
+  };
 
   // --- writing --------------------------------------------------------------------------------
 
@@ -405,7 +488,7 @@ export function createEditor(context: EditorContext): Editor {
     });
   }
 
-  async function finish(geometry: Geometry) {
+  async function finish(geometry: Geometry, how: { role?: string | null; step?: string } = {}) {
     const chosen = target;
     if (!chosen) return;
     await guarded(async () => {
@@ -419,7 +502,14 @@ export function createEditor(context: EditorContext): Editor {
       if (!id) return;
       const before = rowOf(id);
       // The two roles a tool chooses: a pin is a site (ADR 0353), a height line an isoline (ADR 0473).
-      const role = toolName === 'pin' ? 'site' : toolName === 'height-line' ? 'isoline' : null;
+      const role =
+        how.role !== undefined
+          ? how.role
+          : toolName === 'pin'
+            ? 'site'
+            : toolName === 'height-line'
+              ? 'isoline'
+              : null;
       const saved = await putPlacement(context.tenant, context.mapId, id, {
         geometry,
         role,
@@ -428,9 +518,10 @@ export function createEditor(context: EditorContext): Editor {
       });
       history.record(
         [{ entry: id, before: before ? rowState(before) : null, after: rowState(saved) }],
-        `${before ? 'Redrew' : 'Drew'} ${saved.name}`,
+        how.step ?? `${before ? 'Redrew' : 'Drew'} ${saved.name}`,
       );
       context.setRows(upsert(saved));
+      leaveGenerator();
       draft = [];
       cells = [];
       rubber = null;
@@ -548,6 +639,8 @@ export function createEditor(context: EditorContext): Editor {
         return draft.length === 0 ? 'Type the centre, x,y.' : 'Type a point on the edge, x,y.';
       case 'freehand':
         return 'Drag on the map to draw. The Line tool takes typed points.';
+      case 'cave-system':
+        return 'Set the options, then APPLY or DISCARD.';
       case 'line':
       case 'height-line':
       case 'spline':
@@ -584,7 +677,24 @@ export function createEditor(context: EditorContext): Editor {
       case 'discard':
       case 'compare':
         // A generator's own commands (ADR 0475): they mean something only while one is the tool.
-        answer('That is a command of a generator, and no generator is the tool.', true);
+        if (!editing || !generator()) {
+          answer('That is a command of a generator, and no generator is the tool.', true);
+          return;
+        }
+        if (command.kind === 'roll') {
+          setOption(SEED, nextSeed(seedNow()));
+          answer(`Seed ${seedNow()}: ${generatedWords()}`);
+        } else if (command.kind === 'compare') {
+          setCompare(command.on);
+          answer(
+            command.on ? 'The view is split: the Map as it is on the left.' : 'The view is whole.',
+          );
+        } else if (command.kind === 'discard') {
+          discardGenerator();
+          answer('Nothing was drawn.');
+        } else {
+          answer(await applyGenerator());
+        }
         return;
       case 'planned':
       case 'unavailable':
@@ -617,6 +727,7 @@ export function createEditor(context: EditorContext): Editor {
         if (toolName === 'cells') finishCells();
         else if (pathTool()) finishDraft();
         else if (toolName === 'freehand') answer('A stroke finishes when you let go.', true);
+        else if (generator()) answer('APPLY draws what is previewed.', true);
         else answer('A circle finishes with its second point.', true);
         return;
       }
@@ -927,6 +1038,8 @@ export function createEditor(context: EditorContext): Editor {
         say('Freehand is drawn by dragging. The Line tool takes points one by one.', true);
         return true;
       }
+      // A generator takes no point: its region was chosen before it, and it draws on Apply.
+      if (generator()) return true;
       if (toolName === 'cells') {
         const grid = gridNow();
         const cell = grid ? cellOfPoint(grid, context.extent, event.point) : null;
@@ -1044,6 +1157,9 @@ export function createEditor(context: EditorContext): Editor {
   const tool = (): Tool | null => (!editing ? null : toolName === 'select' ? selectTool : drawTool);
 
   function setTool(next: ToolName) {
+    leaveGenerator();
+    // A generator works in the placement that is selected when it is chosen (ADR 0475).
+    regionId = toolById(next)?.generator ? selectedId : null;
     toolName = next;
     draft = [];
     cells = [];
@@ -1056,6 +1172,93 @@ export function createEditor(context: EditorContext): Editor {
     renderToolbar();
     render();
     refresh();
+  }
+
+  // --- a generator: preview, compare, apply, discard (ADR 0475) --------------------------------
+
+  /** The view is whole again and nothing of a preview is kept. */
+  function leaveGenerator() {
+    made = null;
+    syncGenerator = () => {};
+    if (compare) {
+      compare = false;
+      context.view().setOverlayDivide(null);
+    }
+  }
+
+  function setCompare(on: boolean) {
+    compare = on;
+    context.view().setOverlayDivide(on ? divide : null);
+    render();
+  }
+
+  /** What the preview is, in words: how much in where, or why it cannot be applied. */
+  function generatedWords(): string {
+    const now = generated();
+    if (!now) return '';
+    return now.fit.ok ? `${now.count} in ${now.region.words}.` : now.fit.why;
+  }
+
+  function discardGenerator() {
+    setTool('select');
+    say('Nothing was drawn.');
+  }
+
+  /** Writes what is previewed as one placement and one history step; answers what happened. */
+  async function applyGenerator(): Promise<string> {
+    const def = generator();
+    const now = generated();
+    if (!def || !now) return '';
+    if (!now.fit.ok || !now.geometry) {
+      say(now.fit.ok ? 'There is nothing to draw.' : now.fit.why, true);
+      return status.textContent ?? '';
+    }
+    if (!target) {
+      say('Choose what you are drawing first.', true);
+      return status.textContent ?? '';
+    }
+    const step = stepName(def.what, seedNow(), now.count, now.region);
+    await finish(now.geometry, { role: optionValues.get(toolDecl(), ROLE) || null, step });
+    return status.textContent ?? '';
+  }
+
+  /** The preview's line, Compare with its divider, and Apply and Discard. */
+  function generatorControls(): HTMLElement {
+    const box = el('div', '', 'stack-tight map-generator');
+    box.setAttribute('role', 'group');
+    box.setAttribute('aria-label', 'Preview');
+    const line = el('p', '', 'status-text map-generator-result');
+    line.setAttribute('role', 'status');
+    const split = field('Compare with the Map as it is', '', 'checkbox');
+    split.input.checked = compare;
+    split.input.addEventListener('change', () => setCompare(split.input.checked));
+    box.append(line, split.label);
+    if (compare) {
+      const slider = field('Divider', String(Math.round(divide * 100)), 'range');
+      slider.input.min = '0';
+      slider.input.max = '100';
+      slider.input.step = '5';
+      slider.input.addEventListener('input', () => {
+        divide = Number(slider.input.value) / 100;
+        context.view().setOverlayDivide(divide);
+      });
+      box.append(slider.label);
+    }
+    const apply = button('Apply', async () => {
+      await applyGenerator();
+    });
+    const discard = button('Discard', async () => discardGenerator(), { variant: 'secondary' });
+    const actions = el('div', '', 'row-tight');
+    actions.append(apply, discard);
+    box.append(actions);
+    syncGenerator = () => {
+      const now = generated();
+      line.textContent = generatedWords();
+      line.classList.toggle('error-text', now ? !now.fit.ok : false);
+      apply.disabled = !now?.fit.ok || !target;
+    };
+    syncGenerator();
+    return box;
   }
 
   // --- the toolbar ----------------------------------------------------------------------------
@@ -1342,15 +1545,17 @@ export function createEditor(context: EditorContext): Editor {
           'p',
           toolName === 'pin'
             ? 'Click the map to place it.'
-            : toolName === 'height-line'
-              ? 'Give the height and its unit above, then click each point. Press Enter or double-click to finish, Backspace to take back a point, Escape to start again.'
-              : toolName === 'freehand'
-                ? 'Press and drag on the map, and let go to finish. Escape while dragging drops the stroke. The Line tool draws the same thing point by point, from the keyboard.'
-                : toolName === 'circle'
-                  ? 'Click the centre, then the edge.'
-                  : toolName === 'cells'
-                    ? 'Click a cell to add it and click it again to take it away. Press Enter to finish, Backspace to take back a cell, Escape to start again.'
-                    : 'Click each point. Press Enter or double-click to finish, Backspace to take back a point, Escape to start again.',
+            : generator()
+              ? 'The preview on the Map is what Apply will draw for it; nothing is drawn until then.'
+              : toolName === 'height-line'
+                ? 'Give the height and its unit above, then click each point. Press Enter or double-click to finish, Backspace to take back a point, Escape to start again.'
+                : toolName === 'freehand'
+                  ? 'Press and drag on the map, and let go to finish. Escape while dragging drops the stroke. The Line tool draws the same thing point by point, from the keyboard.'
+                  : toolName === 'circle'
+                    ? 'Click the centre, then the edge.'
+                    : toolName === 'cells'
+                      ? 'Click a cell to add it and click it again to take it away. Press Enter to finish, Backspace to take back a cell, Escape to start again.'
+                      : 'Click each point. Press Enter or double-click to finish, Backspace to take back a point, Escape to start again.',
           'status-text',
         ),
       );
@@ -1842,14 +2047,7 @@ export function createEditor(context: EditorContext): Editor {
       if (option.type === 'seed') {
         // The first seed is the page's to draw, from the browser's own randomness; from then on
         // it is typed, or rolled to the next (ADR 0475).
-        if (optionValues.get(decl, option) === null) {
-          optionValues.set(
-            decl,
-            option,
-            seedFrom(crypto.getRandomValues(new Uint32Array(1))[0] ?? 0),
-          );
-        }
-        const line = field(option.name, String(optionValues.get(decl, option)), 'number');
+        const line = field(option.name, String(seedNow()), 'number');
         line.input.min = '0';
         line.input.max = String(SEED_MOST);
         line.input.step = '1';
@@ -1865,12 +2063,24 @@ export function createEditor(context: EditorContext): Editor {
         const roll = button(
           'Roll',
           async () => {
-            setOption(option, nextSeed(optionValues.get(decl, option) ?? 0));
+            setOption(option, nextSeed(seedNow()));
           },
           { variant: 'secondary' },
         );
         roll.setAttribute('aria-label', 'Roll another seed');
         box.append(line.label, roll);
+        continue;
+      }
+      if (option.type === 'choice') {
+        const line = select(
+          option.name,
+          option.choices.map(([value, title]): [string, string] => [value, title]),
+          optionValues.get(decl, option),
+        );
+        line.input.addEventListener('change', () => {
+          optionValues.set(decl, option, line.input.value);
+        });
+        box.append(line.label);
         continue;
       }
       if (option.type === 'text') {
@@ -1908,6 +2118,7 @@ export function createEditor(context: EditorContext): Editor {
     if (options) panel.append(options);
     if (toolName !== 'select') {
       panel.append(chooser());
+      if (generator()) panel.append(generatorControls());
       return;
     }
     const row = rowOf(selectedId);

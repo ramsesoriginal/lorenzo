@@ -1,6 +1,8 @@
 import { randomUUID } from 'node:crypto';
 import AxeBuilder from '@axe-core/playwright';
 import { type Browser, expect, type Page, test } from '@playwright/test';
+import { caveSystem } from '../../src/lib/cave.ts';
+import { regionOf } from '../../src/lib/generator.ts';
 import { apiAs, ok, refreshTokenFor } from './support/api.ts';
 import { REFRESH_TOKEN_KEY, SITE_URL } from './support/env.ts';
 import { openControl, openPanel, stageBox } from './support/map-ui.ts';
@@ -430,6 +432,16 @@ for (const theme of ['light', 'dark'] as const) {
       ).toBeVisible();
       const heightLine = await new AxeBuilder({ page }).exclude('.shell-bottom').analyze();
       expect(heightLine.violations.map((v) => `${v.id}: ${v.nodes[0]?.html}`)).toEqual([]);
+      // A generator with its preview on the Map and the view split to compare.
+      await page
+        .getByRole('group', { name: 'Generate', exact: true })
+        .getByRole('button', { name: 'Cave system', exact: true })
+        .click();
+      await expect(page.locator('.map-stage .m-ov-area').first()).toBeVisible();
+      await page.getByLabel('Compare with the Map as it is').check();
+      await expect(page.getByLabel('Divider')).toBeVisible();
+      const generator = await new AxeBuilder({ page }).exclude('.shell-bottom').analyze();
+      expect(generator.violations.map((v) => `${v.id}: ${v.nodes[0]?.html}`)).toEqual([]);
     } finally {
       await page.context().close();
     }
@@ -472,12 +484,12 @@ test('the toolbox is drawn from the tool registry: groups, one key a tool, and p
     await expect(page.getByText(/Height brush is planned\./)).toBeVisible();
     // All tools lists every tool, finds one by a few words and says which are planned.
     await page.getByRole('button', { name: 'All tools' }).click();
-    await page.getByLabel('Find a tool').fill('cave');
-    const cave = page.getByRole('button', { name: 'Cave system', exact: true });
-    await expect(cave).toHaveAttribute('aria-disabled', 'true');
+    await page.getByLabel('Find a tool').fill('marching');
+    const fill = page.getByRole('button', { name: 'Fill by marching squares', exact: true });
+    await expect(fill).toHaveAttribute('aria-disabled', 'true');
     await expect(page.locator('.map-all-tools-list')).toContainText('planned');
-    await cave.click({ force: true });
-    await expect(page.getByText(/Cave system is planned\./)).toBeVisible();
+    await fill.click({ force: true });
+    await expect(page.getByText(/Fill by marching squares is planned\./)).toBeVisible();
     // A key typed into a field is the field's.
     await page.getByLabel('Find a tool').fill('');
     await page.getByLabel('Find a tool').press('p');
@@ -1121,6 +1133,171 @@ test('a height line is added to an entry already drawn as height lines', async (
     // Undo takes the new line away and leaves the first.
     await page.getByRole('button', { name: 'Undo' }).click();
     await expect.poll(async () => (await drawn()).parts.length).toBe(1);
+  } finally {
+    await page.context().close();
+  }
+});
+
+test('a cave system is previewed, compared, rolled, discarded and applied as one step', async ({
+  browser,
+}) => {
+  const w = await world();
+  const page = await signedIn(browser, w.subject);
+  const sheet = [0, 0, 1000, 800] as const;
+  // What the generator makes of the sheet for this seed: the page must write exactly this.
+  const expected = caveSystem(
+    regionOf(null, sheet),
+    { size: 48, density: 0.46, passes: 4, smallest: 6 },
+    4821,
+  );
+  const caves = `${expected.caves} cave${expected.caves === 1 ? '' : 's'}`;
+  try {
+    await page.goto(`/map/?tenant=${w.tenant.id}&id=${w.chart.id}`);
+    await expect(page.getByRole('heading', { name: 'Sword Coast', exact: true })).toBeVisible();
+    await page.getByRole('button', { name: 'Edit this map' }).click();
+    await page.locator('.map-stage svg').focus();
+    await page.keyboard.press('k');
+    const tool = page
+      .getByRole('group', { name: 'Generate', exact: true })
+      .getByRole('button', { name: 'Cave system', exact: true });
+    await expect(tool).toHaveAttribute('aria-pressed', 'true');
+    // Its options as it first offers them, a seed the page drew, and a preview that is not stored.
+    const options = page.getByRole('group', { name: 'Options of Cave system' });
+    await expect(options.getByLabel('Size (cells across)')).toHaveValue('48');
+    await expect(options.getByLabel('Density')).toHaveValue('0.46');
+    await expect(options.getByLabel('Passes')).toHaveValue('4');
+    await expect(options.getByLabel('Smallest cave (cells)')).toHaveValue('6');
+    await expect(options.getByLabel('Seed', { exact: true })).toHaveValue(/^\d{1,6}$/);
+    const preview = page.getByRole('group', { name: 'Preview' });
+    const result = preview.locator('.map-generator-result');
+    await expect(result).toHaveText(/^\d+ caves? in the whole sheet\.$/);
+    await expect(page.locator('.map-stage .m-ov-area').first()).toBeVisible();
+    expect(await w.read()).toHaveLength(0);
+    // Nothing to apply it to yet.
+    await expect(preview.getByRole('button', { name: 'Apply' })).toBeDisabled();
+
+    // A typed seed is the same caves for everyone; a roll is the next seed.
+    const command = page.getByLabel('Command', { exact: true });
+    const answer = page.locator('.map-command-answer');
+    await command.fill('SEED 4821');
+    await command.press('Enter');
+    await expect(answer).toHaveText('Seed is 4821.');
+    await expect(options.getByLabel('Seed', { exact: true })).toHaveValue('4821');
+    await expect(result).toHaveText(`${caves} in the whole sheet.`);
+    await expect(page.locator('.map-stage .m-ov-area')).toHaveCount(expected.caves);
+    await command.fill('ROLL');
+    await command.press('Enter');
+    await expect(answer).toHaveText(/^Seed 4822: \d+ caves? in the whole sheet\.$/);
+    await options.getByRole('button', { name: 'Roll another seed' }).click();
+    await expect(options.getByLabel('Seed', { exact: true })).toHaveValue('4823');
+    await options.getByLabel('Seed', { exact: true }).fill('4821');
+    await expect(result).toHaveText(`${caves} in the whole sheet.`);
+    // An option changes the preview at once; one out of its range is refused in words.
+    await options.getByLabel('Passes').fill('0');
+    await expect(result).not.toHaveText(`${caves} in the whole sheet.`);
+    await command.fill('PASSES 4');
+    await command.press('Enter');
+    await expect(result).toHaveText(`${caves} in the whole sheet.`);
+    await command.fill('SIZE 500');
+    await command.press('Enter');
+    await expect(answer).toHaveText('SIZE takes a number from 16 to 96.');
+
+    // Compare splits the view: the preview to the right of a divider that is also a slider.
+    await preview.getByLabel('Compare with the Map as it is').check();
+    await expect(page.locator('.map-stage .m-ov-divider')).toHaveCount(1);
+    await expect(page.locator('.map-stage clipPath')).toHaveCount(1);
+    const before = await page.locator('.map-stage .m-ov-divider').getAttribute('d');
+    await preview.getByLabel('Divider').fill('25');
+    await expect(page.locator('.map-stage .m-ov-divider')).not.toHaveAttribute('d', before ?? '');
+    await command.fill('COMPARE OFF');
+    await command.press('Enter');
+    await expect(answer).toHaveText('The view is whole.');
+    await expect(page.locator('.map-stage .m-ov-divider')).toHaveCount(0);
+
+    // Discard writes nothing and puts the tool away.
+    await preview.getByRole('button', { name: 'Discard' }).click();
+    await expect(page.locator('.map-stage .m-ov-area')).toHaveCount(0);
+    await expect(tool).toHaveAttribute('aria-pressed', 'false');
+    expect(await w.read()).toHaveLength(0);
+
+    // Again, for a new Location, with a role: Apply writes one placement, exactly the preview.
+    await tool.click();
+    await expect(options.getByLabel('Seed', { exact: true })).toHaveValue('4821');
+    await command.fill('ROLE interior');
+    await command.press('Enter');
+    await expect(answer).toHaveText('Role is interior.');
+    await page.getByLabel('Or make a new Location, named').fill('The deeps');
+    await page.getByRole('button', { name: 'Draw a new Location' }).click();
+    await page
+      .getByRole('group', { name: 'Preview' })
+      .getByRole('button', { name: 'Apply' })
+      .click();
+    await expect(page.getByRole('heading', { name: 'Change The deeps' })).toBeVisible();
+    const rows = await w.read();
+    expect(rows.map((r) => [r.name, r.role])).toEqual([['The deeps', 'interior']]);
+    expect(rows[0]?.geometry).toEqual(expected.geometry);
+    await expect(page.locator('.map-stage .m-ov-area')).toHaveCount(0);
+    // It is ordinary geometry at once, and one step of History that names the tool and the seed.
+    await openPanel(page, 'History');
+    await expect(page.locator('.map-slideover')).toContainText(
+      `Drew a cave system, seed 4821: ${caves} in the whole sheet`,
+    );
+    await page.getByRole('button', { name: 'Undo' }).click();
+    await expect.poll(async () => (await w.read()).length).toBe(0);
+    await page.getByRole('button', { name: 'Redo' }).click();
+    await expect.poll(async () => (await w.read())[0]?.geometry).toEqual(expected.geometry);
+  } finally {
+    await page.context().close();
+  }
+});
+
+test('a cave system chosen with an area or a circle selected stays inside it', async ({
+  browser,
+}) => {
+  const w = await world();
+  const pond = await w.place('Pond');
+  await ok(
+    w.gm.PUT('/tenants/{tenant_id}/maps/{map_id}/placements/{entry_id}', {
+      params: { path: { ...w.path, map_id: w.chart.id, entry_id: pond.id } },
+      body: {
+        geometry: {
+          format: 'lorenzo.geometry/1',
+          parts: [{ shape: 'circle', at: [500, 400], r: 300 }],
+        },
+        z: 0,
+      },
+    }),
+  );
+  const page = await signedIn(browser, w.subject);
+  try {
+    await page.goto(`/map/?tenant=${w.tenant.id}&id=${w.chart.id}`);
+    await expect(page.getByRole('heading', { name: 'Sword Coast', exact: true })).toBeVisible();
+    await page.getByRole('button', { name: 'Edit this map' }).click();
+    await openPanel(page, 'Places');
+    await page.locator('.map-places').getByRole('button', { name: /Pond/ }).click();
+    await expect(page.getByRole('heading', { name: 'Change Pond' })).toBeVisible();
+    await page
+      .getByRole('group', { name: 'Generate', exact: true })
+      .getByRole('button', { name: 'Cave system', exact: true })
+      .click();
+    const preview = page.getByRole('group', { name: 'Preview' });
+    await expect(preview.locator('.map-generator-result')).toHaveText(/^\d+ caves? in Pond\.$/);
+    await page.getByLabel('Or make a new Location, named').fill('Under the pond');
+    await page.getByRole('button', { name: 'Draw a new Location' }).click();
+    await preview.getByRole('button', { name: 'Apply' }).click();
+    await expect(page.getByRole('heading', { name: 'Change Under the pond' })).toBeVisible();
+    const made = (await w.read()).find((r) => r.name === 'Under the pond');
+    const rings = ((made?.geometry ?? { parts: [] }) as Parts).parts.flatMap(
+      (part) => part.rings ?? [],
+    );
+    expect(rings.length).toBeGreaterThan(0);
+    for (const [x, y] of rings.flat()) {
+      expect(Math.hypot((x as number) - 500, (y as number) - 400)).toBeLessThan(300);
+    }
+    // The Pond itself is as it was.
+    expect((await w.read()).find((r) => r.name === 'Pond')?.geometry).toMatchObject({
+      parts: [{ shape: 'circle', at: [500, 400], r: 300 }],
+    });
   } finally {
     await page.context().close();
   }

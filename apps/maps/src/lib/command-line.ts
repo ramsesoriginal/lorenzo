@@ -143,6 +143,18 @@ function parseOption(
       ? { kind: 'error', message: `${name} takes a number${range}.` }
       : { kind: 'option', option, value: typed };
   }
+  if (option.type === 'choice') {
+    const typed = rest.toLowerCase();
+    const found = option.choices.find(
+      ([value, title]) => (value !== '' && value === typed) || title.toLowerCase() === typed,
+    );
+    return found
+      ? { kind: 'option', option, value: found[0] }
+      : {
+          kind: 'error',
+          message: `${name} takes one of: ${option.choices.map(([, title]) => title.toLowerCase()).join(', ')}.`,
+        };
+  }
   if (option.type === 'seed') {
     const typed = seedOf(rest);
     return typed === null
