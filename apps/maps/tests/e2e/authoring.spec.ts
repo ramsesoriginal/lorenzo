@@ -641,7 +641,7 @@ test('a spline is drawn through clicked and typed points, and changed by its poi
       Math.round((200 - (400 - start[1]) / 6) * 100) / 100,
     ]);
     // It is edited by its points, not "drawn with the API": a through-point by number.
-    await expect(page.getByText(/it is drawn with the API/)).toHaveCount(0);
+    await expect(page.getByText(/drawn with the API/)).toHaveCount(0);
     await page.getByRole('group', { name: 'Point 2' }).getByLabel('y').fill('100');
     await page.getByRole('group', { name: 'Point 2' }).getByLabel('y').press('Tab');
     await expect.poll(async () => (await curve())?.segs?.[0]?.[2]).toEqual([400, 100]);
@@ -853,6 +853,224 @@ test('a height line needs a height and a unit, says them on the Map and keeps th
     const again = page.getByRole('group', { name: 'Options of Height line' });
     await expect(again.getByLabel('Height')).toHaveValue('250');
     await expect(again.getByLabel('Unit')).toHaveValue('m');
+  } finally {
+    await page.context().close();
+  }
+});
+
+type Parts = {
+  parts: {
+    shape: string;
+    at?: number[];
+    pts?: number[][];
+    rings?: number[][][];
+    value?: number;
+    unit?: string;
+  }[];
+};
+
+/** An entry drawn through the API as an area with a hole, a height line and a pin. */
+async function severalParts(w: Awaited<ReturnType<typeof world>>) {
+  const works = await w.place('Quarry');
+  await ok(
+    w.gm.PUT('/tenants/{tenant_id}/maps/{map_id}/placements/{entry_id}', {
+      params: { path: { ...w.path, map_id: w.chart.id, entry_id: works.id } },
+      body: {
+        geometry: {
+          format: 'lorenzo.geometry/1',
+          parts: [
+            {
+              shape: 'polygon',
+              rings: [
+                [
+                  [100, 100],
+                  [400, 100],
+                  [400, 400],
+                  [100, 400],
+                ],
+                [
+                  [200, 200],
+                  [300, 200],
+                  [300, 300],
+                  [200, 300],
+                ],
+              ],
+            },
+            {
+              shape: 'polyline',
+              pts: [
+                [500, 500],
+                [700, 500],
+              ],
+              value: 40,
+              unit: 'm',
+            },
+            { shape: 'point', at: [800, 200] },
+          ],
+        },
+        z: 0,
+      },
+    }),
+  );
+  return works;
+}
+
+for (const theme of ['light', 'dark'] as const) {
+  test(`the parts of a placement are listed, changed one at a time and removed, in ${theme}`, async ({
+    browser,
+  }) => {
+    const w = await world();
+    const works = await severalParts(w);
+    const page = await signedIn(browser, w.subject, theme);
+    const drawn = async () => ((await w.read())[0]?.geometry ?? { parts: [] }) as Parts;
+    try {
+      await page.goto(`/map/?tenant=${w.tenant.id}&id=${w.chart.id}`);
+      await expect(page.getByRole('heading', { name: 'Sword Coast', exact: true })).toBeVisible();
+      await page.getByRole('button', { name: 'Edit this map' }).click();
+      await openPanel(page, 'Places');
+      await page
+        .locator('.map-places')
+        .getByRole('button', { name: /Quarry/ })
+        .click();
+      await expect(page.getByRole('heading', { name: 'Change Quarry' })).toBeVisible();
+      // Every part and hole by name; none is chosen yet, and nothing says "drawn with the API".
+      const parts = page.locator('.map-parts');
+      await expect(parts.locator('button[aria-pressed]')).toHaveText([
+        'Area 1',
+        'Hole 1 of Area 1',
+        'Height line 1, 40 m',
+        'Point 1',
+      ]);
+      await expect(page.getByText('Choose a part to change its points.')).toBeVisible();
+      await expect(page.getByText(/drawn with the API/)).toHaveCount(0);
+      await expect(page.locator('.m-ov-handle')).toHaveCount(0);
+
+      // A hole is a ring of its own: a point of it by number, and the outline stays.
+      await parts.getByRole('button', { name: 'Hole 1 of Area 1', exact: true }).click();
+      await expect(page.locator('.m-ov-handle')).toHaveCount(4);
+      const result = await new AxeBuilder({ page }).exclude('.shell-bottom').analyze();
+      expect(result.violations.map((v) => `${v.id}: ${v.nodes[0]?.html}`)).toEqual([]);
+      await page.getByRole('group', { name: 'Point 1' }).getByLabel('x').fill('210');
+      await page.getByRole('group', { name: 'Point 1' }).getByLabel('x').press('Tab');
+      await expect.poll(async () => (await drawn()).parts[0]?.rings?.[1]?.[0]).toEqual([210, 200]);
+      expect((await drawn()).parts[0]?.rings?.[0]?.[0]).toEqual([100, 100]);
+      expect((await drawn()).parts).toHaveLength(3);
+
+      // A press on a part in the drawing chooses it: the height line, whose height is changed.
+      const before = (await drawn()).parts[1]?.pts;
+      // The line is level, so the middle of its box is on it.
+      const lineMark = page.locator(`.map-stage g[data-entry="${works.id}"] path`).last();
+      const onLine = await lineMark.boundingBox();
+      if (!onLine) throw new Error('no line');
+      await page.mouse.click(onLine.x + onLine.width / 2, onLine.y + onLine.height / 2);
+      await expect(
+        parts.getByRole('button', { name: 'Height line 1, 40 m', exact: true }),
+      ).toHaveAttribute('aria-pressed', 'true');
+      expect((await drawn()).parts[1]?.pts).toEqual(before);
+      const height = page.getByRole('group', { name: 'Height', exact: true });
+      await expect(height.getByLabel('Height')).toHaveValue('40');
+      await height.getByLabel('Height').fill('45');
+      await height.getByLabel('Height').press('Tab');
+      await expect.poll(async () => (await drawn()).parts[1]?.value).toBe(45);
+      await expect(
+        parts.getByRole('button', { name: 'Height line 1, 45 m', exact: true }),
+      ).toHaveAttribute('aria-pressed', 'true');
+      // A handle of the chosen part moves one point of it and nothing else.
+      const handle = page.locator('.m-ov-handle').nth(1);
+      const at = await handle.boundingBox();
+      if (!at) throw new Error('no handle');
+      await page.mouse.move(at.x + at.width / 2, at.y + at.height / 2);
+      await page.mouse.down();
+      await page.mouse.move(at.x + at.width / 2, at.y + at.height / 2 + 40, { steps: 4 });
+      await page.mouse.up();
+      await expect.poll(async () => (await drawn()).parts[1]?.pts?.[1]?.[1]).toBeGreaterThan(500);
+      expect((await drawn()).parts[1]).toMatchObject({ value: 45, unit: 'm' });
+      expect((await drawn()).parts[1]?.pts?.[0]).toEqual([500, 500]);
+
+      // A part is removed, and undo puts it back; a hole is removed and the area stays.
+      await parts.getByRole('button', { name: 'Remove Point 1' }).click();
+      await expect.poll(async () => (await drawn()).parts.length).toBe(2);
+      await page.getByRole('button', { name: 'Undo' }).click();
+      await expect.poll(async () => (await drawn()).parts.length).toBe(3);
+      await parts.getByRole('button', { name: 'Remove Hole 1 of Area 1' }).click();
+      await expect.poll(async () => (await drawn()).parts[0]?.rings?.length).toBe(1);
+      expect((await drawn()).parts).toHaveLength(3);
+      await expect(
+        parts.getByRole('button', { name: 'Hole 1 of Area 1', exact: true }),
+      ).toHaveCount(0);
+    } finally {
+      await page.context().close();
+    }
+  });
+}
+
+test('a height line is added to an entry already drawn as height lines', async ({ browser }) => {
+  const w = await world();
+  const slope = await w.place('Slope');
+  await ok(
+    w.gm.PUT('/tenants/{tenant_id}/maps/{map_id}/placements/{entry_id}', {
+      params: { path: { ...w.path, map_id: w.chart.id, entry_id: slope.id } },
+      body: {
+        geometry: {
+          format: 'lorenzo.geometry/1',
+          parts: [
+            {
+              shape: 'polyline',
+              pts: [
+                [100, 100],
+                [400, 100],
+              ],
+              value: 50,
+              unit: 'm',
+            },
+          ],
+        },
+        role: 'isoline',
+        z: 0,
+      },
+    }),
+  );
+  const page = await signedIn(browser, w.subject);
+  const drawn = async () => ((await w.read())[0]?.geometry ?? { parts: [] }) as Parts;
+  try {
+    await page.goto(`/map/?tenant=${w.tenant.id}&id=${w.chart.id}`);
+    await expect(page.getByRole('heading', { name: 'Sword Coast', exact: true })).toBeVisible();
+    await page.getByRole('button', { name: 'Edit this map' }).click();
+    await page.getByRole('button', { name: 'Height line', exact: true }).click();
+    await page.getByLabel('Find an entry by name').fill('Slope');
+    await page
+      .locator('.map-edit-panel')
+      .getByRole('button', { name: /^Slope location$/ })
+      .click();
+    await expect(page.locator('.map-edit-panel')).toContainText(
+      'It is already on this Map as height lines; this line is added to them.',
+    );
+    const options = page.getByRole('group', { name: 'Options of Height line' });
+    await options.getByLabel('Height').fill('60');
+    await options.getByLabel('Unit').fill('m');
+    const command = page.getByLabel('Command', { exact: true });
+    for (const line of ['100,200', '400,200', 'DONE']) {
+      await command.fill(line);
+      await command.press('Enter');
+    }
+    await expect.poll(async () => (await drawn()).parts.length).toBe(2);
+    expect((await drawn()).parts.map((part) => [part.value, part.unit])).toEqual([
+      [50, 'm'],
+      [60, 'm'],
+    ]);
+    expect((await drawn()).parts[0]?.pts).toEqual([
+      [100, 100],
+      [400, 100],
+    ]);
+    // Both lines are parts of the one entry, each said on the Map.
+    await expect(page.locator('.map-parts button[aria-pressed]')).toHaveText([
+      'Height line 1, 50 m',
+      'Height line 2, 60 m',
+    ]);
+    await expect(page.locator('.map-stage text.m-lbl-value')).toHaveText(['50 m', '60 m']);
+    // Undo takes the new line away and leaves the first.
+    await page.getByRole('button', { name: 'Undo' }).click();
+    await expect.poll(async () => (await drawn()).parts.length).toBe(1);
   } finally {
     await page.context().close();
   }

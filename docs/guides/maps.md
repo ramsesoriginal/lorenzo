@@ -53,7 +53,7 @@ Choose **Edit this map**. The **Tool** choices are:
 | Area | A region of three or more points. |
 | Cells | A region made of whole cells, on a grid. |
 
-Each drawing is a **placement** of an entry on this Map. Give it a **Role** and a drawing order (−100 to 100, higher on top). **Place the children** of a Location drawn as an area spreads what is inside it within the shape, and **Remove from this map** takes a drawing off without touching the entry. A line or a curve may carry a **Height** and a **Unit**, set in the panel: give both, or empty both to take the height away. **Undo** and **Redo** step through your changes, and **Stop editing** ends the session. On a grid, **Snap to the grid** keeps points on the grid. On a sphere you draw by longitude and latitude.
+Each drawing is a **placement** of an entry on this Map. Give it a **Role** and a drawing order (−100 to 100, higher on top). **Place the children** of a Location drawn as an area spreads what is inside it within the shape, and **Remove from this map** takes a drawing off without touching the entry. A line or a curve may carry a **Height** and a **Unit**, set in the panel: give both, or empty both to take the height away. A drawing of several parts, or an area with holes, lists its **Parts**: choose one in the list or press on it in the Map to change its points, and **Remove** takes a part or a hole away (the last part goes with **Remove from this map**). Drawing a Height line for an entry that is already height lines adds the line to them. **Undo** and **Redo** step through your changes, and **Stop editing** ends the session. On a grid, **Snap to the grid** keeps points on the grid. On a sphere you draw by longitude and latitude.
 
 **Settings** holds the Map's name, its sheet, the Location it shows, the theme's name and who sees it. Changes are saved with **Save settings**.
 
@@ -87,6 +87,7 @@ Authors, GMs, and Owners and Organizers who can see everything can add, rename, 
 - It has no drawing on a phone (reading and small changes only) and no offline mode.
 - Height brush, Cave system and the two Fill generators are listed among the tools as planned, and do nothing yet.
 - A curve drawn through the API that is not a spline is shown and kept, and cannot be changed by its points here.
+- It does not join or split drawings, or move a part of one drawing to another entry.
 - It does not turn the part-of tree into containment, and the tree never decides who can reach what.
 - It does not work out distance from anything but the Map's own geometry and the connections you can see.
 - It does not infer dates: a Map or Location is tied to a date only where someone recorded it.

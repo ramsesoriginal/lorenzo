@@ -56,6 +56,20 @@ import {
   removePlacement,
   rowState,
 } from './map-api';
+import {
+  hasParts,
+  isHeightLines,
+  MAX_PARTS,
+  movedPart,
+  type PartRef,
+  partAt,
+  partNames,
+  partShape,
+  refAfterRemoval,
+  withoutPart,
+  withPart,
+  withParts,
+} from './parts-edit';
 import { SPLINE_MAX_POINTS, splineCurve } from './spline';
 import {
   createOptionValues,
@@ -165,6 +179,9 @@ const ROLE_OPTIONS: [string, string][] = [
 
 const BATCH_MAX = 100;
 
+/** How near a line or a pin a press chooses that part of a placement, in screen pixels. */
+const PART_REACH = 8;
+
 const same = (a: Pt, b: Pt) => Math.hypot(a[0] - b[0], a[1] - b[1]) < 0.01;
 const asText = (error: unknown) =>
   error instanceof LorenzoApiError ? error.message : message(error);
@@ -198,7 +215,9 @@ export function createEditor(context: EditorContext): Editor {
   let selectedId: string | null = null;
   // The selected shape while a handle or the shape is being dragged, drawn as an overlay.
   let working: Editable | null = null;
-  let dragging: { handle: string | null; base: Editable; start: Pt } | null = null;
+  let dragging: { handle: string | null; base: Editable; start: Pt; by: Pt } | null = null;
+  // The part of the selected placement being changed, when it has several (ADR 0474).
+  let selectedPart: PartRef | null = null;
   let busy = false;
 
   const say = (text: string, failed = false) => {
@@ -233,6 +252,32 @@ export function createEditor(context: EditorContext): Editor {
     p[0] <= context.extent[2] &&
     p[1] >= context.extent[1] &&
     p[1] <= context.extent[3];
+
+  /** Whether a placement is a region of whole cells of this Map's grid: the Cells panel's own. */
+  const isCellsRow = (row: Row) => {
+    const grid = gridNow();
+    return Boolean(grid && cellsOf(row.geometry as unknown as Geometry, grid, context.extent));
+  };
+
+  /**
+   * What of a placement is being changed (ADR 0474): the whole of one simple part, or the chosen
+   * part of several, with the geometry a changed shape makes of it.
+   */
+  function focusOf(row: Row): {
+    shape: Editable | null;
+    part: PartRef | null;
+    write(shape: Editable): Geometry;
+  } {
+    const geometry = row.geometry as unknown as Geometry;
+    if (isCellsRow(row)) return { shape: null, part: null, write: () => geometry };
+    if (!hasParts(geometry)) return { shape: editableOf(geometry), part: null, write: toGeometry };
+    const ref = selectedPart;
+    return {
+      shape: ref ? partShape(geometry, ref) : null,
+      part: ref,
+      write: (shape) => (ref ? withPart(geometry, ref, shape) : geometry),
+    };
+  }
 
   // --- what is drawn over the map -------------------------------------------------------------
 
@@ -294,7 +339,7 @@ export function createEditor(context: EditorContext): Editor {
       return out;
     }
     const row = rowOf(selectedId);
-    const shape = working ?? (row ? editableOf(row.geometry as unknown as Geometry) : null);
+    const shape = working ?? (row ? focusOf(row).shape : null);
     return shape ? shapeOverlay(shape, 'shape', true, dragging?.handle ?? undefined) : [];
   }
 
@@ -714,7 +759,16 @@ export function createEditor(context: EditorContext): Editor {
         return;
       }
       rememberHeight(context.mapId, { value, unit });
-      void finish(toGeometry({ kind: 'line', pts: draft, value, unit }));
+      const line = toGeometry({ kind: 'line', pts: draft, value, unit });
+      // An entry already drawn as height lines takes this one as one more of them (ADR 0473).
+      const was = rowOf(target?.id ?? null)?.geometry as unknown as Geometry | undefined;
+      if (was && isHeightLines(was)) {
+        if (was.parts.length >= MAX_PARTS) {
+          say(`A drawing has at most ${MAX_PARTS} parts: this one is full.`, true);
+          return;
+        }
+        void finish(withParts(was, line));
+      } else void finish(line);
     } else if (toolName === 'line' && draft.length >= 2) {
       void finish(toGeometry({ kind: 'line', pts: draft }));
     } else if (toolName === 'spline' && draft.length >= 2) {
@@ -753,10 +807,24 @@ export function createEditor(context: EditorContext): Editor {
   const selectTool: Tool = {
     down(event: ToolEvent) {
       const row = rowOf(selectedId);
-      const base = row ? editableOf(row.geometry as unknown as Geometry) : null;
-      if (!row || !base) return false;
+      if (!row) return false;
+      const geometry = row.geometry as unknown as Geometry;
+      // A press on another part of the selected placement chooses that part.
+      if (!event.handle && event.hit === row.id && hasParts(geometry) && !isCellsRow(row)) {
+        const view = context.view();
+        const reach =
+          PART_REACH *
+          unitsPerPixel(context.extent, view.svg.getBoundingClientRect(), view.getView().zoom);
+        const under = partAt(geometry, [event.point[0], event.point[1]], reach);
+        if (under && under.part !== selectedPart?.part) {
+          selectedPart = under;
+          render();
+        }
+      }
+      const base = focusOf(row).shape;
+      if (!base) return false;
       if (event.handle || event.hit === row.id) {
-        dragging = { handle: event.handle, base, start: event.point };
+        dragging = { handle: event.handle, base, start: event.point, by: [0, 0] };
         working = base;
         return true;
       }
@@ -765,6 +833,7 @@ export function createEditor(context: EditorContext): Editor {
     drag(event: ToolEvent) {
       if (!dragging) return;
       const { handle, base, start } = dragging;
+      dragging.by = [event.point[0] - start[0], event.point[1] - start[1]];
       working = handle
         ? moveHandle(base, handle, snapHandle(handle, event.point))
         : translate(base, event.point[0] - start[0], event.point[1] - start[1]);
@@ -780,7 +849,13 @@ export function createEditor(context: EditorContext): Editor {
         refresh();
         return;
       }
-      void saveRow(row, { geometry: toGeometry(shape) });
+      const focus = focusOf(row);
+      // The body of an area dragged moves the area with its holes; a handle moves one point.
+      const geometry =
+        !drag.handle && focus.part && focus.part.ring === 0
+          ? movedPart(row.geometry as unknown as Geometry, focus.part.part, drag.by[0], drag.by[1])
+          : focus.write(shape);
+      void saveRow(row, { geometry });
     },
   };
 
@@ -1241,7 +1316,9 @@ export function createEditor(context: EditorContext): Editor {
         box.append(
           el(
             'p',
-            'It is already on this Map; drawing it again replaces its drawing.',
+            toolName === 'height-line' && isHeightLines(placed.geometry as unknown as Geometry)
+              ? 'It is already on this Map as height lines; this line is added to them.'
+              : 'It is already on this Map; drawing it again replaces its drawing.',
             'status-text',
           ),
         );
@@ -1342,7 +1419,11 @@ export function createEditor(context: EditorContext): Editor {
     return box;
   }
 
-  function pointFields(row: Row, shape: Editable): HTMLElement {
+  function pointFields(
+    row: Row,
+    shape: Editable,
+    write: (shape: Editable) => Geometry = toGeometry,
+  ): HTMLElement {
     const box = el('div', '', 'stack-tight');
     box.append(groupTitle('h3', 'Points'));
     const inputs: HTMLInputElement[][] = [];
@@ -1360,7 +1441,7 @@ export function createEditor(context: EditorContext): Editor {
       else if (shape.kind === 'circle')
         next = { ...shape, at: at(0), r: values[1]?.[0] ?? shape.r };
       else next = { ...shape, pts: values.map((_, i) => at(i)) };
-      void saveRow(row, { geometry: toGeometry(next) });
+      void saveRow(row, { geometry: write(next) });
     };
     // One point is one group of its own: a legend and two short fields, so a screen reader says
     // "Point 2, x" and the fields stay narrow beside their buttons.
@@ -1417,7 +1498,7 @@ export function createEditor(context: EditorContext): Editor {
           say(`Tension is a number from ${TENSION.least} to ${TENSION.most}.`, true);
           return;
         }
-        void saveRow(row, { geometry: toGeometry({ ...shape, tension: typed }) });
+        void saveRow(row, { geometry: write({ ...shape, tension: typed }) });
       });
       box.append(tension.label);
     }
@@ -1430,14 +1511,14 @@ export function createEditor(context: EditorContext): Editor {
         const after = insertVertex(shape, i);
         line.append(
           small('Add', `Add a point after point ${i + 1}`, () =>
-            saveRow(row, { geometry: toGeometry(after) }),
+            saveRow(row, { geometry: write(after) }),
           ),
         );
         const without = removeVertex(shape, i);
         if (without) {
           line.append(
             small('Remove', `Remove point ${i + 1}`, () =>
-              saveRow(row, { geometry: toGeometry(without) }),
+              saveRow(row, { geometry: write(without) }),
             ),
           );
         }
@@ -1451,7 +1532,11 @@ export function createEditor(context: EditorContext): Editor {
    * The height a line or a curve carries, and its unit (ADR 0473): both, or neither. Emptying both
    * takes the value away; one without the other is not written, as the API would refuse it.
    */
-  function heightFields(row: Row, shape: Editable): HTMLElement | null {
+  function heightFields(
+    row: Row,
+    shape: Editable,
+    write: (shape: Editable) => Geometry = toGeometry,
+  ): HTMLElement | null {
     if (shape.kind !== 'line' && shape.kind !== 'spline') return null;
     const box = el('fieldset', '', 'map-point');
     box.append(el('legend', 'Height', 'map-point-name'));
@@ -1466,7 +1551,7 @@ export function createEditor(context: EditorContext): Editor {
       if (typedValue === '' && typedUnit === '') {
         if (shape.value === undefined) return;
         void saveRow(row, {
-          geometry: toGeometry({ ...shape, value: undefined, unit: undefined }),
+          geometry: write({ ...shape, value: undefined, unit: undefined }),
         });
         return;
       }
@@ -1484,11 +1569,52 @@ export function createEditor(context: EditorContext): Editor {
         return;
       }
       if (nextValue === shape.value && nextUnit === shape.unit) return;
-      void saveRow(row, { geometry: toGeometry({ ...shape, value: nextValue, unit: nextUnit }) });
+      void saveRow(row, { geometry: write({ ...shape, value: nextValue, unit: nextUnit }) });
     };
     value.input.addEventListener('change', commit);
     unit.input.addEventListener('change', commit);
     box.append(value.label, unit.label);
+    return box;
+  }
+
+  /**
+   * The parts of a placement that has several, or holes (ADR 0474): each is chosen to be changed,
+   * and can be removed, but for the last part, which is the drawing itself.
+   */
+  function partsList(row: Row, geometry: Geometry): HTMLElement {
+    const box = el('div', '', 'stack-tight map-parts');
+    box.append(groupTitle('h3', 'Parts'));
+    const list = el('ul', '', 'list');
+    for (const part of partNames(geometry)) {
+      const item = el('li', '', 'row-tight');
+      const chosen = selectedPart?.part === part.ref.part && selectedPart.ring === part.ref.ring;
+      const pick = el('button', part.name, 'place-toggle map-place grow');
+      pick.type = 'button';
+      pick.setAttribute('aria-pressed', String(chosen));
+      pick.addEventListener('click', () => {
+        selectedPart = chosen ? null : part.ref;
+        working = null;
+        render();
+        refresh();
+      });
+      item.append(pick);
+      const without = withoutPart(geometry, part.ref);
+      if (without) {
+        const remove = button(
+          'Remove',
+          async () => {
+            selectedPart = refAfterRemoval(selectedPart, part.ref);
+            await saveRow(row, { geometry: without });
+          },
+          { variant: 'secondary' },
+        );
+        remove.setAttribute('aria-label', `Remove ${part.name}`);
+        remove.classList.add('map-point-button');
+        item.append(remove);
+      }
+      list.append(item);
+    }
+    box.append(list);
     return box;
   }
 
@@ -1615,9 +1741,33 @@ export function createEditor(context: EditorContext): Editor {
     const regionCells = grid
       ? cellsOf(row.geometry as unknown as Geometry, grid, context.extent)
       : null;
-    const shape = regionCells ? null : editableOf(row.geometry as unknown as Geometry);
+    const geometry = row.geometry as unknown as Geometry;
+    const shape = regionCells ? null : editableOf(geometry);
     if (regionCells && grid) {
       box.append(cellsPanel(row, grid, regionCells));
+    } else if (hasParts(geometry)) {
+      box.append(partsList(row, geometry));
+      const focus = focusOf(row);
+      const chosen = focus.part;
+      const name = chosen
+        ? partNames(geometry).find((p) => p.ref.part === chosen.part && p.ref.ring === chosen.ring)
+        : undefined;
+      if (focus.shape && name) {
+        box.append(groupTitle('h3', name.name));
+        box.append(pointFields(row, focus.shape, focus.write));
+        const height = heightFields(row, focus.shape, focus.write);
+        if (height) box.append(height);
+      } else if (name) {
+        box.append(
+          el(
+            'p',
+            `${name.name} is a curve drawn with the API: it is shown and kept, and its points are not changed here.`,
+            'status-text',
+          ),
+        );
+      } else {
+        box.append(el('p', 'Choose a part to change its points.', 'status-text'));
+      }
     } else if (shape) {
       box.append(pointFields(row, shape));
       const height = heightFields(row, shape);
@@ -1628,7 +1778,7 @@ export function createEditor(context: EditorContext): Editor {
       box.append(
         el(
           'p',
-          'This drawing has several parts, curves or holes: it is drawn with the API.',
+          'This drawing is a curve drawn with the API: it is shown and kept, and its points are not changed here.',
           'status-text',
         ),
       );
@@ -1752,6 +1902,7 @@ export function createEditor(context: EditorContext): Editor {
     placeEntry,
     editing: () => editing,
     selected(id) {
+      if (id !== selectedId) selectedPart = null;
       selectedId = id;
       working = null;
       if (editing && toolName === 'select') {
