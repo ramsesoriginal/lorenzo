@@ -280,6 +280,12 @@
   stroke: var(--text-primary);
 }
 
+/* The value a line carries (ADR 0473), written at its middle. */
+.m-lbl-value {
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
 .m-svg[data-theme="plain"] .m-lbl {
   stroke: var(--surface-default);
 }

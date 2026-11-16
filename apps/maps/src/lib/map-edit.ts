@@ -41,6 +41,7 @@ import {
   toGeometry,
   translate,
 } from './geometry-edit';
+import { heightOf, rememberedHeight, rememberHeight, unitOf } from './height';
 import { type Change, createHistory, type Step, writeFor } from './history';
 import { createKeyMap } from './keymap';
 import {
@@ -60,7 +61,10 @@ import {
   createOptionValues,
   TOOLS as DECLARED,
   GROUP_NAMES,
+  GROUPS,
+  HEIGHT,
   numberFor,
+  type OptionValue,
   optionsOf,
   SNAP,
   searchTools,
@@ -70,6 +74,7 @@ import {
   type ToolOption,
   toolById,
   toolsOf,
+  UNIT,
   usable,
 } from './tools';
 
@@ -109,7 +114,16 @@ export type Editor = {
   destroy(): void;
 };
 
-type ToolName = 'select' | 'pin' | 'circle' | 'line' | 'spline' | 'freehand' | 'area' | 'cells';
+type ToolName =
+  | 'select'
+  | 'pin'
+  | 'circle'
+  | 'line'
+  | 'spline'
+  | 'freehand'
+  | 'area'
+  | 'cells'
+  | 'height-line';
 
 const TOOLS: [ToolName, string][] = [
   ['select', 'Select'],
@@ -118,6 +132,7 @@ const TOOLS: [ToolName, string][] = [
   ['line', 'Line'],
   ['spline', 'Spline'],
   ['freehand', 'Freehand'],
+  ['height-line', 'Height line'],
   ['area', 'Area'],
   ['cells', 'Cells'],
 ];
@@ -170,6 +185,13 @@ export function createEditor(context: EditorContext): Editor {
   let cells: Cell[] = [];
   // What the tools' options are set to (ADR 0470), Snap to the grid among them (ADR 0356).
   const optionValues = createOptionValues();
+  // The height and unit last drawn on this Map in this browser are offered again (ADR 0473).
+  const keptHeight = rememberedHeight(context.mapId);
+  if (keptHeight) {
+    const heightLine = toolById('height-line') as ToolDecl;
+    optionValues.set(heightLine, HEIGHT, keptHeight.value);
+    optionValues.set(heightLine, UNIT, keptHeight.unit);
+  }
   let rubber: Pt | null = null;
   // The samples of a freehand stroke while the pointer is held (ADR 0472).
   let stroke: Pt[] | null = null;
@@ -185,6 +207,12 @@ export function createEditor(context: EditorContext): Editor {
     status.setAttribute('role', failed ? 'alert' : 'status');
   };
   const gridNow = () => context.grid();
+  /** The tools that take a point at a time and finish with Enter. */
+  const pathTool = () =>
+    toolName === 'line' ||
+    toolName === 'spline' ||
+    toolName === 'area' ||
+    toolName === 'height-line';
   /** The declaration of the tool that is on. */
   const toolDecl = (): ToolDecl => toolById(toolName) as ToolDecl;
   const snapped = (kind: 'centre' | 'corner', p: Pt): Pt => {
@@ -248,7 +276,7 @@ export function createEditor(context: EditorContext): Editor {
         if (r > 0) out.push({ id: 'draft', kind: 'disc', at: last, r });
       } else if (toolName === 'spline') {
         // The curve so far, and the curve it would be with the pointer as its next point.
-        const tension = optionValues.get(toolDecl(), TENSION);
+        const tension = optionValues.get(toolDecl(), TENSION) ?? 0.5;
         out.push({ id: 'draft', kind: 'line', pts: splineCurve(draft, tension) });
         if (rubber) {
           out.push({
@@ -338,7 +366,8 @@ export function createEditor(context: EditorContext): Editor {
       }
       if (!id) return;
       const before = rowOf(id);
-      const role = toolName === 'pin' ? 'site' : null;
+      // The two roles a tool chooses: a pin is a site (ADR 0353), a height line an isoline (ADR 0473).
+      const role = toolName === 'pin' ? 'site' : toolName === 'height-line' ? 'isoline' : null;
       const saved = await putPlacement(context.tenant, context.mapId, id, {
         geometry,
         role,
@@ -468,6 +497,7 @@ export function createEditor(context: EditorContext): Editor {
       case 'freehand':
         return 'Drag on the map to draw. The Line tool takes typed points.';
       case 'line':
+      case 'height-line':
       case 'spline':
       case 'area':
         return `${draft.length} point${draft.length === 1 ? '' : 's'}. Type the next point, x,y, or DONE.`;
@@ -492,7 +522,7 @@ export function createEditor(context: EditorContext): Editor {
       case 'option':
         setOption(command.option, command.value);
         answer(
-          typeof command.value === 'number'
+          typeof command.value !== 'boolean'
             ? `${command.option.name} is ${command.value}.`
             : `${command.option.name} is ${command.value ? 'on' : 'off'}.`,
         );
@@ -526,7 +556,7 @@ export function createEditor(context: EditorContext): Editor {
           return;
         }
         if (toolName === 'cells') finishCells();
-        else if (toolName === 'line' || toolName === 'spline' || toolName === 'area') finishDraft();
+        else if (pathTool()) finishDraft();
         else if (toolName === 'freehand') answer('A stroke finishes when you let go.', true);
         else answer('A circle finishes with its second point.', true);
         return;
@@ -674,14 +704,25 @@ export function createEditor(context: EditorContext): Editor {
   // --- the tools ------------------------------------------------------------------------------
 
   const finishDraft = () => {
-    if (toolName === 'line' && draft.length >= 2) {
+    if (toolName === 'height-line' && draft.length >= 2) {
+      const decl = toolDecl();
+      const value = optionValues.get(decl, HEIGHT);
+      const unit = unitOf(optionValues.get(decl, UNIT));
+      if (value === null || unit === null) {
+        // Neither is ever assumed: the draft is kept until both are given.
+        say('A height line needs a height and a unit. Give both in the Options tab.', true);
+        return;
+      }
+      rememberHeight(context.mapId, { value, unit });
+      void finish(toGeometry({ kind: 'line', pts: draft, value, unit }));
+    } else if (toolName === 'line' && draft.length >= 2) {
       void finish(toGeometry({ kind: 'line', pts: draft }));
     } else if (toolName === 'spline' && draft.length >= 2) {
       void finish(
         toGeometry({
           kind: 'spline',
           pts: draft,
-          tension: optionValues.get(toolDecl(), TENSION),
+          tension: optionValues.get(toolDecl(), TENSION) ?? 0.5,
         }),
       );
     } else if (toolName === 'area' && draft.length >= 3) {
@@ -752,7 +793,7 @@ export function createEditor(context: EditorContext): Editor {
     const view = context.view();
     const box = view.svg.getBoundingClientRect();
     const tolerance =
-      optionValues.get(toolDecl(), TOLERANCE) *
+      (optionValues.get(toolDecl(), TOLERANCE) ?? 2) *
       unitsPerPixel(context.extent, box, view.getView().zoom);
     const line = strokeLine(samples, tolerance);
     if (line.pts.length < 2) {
@@ -854,7 +895,7 @@ export function createEditor(context: EditorContext): Editor {
       return true;
     },
     dblclick() {
-      if (toolName === 'line' || toolName === 'spline' || toolName === 'area') finishDraft();
+      if (pathTool()) finishDraft();
       return true;
     },
     move(event: ToolEvent) {
@@ -889,10 +930,7 @@ export function createEditor(context: EditorContext): Editor {
         }
         return false;
       }
-      if (
-        event.key === 'Enter' &&
-        (toolName === 'line' || toolName === 'spline' || toolName === 'area')
-      ) {
+      if (event.key === 'Enter' && pathTool()) {
         finishDraft();
         return true;
       }
@@ -1158,7 +1196,8 @@ export function createEditor(context: EditorContext): Editor {
     tools.setAttribute('role', 'group');
     tools.setAttribute('aria-label', 'Tool');
     // The tools of the registry (MP6), in their groups; the ones that are planned are in All tools.
-    for (const group of ['select', 'place', 'draw'] as const) {
+    // Every group of the registry; one with no tool this Map can use yet is not drawn.
+    for (const group of GROUPS) {
       const cluster = el('div', '', 'row-tight map-tool-group');
       cluster.setAttribute('role', 'group');
       cluster.setAttribute('aria-label', GROUP_NAMES[group]);
@@ -1212,13 +1251,15 @@ export function createEditor(context: EditorContext): Editor {
           'p',
           toolName === 'pin'
             ? 'Click the map to place it.'
-            : toolName === 'freehand'
-              ? 'Press and drag on the map, and let go to finish. Escape while dragging drops the stroke. The Line tool draws the same thing point by point, from the keyboard.'
-              : toolName === 'circle'
-                ? 'Click the centre, then the edge.'
-                : toolName === 'cells'
-                  ? 'Click a cell to add it and click it again to take it away. Press Enter to finish, Backspace to take back a cell, Escape to start again.'
-                  : 'Click each point. Press Enter or double-click to finish, Backspace to take back a point, Escape to start again.',
+            : toolName === 'height-line'
+              ? 'Give the height and its unit above, then click each point. Press Enter or double-click to finish, Backspace to take back a point, Escape to start again.'
+              : toolName === 'freehand'
+                ? 'Press and drag on the map, and let go to finish. Escape while dragging drops the stroke. The Line tool draws the same thing point by point, from the keyboard.'
+                : toolName === 'circle'
+                  ? 'Click the centre, then the edge.'
+                  : toolName === 'cells'
+                    ? 'Click a cell to add it and click it again to take it away. Press Enter to finish, Backspace to take back a cell, Escape to start again.'
+                    : 'Click each point. Press Enter or double-click to finish, Backspace to take back a point, Escape to start again.',
           'status-text',
         ),
       );
@@ -1406,6 +1447,51 @@ export function createEditor(context: EditorContext): Editor {
     return box;
   }
 
+  /**
+   * The height a line or a curve carries, and its unit (ADR 0473): both, or neither. Emptying both
+   * takes the value away; one without the other is not written, as the API would refuse it.
+   */
+  function heightFields(row: Row, shape: Editable): HTMLElement | null {
+    if (shape.kind !== 'line' && shape.kind !== 'spline') return null;
+    const box = el('fieldset', '', 'map-point');
+    box.append(el('legend', 'Height', 'map-point-name'));
+    const value = field('Height', shape.value === undefined ? '' : String(shape.value), 'number');
+    value.input.step = 'any';
+    const unit = field('Unit', shape.unit ?? '');
+    unit.input.maxLength = 32;
+    unit.input.autocomplete = 'off';
+    const commit = () => {
+      const typedValue = value.input.value.trim();
+      const typedUnit = unit.input.value.trim();
+      if (typedValue === '' && typedUnit === '') {
+        if (shape.value === undefined) return;
+        void saveRow(row, {
+          geometry: toGeometry({ ...shape, value: undefined, unit: undefined }),
+        });
+        return;
+      }
+      if (typedValue === '' || typedUnit === '') {
+        say('A height and its unit go together: give the other too.');
+        return;
+      }
+      const nextValue = heightOf(typedValue);
+      const nextUnit = unitOf(typedUnit);
+      if (nextValue === null || nextUnit === null) {
+        say(
+          nextValue === null ? 'The height is a number.' : 'The unit is 1 to 32 characters.',
+          true,
+        );
+        return;
+      }
+      if (nextValue === shape.value && nextUnit === shape.unit) return;
+      void saveRow(row, { geometry: toGeometry({ ...shape, value: nextValue, unit: nextUnit }) });
+    };
+    value.input.addEventListener('change', commit);
+    unit.input.addEventListener('change', commit);
+    box.append(value.label, unit.label);
+    return box;
+  }
+
   function childrenControl(row: Row, shape: Editable): HTMLElement | null {
     if (!row.kinds.includes('location') || (shape.kind !== 'area' && shape.kind !== 'circle')) {
       return null;
@@ -1534,6 +1620,8 @@ export function createEditor(context: EditorContext): Editor {
       box.append(cellsPanel(row, grid, regionCells));
     } else if (shape) {
       box.append(pointFields(row, shape));
+      const height = heightFields(row, shape);
+      if (height) box.append(height);
       const children = childrenControl(row, shape);
       if (children) box.append(children);
     } else {
@@ -1559,21 +1647,41 @@ export function createEditor(context: EditorContext): Editor {
     box.setAttribute('aria-label', `Options of ${decl.name}`);
     for (const option of offered) {
       if (option.type === 'number') {
-        const line = field(option.name, String(optionValues.get(decl, option)), 'number');
-        line.input.min = String(option.least);
-        line.input.max = String(option.most);
-        line.input.step = String(option.step);
+        const now = optionValues.get(decl, option);
+        const line = field(option.name, now === null ? '' : String(now), 'number');
+        const wide = option.most - option.least > 1e9;
+        if (!wide) {
+          line.input.min = String(option.least);
+          line.input.max = String(option.most);
+        }
+        line.input.step = wide ? 'any' : String(option.step);
+        line.input.required = option.first === null;
         // As it is typed, not on leaving the field: a click on the Map must find the value set.
         line.input.addEventListener('input', () => {
-          const typed = line.input.value.trim()
-            ? numberFor(option, Number(line.input.value))
-            : null;
+          const empty = line.input.value.trim() === '';
+          const typed = empty ? null : numberFor(option, Number(line.input.value));
+          const unset = empty && option.first === null;
           line.input.setCustomValidity(
-            typed === null ? `A number from ${option.least} to ${option.most}.` : '',
+            typed !== null || unset
+              ? ''
+              : wide
+                ? 'A number.'
+                : `A number from ${option.least} to ${option.most}.`,
           );
-          if (typed === null) return;
+          if (typed === null && !unset) return;
           optionValues.set(decl, option, typed);
           refresh();
+        });
+        box.append(line.label);
+        continue;
+      }
+      if (option.type === 'text') {
+        const line = field(option.name, optionValues.get(decl, option));
+        line.input.maxLength = option.longest;
+        line.input.required = option.first === '';
+        line.input.autocomplete = 'off';
+        line.input.addEventListener('input', () => {
+          optionValues.set(decl, option, line.input.value);
         });
         box.append(line.label);
         continue;
@@ -1588,7 +1696,7 @@ export function createEditor(context: EditorContext): Editor {
     return box;
   }
 
-  function setOption(option: ToolOption, value: boolean | number) {
+  function setOption(option: ToolOption, value: OptionValue) {
     optionValues.set(toolDecl(), option, value);
     render();
     refresh();

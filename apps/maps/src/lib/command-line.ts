@@ -2,6 +2,7 @@
 // keyboard twin. This is only the reading of a line, pure and tested without a browser; the editor does
 // what it says. A tool is named by its name, and a planned tool says why it does nothing.
 
+import { unitOf } from './height';
 import {
   numberFor,
   type OptionValue,
@@ -31,7 +32,7 @@ export const HELP = [
   'PLACE name x,y: put a place of the library on the Map at that point.',
   'SELECT name: select a place on the Map.',
   'x,y: the next point of what is being drawn; DONE finishes a line, an area or cells.',
-  'An option of the tool by its name, for example SNAP OFF or TENSION 0.4.',
+  'An option of the tool by its name, for example SNAP OFF, TENSION 0.4 or UNIT m.',
   'UNDO, REDO, FIT (frame the whole sheet), HELP.',
 ].join(' ');
 
@@ -82,13 +83,14 @@ export function parseCommand(
           };
     }
   }
-  if (tools.some((t) => (t.options ?? []).some((option) => option.word === word))) {
-    return parseOption(word, rest, context);
-  }
+  // A tool's whole name comes before an option's word: "Height line" is a tool, "HEIGHT 250" is not.
   const tool = tools.find((t) => t.name.toLowerCase() === text.toLowerCase());
   if (tool) {
     if (tool.state === 'planned') return { kind: 'planned', tool };
     return usable(tool, context) ? { kind: 'tool', tool } : { kind: 'unavailable', tool };
+  }
+  if (tools.some((t) => (t.options ?? []).some((option) => option.word === word))) {
+    return parseOption(word, rest, context);
   }
   return { kind: 'error', message: `“${text}” is not a command. Type HELP for the list.` };
 }
@@ -116,8 +118,16 @@ function parseOption(
   }
   if (option.type === 'number') {
     const typed = /^-?\d+(?:\.\d+)?$/.test(rest) ? numberFor(option, Number(rest)) : null;
+    // A range as wide as the format's own is not worth saying.
+    const range = option.most - option.least > 1e9 ? '' : ` from ${option.least} to ${option.most}`;
     return typed === null
-      ? { kind: 'error', message: `${name} takes a number from ${option.least} to ${option.most}.` }
+      ? { kind: 'error', message: `${name} takes a number${range}.` }
+      : { kind: 'option', option, value: typed };
+  }
+  if (option.type === 'text') {
+    const typed = unitOf(rest);
+    return typed === null || [...typed].length > option.longest
+      ? { kind: 'error', message: `${name} takes 1 to ${option.longest} characters.` }
       : { kind: 'option', option, value: typed };
   }
   const value = rest.toLowerCase();

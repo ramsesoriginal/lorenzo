@@ -7,6 +7,7 @@ import {
   normaliseRole,
   type PathPrim,
   type Prim,
+  plainTheme,
   type Scene,
   type Style,
   type TextPrim,
@@ -709,5 +710,161 @@ describe('layout', () => {
 
     expect(ids(s)).toEqual(['sheet', 'multi:0:area', 'multi:1:area']);
     expect(s.prims.filter((p) => p.label !== undefined)).toHaveLength(1);
+  });
+
+  describe('a line that carries a value (ADR 0473)', () => {
+    const ridge = place(
+      'ridge',
+      'Ridge',
+      ['location'],
+      [
+        {
+          shape: 'polyline',
+          pts: [
+            [100, 100],
+            [300, 100],
+            [300, 200],
+          ],
+          value: 250,
+          unit: 'm',
+        },
+      ],
+      { role: 'isoline' },
+    );
+    const only = (placements: MapModel['placements']): MapModel => ({ system, placements });
+
+    it('says the value and its unit at the middle of the line, in every theme', () => {
+      for (const theme of [undefined, plainTheme]) {
+        const label = byId(layout(only([ridge]), view(), theme), 'ridge:0:value') as TextPrim;
+
+        // 300 long: the middle is 150 along, on the first run, and the text sits above it.
+        expect(label).toMatchObject({
+          kind: 'text',
+          text: '250 m',
+          x: 250,
+          y: 94,
+          anchor: 'middle',
+          entryId: 'ridge',
+        });
+        expect(label.cls).toContain('m-lbl-value');
+      }
+    });
+
+    it('says a curve the same way, a decimal as it is, and nothing for a pin, a circle or an area', () => {
+      const curve = place(
+        'curve',
+        'Curve',
+        ['location'],
+        [
+          {
+            shape: 'bezier',
+            start: [100, 300],
+            segs: [
+              [
+                [200, 300],
+                [300, 300],
+                [400, 300],
+              ],
+            ],
+            value: -12.5,
+            unit: 'fathoms',
+          },
+        ],
+      );
+      const others = place(
+        'others',
+        'Others',
+        ['location'],
+        [
+          { shape: 'point', at: [50, 50], value: 1, unit: 'm' },
+          { shape: 'circle', at: [600, 400], r: 20, value: 2, unit: 'm' },
+          {
+            shape: 'polygon',
+            rings: [
+              [
+                [700, 100],
+                [800, 100],
+                [800, 200],
+              ],
+            ],
+            value: 3,
+            unit: 'm',
+          },
+        ],
+      );
+      const scene = layout(only([curve, others]), view());
+
+      expect(byId(scene, 'curve:0:value')).toMatchObject({ text: '-12.5 fathoms', x: 250, y: 294 });
+      expect(ids(scene).filter((id) => id.endsWith(':value'))).toEqual(['curve:0:value']);
+    });
+
+    it('is drawn with the names and is in the name of the mark either way', () => {
+      const on = layout(only([ridge]), view());
+      const off = layout(only([ridge]), view({ groups: { ...DEFAULT_GROUPS, names: false } }));
+
+      expect(ids(off).filter((id) => id.endsWith(':value'))).toEqual([]);
+      for (const scene of [on, off]) {
+        expect(scene.prims.find((p) => p.entryId === 'ridge')?.label).toBe(
+          'Ridge, height 250 m, isoline',
+        );
+      }
+    });
+
+    it('says each height of several lines once, and how many more past three', () => {
+      const lineAt = (y: number, value: number) => ({
+        shape: 'polyline' as const,
+        pts: [
+          [100, y],
+          [300, y],
+        ] as [number, number][],
+        value,
+        unit: 'm',
+      });
+      const three = place(
+        'three',
+        'Slope',
+        ['location'],
+        [lineAt(100, 10), lineAt(120, 20), lineAt(140, 10)],
+      );
+      const five = place(
+        'five',
+        'Hill',
+        ['location'],
+        [10, 20, 30, 40, 50].map((v, i) => lineAt(300 + i * 20, v)),
+      );
+      const scene = layout(only([three, five]), view());
+
+      expect(
+        ids(scene).filter((id) => id.startsWith('three:') && id.endsWith(':value')),
+      ).toHaveLength(3);
+      expect(scene.prims.find((p) => p.entryId === 'three')?.label).toBe(
+        'Slope, height 10 m height 20 m',
+      );
+      expect(scene.prims.find((p) => p.entryId === 'five')?.label).toBe(
+        'Hill, height 10 m height 20 m height 30 m and 2 more heights',
+      );
+    });
+
+    it('leaves a line without a value, or with half of one, as it was', () => {
+      const half = place(
+        'half',
+        'Half',
+        ['location'],
+        [
+          {
+            shape: 'polyline',
+            pts: [
+              [100, 100],
+              [300, 100],
+            ],
+            value: 5,
+          },
+        ],
+      );
+      const scene = layout(only([half, road]), view());
+
+      expect(ids(scene).filter((id) => id.endsWith(':value'))).toEqual([]);
+      expect(scene.prims.find((p) => p.entryId === 'half')?.label).toBe('Half');
+    });
   });
 });

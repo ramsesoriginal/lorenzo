@@ -21,7 +21,8 @@ roads and names can be switched off, the drawing zooms and pans, and selecting a
 [ADR 0353](../../docs/adr/0353-authoring-a-map-in-lorenzo-maps.md)): *Make a Map* on `/maps/`, and on
 `/map/` *Edit this map* with Pin, Circle, Line, Spline (a curve through its points, written as one
 bezier part, [ADR 0471](../../docs/adr/0471-the-spline-tool.md)), Freehand (a dragged stroke simplified into a
-line, [ADR 0472](../../docs/adr/0472-the-freehand-tool.md)) and Area tools (a handle is dragged; every point is also a
+line, [ADR 0472](../../docs/adr/0472-the-freehand-tool.md)), Height line (a line with a height and a unit, which
+the Map writes beside it, [ADR 0473](../../docs/adr/0473-the-height-line-tool.md)) and Area tools (a handle is dragged; every point is also a
 number field), role, line and drawing order, "place the children" of a Location drawn as an area,
 undo and redo, and *Settings* (name, sheet, the Location it shows, theme name, who sees it). A Map may be a grid of squares, rectangles or hexes (the
 hexes' orientation is always chosen), or have a grid drawn over it; a Grid switch, the cell under the

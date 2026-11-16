@@ -2,6 +2,7 @@ import { expect, test } from 'vitest';
 import {
   createOptionValues,
   GROUPS,
+  HEIGHT,
   numberFor,
   optionsOf,
   SNAP,
@@ -13,6 +14,7 @@ import {
   toolById,
   toolByKey,
   toolsOf,
+  UNIT,
   usable,
 } from '../../src/lib/tools';
 
@@ -50,7 +52,9 @@ test('a search finds a tool by name, group or key', () => {
 
 test('a planned tool is never usable, and a grid tool needs a grid and a circle no sphere', () => {
   const plain = { grid: false, sphere: false };
-  expect(usable(toolByKey('t') as never, plain)).toBe(false);
+  expect(usable(toolByKey('h') as never, plain)).toBe(false);
+  expect(usable(toolByKey('t') as never, plain)).toBe(true);
+  expect(usable(toolByKey('t') as never, { grid: false, sphere: true })).toBe(false);
   expect(usable(toolByKey('f') as never, plain)).toBe(true);
   expect(usable(toolByKey('f') as never, { grid: false, sphere: true })).toBe(false);
   expect(usable(toolByKey('s') as never, plain)).toBe(true);
@@ -69,7 +73,8 @@ test('lists the options of a tool, and offers one that needs a grid only with a 
   expect(optionsOf(line, { grid: false })).toEqual([]);
   expect(optionsOf(spline, { grid: false })).toEqual([TENSION]);
   expect(optionsOf(toolById('freehand') as ToolDecl, { grid: true })).toEqual([TOLERANCE]);
-  expect(optionsOf(toolById('height-line') as ToolDecl, { grid: true })).toEqual([]);
+  expect(optionsOf(toolById('height-line') as ToolDecl, { grid: false })).toEqual([HEIGHT, UNIT]);
+  expect(optionsOf(toolById('height-brush') as ToolDecl, { grid: true })).toEqual([]);
 
   const words = TOOLS.flatMap((tool) => (tool.options ?? []).map((o) => `${tool.id} ${o.word}`));
 
@@ -107,4 +112,23 @@ test('a number option keeps a value to its range and its step', () => {
   expect(values.get(spline, TENSION)).toBe(0.5);
   values.set(spline, TENSION, 0.2);
   expect(values.get(spline, TENSION)).toBe(0.2);
+});
+
+test('an option that may assume nothing starts empty, and a number is kept to its step', () => {
+  const values = createOptionValues();
+  const heightLine = toolById('height-line') as ToolDecl;
+
+  expect(values.get(heightLine, HEIGHT)).toBeNull();
+  expect(values.get(heightLine, UNIT)).toBe('');
+  values.set(heightLine, HEIGHT, 250);
+  values.set(heightLine, UNIT, 'm');
+  expect(values.get(heightLine, HEIGHT)).toBe(250);
+  expect(values.get(heightLine, UNIT)).toBe('m');
+  expect(numberFor(HEIGHT, 12.3456789)).toBe(12.345679);
+  expect(numberFor(HEIGHT, -0.5)).toBe(-0.5);
+  expect(numberFor(HEIGHT, 2e12)).toBeNull();
+  // A step that does not begin at the least still keeps a value in its range.
+  expect(numberFor(TOLERANCE, 0.5)).toBe(0.5);
+  expect(numberFor(TOLERANCE, 0.6)).toBe(0.5);
+  expect(numberFor(TOLERANCE, 9.9)).toBe(10);
 });

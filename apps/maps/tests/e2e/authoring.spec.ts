@@ -424,6 +424,12 @@ for (const theme of ['light', 'dark'] as const) {
       ).toBeVisible();
       const freehand = await new AxeBuilder({ page }).exclude('.shell-bottom').analyze();
       expect(freehand.violations.map((v) => `${v.id}: ${v.nodes[0]?.html}`)).toEqual([]);
+      await page.getByRole('button', { name: 'Height line', exact: true }).click();
+      await expect(
+        page.getByRole('group', { name: 'Options of Height line' }).getByLabel('Unit'),
+      ).toBeVisible();
+      const heightLine = await new AxeBuilder({ page }).exclude('.shell-bottom').analyze();
+      expect(heightLine.violations.map((v) => `${v.id}: ${v.nodes[0]?.html}`)).toEqual([]);
     } finally {
       await page.context().close();
     }
@@ -445,7 +451,7 @@ test('the toolbox is drawn from the tool registry: groups, one key a tool, and p
     await expect(place.getByRole('button', { name: 'Circle', exact: true })).toBeVisible();
     await expect(page.getByRole('group', { name: 'Draw', exact: true })).toContainText('Area');
     await expect(page.getByRole('button', { name: 'Cells', exact: true })).toHaveCount(0);
-    await expect(page.getByRole('button', { name: 'Height line', exact: true })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Height brush', exact: true })).toHaveCount(0);
     // One key a tool, while the drawing has the focus; the page's own keys do not see them.
     await page.locator('.map-stage svg').focus();
     await page.keyboard.press('p');
@@ -462,8 +468,8 @@ test('the toolbox is drawn from the tool registry: groups, one key a tool, and p
     await page.keyboard.press('g');
     await expect(page.getByText('Cells is not available on this Map.')).toBeVisible();
     expect(page.url()).toBe(address);
-    await page.keyboard.press('t');
-    await expect(page.getByText(/Height line is planned\./)).toBeVisible();
+    await page.keyboard.press('h');
+    await expect(page.getByText(/Height brush is planned\./)).toBeVisible();
     // All tools lists every tool, finds one by a few words and says which are planned.
     await page.getByRole('button', { name: 'All tools' }).click();
     await page.getByLabel('Find a tool').fill('cave');
@@ -552,9 +558,9 @@ test('the command line takes a tool by name, places a place by a typed point and
     await command.fill('Line');
     await command.press('Enter');
     await expect(answer).toHaveText('Line is the tool.');
-    await command.fill('Height line');
+    await command.fill('Height brush');
     await command.press('Enter');
-    await expect(answer).toContainText('Height line is planned');
+    await expect(answer).toContainText('Height brush is planned');
     await command.fill('dance');
     await command.press('Enter');
     await expect(answer).toContainText('not a command');
@@ -750,6 +756,103 @@ test('a freehand stroke becomes a simplified line that is edited as any line', a
     await expect.poll(async () => (await line())?.pts?.[0]?.[0]).toBe(111);
     await page.getByRole('button', { name: 'Undo' }).click();
     await expect.poll(async () => (await line())?.pts?.[0]?.[0]).toBe(first[0]);
+  } finally {
+    await page.context().close();
+  }
+});
+
+test('a height line needs a height and a unit, says them on the Map and keeps them when it is changed', async ({
+  browser,
+}) => {
+  const w = await world();
+  const page = await signedIn(browser, w.subject);
+  type Valued = { shape: string; pts?: number[][]; value?: number; unit?: string };
+  const line = async () => geometryOf((await w.read())[0]).parts[0] as Valued | undefined;
+  try {
+    await page.goto(`/map/?tenant=${w.tenant.id}&id=${w.chart.id}`);
+    await expect(page.getByRole('heading', { name: 'Sword Coast', exact: true })).toBeVisible();
+    await page.getByRole('button', { name: 'Edit this map' }).click();
+    await page.locator('.map-stage svg').focus();
+    await page.keyboard.press('t');
+    await expect(page.getByRole('button', { name: 'Height line', exact: true })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    // Neither option has a value of its own: nothing is assumed.
+    const options = page.getByRole('group', { name: 'Options of Height line' });
+    await expect(options.getByLabel('Height')).toHaveValue('');
+    await expect(options.getByLabel('Unit')).toHaveValue('');
+    await page.getByLabel('Or make a new Location, named').fill('Ridge');
+    await page.getByRole('button', { name: 'Draw a new Location' }).click();
+    const command = page.getByLabel('Command', { exact: true });
+    const answer = page.locator('.map-command-answer');
+    for (const point of ['200,200', '500,200']) {
+      await command.fill(point);
+      await command.press('Enter');
+    }
+    // Without them the line is not written, and the draft is kept.
+    await command.fill('DONE');
+    await command.press('Enter');
+    await expect(page.locator('.map-edit-bar')).toContainText(
+      'A height line needs a height and a unit.',
+    );
+    expect(await w.read()).toHaveLength(0);
+    await expect(page.locator('.m-ov-handle')).toHaveCount(2);
+    // One in its field, one as a command.
+    await options.getByLabel('Height').fill('250');
+    await command.fill('UNIT m');
+    await command.press('Enter');
+    await expect(answer).toHaveText('Unit is m.');
+    await expect(options.getByLabel('Unit')).toHaveValue('m');
+    await command.fill('DONE');
+    await command.press('Enter');
+    await expect(page.getByRole('heading', { name: 'Change Ridge' })).toBeVisible();
+    expect(await line()).toEqual({
+      shape: 'polyline',
+      pts: [
+        [200, 200],
+        [500, 200],
+      ],
+      value: 250,
+      unit: 'm',
+    });
+    expect((await w.read())[0]?.role).toBe('isoline');
+    // The Map says the height at the line, and in the mark's name.
+    await expect(page.locator('.map-stage text.m-lbl-value')).toHaveText('250 m');
+    await expect(
+      page.locator('.map-stage').getByRole('button', { name: 'Ridge, height 250 m, isoline' }),
+    ).toHaveCount(1);
+    // A point moved keeps the height; the height itself is changed in the panel.
+    await page.getByRole('group', { name: 'Point 1' }).getByLabel('x').fill('220');
+    await page.getByRole('group', { name: 'Point 1' }).getByLabel('x').press('Tab');
+    await expect.poll(async () => (await line())?.pts?.[0]?.[0]).toBe(220);
+    expect(await line()).toMatchObject({ value: 250, unit: 'm' });
+    const height = page.getByRole('group', { name: 'Height', exact: true });
+    await height.getByLabel('Height').fill('300.5');
+    await height.getByLabel('Height').press('Tab');
+    await expect.poll(async () => (await line())?.value).toBe(300.5);
+    await expect(page.locator('.map-stage text.m-lbl-value')).toHaveText('300.5 m');
+    // One without the other is not written; both emptied takes the height away; undo brings it back.
+    await height.getByLabel('Unit').fill('');
+    await height.getByLabel('Unit').press('Tab');
+    await expect(page.locator('.map-edit-bar')).toContainText('A height and its unit go together');
+    expect(await line()).toMatchObject({ value: 300.5, unit: 'm' });
+    await height.getByLabel('Height').fill('');
+    await height.getByLabel('Height').press('Tab');
+    await expect.poll(async () => (await line())?.value).toBeUndefined();
+    await expect(page.locator('.map-stage text.m-lbl-value')).toHaveCount(0);
+    await page.getByRole('button', { name: 'Undo' }).click();
+    await expect.poll(async () => (await line())?.value).toBe(300.5);
+
+    // The pair last drawn on this Map is offered the next time, in this browser.
+    await page.reload();
+    await expect(page.getByRole('heading', { name: 'Sword Coast', exact: true })).toBeVisible();
+    await page.getByRole('button', { name: 'Edit this map' }).click();
+    await page.locator('.map-stage svg').focus();
+    await page.keyboard.press('t');
+    const again = page.getByRole('group', { name: 'Options of Height line' });
+    await expect(again.getByLabel('Height')).toHaveValue('250');
+    await expect(again.getByLabel('Unit')).toHaveValue('m');
   } finally {
     await page.context().close();
   }

@@ -52,6 +52,11 @@ returns them. The roles are a closed list (`ROLES`); a role the list does not kn
 Positions are drawing units, y down, and `project(system, point)` is the one place a position
 becomes a drawing position (the identity for `plane` and `outline`).
 
+A part may carry a `value` and a `unit`. A line or a curve that does is labelled with them at its
+middle ("250 m"), in every theme, while Names are shown, and the mark's accessible name says the
+height either way ([ADR 0473](../../docs/adr/0473-the-height-line-tool.md)). Nothing else reads a
+value.
+
 `View`: `zoom` 1 fits the whole sheet in the viewport and 2 is twice that; `centre` is the drawing
 point in the middle of the viewport; `groups` are Places (everything but presence and routes),
 People (`presence`), Roads (`route`), Names (the labels) and `showPlaces` (a hairline outline for a

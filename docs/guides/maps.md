@@ -49,10 +49,11 @@ Choose **Edit this map**. The **Tool** choices are:
 | Line | A road or boundary through two or more points. |
 | Spline | A smooth curve through two or more points. **Tension** says how round it is: 0 the roundest, 1 straight. Not on a sphere. |
 | Freehand | A line drawn by pressing, dragging and letting go. **Tolerance** says how much of the hand's wobble is smoothed away, in screen pixels. Escape while dragging drops the stroke. Not on a sphere; Line draws the same thing from the keyboard. |
+| Height line | A line with a height and a unit, such as 250 m. Both are yours to give and neither is assumed; the pair you last used on a Map is offered again in this browser. The Map writes the height at the middle of the line. Not on a sphere. |
 | Area | A region of three or more points. |
 | Cells | A region made of whole cells, on a grid. |
 
-Each drawing is a **placement** of an entry on this Map. Give it a **Role** and a drawing order (−100 to 100, higher on top). **Place the children** of a Location drawn as an area spreads what is inside it within the shape, and **Remove from this map** takes a drawing off without touching the entry. **Undo** and **Redo** step through your changes, and **Stop editing** ends the session. On a grid, **Snap to the grid** keeps points on the grid. On a sphere you draw by longitude and latitude.
+Each drawing is a **placement** of an entry on this Map. Give it a **Role** and a drawing order (−100 to 100, higher on top). **Place the children** of a Location drawn as an area spreads what is inside it within the shape, and **Remove from this map** takes a drawing off without touching the entry. A line or a curve may carry a **Height** and a **Unit**, set in the panel: give both, or empty both to take the height away. **Undo** and **Redo** step through your changes, and **Stop editing** ends the session. On a grid, **Snap to the grid** keeps points on the grid. On a sphere you draw by longitude and latitude.
 
 **Settings** holds the Map's name, its sheet, the Location it shows, the theme's name and who sees it. Changes are saved with **Save settings**.
 
@@ -84,7 +85,7 @@ Authors, GMs, and Owners and Organizers who can see everything can add, rename, 
 ## What Maps does not do
 
 - It has no drawing on a phone (reading and small changes only) and no offline mode.
-- Height line, Height brush, Cave system and the two Fill generators are listed among the tools as planned, and do nothing yet.
+- Height brush, Cave system and the two Fill generators are listed among the tools as planned, and do nothing yet.
 - A curve drawn through the API that is not a spline is shown and kept, and cannot be changed by its points here.
 - It does not turn the part-of tree into containment, and the tree never decides who can reach what.
 - It does not work out distance from anything but the Map's own geometry and the connections you can see.
@@ -93,4 +94,4 @@ Authors, GMs, and Owners and Organizers who can see everything can add, rename, 
 
 ## Drawing with the keyboard
 
-While the tools are on, each tool has one key (shown on its button), a **command line** under the toolbox takes a tool's name, `PLACE name x,y`, `SELECT name`, `UNDO`, `REDO`, `FIT` and `HELP` (press `/` to reach it); while a tool is chosen, type `x,y` for its next point and `DONE` to finish a line or an area, the **Options** tab beside the Map holds what the tool needs and its options (an option can also be typed by its name, as in `SNAP OFF`, `TENSION 0.4` or `TOLERANCE 3`), the **Places** tab lists the entries not yet on the Map to place with a button or to drag onto it, and **History** lists each step by name with a way back to any of them. **Shortcuts** changes a tool's key; your keys are yours alone and kept in this browser.
+While the tools are on, each tool has one key (shown on its button), a **command line** under the toolbox takes a tool's name, `PLACE name x,y`, `SELECT name`, `UNDO`, `REDO`, `FIT` and `HELP` (press `/` to reach it); while a tool is chosen, type `x,y` for its next point and `DONE` to finish a line or an area, the **Options** tab beside the Map holds what the tool needs and its options (an option can also be typed by its name, as in `SNAP OFF`, `TENSION 0.4`, `TOLERANCE 3` or `UNIT m`), the **Places** tab lists the entries not yet on the Map to place with a button or to drag onto it, and **History** lists each step by name with a way back to any of them. **Shortcuts** changes a tool's key; your keys are yours alone and kept in this browser.

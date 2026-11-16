@@ -20,7 +20,8 @@ export const GROUPS: ToolGroup[] = ['select', 'place', 'draw', 'terrain', 'gener
 
 /**
  * An option of a tool (ADR 0470): the Options tab draws it and the command line sets it by its word.
- * A type is built with the first tool that has one: `toggle` for snapping, `number` for a spline.
+ * A type is built with the first tool that has one: `toggle` for snapping, `number` for a spline,
+ * `text` for a height line's unit.
  */
 export type ToolOption = {
   id: string;
@@ -40,25 +41,34 @@ export type ToolOption = {
     }
   | {
       type: 'number';
-      first: number;
+      /** Null when nothing may be assumed: the person gives it before the tool can finish. */
+      first: number | null;
       least: number;
       most: number;
-      /** A value is kept to a whole number of steps from the least. */
+      /** A value is kept to a whole number of steps. */
       step: number;
+    }
+  | {
+      type: 'text';
+      /** Empty when the person gives it before the tool can finish. */
+      first: string;
+      /** The most characters it takes. */
+      longest: number;
     }
 );
 
 export type ToggleOption = Extract<ToolOption, { type: 'toggle' }>;
 export type NumberOption = Extract<ToolOption, { type: 'number' }>;
+export type TextOption = Extract<ToolOption, { type: 'text' }>;
 
-export type OptionValue = boolean | number;
+export type OptionValue = boolean | number | string | null;
 
 /** A number an option can hold: within its range and on its step; null when it is out of range. */
 export function numberFor(option: NumberOption, value: number): number | null {
   if (!Number.isFinite(value) || value < option.least || value > option.most) return null;
-  const stepped = option.least + Math.round((value - option.least) / option.step) * option.step;
+  const stepped = Math.round(value / option.step) * option.step;
 
-  return Math.min(option.most, Math.round(stepped * 1e6) / 1e6);
+  return Math.max(option.least, Math.min(option.most, Math.round(stepped * 1e6) / 1e6));
 }
 
 /** How round a spline is (ADR 0471): 0 the roundest, 1 straight. */
@@ -94,6 +104,28 @@ export const TOLERANCE: NumberOption = {
   least: 0.5,
   most: 10,
   step: 0.5,
+};
+
+/** The height a height line carries (ADR 0473): never assumed, so it starts empty. */
+export const HEIGHT: NumberOption = {
+  id: 'height',
+  name: 'Height',
+  word: 'height',
+  type: 'number',
+  first: null,
+  least: -1_000_000_000_000,
+  most: 1_000_000_000_000,
+  step: 0.000001,
+};
+
+/** The unit of that height, in the author's own words: never assumed either. */
+export const UNIT: TextOption = {
+  id: 'unit',
+  name: 'Unit',
+  word: 'unit',
+  type: 'text',
+  first: '',
+  longest: 32,
 };
 
 export type ToolDecl = {
@@ -222,8 +254,9 @@ export const TOOLS: ToolDecl[] = [
     key: 't',
     input: 'a path and a value',
     output: 'a line with a value and a unit',
-    state: 'planned',
-    reason: later,
+    state: 'ready',
+    notOnSphere: true,
+    options: [HEIGHT, UNIT],
   },
   {
     id: 'height-brush',
@@ -307,7 +340,8 @@ export function optionsOf(tool: ToolDecl, map: { grid: boolean }): ToolOption[] 
 
 export type OptionValues = {
   get(tool: ToolDecl, option: ToggleOption): boolean;
-  get(tool: ToolDecl, option: NumberOption): number;
+  get(tool: ToolDecl, option: NumberOption): number | null;
+  get(tool: ToolDecl, option: TextOption): string;
   get(tool: ToolDecl, option: ToolOption): OptionValue;
   set(tool: ToolDecl, option: ToolOption, value: OptionValue): void;
 };
