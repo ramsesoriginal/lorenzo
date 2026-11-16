@@ -237,6 +237,79 @@ describe('geometry', () => {
     expect(placesInside({ kind: 'point', at: [0, 0] }, 3)).toEqual([]);
     expect(placesInside(square, 0)).toEqual([]);
   });
+
+  it('keeps the value and unit of a part through every edit (ADR 0337)', () => {
+    const contour: Geometry = {
+      format: 'lorenzo.geometry/1',
+      parts: [
+        {
+          shape: 'polyline',
+          pts: [
+            [0, 0],
+            [10, 0],
+            [20, 10],
+          ],
+          value: 250,
+          unit: 'm',
+        },
+      ],
+    };
+    const line = editableOf(contour) as Editable;
+
+    expect(line).toMatchObject({ kind: 'line', value: 250, unit: 'm' });
+    expect(toGeometry(line)).toEqual(contour);
+
+    const edits: Editable[] = [
+      moveHandle(line, 'v1', [12, 3]),
+      translate(line, 5, 5),
+      insertVertex(line, 0),
+      removeVertex(line, 2) as Editable,
+    ];
+
+    for (const edited of edits) {
+      expect(toGeometry(edited).parts[0]).toMatchObject({ value: 250, unit: 'm' });
+    }
+
+    const valuedParts: Geometry['parts'] = [
+      { shape: 'point', at: [1, 2], value: 0, unit: 'ft' },
+      { shape: 'circle', at: [1, 2], r: 3, value: -4.5, unit: 'fathoms' },
+      {
+        shape: 'polygon',
+        rings: [
+          [
+            [0, 0],
+            [10, 0],
+            [10, 10],
+          ],
+        ],
+        value: 7,
+        unit: 'storeys',
+      },
+    ];
+
+    for (const part of valuedParts) {
+      const geometry: Geometry = { format: 'lorenzo.geometry/1', parts: [part] };
+      const shape = editableOf(geometry) as Editable;
+      const handle = handlesOf(shape)[0]?.id ?? '';
+
+      expect(toGeometry(shape)).toEqual(geometry);
+      expect(toGeometry(moveHandle(shape, handle, [2, 2])).parts[0]).toMatchObject({
+        value: part.value,
+        unit: part.unit,
+      });
+    }
+  });
+
+  it('writes no value for a shape that carries none, or only half of one', () => {
+    expect(toGeometry({ kind: 'point', at: [1, 2] }).parts[0]).toEqual({
+      shape: 'point',
+      at: [1, 2],
+    });
+    expect(toGeometry({ kind: 'point', at: [1, 2], value: 3 }).parts[0]).toEqual({
+      shape: 'point',
+      at: [1, 2],
+    });
+  });
 });
 
 const state = (z: number) => ({ geometry: { z }, role: null, style: null, z });
