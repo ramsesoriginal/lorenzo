@@ -465,3 +465,100 @@ test('the outliner places a place, by button or by dragging, and History steps b
     await page.context().close();
   }
 });
+
+test('the command line takes a tool by name, places a place by a typed point and answers an unknown command', async ({
+  browser,
+}) => {
+  const w = await world();
+  await w.place('Harbour');
+  const page = await signedIn(browser, w.subject);
+  try {
+    await page.goto(`/map/?tenant=${w.tenant.id}&id=${w.chart.id}`);
+    await expect(page.getByRole('heading', { name: 'Sword Coast', exact: true })).toBeVisible();
+    await expect(page.getByRole('form', { name: 'Command line' })).toBeHidden();
+    await page.getByRole('button', { name: 'Edit this map' }).click();
+    const command = page.getByLabel('Command', { exact: true });
+    const answer = page.locator('.map-command-answer');
+
+    await command.fill('Line');
+    await command.press('Enter');
+    await expect(answer).toHaveText('Line is the tool.');
+    await command.fill('Spline');
+    await command.press('Enter');
+    await expect(answer).toContainText('Spline is planned');
+    await command.fill('dance');
+    await command.press('Enter');
+    await expect(answer).toContainText('not a command');
+
+    await command.fill('PLACE Harbour 250,200');
+    await command.press('Enter');
+    await expect(answer).toContainText('Harbour is on the map at 250,200');
+    const rows = await w.read();
+    expect(rows.map((r) => r.name)).toEqual(['Harbour']);
+    expect(geometryOf(rows[0]).parts[0]?.at).toEqual([250, 200]);
+
+    await command.fill('UNDO');
+    await command.press('Enter');
+    await expect.poll(async () => (await w.read()).length).toBe(0);
+    // The slash key goes to the line, and a letter typed there is not a tool key.
+    await page.locator('.map-stage').click();
+    await page.keyboard.press('/');
+    await expect(command).toBeFocused();
+    await page.keyboard.type('l');
+    await expect(command).toHaveValue('l');
+  } finally {
+    await page.context().close();
+  }
+});
+
+test('the Shortcuts dialog changes a tool key, refuses a taken one and puts the keys back', async ({
+  browser,
+}) => {
+  const w = await world();
+  const page = await signedIn(browser, w.subject);
+  try {
+    await page.goto(`/map/?tenant=${w.tenant.id}&id=${w.chart.id}`);
+    await expect(page.getByRole('heading', { name: 'Sword Coast', exact: true })).toBeVisible();
+    await page.getByRole('button', { name: 'Edit this map' }).click();
+    await page.getByRole('button', { name: 'Shortcuts', exact: true }).click();
+    const dialog = page.getByRole('dialog', { name: 'Shortcuts' });
+    await expect(dialog).toBeVisible();
+
+    // A key somebody else has is refused; a free one is taken.
+    await dialog.getByRole('button', { name: 'Change the key of Line' }).click();
+    await page.keyboard.press('p');
+    await expect(dialog).toContainText("P is Pin's key");
+    await dialog.getByRole('button', { name: 'Change the key of Line' }).click();
+    await page.keyboard.press('q');
+    await expect(dialog).toContainText('Line is now Q');
+    await dialog.getByRole('button', { name: 'Close' }).click();
+
+    // The new key picks the tool, the old one no longer does, and it is kept for the next visit.
+    await page.locator('.map-stage').click();
+    await page.keyboard.press('l');
+    await expect(page.getByRole('button', { name: 'Line', exact: true })).toHaveAttribute(
+      'aria-pressed',
+      'false',
+    );
+    await page.keyboard.press('q');
+    await expect(page.getByRole('button', { name: 'Line', exact: true })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    await page.reload();
+    await page.getByRole('button', { name: 'Edit this map' }).click();
+    await expect(page.getByRole('button', { name: 'Line', exact: true })).toHaveAttribute(
+      'aria-keyshortcuts',
+      'Q',
+    );
+
+    await page.getByRole('button', { name: 'Shortcuts', exact: true }).click();
+    await page.getByRole('button', { name: 'Put every key back' }).click();
+    await expect(page.getByRole('button', { name: 'Line', exact: true })).toHaveAttribute(
+      'aria-keyshortcuts',
+      'L',
+    );
+  } finally {
+    await page.context().close();
+  }
+});

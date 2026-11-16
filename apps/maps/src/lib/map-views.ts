@@ -950,6 +950,7 @@ export async function mountMap() {
           });
         }
         editDock.append(editor.panel);
+        if (!phoneNow()) editDock.append(editor.commandLine);
         (bodies.get('history') as HTMLElement).append(editor.history);
 
         // The outliner: places not yet on this Map, to drag onto it or to place at the centre.

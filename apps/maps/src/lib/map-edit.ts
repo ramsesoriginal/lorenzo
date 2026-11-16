@@ -25,6 +25,7 @@ import {
   snapCorner,
   toggleCell,
 } from './cells-edit';
+import { HELP, parseCommand } from './command-line';
 import { button, el, field, groupTitle, message, select, statusLine } from './dom';
 import {
   type Editable,
@@ -40,10 +41,12 @@ import {
   translate,
 } from './geometry-edit';
 import { type Change, createHistory, type Step, writeFor } from './history';
+import { createKeyMap } from './keymap';
 import {
   batchPlacements,
   type EntryChoice,
   findEntries,
+  findLocations,
   makeLocation,
   partsOf,
   putPlacement,
@@ -52,7 +55,14 @@ import {
   removePlacement,
   rowState,
 } from './map-api';
-import { GROUP_NAMES, searchTools, type ToolDecl, toolByKey, toolsOf, usable } from './tools';
+import {
+  TOOLS as DECLARED,
+  GROUP_NAMES,
+  searchTools,
+  type ToolDecl,
+  toolsOf,
+  usable,
+} from './tools';
 
 export type EditorContext = {
   tenant: string;
@@ -81,6 +91,8 @@ export type Editor = {
   history: HTMLElement;
   /** Puts an entry on the Map as a pin at a point of the drawing. */
   placeEntry(entry: { id: string; name: string }, at: [number, number]): Promise<void>;
+  /** The line under the Map that takes typed commands. */
+  commandLine: HTMLElement;
   /** Whether the tools are on. */
   editing(): boolean;
   /** The page's selection changed. */
@@ -387,6 +399,93 @@ export function createEditor(context: EditorContext): Editor {
     });
   }
 
+  // The command line (MP6): a typed twin of the pointer, one answer per line.
+  const commandLine = el('form', '', 'map-command row-tight');
+  commandLine.setAttribute('aria-label', 'Command line');
+  const commandInput = el('input', '', 'text-input grow');
+  commandInput.type = 'text';
+  commandInput.autocomplete = 'off';
+  commandInput.spellcheck = false;
+  commandInput.placeholder = 'Type a tool or a command, HELP for the list';
+  commandInput.setAttribute('aria-label', 'Command');
+  const commandAnswer = el('p', '', 'status-text map-command-answer');
+  commandAnswer.setAttribute('role', 'status');
+  commandLine.append(commandInput, commandAnswer);
+  const answer = (text: string, failed = false) => {
+    commandAnswer.textContent = text;
+    commandAnswer.dataset.failed = String(failed);
+  };
+  commandLine.addEventListener('submit', (event) => {
+    event.preventDefault();
+    const line = commandInput.value;
+    commandInput.value = '';
+    void runCommand(line);
+  });
+  commandInput.addEventListener('keydown', (event) => {
+    event.stopPropagation();
+    if (event.key === 'Escape') commandInput.blur();
+  });
+  async function runCommand(line: string) {
+    const command = parseCommand(line, DECLARED, here());
+    if (!command) return;
+    switch (command.kind) {
+      case 'error':
+        answer(command.message, true);
+        return;
+      case 'help':
+        answer(HELP);
+        return;
+      case 'planned':
+      case 'unavailable':
+        answer(unavailable(command.tool), true);
+        return;
+      case 'tool':
+        setTool(command.tool.id as ToolName);
+        answer(`${command.tool.name} is the tool.`);
+        return;
+      case 'undo':
+        await undo();
+        answer('Undone.');
+        return;
+      case 'redo':
+        await redo();
+        answer('Done again.');
+        return;
+      case 'fit':
+        context.view().fit();
+        answer('The whole sheet is in view.');
+        return;
+      case 'select': {
+        const wanted = command.name.toLowerCase();
+        const row = context.rows().find((r) => r.name.toLowerCase() === wanted);
+        if (!row) {
+          answer(`Nothing named “${command.name}” is on this Map.`, true);
+          return;
+        }
+        context.select(row.id);
+        answer(`${row.name} is selected.`);
+        return;
+      }
+      case 'place': {
+        try {
+          const wanted = command.name.toLowerCase();
+          const found = (await findLocations(context.tenant, command.name, 50)).find(
+            (place) => place.name.toLowerCase() === wanted,
+          );
+          if (!found) {
+            answer(`No place named “${command.name}” in this library.`, true);
+            return;
+          }
+          await placeEntry(found, command.at);
+          answer(`${found.name} is on the map at ${command.at[0]},${command.at[1]}.`);
+        } catch (error) {
+          answer(asText(error), true);
+        }
+        return;
+      }
+    }
+  }
+
   /** Steps back, or forward, to any point in what was done. */
   const goTo = (index: number) =>
     guarded(async () => {
@@ -675,6 +774,100 @@ export function createEditor(context: EditorContext): Editor {
       : `${decl.name} is not available on this Map.`;
   }
 
+  // The Shortcuts dialog (MP6): every tool's key, each to be changed or put back. The keys are the
+  // person's alone, kept in this browser, and single keys can still be turned off for good.
+  // The dialog lives on the page, not in the toolbar, which is drawn again when a key changes.
+  const shortcutsDialog = (() => {
+    const dialog = el('dialog', '', 'card map-shortcuts');
+    dialog.setAttribute('aria-labelledby', 'map-shortcuts-title');
+    const title = groupTitle('h2', 'Shortcuts');
+    title.id = 'map-shortcuts-title';
+    const note = el(
+      'p',
+      'One key per tool, while the drawing has the focus. Choose Change, then press the key you want. Your keys are yours alone, kept in this browser. / goes to the command line.',
+      'status-text',
+    );
+    const result = statusLine();
+    const tell = (text: string, failed = false) => {
+      result.textContent = text;
+      result.dataset.failed = String(failed);
+    };
+    const list = el('ul', '', 'list map-shortcut-list');
+    let waiting: ToolDecl | null = null;
+    const draw = () => {
+      list.replaceChildren(
+        ...DECLARED.map((decl) => {
+          const item = el('li', '', 'row-tight');
+          const change = el(
+            'button',
+            waiting === decl ? 'Press a key' : 'Change',
+            'btn btn-secondary',
+          );
+          change.type = 'button';
+          change.setAttribute('aria-label', `Change the key of ${decl.name}`);
+          change.addEventListener('click', () => {
+            waiting = decl;
+            tell(`Press the new key for ${decl.name}, or Escape to cancel.`);
+            draw();
+            (list.querySelectorAll('button')[DECLARED.indexOf(decl)] as HTMLElement)?.focus();
+          });
+          item.append(
+            el('span', decl.name, 'grow'),
+            el('kbd', keys.keyOf(decl).toUpperCase(), 'chip'),
+            ...(decl.state === 'planned' ? [el('span', 'planned', 'chip')] : []),
+            change,
+          );
+          return item;
+        }),
+      );
+    };
+    dialog.addEventListener('keydown', (event) => {
+      if (!waiting) return;
+      if (event.key === 'Shift' || event.key === 'Control' || event.key === 'Alt') return;
+      event.preventDefault();
+      event.stopPropagation();
+      const decl = waiting;
+      waiting = null;
+      if (event.key === 'Escape') tell('Nothing changed.');
+      else {
+        const refused = keys.set(decl, event.key);
+        tell(refused ?? `${decl.name} is now ${keys.keyOf(decl).toUpperCase()}.`, refused !== null);
+      }
+      draw();
+      renderToolbar();
+    });
+    const reset = el('button', 'Put every key back', 'btn btn-secondary');
+    reset.type = 'button';
+    reset.addEventListener('click', () => {
+      keys.reset();
+      tell('Every key is back to its own.');
+      draw();
+      renderToolbar();
+    });
+    const close = el('button', 'Close', 'btn btn-primary');
+    close.type = 'button';
+    close.addEventListener('click', () => dialog.close());
+    dialog.append(title, note, result, list, el('div', '', 'row-tight'));
+    (dialog.lastElementChild as HTMLElement).append(reset, close);
+    document.body.append(dialog);
+    return {
+      dialog,
+      show() {
+        waiting = null;
+        tell('');
+        draw();
+        dialog.showModal();
+      },
+    };
+  })();
+
+  function shortcuts(): HTMLElement {
+    const open = el('button', 'Shortcuts', 'btn btn-secondary');
+    open.type = 'button';
+    open.addEventListener('click', () => shortcutsDialog.show());
+    return open;
+  }
+
   /** Every tool, found by name, group or key; a planned one is listed with its reason and does nothing. */
   function allTools(): HTMLElement {
     const wrap = el('div', '', 'map-all-tools-wrap');
@@ -705,7 +898,11 @@ export function createEditor(context: EditorContext): Editor {
           });
           item.append(
             node,
-            el('span', `${GROUP_NAMES[decl.group]} · ${decl.key.toUpperCase()}`, 'status-text'),
+            el(
+              'span',
+              `${GROUP_NAMES[decl.group]} · ${keys.keyOf(decl).toUpperCase()}`,
+              'status-text',
+            ),
           );
           if (decl.state === 'planned') item.append(el('span', 'planned', 'chip'));
           return item;
@@ -726,6 +923,15 @@ export function createEditor(context: EditorContext): Editor {
 
   // One key a tool, while the drawing has the focus. The page's own single keys (G then a letter) do not
   // see these: the editor takes the key first, and a person who has turned single keys off keeps them off.
+  const keys = createKeyMap(
+    (() => {
+      try {
+        return window.localStorage;
+      } catch {
+        return null;
+      }
+    })(),
+  );
   const singleKeysOn = () => {
     try {
       return window.localStorage.getItem('lorenzo:single-keys') !== 'off';
@@ -740,7 +946,13 @@ export function createEditor(context: EditorContext): Editor {
     if (target?.closest('input, textarea, select, [contenteditable="true"]')) return;
     const active = document.activeElement;
     if (active && active !== document.body && !active.closest('.map-workspace')) return;
-    const decl = toolByKey(event.key);
+    if (event.key === '/') {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      commandInput.focus();
+      return;
+    }
+    const decl = keys.toolFor(event.key);
     if (!decl) return;
     event.preventDefault();
     event.stopImmediatePropagation();
@@ -755,6 +967,7 @@ export function createEditor(context: EditorContext): Editor {
   function renderToolbar() {
     toolbar.replaceChildren();
     renderHistory();
+    commandLine.hidden = !editing;
     const toggle = el('button', editing ? 'Stop editing' : 'Edit this map', 'btn btn-secondary');
     toggle.type = 'button';
     toggle.setAttribute('aria-pressed', String(editing));
@@ -785,15 +998,15 @@ export function createEditor(context: EditorContext): Editor {
         if (!usable(decl, here())) continue;
         const node = el('button', decl.name, 'btn btn-secondary');
         node.type = 'button';
-        node.title = `${decl.name} (${decl.key.toUpperCase()})`;
-        node.setAttribute('aria-keyshortcuts', decl.key.toUpperCase());
+        node.title = `${decl.name} (${keys.keyOf(decl).toUpperCase()})`;
+        node.setAttribute('aria-keyshortcuts', keys.keyOf(decl).toUpperCase());
         node.setAttribute('aria-pressed', String(toolName === decl.id));
         node.addEventListener('click', () => setTool(decl.id as ToolName));
         cluster.append(node);
       }
       if (cluster.childElementCount) tools.append(cluster);
     }
-    tools.append(allTools());
+    tools.append(allTools(), shortcuts());
     const undoButton = el('button', 'Undo', 'btn btn-secondary');
     undoButton.type = 'button';
     undoButton.disabled = busy || !history.canUndo();
@@ -1195,6 +1408,7 @@ export function createEditor(context: EditorContext): Editor {
     toolbar,
     panel,
     history: historyPanel,
+    commandLine,
     placeEntry,
     editing: () => editing,
     selected(id) {
@@ -1208,6 +1422,7 @@ export function createEditor(context: EditorContext): Editor {
     destroy() {
       document.removeEventListener('keydown', onKey);
       document.removeEventListener('keydown', onToolKey, true);
+      shortcutsDialog.dialog.remove();
       context.view().setTool(null);
       context.view().setOverlay([]);
     },

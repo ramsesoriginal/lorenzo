@@ -12,6 +12,7 @@ from pydantic import (
 from lorenzo_api.information_visibility import InformationReader
 from lorenzo_api.models import Entity, Information, VEffectiveStat
 from lorenzo_api.schemas.common import EntitySummary, Slug
+from lorenzo_api.schemas.dice import DiceOut, dice_out
 from lorenzo_api.schemas.payloads import PayloadOut, payload_to_schema
 from lorenzo_api.schemas.vocabulary_check import FindingOut
 from lorenzo_api.stat_evaluation import evaluate
@@ -230,6 +231,8 @@ class EntityStatValueOut(BaseModel):
     system: str | None = None
     name: str
     value: int | str | float | bool
+    # RFC 0056: the parts of a dice stat's `value` (its notation); absent for any other type.
+    dice: DiceOut | None = Field(default=None, exclude_if=lambda value: value is None)
     # ADR 0111: the entity holds the winning value itself, stored or
     # computed; false when it's inherited.
     own: bool
@@ -310,6 +313,7 @@ def _stats_out(entity: Entity, visibility: InformationReader) -> list[EntityStat
             system=stat.system_slug(),
             name=stat.stat_definition.name,
             value=values[stat.stat_definition_id],
+            dice=dice_out(stat.stat_definition.value_type, values[stat.stat_definition_id]),
             own=stat.source_entity_id == entity.id,
             from_entity=(
                 None
