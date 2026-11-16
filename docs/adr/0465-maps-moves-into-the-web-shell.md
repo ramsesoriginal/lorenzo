@@ -1,4 +1,6 @@
-# 0462 - Maps moves into the web shell
+# 0465 - Maps moves into the web shell
+
+Renumbered from 0462 when the stack met `main`, where 0462 had been taken by [the `dice` value type](0462-the-dice-value-type.md), as the numbering rule in AGENTS.md says to do.
 
 Status: accepted and built as a stack of pull requests (M0 to M6, from 2026-11-12). Slice UI-E of [RFC 0050](../rfcs/0050-the-web-interface.md) for Maps. The design is [docs/design/web/maps](../design/web/maps/README.md) (MP1 to MP7) and the decision is [ADR 0421](0421-maps-redesign.md); this ADR says how the app is moved to it, in what order, and where it differs from the design on purpose. Follows [ADR 0440](0440-calendars-moves-into-the-web-shell.md) and [ADR 0441](0441-sessions-moves-into-the-web-shell.md), which did the same for Calendars and Sessions.
 
