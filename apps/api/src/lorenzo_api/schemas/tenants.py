@@ -141,9 +141,8 @@ class TenantOut(BaseModel):
     published_at: datetime | None
     # ADR 0152, 0200: whether every GM reads the entries no campaign owns (the default).
     npcs_shared_with_gms: Annotated[bool, Field(description=_SHARED_WITH_GMS)]
-    # ADR 0465: whether the controller of a holder may award it a feature; left out of the answer
-    # while it is off (the default), so an answer that never knew the setting is unchanged.
-    controllers_award_features: bool = Field(default=False, exclude_if=lambda value: value is False)
+    # ADR 0465: whether the controller of a holder may award it a feature (RFC 0054 section 2).
+    controllers_award_features: bool = False
     # ADR 0281: where the being sheet finds weapons and abilities; null until a library sets them.
     # ADR 0296: optional primary group for a being, independent of its stat values.
     being_stat_group_id: uuid.UUID | None = None

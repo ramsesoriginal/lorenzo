@@ -33,8 +33,7 @@ async def test_the_setting_is_off_until_an_administrator_turns_it_on(
 ) -> None:
     tenant_id = await make_tenant(test_user_id)
     url = f"/tenants/{tenant_id}"
-    # Off, it is not in the answer at all: an answer that never knew the setting is unchanged.
-    assert "controllers_award_features" not in (await client.get(url)).json()
+    assert (await client.get(url)).json()["controllers_award_features"] is False
 
     on = await client.patch(url, json={"controllers_award_features": True})
     assert on.status_code == 200, on.text
@@ -46,7 +45,7 @@ async def test_the_setting_is_off_until_an_administrator_turns_it_on(
 
     off = await client.patch(url, json={"controllers_award_features": False})
     assert off.status_code == 200, off.text
-    assert "controllers_award_features" not in off.json()
+    assert off.json()["controllers_award_features"] is False
     await delete_tenant(tenant_id)
 
 
