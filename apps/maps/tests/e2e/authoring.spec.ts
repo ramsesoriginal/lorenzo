@@ -992,6 +992,9 @@ for (const theme of ['light', 'dark'] as const) {
       await expect.poll(async () => (await drawn()).parts.length).toBe(2);
       await page.getByRole('button', { name: 'Undo' }).click();
       await expect.poll(async () => (await drawn()).parts.length).toBe(3);
+      // The page has read the Map again before the next change: a press while it is busy is dropped.
+      await expect(page.locator('.map-edit-bar')).toContainText('Undone.');
+      await expect(parts.getByRole('button', { name: 'Point 1', exact: true })).toBeVisible();
       await parts.getByRole('button', { name: 'Remove Hole 1 of Area 1' }).click();
       await expect.poll(async () => (await drawn()).parts[0]?.rings?.length).toBe(1);
       expect((await drawn()).parts).toHaveLength(3);
