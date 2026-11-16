@@ -2025,7 +2025,7 @@ class Role1(StrEnum):
     author = "author"
 
 
-class State5(StrEnum):
+class State6(StrEnum):
     not_copied = "not_copied"
     no_baseline = "no_baseline"
     local_unavailable = "local_unavailable"
@@ -2037,7 +2037,7 @@ class State5(StrEnum):
 
 
 class ManuscriptComparison(BaseModel):
-    state: State5 = Field(..., title="State")
+    state: State6 = Field(..., title="State")
     repository_name: str | None = Field(None, title="Repository Name")
     base: dict[str, Any] | None = Field(None, title="Base")
     local: dict[str, Any] | None = Field(None, title="Local")
@@ -3502,7 +3502,7 @@ class Kind39(StrEnum):
     template = "template"
 
 
-class State6(StrEnum):
+class State7(StrEnum):
     released = "released"
     edited = "edited"
 
@@ -4369,7 +4369,7 @@ class Week(BaseModel):
     weekday: conint(ge=0, le=99) | None = Field(0, title="Weekday")
 
 
-class State8(StrEnum):
+class State9(StrEnum):
     with_you = "with_you"
     stashed = "stashed"
     elsewhere = "elsewhere"
@@ -4377,7 +4377,7 @@ class State8(StrEnum):
 
 
 class WhereaboutsOut(BaseModel):
-    state: State8 = Field(..., title="State")
+    state: State9 = Field(..., title="State")
     place: PlaceOut | None = None
 
 
@@ -5740,7 +5740,7 @@ class RowChangeOut(BaseModel):
     local_id: UUID = Field(..., title="Local Id")
     name: str = Field(..., title="Name")
     fields: list[FieldChangeOut] = Field(..., title="Fields")
-    state: State6 | None = Field(..., title="State")
+    state: State7 | None = Field(..., title="State")
     breaking: list[BreakingNoteOut] = Field(..., title="Breaking")
 
 
@@ -5749,7 +5749,7 @@ class RowRefOut(BaseModel):
     source_id: UUID = Field(..., title="Source Id")
     local_id: UUID | None = Field(..., title="Local Id")
     name: str = Field(..., title="Name")
-    state: State6 | None = Field(..., title="State")
+    state: State7 | None = Field(..., title="State")
     breaking: list[BreakingNoteOut] = Field(..., title="Breaking")
 
 
