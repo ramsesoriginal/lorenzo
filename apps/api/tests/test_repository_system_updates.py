@@ -1,4 +1,4 @@
-"""ADR 0467: the update engine tracks the game systems and the templates of a repository as it does
+"""ADR 0469: the update engine tracks the game systems and the templates of a repository as it does
 its stat groups: what changed upstream, what is added and removed, a conflict named, a name that
 clashes asked about, and a copy made before there were links offered what it already has.
 """

@@ -151,7 +151,7 @@ async def get_entity_preview(
         for stat in entity.effective_stats
         if stat.stat_definition.role is not None
     }
-    # A feature, or one a holder has, shows the stats a template of the library names (ADR 0466);
+    # A feature, or one a holder has, shows the stats a template of the library names (ADR 0468);
     # any other kind has the card its kind has (ADR 0264).
     if {"feature", "feature_instance"} & set(kinds):
         picked = await card_stats(

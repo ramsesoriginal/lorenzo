@@ -1,4 +1,4 @@
-"""repository_copy_link_system and repository_copy_link_template (ADR 0467)
+"""repository_copy_link_system and repository_copy_link_template (ADR 0469)
 
 The copy links of a game system and of a template, so the update engine can track them as it does
 a stat group: where the library's row came from, and a snapshot of what was copied, with every id

@@ -1394,7 +1394,7 @@ PUT /tenants/{tenant_id}/entities/{entity_id}/computed-stats/{stat_definition_id
 GET /tenants/{tenant_id}/entities/{entity_id}/stats/{stat_definition_id}/explanation added `#/components/schemas/DiceFormulaBody` to the `formula/anyOf[subschema #1]` response property `oneOf` list for the response status `200`
 GET /tenants/{tenant_id}/stat-definitions/{stat_definition_id}/dependents added the new `dice` enum value to the `items/kind` response property for the response status `200`
 
-# ADR 0467: a game system and a template are rows an update tracks, so a row `kind` can be `system` or `template` and a collision can be a `template`.
+# ADR 0469: a game system and a template are rows an update tracks, so a row `kind` can be `system` or `template` and a collision can be a `template`.
 GET /tenants/{tenant_id}/repositories/{repository_id}/contributions added the new `system` enum value to the `items/items/kind` response property for the response status `200`
 GET /tenants/{tenant_id}/repositories/{repository_id}/contributions added the new `template` enum value to the `items/items/kind` response property for the response status `200`
 GET /tenants/{tenant_id}/repositories/{repository_id}/copy-plan added the new `template` enum value to the `collisions/items/kind` response property for the response status `200`

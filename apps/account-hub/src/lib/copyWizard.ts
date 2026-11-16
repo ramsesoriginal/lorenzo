@@ -212,7 +212,7 @@ function tallyClauses(
     // A stat that holds a role the library's own stat holds is merged like a stat of one name.
     if (action === 'merge') {
       const merged = collision.kind === 'stat_role' ? 'stat_definition' : collision.kind;
-      // A template is renamed or left out, never merged (ADR 0467).
+      // A template is renamed or left out, never merged (ADR 0469).
       if (merged !== 'template') count.merge[merged] += 1;
     }
     if (action === 'rename') count.rename += 1;

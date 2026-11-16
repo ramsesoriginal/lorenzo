@@ -841,7 +841,7 @@ async def card_stats(
     kinds: Sequence[str],
     stats: Sequence[EntityStatValueOut],
 ) -> list[tuple[str, int | float | str | bool]]:
-    """The stats the card of an entry shows when the library says which, by a template (ADR 0466):
+    """The stats the card of an entry shows when the library says which, by a template (ADR 0468):
     the first template, by name, whose filter matches the entry and that has a `stats` slot, and the
     stats of that slot's first such slot in its order, as the template labels them (a group's by the
     entry's own order, less what it leaves out), the ones the entry has a value for, tags left out,

@@ -152,7 +152,7 @@ _ROW_KINDS: tuple[RowKind, ...] = (
     "template",
 )
 # Systems before groups before definitions before entities before templates: the order additions
-# need (a template shows groups, stats and entries; ADR 0467).
+# need (a template shows groups, stats and entries; ADR 0469).
 _ADD_ORDER: tuple[RowKind, ...] = (
     "system",
     "stat_group",
@@ -604,7 +604,7 @@ def _mark(updates: Updates, stored: dict[Key, Any] | None) -> None:
     live = live_rows(updates.upstream) if stored is not None else {}
 
     def mark(item: Any, key: Key) -> None:
-        # A game system and a template are not in the digest (ADR 0467): no state is said of them.
+        # A game system and a template are not in the digest (ADR 0469): no state is said of them.
         known = stored is not None and key[0] in DIGEST_KINDS
         item.state = state_of(stored, live, key) if known and stored is not None else None
         item.breaking = updates.breaking.get(key, [])
@@ -1888,7 +1888,7 @@ class _Applier:
     async def _stat_group(self, row: RowChange, change: FieldChange) -> bool:
         g, t, s = row.local_id, self.tenant_id, self.session
         if change.field == "system":
-            # The game system is named by its slug, which is the same in every library (ADR 0467).
+            # The game system is named by its slug, which is the same in every library (ADR 0469).
             system = await self._system_by_slug(change.upstream)
             if change.upstream is not None and system is None:
                 self.skip(row, "system", f"the library has no game system {change.upstream!r}")

@@ -267,7 +267,7 @@ class Links:
     entity: dict[uuid.UUID, uuid.UUID] = field(default_factory=dict)
     stat_group: dict[uuid.UUID, uuid.UUID] = field(default_factory=dict)
     stat_definition: dict[uuid.UUID, uuid.UUID] = field(default_factory=dict)
-    # A game system and a template are copied and tracked as a stat group is (ADR 0467).
+    # A game system and a template are copied and tracked as a stat group is (ADR 0469).
     system: dict[uuid.UUID, uuid.UUID] = field(default_factory=dict)
     template: dict[uuid.UUID, uuid.UUID] = field(default_factory=dict)
     origin_tenant: dict[uuid.UUID, uuid.UUID] = field(default_factory=dict)
@@ -1956,7 +1956,7 @@ def stat_group_snapshot(
     content: Content, group_id: uuid.UUID, *, system: bool = True
 ) -> dict[str, Any]:
     """What a copy of a stat group records. `system` adds the slug of the game system the group
-    belongs to when it belongs to one (ADR 0467); a release digest hashes it without."""
+    belongs to when it belongs to one (ADR 0469); a release digest hashes it without."""
     group = content.groups[group_id]
     snapshot: dict[str, Any] = {
         "name": group["name"],
@@ -1970,7 +1970,7 @@ def stat_group_snapshot(
 
 
 def system_snapshot(content: Content, system_id: uuid.UUID, name: Namer) -> dict[str, Any]:
-    """What a copy of a game system records (ADR 0467): its name, and its root entry by origin.
+    """What a copy of a game system records (ADR 0469): its name, and its root entry by origin.
     The slug is the identity a copy joins by, so it is not a field."""
     system = content.systems[system_id]
     root = system["root"]
@@ -1978,7 +1978,7 @@ def system_snapshot(content: Content, system_id: uuid.UUID, name: Namer) -> dict
 
 
 def template_snapshot(content: Content, template_id: uuid.UUID, name: Namer) -> dict[str, Any]:
-    """What a copy of a template records (ADR 0467): its name, the slug of its game system, its
+    """What a copy of a template records (ADR 0469): its name, the slug of its game system, its
     filter, and its slots in order with every group, stat and entry by origin."""
     template = content.templates[template_id]
     belongs = template["system"]

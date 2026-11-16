@@ -1,4 +1,4 @@
-"""ADR 0465: where a library allows it, the controller of a holder awards it a feature, as its
+"""ADR 0467: where a library allows it, the controller of a holder awards it a feature, as its
 manager may; it is a setting of the library, off by default, and nothing else a controller may not
 do changes.
 """

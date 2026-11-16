@@ -619,7 +619,7 @@ class _Planner:
 
         # Game systems are joined by slug when the library has one (its name and root stay) and
         # made when it has not (ADR 0453); each is linked, as a stat group is, so an update can find
-        # what changed (ADR 0467). The rows come once the entries have ids, since a system's root is
+        # what changed (ADR 0469). The rows come once the entries have ids, since a system's root is
         # an entry.
         new_systems: list[tuple[uuid.UUID, dict[str, Any]]] = []
         linked_systems: list[tuple[uuid.UUID, str]] = []
@@ -1973,7 +1973,7 @@ class _Planner:
         ids they are re-pointed to. A template is left out, and reported, when the library has one
         of its name, or when its ancestor entry, a stat group or a stat it shows was not copied:
         a template that shows less than it says would be a wrong one. Each one made is linked, as
-        a stat group is, and the repository's own are all there are to copy (ADR 0467). An update
+        a stat group is, and the repository's own are all there are to copy (ADR 0469). An update
         that adds one the library has a name for asks, to rename it or to skip it."""
         c = step.content
         assert c is not None

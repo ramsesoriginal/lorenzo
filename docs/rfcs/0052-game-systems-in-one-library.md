@@ -5,7 +5,7 @@ Status: accepted (2026-11-11), decided with the maintainer; built 2026-11-12 as 
 [0450](../adr/0450-the-system-filter-on-the-stat-reads.md), [0451](../adr/0451-templates-a-sheet-as-data.md),
 [0452](../adr/0452-a-campaign-names-a-system-and-the-sheet-reads-a-template.md),
 [0453](../adr/0453-repositories-carry-systems-and-templates.md)). The part of section 7 that ADR 0453 left out, updates of systems and templates, was built 2026-11-16
-([0467](../adr/0467-updates-track-game-systems-and-templates.md)). It takes up what
+([0469](../adr/0469-updates-track-game-systems-and-templates.md)). It takes up what
 [RFC 0033](0033-item-repositories-common-equipment-rules-and-bridge.md) section 9 leaves as "a follow-up RFC" (resolving
 through the system a campaign names), what [ADR 0037](../adr/0037-effective-stat-resolution.md) names as not built
 (`game_system` as a modelled concept), the three sheet settings of

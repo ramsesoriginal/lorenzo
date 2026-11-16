@@ -382,7 +382,7 @@ _LINKS = _dataclass(
         "entity": _id_map(_ID),
         "stat_group": _id_map(_ID),
         "stat_definition": _id_map(_ID),
-        # The links of a game system and of a template (format 49, ADR 0467).
+        # The links of a game system and of a template (format 49, ADR 0469).
         "system": _id_map(_ID),
         "template": _id_map(_ID),
         "origin_tenant": _id_map(_ID),
@@ -1003,7 +1003,7 @@ def _read_v47(document: Document, files: Mapping[str, bytes]) -> Content:
 
 
 def _read_v48(document: Document, files: Mapping[str, bytes]) -> Content:
-    # Before format 49 a system and a template had no copy links (ADR 0467): none is a copy.
+    # Before format 49 a system and a template had no copy links (ADR 0469): none is a copy.
     return _read_v49(
         {**document, "links": {"system": {}, "template": {}, **document["links"]}}, files
     )

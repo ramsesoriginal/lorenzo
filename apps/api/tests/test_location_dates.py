@@ -140,10 +140,11 @@ async def test_without_a_date_the_reads_are_what_they_were_and_a_date_takes_no_t
         lib = await both(w)
         before_roots = (await gm.get(f"/tenants/{t}/locations", params={"root": "true"})).content
         before_parts = (await gm.get(f"/tenants/{t}/locations/{town['id']}/parts")).content
-        # The list keeps its keys; the tree and the parts do not change by a byte.
+        # The list keeps its keys, and says nothing of a date, but for the count of Maps (ADR 0466);
+        # the tree and the parts do not change by a byte.
         plain = await locations(player, t)
         for row in plain["items"]:
-            assert set(row) == {"id", "name", "slug", "kinds", "level_ordinal"}
+            assert set(row) == {"id", "name", "slug", "kinds", "level_ordinal", "map_count"}
         await locations(gm, t, tied_calendar=lib["calendar"], tied_year=3286)
         assert (
             await gm.get(f"/tenants/{t}/locations", params={"root": "true"})

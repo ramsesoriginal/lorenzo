@@ -1,4 +1,4 @@
-# 0467 - Updates track game systems and templates
+# 0469 - Updates track game systems and templates
 
 Status: accepted, built (2026-11-16). Slice G3, the last, of the follow-ups tracked in #1229. Takes up what
 [ADR 0453](0453-repositories-carry-systems-and-templates.md) left out ("Updates... Giving them links is a slice of its own") and
