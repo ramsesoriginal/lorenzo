@@ -70,6 +70,7 @@ beforeEach(() => {
       slug: library.slug,
       kind: 'play',
       published_at: null,
+      controllers_award_features: false,
       description: 'Library description',
       npcs_shared_with_gms: true,
       weapon_stat_group_id: null,
