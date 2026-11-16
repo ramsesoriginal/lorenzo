@@ -180,6 +180,16 @@ export const STORAGE_KEYS: StorageEntry[] = [
     files: ['apps/writing/src/lib/writing-timer.ts'],
   },
   {
+    key: 'lorenzo:writing-session:*',
+    store: 'sessionStorage',
+    purpose: bi(
+      'Merkt sich Kennung, Wortziel, Netto-Wortzahl und Zustand Ihrer Schreibsitzung, getrennt nach Konto und Bibliothek. Enthält keinen Manuskripttext.',
+      'Remembers the identifier, word target, net word count and state of your writing session, separately for each account and library. Contains no manuscript text.',
+    ),
+    lasts: bi('Bis der Tab geschlossen wird', 'Until the tab is closed'),
+    files: ['apps/writing/src/lib/writing-session.ts'],
+  },
+  {
     key: 'lorenzo-writing-drafts',
     store: 'IndexedDB',
     purpose: bi(
