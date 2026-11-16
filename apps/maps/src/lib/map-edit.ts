@@ -54,13 +54,16 @@ import {
   removePlacement,
   rowState,
 } from './map-api';
+import { SPLINE_MAX_POINTS, splineCurve } from './spline';
 import {
   createOptionValues,
   TOOLS as DECLARED,
   GROUP_NAMES,
+  numberFor,
   optionsOf,
   SNAP,
   searchTools,
+  TENSION,
   type ToolDecl,
   type ToolOption,
   toolById,
@@ -104,13 +107,14 @@ export type Editor = {
   destroy(): void;
 };
 
-type ToolName = 'select' | 'pin' | 'circle' | 'line' | 'area' | 'cells';
+type ToolName = 'select' | 'pin' | 'circle' | 'line' | 'spline' | 'area' | 'cells';
 
 const TOOLS: [ToolName, string][] = [
   ['select', 'Select'],
   ['pin', 'Pin'],
   ['circle', 'Circle'],
   ['line', 'Line'],
+  ['spline', 'Spline'],
   ['area', 'Area'],
   ['cells', 'Cells'],
 ];
@@ -204,6 +208,8 @@ export function createEditor(context: EditorContext): Editor {
     if (shape.kind === 'circle') out.push({ id, kind: 'disc', at: shape.at, r: shape.r });
     else if (shape.kind === 'line' || shape.kind === 'area') {
       out.push({ id, kind: 'line', pts: shape.pts, closed: shape.kind === 'area' });
+    } else if (shape.kind === 'spline') {
+      out.push({ id, kind: 'line', pts: splineCurve(shape.pts, shape.tension) });
     }
     if (handles) {
       for (const handle of handlesOf(shape)) {
@@ -232,6 +238,18 @@ export function createEditor(context: EditorContext): Editor {
       if (toolName === 'circle') {
         const r = rubber ? Math.hypot(rubber[0] - last[0], rubber[1] - last[1]) : 0;
         if (r > 0) out.push({ id: 'draft', kind: 'disc', at: last, r });
+      } else if (toolName === 'spline') {
+        // The curve so far, and the curve it would be with the pointer as its next point.
+        const tension = optionValues.get(toolDecl(), TENSION);
+        out.push({ id: 'draft', kind: 'line', pts: splineCurve(draft, tension) });
+        if (rubber) {
+          out.push({
+            id: 'band',
+            kind: 'line',
+            pts: splineCurve([...draft, rubber], tension),
+            preview: true,
+          });
+        }
       } else {
         out.push({ id: 'draft', kind: 'line', pts: draft });
         if (rubber) out.push({ id: 'band', kind: 'line', pts: [last, rubber], preview: true });
@@ -440,6 +458,7 @@ export function createEditor(context: EditorContext): Editor {
       case 'circle':
         return draft.length === 0 ? 'Type the centre, x,y.' : 'Type a point on the edge, x,y.';
       case 'line':
+      case 'spline':
       case 'area':
         return `${draft.length} point${draft.length === 1 ? '' : 's'}. Type the next point, x,y, or DONE.`;
       default:
@@ -462,7 +481,11 @@ export function createEditor(context: EditorContext): Editor {
         return;
       case 'option':
         setOption(command.option, command.value);
-        answer(`${command.option.name} is ${command.value ? 'on' : 'off'}.`);
+        answer(
+          typeof command.value === 'number'
+            ? `${command.option.name} is ${command.value}.`
+            : `${command.option.name} is ${command.value ? 'on' : 'off'}.`,
+        );
         return;
       case 'planned':
       case 'unavailable':
@@ -493,7 +516,7 @@ export function createEditor(context: EditorContext): Editor {
           return;
         }
         if (toolName === 'cells') finishCells();
-        else if (toolName === 'line' || toolName === 'area') finishDraft();
+        else if (toolName === 'line' || toolName === 'spline' || toolName === 'area') finishDraft();
         else answer('A circle finishes with its second point.', true);
         return;
       }
@@ -642,10 +665,25 @@ export function createEditor(context: EditorContext): Editor {
   const finishDraft = () => {
     if (toolName === 'line' && draft.length >= 2) {
       void finish(toGeometry({ kind: 'line', pts: draft }));
+    } else if (toolName === 'spline' && draft.length >= 2) {
+      void finish(
+        toGeometry({
+          kind: 'spline',
+          pts: draft,
+          tension: optionValues.get(toolDecl(), TENSION),
+        }),
+      );
     } else if (toolName === 'area' && draft.length >= 3) {
       void finish(toGeometry({ kind: 'area', pts: draft }));
     } else {
-      say(toolName === 'line' ? 'A line needs two points.' : 'An area needs three points.', true);
+      say(
+        toolName === 'area'
+          ? 'An area needs three points.'
+          : toolName === 'spline'
+            ? 'A spline needs two points.'
+            : 'A line needs two points.',
+        true,
+      );
     }
   };
 
@@ -741,6 +779,10 @@ export function createEditor(context: EditorContext): Editor {
         }
       } else {
         const last = draft[draft.length - 1];
+        if (toolName === 'spline' && draft.length >= SPLINE_MAX_POINTS) {
+          say(`A spline has at most ${SPLINE_MAX_POINTS} points. Press Enter to finish it.`, true);
+          return true;
+        }
         if (!last || !same(last, p)) draft = [...draft, p];
         // Longitude does not wrap: a segment over half a turn goes the long way round (ADR 0357).
         if (context.sphere && last && Math.abs(p[0] - last[0]) > 180) {
@@ -754,7 +796,7 @@ export function createEditor(context: EditorContext): Editor {
       return true;
     },
     dblclick() {
-      if (toolName === 'line' || toolName === 'area') finishDraft();
+      if (toolName === 'line' || toolName === 'spline' || toolName === 'area') finishDraft();
       return true;
     },
     move(event: ToolEvent) {
@@ -783,7 +825,10 @@ export function createEditor(context: EditorContext): Editor {
         }
         return false;
       }
-      if (event.key === 'Enter' && (toolName === 'line' || toolName === 'area')) {
+      if (
+        event.key === 'Enter' &&
+        (toolName === 'line' || toolName === 'spline' || toolName === 'area')
+      ) {
         finishDraft();
         return true;
       }
@@ -1248,6 +1293,26 @@ export function createEditor(context: EditorContext): Editor {
       node.classList.add('map-point-button');
       return node;
     };
+    if (shape.kind === 'spline') {
+      // A curve through its points (ADR 0471): how round it is can be changed after it is drawn.
+      const tension = field(
+        'Tension (0 the roundest, 1 straight)',
+        String(shape.tension),
+        'number',
+      );
+      tension.input.min = String(TENSION.least);
+      tension.input.max = String(TENSION.most);
+      tension.input.step = String(TENSION.step);
+      tension.input.addEventListener('change', () => {
+        const typed = numberFor(TENSION, Number(tension.input.value));
+        if (tension.input.value.trim() === '' || typed === null) {
+          say(`Tension is a number from ${TENSION.least} to ${TENSION.most}.`, true);
+          return;
+        }
+        void saveRow(row, { geometry: toGeometry({ ...shape, tension: typed }) });
+      });
+      box.append(tension.label);
+    }
     if (shape.kind === 'point') box.append(pair('Point', shape.at[0], shape.at[1], 0));
     else if (shape.kind === 'circle') {
       box.append(pair('Centre', shape.at[0], shape.at[1], 0), pair('Radius', shape.r, null, 1));
@@ -1426,6 +1491,26 @@ export function createEditor(context: EditorContext): Editor {
     box.setAttribute('role', 'group');
     box.setAttribute('aria-label', `Options of ${decl.name}`);
     for (const option of offered) {
+      if (option.type === 'number') {
+        const line = field(option.name, String(optionValues.get(decl, option)), 'number');
+        line.input.min = String(option.least);
+        line.input.max = String(option.most);
+        line.input.step = String(option.step);
+        // As it is typed, not on leaving the field: a click on the Map must find the value set.
+        line.input.addEventListener('input', () => {
+          const typed = line.input.value.trim()
+            ? numberFor(option, Number(line.input.value))
+            : null;
+          line.input.setCustomValidity(
+            typed === null ? `A number from ${option.least} to ${option.most}.` : '',
+          );
+          if (typed === null) return;
+          optionValues.set(decl, option, typed);
+          refresh();
+        });
+        box.append(line.label);
+        continue;
+      }
       const line = field(option.name, '', 'checkbox');
       line.input.checked = optionValues.get(decl, option);
       line.input.addEventListener('change', () => {
@@ -1436,9 +1521,10 @@ export function createEditor(context: EditorContext): Editor {
     return box;
   }
 
-  function setOption(option: ToolOption, value: boolean) {
+  function setOption(option: ToolOption, value: boolean | number) {
     optionValues.set(toolDecl(), option, value);
     render();
+    refresh();
   }
 
   function render() {

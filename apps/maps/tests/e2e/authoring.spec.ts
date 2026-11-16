@@ -411,6 +411,13 @@ for (const theme of ['light', 'dark'] as const) {
       await page.getByRole('button', { name: 'Circle', exact: true }).click();
       const drawing = await new AxeBuilder({ page }).exclude('.shell-bottom').analyze();
       expect(drawing.violations.map((v) => `${v.id}: ${v.nodes[0]?.html}`)).toEqual([]);
+      // A tool with an option of its own: Spline and its Tension.
+      await page.getByRole('button', { name: 'Spline', exact: true }).click();
+      await expect(
+        page.getByRole('group', { name: 'Options of Spline' }).getByLabel('Tension'),
+      ).toBeVisible();
+      const spline = await new AxeBuilder({ page }).exclude('.shell-bottom').analyze();
+      expect(spline.violations.map((v) => `${v.id}: ${v.nodes[0]?.html}`)).toEqual([]);
     } finally {
       await page.context().close();
     }
@@ -432,7 +439,7 @@ test('the toolbox is drawn from the tool registry: groups, one key a tool, and p
     await expect(place.getByRole('button', { name: 'Circle', exact: true })).toBeVisible();
     await expect(page.getByRole('group', { name: 'Draw', exact: true })).toContainText('Area');
     await expect(page.getByRole('button', { name: 'Cells', exact: true })).toHaveCount(0);
-    await expect(page.getByRole('button', { name: 'Spline', exact: true })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Freehand', exact: true })).toHaveCount(0);
     // One key a tool, while the drawing has the focus; the page's own keys do not see them.
     await page.locator('.map-stage svg').focus();
     await page.keyboard.press('p');
@@ -449,8 +456,8 @@ test('the toolbox is drawn from the tool registry: groups, one key a tool, and p
     await page.keyboard.press('g');
     await expect(page.getByText('Cells is not available on this Map.')).toBeVisible();
     expect(page.url()).toBe(address);
-    await page.keyboard.press('s');
-    await expect(page.getByText(/Spline is planned\./)).toBeVisible();
+    await page.keyboard.press('f');
+    await expect(page.getByText(/Freehand is planned\./)).toBeVisible();
     // All tools lists every tool, finds one by a few words and says which are planned.
     await page.getByRole('button', { name: 'All tools' }).click();
     await page.getByLabel('Find a tool').fill('cave');
@@ -539,9 +546,9 @@ test('the command line takes a tool by name, places a place by a typed point and
     await command.fill('Line');
     await command.press('Enter');
     await expect(answer).toHaveText('Line is the tool.');
-    await command.fill('Spline');
+    await command.fill('Freehand');
     await command.press('Enter');
-    await expect(answer).toContainText('Spline is planned');
+    await expect(answer).toContainText('Freehand is planned');
     await command.fill('dance');
     await command.press('Enter');
     await expect(answer).toContainText('not a command');
@@ -562,6 +569,92 @@ test('the command line takes a tool by name, places a place by a typed point and
     await expect(command).toBeFocused();
     await page.keyboard.type('l');
     await expect(command).toHaveValue('l');
+  } finally {
+    await page.context().close();
+  }
+});
+
+test('a spline is drawn through clicked and typed points, and changed by its points and its tension', async ({
+  browser,
+}) => {
+  const w = await world();
+  const page = await signedIn(browser, w.subject);
+  type Curve = { shape: string; start?: number[]; segs?: number[][][]; closed?: boolean };
+  const curve = async () => geometryOf((await w.read())[0]).parts[0] as Curve | undefined;
+  try {
+    await page.goto(`/map/?tenant=${w.tenant.id}&id=${w.chart.id}`);
+    await expect(page.getByRole('heading', { name: 'Sword Coast', exact: true })).toBeVisible();
+    await page.getByRole('button', { name: 'Edit this map' }).click();
+    // By its key, as any tool; its one option is drawn with it.
+    await page.locator('.map-stage svg').focus();
+    await page.keyboard.press('s');
+    await expect(page.getByRole('button', { name: 'Spline', exact: true })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    const tension = page.getByRole('group', { name: 'Options of Spline' }).getByLabel('Tension');
+    await expect(tension).toHaveValue('0.5');
+    await page.getByLabel('Or make a new Location, named').fill('The curved lane');
+    await page.getByRole('button', { name: 'Draw a new Location' }).click();
+    // A point by pointer, two typed, the tension typed as a command, and DONE.
+    await clickSheet(page, 0.2, 0.5);
+    const command = page.getByLabel('Command', { exact: true });
+    const answer = page.locator('.map-command-answer');
+    await command.fill('400,200');
+    await command.press('Enter');
+    await expect(answer).toContainText('2 points');
+    await command.fill('600,400');
+    await command.press('Enter');
+    await command.fill('TENSION 2');
+    await command.press('Enter');
+    await expect(answer).toHaveText('TENSION takes a number from 0 to 1.');
+    await command.fill('TENSION 0');
+    await command.press('Enter');
+    await expect(answer).toHaveText('Tension is 0.');
+    await expect(tension).toHaveValue('0');
+    await command.fill('DONE');
+    await command.press('Enter');
+    await expect(page.getByRole('heading', { name: 'Change The curved lane' })).toBeVisible();
+    // One open bezier part through the three points, its controls off the straight line.
+    const drawn = await curve();
+    expect(drawn?.shape).toBe('bezier');
+    expect(drawn?.closed ?? false).toBe(false);
+    expect(drawn?.segs?.map((seg) => seg[2])).toEqual([
+      [400, 200],
+      [600, 400],
+    ]);
+    const start = drawn?.start as number[];
+    expect(drawn?.segs?.[0]?.[1]).toEqual([
+      Math.round((400 - (600 - start[0]) / 6) * 100) / 100,
+      Math.round((200 - (400 - start[1]) / 6) * 100) / 100,
+    ]);
+    // It is edited by its points, not "drawn with the API": a through-point by number.
+    await expect(page.getByText(/it is drawn with the API/)).toHaveCount(0);
+    await page.getByRole('group', { name: 'Point 2' }).getByLabel('y').fill('100');
+    await page.getByRole('group', { name: 'Point 2' }).getByLabel('y').press('Tab');
+    await expect.poll(async () => (await curve())?.segs?.[0]?.[2]).toEqual([400, 100]);
+    // Its tension: at 1 every control lies on its end, so the curve is straight lines.
+    const after = page.getByLabel('Tension (0 the roundest, 1 straight)');
+    await expect(after).toHaveValue('0');
+    await after.fill('1');
+    await after.press('Tab');
+    await expect.poll(async () => (await curve())?.segs?.[0]?.[0]).toEqual(start);
+    expect((await curve())?.segs?.[1]).toEqual([
+      [400, 100],
+      [600, 400],
+      [600, 400],
+    ]);
+    // A handle by drag moves a through-point; undo puts the curve back.
+    const handle = page.locator('.m-ov-handle').nth(2);
+    const at = await handle.boundingBox();
+    if (!at) throw new Error('no handle');
+    await page.mouse.move(at.x + at.width / 2, at.y + at.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(at.x + at.width / 2 - 60, at.y + at.height / 2, { steps: 4 });
+    await page.mouse.up();
+    await expect.poll(async () => (await curve())?.segs?.[1]?.[2]?.[0]).toBeLessThan(600);
+    await page.getByRole('button', { name: 'Undo' }).click();
+    await expect.poll(async () => (await curve())?.segs?.[1]?.[2]).toEqual([600, 400]);
   } finally {
     await page.context().close();
   }

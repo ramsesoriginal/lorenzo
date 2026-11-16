@@ -1,7 +1,8 @@
-// The shapes the editor can draw and change (ADR 0353): a point, a circle, a line and an area
-// (one ring, no holes, no curves), as plain data, with the edits a pointer or a field makes to
+// The shapes the editor can draw and change (ADR 0353): a point, a circle, a line, an area (one
+// ring, no holes) and a spline (a curve through its points, ADR 0471), as plain data, with the edits a pointer or a field makes to
 // them and the geometry document the API takes. Pure: nothing here touches the page.
 import type { Geometry } from '@lorenzo/map-renderer';
+import { SPLINE_MAX_POINTS, splineOf, splinePart } from './spline';
 
 export type Pt = readonly [number, number];
 
@@ -14,6 +15,7 @@ export type Editable = Valued &
     | { kind: 'circle'; at: Pt; r: number }
     | { kind: 'line'; pts: Pt[] }
     | { kind: 'area'; pts: Pt[] }
+    | { kind: 'spline'; pts: Pt[]; tension: number }
   );
 
 export type Box = [number, number, number, number];
@@ -25,7 +27,7 @@ export const round2 = (n: number): number => Math.round(n * 100) / 100;
 
 const roundPt = (p: readonly [number, number]): Pt => [round2(p[0]), round2(p[1])];
 
-export const MIN_VERTICES = { line: 2, area: 3 } as const;
+export const MIN_VERTICES = { line: 2, area: 3, spline: 2 } as const;
 
 /** The value and unit of a part or a shape, when it carries both; an edit never drops them. */
 export function valued(from: Valued): Valued {
@@ -54,6 +56,11 @@ export function toGeometry(shape: Editable): Geometry {
         format: FORMAT,
         parts: [{ shape: 'polygon', rings: [shape.pts.map(roundPt)], ...carried }],
       };
+    case 'spline':
+      return {
+        format: FORMAT,
+        parts: [{ ...splinePart(shape.pts, shape.tension), ...carried }],
+      };
   }
 }
 
@@ -62,7 +69,8 @@ const isPt = (p: unknown): p is Pt =>
 
 /**
  * The shape of a stored geometry when the editor can change it: one part that is a point, a
- * circle, a polyline or a polygon of a single ring. Several parts, curves and holes are not.
+ * circle, a polyline, a polygon of a single ring or a bezier that is a spline. Several parts,
+ * other curves and holes are not.
  */
 export function editableOf(geometry: Geometry): Editable | null {
   if (geometry.parts.length !== 1) return null;
@@ -84,6 +92,17 @@ export function editableOf(geometry: Geometry): Editable | null {
       const ring = part.rings.length === 1 ? part.rings[0] : undefined;
       return ring?.every(isPt)
         ? { kind: 'area', pts: ring.map((p) => [...p] as Pt), ...carried }
+        : null;
+    }
+    case 'bezier': {
+      const spline = splineOf(part);
+      return spline
+        ? {
+            kind: 'spline',
+            pts: spline.pts.map((p) => [...p] as Pt),
+            tension: spline.tension,
+            ...carried,
+          }
         : null;
     }
     default:
@@ -147,9 +166,10 @@ export function insertVertex(shape: Editable, i: number): Editable {
   const here = shape.pts[i];
   const next = shape.pts[(i + 1) % shape.pts.length];
   if (!here) return shape;
-  // A line's last vertex has no next: the new point goes on from it, the way the line was heading.
+  // The last vertex of a line or a spline has no next: the new point goes on from it, the way the line was heading.
   let to: Pt;
-  if (shape.kind === 'line' && i === shape.pts.length - 1) {
+  if (shape.kind === 'spline' && shape.pts.length >= SPLINE_MAX_POINTS) return shape;
+  if (shape.kind !== 'area' && i === shape.pts.length - 1) {
     const before = shape.pts[i - 1] ?? here;
     to = [here[0] + ((here[0] - before[0]) / 2 || 10), here[1] + (here[1] - before[1]) / 2];
   } else {

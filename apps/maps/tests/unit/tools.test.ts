@@ -2,9 +2,11 @@ import { expect, test } from 'vitest';
 import {
   createOptionValues,
   GROUPS,
+  numberFor,
   optionsOf,
   SNAP,
   searchTools,
+  TENSION,
   TOOLS,
   type ToolDecl,
   toolById,
@@ -47,7 +49,9 @@ test('a search finds a tool by name, group or key', () => {
 
 test('a planned tool is never usable, and a grid tool needs a grid and a circle no sphere', () => {
   const plain = { grid: false, sphere: false };
-  expect(usable(toolByKey('s') as never, plain)).toBe(false);
+  expect(usable(toolByKey('f') as never, plain)).toBe(false);
+  expect(usable(toolByKey('s') as never, plain)).toBe(true);
+  expect(usable(toolByKey('s') as never, { grid: false, sphere: true })).toBe(false);
   expect(usable(toolByKey('g') as never, plain)).toBe(false);
   expect(usable(toolByKey('g') as never, { grid: true, sphere: false })).toBe(true);
   expect(usable(toolByKey('c') as never, { grid: false, sphere: true })).toBe(false);
@@ -60,7 +64,8 @@ test('lists the options of a tool, and offers one that needs a grid only with a 
 
   expect(optionsOf(line, { grid: true })).toEqual([SNAP]);
   expect(optionsOf(line, { grid: false })).toEqual([]);
-  expect(optionsOf(spline, { grid: true })).toEqual([]);
+  expect(optionsOf(spline, { grid: false })).toEqual([TENSION]);
+  expect(optionsOf(toolById('freehand') as ToolDecl, { grid: true })).toEqual([]);
 
   const words = TOOLS.flatMap((tool) => (tool.options ?? []).map((o) => `${tool.id} ${o.word}`));
 
@@ -82,4 +87,20 @@ test('keeps what an option is set to, one value for every tool when it is shared
   values.set(line, own, false);
   expect(values.get(line, own)).toBe(false);
   expect(values.get(area, own)).toBe(true);
+});
+
+test('a number option keeps a value to its range and its step', () => {
+  expect(numberFor(TENSION, 0.5)).toBe(0.5);
+  expect(numberFor(TENSION, 0.42)).toBe(0.4);
+  expect(numberFor(TENSION, 0.99)).toBe(1);
+  expect(numberFor(TENSION, 1.01)).toBeNull();
+  expect(numberFor(TENSION, -0.01)).toBeNull();
+  expect(numberFor(TENSION, Number.NaN)).toBeNull();
+
+  const values = createOptionValues();
+  const spline = toolById('spline') as ToolDecl;
+
+  expect(values.get(spline, TENSION)).toBe(0.5);
+  values.set(spline, TENSION, 0.2);
+  expect(values.get(spline, TENSION)).toBe(0.2);
 });

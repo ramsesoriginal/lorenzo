@@ -20,7 +20,7 @@ export const GROUPS: ToolGroup[] = ['select', 'place', 'draw', 'terrain', 'gener
 
 /**
  * An option of a tool (ADR 0470): the Options tab draws it and the command line sets it by its word.
- * A type is built with the first tool that has one; `toggle` is the first.
+ * A type is built with the first tool that has one: `toggle` for snapping, `number` for a spline.
  */
 export type ToolOption = {
   id: string;
@@ -28,19 +28,53 @@ export type ToolOption = {
   name: string;
   /** What the command line calls it: one word. */
   word: string;
-  type: 'toggle';
-  /** The value it starts with. */
-  first: boolean;
   /** One value for every tool that lists it. */
   shared?: boolean;
   /** Only on a Map with a grid. */
   needsGrid?: boolean;
+} & (
+  | {
+      type: 'toggle';
+      /** The value it starts with. */
+      first: boolean;
+    }
+  | {
+      type: 'number';
+      first: number;
+      least: number;
+      most: number;
+      /** A value is kept to a whole number of steps from the least. */
+      step: number;
+    }
+);
+
+export type ToggleOption = Extract<ToolOption, { type: 'toggle' }>;
+export type NumberOption = Extract<ToolOption, { type: 'number' }>;
+
+export type OptionValue = boolean | number;
+
+/** A number an option can hold: within its range and on its step; null when it is out of range. */
+export function numberFor(option: NumberOption, value: number): number | null {
+  if (!Number.isFinite(value) || value < option.least || value > option.most) return null;
+  const stepped = option.least + Math.round((value - option.least) / option.step) * option.step;
+
+  return Math.min(option.most, Math.round(stepped * 1e6) / 1e6);
+}
+
+/** How round a spline is (ADR 0471): 0 the roundest, 1 straight. */
+export const TENSION: NumberOption = {
+  id: 'tension',
+  name: 'Tension',
+  word: 'tension',
+  type: 'number',
+  first: 0.5,
+  least: 0,
+  most: 1,
+  step: 0.05,
 };
 
-export type OptionValue = boolean;
-
 /** Snap to the grid (ADR 0356): the drawing tools and Select share it. */
-export const SNAP: ToolOption = {
+export const SNAP: ToggleOption = {
   id: 'snap',
   name: 'Snap to the grid',
   word: 'snap',
@@ -129,8 +163,9 @@ export const TOOLS: ToolDecl[] = [
     key: 's',
     input: 'a path',
     output: 'a line (a smooth curve through the points)',
-    state: 'planned',
-    reason: later,
+    state: 'ready',
+    notOnSphere: true,
+    options: [TENSION],
   },
   {
     id: 'freehand',
@@ -258,6 +293,8 @@ export function optionsOf(tool: ToolDecl, map: { grid: boolean }): ToolOption[] 
 }
 
 export type OptionValues = {
+  get(tool: ToolDecl, option: ToggleOption): boolean;
+  get(tool: ToolDecl, option: NumberOption): number;
   get(tool: ToolDecl, option: ToolOption): OptionValue;
   set(tool: ToolDecl, option: ToolOption, value: OptionValue): void;
 };
@@ -269,7 +306,8 @@ export function createOptionValues(): OptionValues {
     option.shared ? option.id : `${tool.id}.${option.id}`;
 
   return {
-    get: (tool, option) => values.get(key(tool, option)) ?? option.first,
+    get: ((tool: ToolDecl, option: ToolOption) =>
+      values.get(key(tool, option)) ?? option.first) as OptionValues['get'],
     set(tool, option, value) {
       values.set(key(tool, option), value);
     },

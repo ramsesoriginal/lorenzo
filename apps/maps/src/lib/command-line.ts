@@ -2,7 +2,14 @@
 // keyboard twin. This is only the reading of a line, pure and tested without a browser; the editor does
 // what it says. A tool is named by its name, and a planned tool says why it does nothing.
 
-import { type OptionValue, optionsOf, type ToolDecl, type ToolOption, usable } from './tools';
+import {
+  numberFor,
+  type OptionValue,
+  optionsOf,
+  type ToolDecl,
+  type ToolOption,
+  usable,
+} from './tools';
 
 export type Command =
   | { kind: 'tool'; tool: ToolDecl }
@@ -24,7 +31,7 @@ export const HELP = [
   'PLACE name x,y: put a place of the library on the Map at that point.',
   'SELECT name: select a place on the Map.',
   'x,y: the next point of what is being drawn; DONE finishes a line, an area or cells.',
-  'An option of the tool by its name, for example SNAP OFF.',
+  'An option of the tool by its name, for example SNAP OFF or TENSION 0.4.',
   'UNDO, REDO, FIT (frame the whole sheet), HELP.',
 ].join(' ');
 
@@ -106,6 +113,12 @@ function parseOption(
         ? `${tool.name} has no option ${name} on this Map. It has ${has}.`
         : `${tool.name} has no options on this Map.`,
     };
+  }
+  if (option.type === 'number') {
+    const typed = /^-?\d+(?:\.\d+)?$/.test(rest) ? numberFor(option, Number(rest)) : null;
+    return typed === null
+      ? { kind: 'error', message: `${name} takes a number from ${option.least} to ${option.most}.` }
+      : { kind: 'option', option, value: typed };
   }
   const value = rest.toLowerCase();
   if (value === 'on') return { kind: 'option', option, value: true };

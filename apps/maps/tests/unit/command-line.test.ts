@@ -40,7 +40,11 @@ describe('the command line', () => {
 
   it('takes a tool by its name, says a planned one is planned and one the Map cannot use', () => {
     expect(parseCommand('line', TOOLS, flat)).toMatchObject({ kind: 'tool' });
-    expect(parseCommand('Spline', TOOLS, flat)).toMatchObject({ kind: 'planned' });
+    expect(parseCommand('Freehand', TOOLS, flat)).toMatchObject({ kind: 'planned' });
+    expect(parseCommand('Spline', TOOLS, flat)).toMatchObject({ kind: 'tool' });
+    expect(parseCommand('Spline', TOOLS, { grid: false, sphere: true })).toMatchObject({
+      kind: 'unavailable',
+    });
     expect(parseCommand('cells', TOOLS, flat)).toMatchObject({ kind: 'unavailable' });
     expect(parseCommand('cells', TOOLS, { grid: true, sphere: false })).toMatchObject({
       kind: 'tool',
@@ -69,5 +73,23 @@ describe('the command line', () => {
       message: 'Line has no options on this Map.',
     });
     expect(parseCommand('SNAP OFF', TOOLS, flat)).toMatchObject({ kind: 'error' });
+    // A number is kept to the option's step and refused outside its range.
+    const spline = { ...flat, tool: toolById('spline') };
+
+    expect(parseCommand('TENSION 0.4', TOOLS, spline)).toMatchObject({
+      kind: 'option',
+      value: 0.4,
+    });
+    expect(parseCommand('tension 0.42', TOOLS, spline)).toMatchObject({ value: 0.4 });
+    for (const bad of ['TENSION 2', 'TENSION -1', 'TENSION', 'TENSION round']) {
+      expect(parseCommand(bad, TOOLS, spline)).toEqual({
+        kind: 'error',
+        message: 'TENSION takes a number from 0 to 1.',
+      });
+    }
+    expect(parseCommand('TENSION 0.4', TOOLS, onGrid)).toEqual({
+      kind: 'error',
+      message: 'Line has no option TENSION on this Map. It has SNAP.',
+    });
   });
 });
