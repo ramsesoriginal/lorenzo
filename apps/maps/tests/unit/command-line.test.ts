@@ -40,7 +40,8 @@ describe('the command line', () => {
 
   it('takes a tool by its name, says a planned one is planned and one the Map cannot use', () => {
     expect(parseCommand('line', TOOLS, flat)).toMatchObject({ kind: 'tool' });
-    expect(parseCommand('Freehand', TOOLS, flat)).toMatchObject({ kind: 'planned' });
+    expect(parseCommand('Height line', TOOLS, flat)).toMatchObject({ kind: 'planned' });
+    expect(parseCommand('Freehand', TOOLS, flat)).toMatchObject({ kind: 'tool' });
     expect(parseCommand('Spline', TOOLS, flat)).toMatchObject({ kind: 'tool' });
     expect(parseCommand('Spline', TOOLS, { grid: false, sphere: true })).toMatchObject({
       kind: 'unavailable',

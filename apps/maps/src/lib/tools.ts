@@ -84,6 +84,18 @@ export const SNAP: ToggleOption = {
   needsGrid: true,
 };
 
+/** How much of a freehand stroke is smoothed away (ADR 0472), in screen pixels. */
+export const TOLERANCE: NumberOption = {
+  id: 'tolerance',
+  name: 'Tolerance (pixels)',
+  word: 'tolerance',
+  type: 'number',
+  first: 2,
+  least: 0.5,
+  most: 10,
+  step: 0.5,
+};
+
 export type ToolDecl = {
   id: string;
   name: string;
@@ -175,8 +187,9 @@ export const TOOLS: ToolDecl[] = [
     key: 'f',
     input: 'a drag',
     output: 'a line (the stroke, simplified)',
-    state: 'planned',
-    reason: later,
+    state: 'ready',
+    notOnSphere: true,
+    options: [TOLERANCE],
   },
   {
     id: 'area',

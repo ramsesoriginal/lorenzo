@@ -418,6 +418,12 @@ for (const theme of ['light', 'dark'] as const) {
       ).toBeVisible();
       const spline = await new AxeBuilder({ page }).exclude('.shell-bottom').analyze();
       expect(spline.violations.map((v) => `${v.id}: ${v.nodes[0]?.html}`)).toEqual([]);
+      await page.getByRole('button', { name: 'Freehand', exact: true }).click();
+      await expect(
+        page.getByRole('group', { name: 'Options of Freehand' }).getByLabel('Tolerance (pixels)'),
+      ).toBeVisible();
+      const freehand = await new AxeBuilder({ page }).exclude('.shell-bottom').analyze();
+      expect(freehand.violations.map((v) => `${v.id}: ${v.nodes[0]?.html}`)).toEqual([]);
     } finally {
       await page.context().close();
     }
@@ -439,7 +445,7 @@ test('the toolbox is drawn from the tool registry: groups, one key a tool, and p
     await expect(place.getByRole('button', { name: 'Circle', exact: true })).toBeVisible();
     await expect(page.getByRole('group', { name: 'Draw', exact: true })).toContainText('Area');
     await expect(page.getByRole('button', { name: 'Cells', exact: true })).toHaveCount(0);
-    await expect(page.getByRole('button', { name: 'Freehand', exact: true })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Height line', exact: true })).toHaveCount(0);
     // One key a tool, while the drawing has the focus; the page's own keys do not see them.
     await page.locator('.map-stage svg').focus();
     await page.keyboard.press('p');
@@ -456,8 +462,8 @@ test('the toolbox is drawn from the tool registry: groups, one key a tool, and p
     await page.keyboard.press('g');
     await expect(page.getByText('Cells is not available on this Map.')).toBeVisible();
     expect(page.url()).toBe(address);
-    await page.keyboard.press('f');
-    await expect(page.getByText(/Freehand is planned\./)).toBeVisible();
+    await page.keyboard.press('t');
+    await expect(page.getByText(/Height line is planned\./)).toBeVisible();
     // All tools lists every tool, finds one by a few words and says which are planned.
     await page.getByRole('button', { name: 'All tools' }).click();
     await page.getByLabel('Find a tool').fill('cave');
@@ -546,9 +552,9 @@ test('the command line takes a tool by name, places a place by a typed point and
     await command.fill('Line');
     await command.press('Enter');
     await expect(answer).toHaveText('Line is the tool.');
-    await command.fill('Freehand');
+    await command.fill('Height line');
     await command.press('Enter');
-    await expect(answer).toContainText('Freehand is planned');
+    await expect(answer).toContainText('Height line is planned');
     await command.fill('dance');
     await command.press('Enter');
     await expect(answer).toContainText('not a command');
@@ -655,6 +661,95 @@ test('a spline is drawn through clicked and typed points, and changed by its poi
     await expect.poll(async () => (await curve())?.segs?.[1]?.[2]?.[0]).toBeLessThan(600);
     await page.getByRole('button', { name: 'Undo' }).click();
     await expect.poll(async () => (await curve())?.segs?.[1]?.[2]).toEqual([600, 400]);
+  } finally {
+    await page.context().close();
+  }
+});
+
+test('a freehand stroke becomes a simplified line that is edited as any line', async ({
+  browser,
+}) => {
+  const w = await world();
+  const page = await signedIn(browser, w.subject);
+  const line = async () => geometryOf((await w.read())[0]).parts[0];
+  /** Press at a fraction of the sheet, drag through the others in small steps, and let go or not. */
+  const drag = async (through: [number, number][], release = true) => {
+    const box = await stageBox(page);
+    if (!box) throw new Error('the map has no box');
+    const at = (f: [number, number]) => [box.x + box.width * f[0], box.y + box.height * f[1]];
+    const [x0, y0] = at(through[0] as [number, number]);
+    await page.mouse.move(x0 as number, y0 as number);
+    await page.mouse.down();
+    for (const f of through.slice(1)) {
+      const [x, y] = at(f);
+      await page.mouse.move(x as number, y as number, { steps: 12 });
+    }
+    if (release) await page.mouse.up();
+  };
+  try {
+    await page.goto(`/map/?tenant=${w.tenant.id}&id=${w.chart.id}`);
+    await expect(page.getByRole('heading', { name: 'Sword Coast', exact: true })).toBeVisible();
+    await page.getByRole('button', { name: 'Edit this map' }).click();
+    await page.locator('.map-stage svg').focus();
+    await page.keyboard.press('f');
+    await expect(page.getByRole('button', { name: 'Freehand', exact: true })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    // Its option, and where the keyboard path is.
+    await expect(
+      page.getByRole('group', { name: 'Options of Freehand' }).getByLabel('Tolerance (pixels)'),
+    ).toHaveValue('2');
+    await page.getByLabel('Or make a new Location, named').fill('The goat path');
+    await page.getByRole('button', { name: 'Draw a new Location' }).click();
+    await expect(page.locator('.map-edit-panel')).toContainText(
+      'The Line tool draws the same thing',
+    );
+    // A typed point has nowhere to go, and says where it does.
+    const command = page.getByLabel('Command', { exact: true });
+    await command.fill('100,100');
+    await command.press('Enter');
+    await expect(page.locator('.map-edit-bar')).toContainText('Freehand is drawn by dragging');
+
+    // Escape while dragging drops the stroke: nothing is written.
+    await page.locator('.map-stage svg').focus();
+    await drag(
+      [
+        [0.3, 0.3],
+        [0.5, 0.35],
+      ],
+      false,
+    );
+    await expect(page.locator('.m-ov-line')).toHaveCount(1);
+    await page.keyboard.press('Escape');
+    await page.mouse.up();
+    await expect(page.locator('.map-edit-bar')).toContainText('The stroke was dropped.');
+    expect(await w.read()).toHaveLength(0);
+
+    // A stroke with two straight runs and a corner: many samples in, a few points out.
+    await drag([
+      [0.3, 0.3],
+      [0.6, 0.3],
+      [0.6, 0.6],
+    ]);
+    await expect(page.getByRole('heading', { name: 'Change The goat path' })).toBeVisible();
+    const drawn = await line();
+    expect(drawn?.shape).toBe('polyline');
+    const pts = drawn?.pts ?? [];
+    expect(pts.length).toBeGreaterThanOrEqual(3);
+    expect(pts.length).toBeLessThanOrEqual(6);
+    // The ends are where the stroke began and ended: the first run level, the second upright.
+    const first = pts[0] as number[];
+    const last = pts[pts.length - 1] as number[];
+    expect(Math.abs((first[1] as number) - (pts[1]?.[1] as number))).toBeLessThan(8);
+    expect((last[1] as number) - (first[1] as number)).toBeGreaterThan(100);
+    expect((last[0] as number) - (first[0] as number)).toBeGreaterThan(100);
+    // It is a line like any other: a point by number, then undo.
+    await page.getByRole('group', { name: 'Point 1' }).getByLabel('x').fill('111');
+    await page.getByRole('group', { name: 'Point 1' }).getByLabel('x').press('Tab');
+    await expect.poll(async () => (await line())?.pts?.[0]?.[0]).toBe(111);
+    await page.getByRole('button', { name: 'Undo' }).click();
+    await expect.poll(async () => (await line())?.pts?.[0]?.[0]).toBe(first[0]);
   } finally {
     await page.context().close();
   }

@@ -27,6 +27,7 @@ import {
 } from './cells-edit';
 import { HELP, parseCommand } from './command-line';
 import { button, el, field, groupTitle, message, select, statusLine } from './dom';
+import { strokeLine, unitsPerPixel } from './freehand';
 import {
   type Editable,
   editableOf,
@@ -64,6 +65,7 @@ import {
   SNAP,
   searchTools,
   TENSION,
+  TOLERANCE,
   type ToolDecl,
   type ToolOption,
   toolById,
@@ -107,7 +109,7 @@ export type Editor = {
   destroy(): void;
 };
 
-type ToolName = 'select' | 'pin' | 'circle' | 'line' | 'spline' | 'area' | 'cells';
+type ToolName = 'select' | 'pin' | 'circle' | 'line' | 'spline' | 'freehand' | 'area' | 'cells';
 
 const TOOLS: [ToolName, string][] = [
   ['select', 'Select'],
@@ -115,6 +117,7 @@ const TOOLS: [ToolName, string][] = [
   ['circle', 'Circle'],
   ['line', 'Line'],
   ['spline', 'Spline'],
+  ['freehand', 'Freehand'],
   ['area', 'Area'],
   ['cells', 'Cells'],
 ];
@@ -168,6 +171,8 @@ export function createEditor(context: EditorContext): Editor {
   // What the tools' options are set to (ADR 0470), Snap to the grid among them (ADR 0356).
   const optionValues = createOptionValues();
   let rubber: Pt | null = null;
+  // The samples of a freehand stroke while the pointer is held (ADR 0472).
+  let stroke: Pt[] | null = null;
   let selectedId: string | null = null;
   // The selected shape while a handle or the shape is being dragged, drawn as an overlay.
   let working: Editable | null = null;
@@ -230,6 +235,9 @@ export function createEditor(context: EditorContext): Editor {
         pts: cellPolygon(grid, context.extent, cell),
         closed: true,
       }));
+    }
+    if (toolName === 'freehand') {
+      return stroke && stroke.length > 1 ? [{ id: 'stroke', kind: 'line', pts: stroke }] : [];
     }
     if (toolName !== 'select') {
       if (draft.length === 0) return [];
@@ -457,6 +465,8 @@ export function createEditor(context: EditorContext): Editor {
         return 'Type the point, x,y.';
       case 'circle':
         return draft.length === 0 ? 'Type the centre, x,y.' : 'Type a point on the edge, x,y.';
+      case 'freehand':
+        return 'Drag on the map to draw. The Line tool takes typed points.';
       case 'line':
       case 'spline':
       case 'area':
@@ -517,6 +527,7 @@ export function createEditor(context: EditorContext): Editor {
         }
         if (toolName === 'cells') finishCells();
         else if (toolName === 'line' || toolName === 'spline' || toolName === 'area') finishDraft();
+        else if (toolName === 'freehand') answer('A stroke finishes when you let go.', true);
         else answer('A circle finishes with its second point.', true);
         return;
       }
@@ -732,11 +743,58 @@ export function createEditor(context: EditorContext): Editor {
     },
   };
 
+  /** The stroke ends: its line is simplified as the Tolerance option says, and written. */
+  const finishStroke = () => {
+    const samples = stroke;
+    stroke = null;
+    refresh();
+    if (!samples) return;
+    const view = context.view();
+    const box = view.svg.getBoundingClientRect();
+    const tolerance =
+      optionValues.get(toolDecl(), TOLERANCE) *
+      unitsPerPixel(context.extent, box, view.getView().zoom);
+    const line = strokeLine(samples, tolerance);
+    if (line.pts.length < 2) {
+      say('The stroke went nowhere, so nothing was drawn. Press, drag and let go.', true);
+      return;
+    }
+    void finish(toGeometry({ kind: 'line', pts: line.pts })).then(() => {
+      if (line.coarser && !status.classList.contains('error-text')) {
+        say(`${status.textContent} The line was made coarser to fit ${line.pts.length} points.`);
+      }
+    });
+  };
+
   const drawTool: Tool = {
     cursor: 'crosshair',
+    down(event: ToolEvent) {
+      if (toolName !== 'freehand') return false;
+      if (!target) {
+        say('Choose what you are drawing first.', true);
+        return true;
+      }
+      const p: Pt = [event.point[0], event.point[1]];
+      stroke = inSheet(p) ? [p] : [];
+      return true;
+    },
+    drag(event: ToolEvent) {
+      if (!stroke) return;
+      const p: Pt = [event.point[0], event.point[1]];
+      // A stroke that leaves the sheet goes on where it comes back.
+      if (inSheet(p)) stroke.push(p);
+      refresh();
+    },
+    up() {
+      if (toolName === 'freehand') finishStroke();
+    },
     click(event: ToolEvent) {
       if (!target) {
         say('Choose what you are drawing first.', true);
+        return true;
+      }
+      if (toolName === 'freehand') {
+        say('Freehand is drawn by dragging. The Line tool takes points one by one.', true);
         return true;
       }
       if (toolName === 'cells') {
@@ -805,6 +863,12 @@ export function createEditor(context: EditorContext): Editor {
       refresh();
     },
     key(event: KeyboardEvent) {
+      if (toolName === 'freehand' && stroke && event.key === 'Escape') {
+        stroke = null;
+        refresh();
+        say('The stroke was dropped.');
+        return true;
+      }
       if (toolName === 'cells') {
         if (event.key === 'Enter') {
           finishCells();
@@ -857,6 +921,7 @@ export function createEditor(context: EditorContext): Editor {
     draft = [];
     cells = [];
     rubber = null;
+    stroke = null;
     working = null;
     dragging = null;
     if (next === 'select') target = null;
@@ -1147,11 +1212,13 @@ export function createEditor(context: EditorContext): Editor {
           'p',
           toolName === 'pin'
             ? 'Click the map to place it.'
-            : toolName === 'circle'
-              ? 'Click the centre, then the edge.'
-              : toolName === 'cells'
-                ? 'Click a cell to add it and click it again to take it away. Press Enter to finish, Backspace to take back a cell, Escape to start again.'
-                : 'Click each point. Press Enter or double-click to finish, Backspace to take back a point, Escape to start again.',
+            : toolName === 'freehand'
+              ? 'Press and drag on the map, and let go to finish. Escape while dragging drops the stroke. The Line tool draws the same thing point by point, from the keyboard.'
+              : toolName === 'circle'
+                ? 'Click the centre, then the edge.'
+                : toolName === 'cells'
+                  ? 'Click a cell to add it and click it again to take it away. Press Enter to finish, Backspace to take back a cell, Escape to start again.'
+                  : 'Click each point. Press Enter or double-click to finish, Backspace to take back a point, Escape to start again.',
           'status-text',
         ),
       );

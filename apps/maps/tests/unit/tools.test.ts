@@ -7,6 +7,7 @@ import {
   SNAP,
   searchTools,
   TENSION,
+  TOLERANCE,
   TOOLS,
   type ToolDecl,
   toolById,
@@ -49,7 +50,9 @@ test('a search finds a tool by name, group or key', () => {
 
 test('a planned tool is never usable, and a grid tool needs a grid and a circle no sphere', () => {
   const plain = { grid: false, sphere: false };
-  expect(usable(toolByKey('f') as never, plain)).toBe(false);
+  expect(usable(toolByKey('t') as never, plain)).toBe(false);
+  expect(usable(toolByKey('f') as never, plain)).toBe(true);
+  expect(usable(toolByKey('f') as never, { grid: false, sphere: true })).toBe(false);
   expect(usable(toolByKey('s') as never, plain)).toBe(true);
   expect(usable(toolByKey('s') as never, { grid: false, sphere: true })).toBe(false);
   expect(usable(toolByKey('g') as never, plain)).toBe(false);
@@ -65,7 +68,8 @@ test('lists the options of a tool, and offers one that needs a grid only with a 
   expect(optionsOf(line, { grid: true })).toEqual([SNAP]);
   expect(optionsOf(line, { grid: false })).toEqual([]);
   expect(optionsOf(spline, { grid: false })).toEqual([TENSION]);
-  expect(optionsOf(toolById('freehand') as ToolDecl, { grid: true })).toEqual([]);
+  expect(optionsOf(toolById('freehand') as ToolDecl, { grid: true })).toEqual([TOLERANCE]);
+  expect(optionsOf(toolById('height-line') as ToolDecl, { grid: true })).toEqual([]);
 
   const words = TOOLS.flatMap((tool) => (tool.options ?? []).map((o) => `${tool.id} ${o.word}`));
 

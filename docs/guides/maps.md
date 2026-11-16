@@ -48,6 +48,7 @@ Choose **Edit this map**. The **Tool** choices are:
 | Circle | A centre and an edge. |
 | Line | A road or boundary through two or more points. |
 | Spline | A smooth curve through two or more points. **Tension** says how round it is: 0 the roundest, 1 straight. Not on a sphere. |
+| Freehand | A line drawn by pressing, dragging and letting go. **Tolerance** says how much of the hand's wobble is smoothed away, in screen pixels. Escape while dragging drops the stroke. Not on a sphere; Line draws the same thing from the keyboard. |
 | Area | A region of three or more points. |
 | Cells | A region made of whole cells, on a grid. |
 
@@ -83,7 +84,7 @@ Authors, GMs, and Owners and Organizers who can see everything can add, rename, 
 ## What Maps does not do
 
 - It has no drawing on a phone (reading and small changes only) and no offline mode.
-- Freehand, Height line, Height brush, Cave system and the two Fill generators are listed among the tools as planned, and do nothing yet.
+- Height line, Height brush, Cave system and the two Fill generators are listed among the tools as planned, and do nothing yet.
 - A curve drawn through the API that is not a spline is shown and kept, and cannot be changed by its points here.
 - It does not turn the part-of tree into containment, and the tree never decides who can reach what.
 - It does not work out distance from anything but the Map's own geometry and the connections you can see.
@@ -92,4 +93,4 @@ Authors, GMs, and Owners and Organizers who can see everything can add, rename, 
 
 ## Drawing with the keyboard
 
-While the tools are on, each tool has one key (shown on its button), a **command line** under the toolbox takes a tool's name, `PLACE name x,y`, `SELECT name`, `UNDO`, `REDO`, `FIT` and `HELP` (press `/` to reach it); while a tool is chosen, type `x,y` for its next point and `DONE` to finish a line or an area, the **Options** tab beside the Map holds what the tool needs and its options (an option can also be typed by its name, as in `SNAP OFF` or `TENSION 0.4`), the **Places** tab lists the entries not yet on the Map to place with a button or to drag onto it, and **History** lists each step by name with a way back to any of them. **Shortcuts** changes a tool's key; your keys are yours alone and kept in this browser.
+While the tools are on, each tool has one key (shown on its button), a **command line** under the toolbox takes a tool's name, `PLACE name x,y`, `SELECT name`, `UNDO`, `REDO`, `FIT` and `HELP` (press `/` to reach it); while a tool is chosen, type `x,y` for its next point and `DONE` to finish a line or an area, the **Options** tab beside the Map holds what the tool needs and its options (an option can also be typed by its name, as in `SNAP OFF`, `TENSION 0.4` or `TOLERANCE 3`), the **Places** tab lists the entries not yet on the Map to place with a button or to drag onto it, and **History** lists each step by name with a way back to any of them. **Shortcuts** changes a tool's key; your keys are yours alone and kept in this browser.
