@@ -63,8 +63,10 @@ import { createEditor, type Editor } from './map-edit';
 import { createLegend } from './map-legend';
 import { makeMapForm, settingsSection } from './map-settings';
 import { canManage, libraryName, myLibraries } from './names';
+import { createOutliner, DRAG_TYPE } from './outliner';
 import { loadCard, loadPicture } from './previews';
 import { start } from './sign-in';
+import { smallChanges } from './small-changes';
 import {
   PROJECTION_WORDS,
   positionWords,
@@ -76,6 +78,9 @@ import {
 } from './sphere-words';
 import { systemWords } from './system-words';
 import { resolveEntry } from './views';
+
+/** Whether this window is a phone's: drawing is not offered there (MP2). */
+const phoneNow = () => window.matchMedia('(max-width: 720px)').matches;
 
 const tenantOf = () => new URLSearchParams(location.search).get('tenant');
 
@@ -654,6 +659,7 @@ export async function mountMap() {
         ? ([
             ['selected', 'Selected'],
             ['places', 'Places'],
+            ['history', 'History'],
             ['settings', 'Settings'],
           ] as const)
         : ([
@@ -909,12 +915,83 @@ export async function mountMap() {
           setRows,
           select: (entryId) => select(entryId, true),
         });
-        tools.append(editor.toolbar);
-        // Drawing starts with the Map clear: the panel puts itself away.
-        editor.toolbar.addEventListener('click', () => {
-          if (editor?.editing()) closePanel();
-        });
+        if (phoneNow()) {
+          // A phone reads everything and writes what needs no pointer on the sheet (MP2).
+          const small = smallChanges({
+            tenant,
+            header,
+            version,
+            selected: () => rows.find((r) => r.id === selected),
+            again: render,
+            back: () => {
+              small.root.hidden = true;
+              edit.hidden = false;
+              delete view.dataset.small;
+            },
+          });
+          small.root.hidden = true;
+          const edit = el('button', '', 'btn btn-primary');
+          edit.type = 'button';
+          edit.append(icon('edit'), document.createTextNode('Edit this map'));
+          edit.addEventListener('click', () => {
+            closePanel();
+            small.refresh();
+            small.root.hidden = false;
+            edit.hidden = true;
+            view.dataset.small = 'open';
+          });
+          tools.append(edit);
+          editDock.append(small.root);
+        } else {
+          tools.append(editor.toolbar);
+          // Drawing starts with the Map clear: the panel puts itself away.
+          editor.toolbar.addEventListener('click', () => {
+            if (editor?.editing()) closePanel();
+          });
+        }
         editDock.append(editor.panel);
+        if (!phoneNow()) editDock.append(editor.commandLine);
+        (bodies.get('history') as HTMLElement).append(editor.history);
+
+        // The outliner: places not yet on this Map, to drag onto it or to place at the centre.
+        const ed = editor;
+        const outliner = createOutliner({
+          tenant,
+          placed: () => new Set(rows.map((r) => r.id)),
+          place: async (entry) => {
+            const centre = controller?.getView().centre ?? [0, 0];
+            await ed.placeEntry(entry, [centre[0], centre[1]]);
+            void outliner.refresh();
+          },
+        });
+        outliner.root.hidden = true;
+        placesBody.append(outliner.root);
+        const syncOutliner = () => {
+          const on = ed.editing();
+          outliner.root.hidden = !on;
+          if (on) void outliner.refresh();
+        };
+        editor.toolbar.addEventListener('click', () => queueMicrotask(syncOutliner));
+        stageHost.addEventListener('dragover', (event) => {
+          if (!ed.editing() || !event.dataTransfer?.types.includes(DRAG_TYPE)) return;
+          event.preventDefault();
+          event.dataTransfer.dropEffect = 'copy';
+        });
+        stageHost.addEventListener('drop', (event) => {
+          const raw = event.dataTransfer?.getData(DRAG_TYPE);
+          const state = controller?.getView();
+          if (!raw || !state || !ed.editing()) return;
+          event.preventDefault();
+          const entry = JSON.parse(raw) as { id: string; name: string };
+          const box = stageHost.getBoundingClientRect();
+          const at = screenToDrawing(
+            model.system,
+            { width: stageHost.clientWidth, height: stageHost.clientHeight },
+            { zoom: state.zoom, centre: state.centre },
+            [event.clientX - box.left, event.clientY - box.top],
+          );
+          void ed.placeEntry(entry, [at[0], at[1]]).then(() => outliner.refresh());
+        });
       }
 
       // A mark of the drawing and a row of the places list open the entry's card (ADR 0350). Maps is

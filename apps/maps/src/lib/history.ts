@@ -14,8 +14,12 @@ export type Change = { entry: string; before: PlacementState | null; after: Plac
 export type Step = Change[];
 
 export type History = {
-  /** A new action: what could be redone is forgotten. */
-  record(step: Step): void;
+  /** A new action, named for the list of what was done: what could be redone is forgotten. */
+  record(step: Step, name?: string): void;
+  /** Every step in order with whether it is done now; the ones undone stay listed until a new action. */
+  entries(): { name: string; done: boolean }[];
+  /** How many steps are done. */
+  position(): number;
   /** The step to undo, or null; the caller writes each change's `before` back. */
   undo(): Step | null;
   /** The step to redo, or null; the caller writes each change's `after`. */
@@ -29,16 +33,24 @@ export const HISTORY_LIMIT = 50;
 
 export function createHistory(limit: number = HISTORY_LIMIT): History {
   const steps: Step[] = [];
+  const names: string[] = [];
   let at = 0;
 
   return {
-    record(step) {
+    record(step, name = 'Changed the Map') {
       if (step.length === 0) return;
       steps.length = at;
+      names.length = at;
       steps.push(step);
-      if (steps.length > limit) steps.shift();
+      names.push(name);
+      if (steps.length > limit) {
+        steps.shift();
+        names.shift();
+      }
       at = steps.length;
     },
+    entries: () => steps.map((_, index) => ({ name: names[index] ?? '', done: index < at })),
+    position: () => at,
     undo() {
       if (at === 0) return null;
       at -= 1;
@@ -54,6 +66,7 @@ export function createHistory(limit: number = HISTORY_LIMIT): History {
     canRedo: () => at < steps.length,
     clear() {
       steps.length = 0;
+      names.length = 0;
       at = 0;
     },
   };
