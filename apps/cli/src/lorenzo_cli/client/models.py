@@ -22,6 +22,8 @@ class Kind(StrEnum):
     entity = "entity"
     stat_group = "stat_group"
     stat_definition = "stat_definition"
+    system = "system"
+    template = "template"
 
 
 class State(StrEnum):
@@ -570,6 +572,7 @@ class Kind5(StrEnum):
     stat_definition = "stat_definition"
     stat_role = "stat_role"
     slug = "slug"
+    template = "template"
 
 
 class Choice(StrEnum):
@@ -858,6 +861,8 @@ class Kind8(StrEnum):
     entity = "entity"
     stat_group = "stat_group"
     stat_definition = "stat_definition"
+    system = "system"
+    template = "template"
 
 
 class Mode(StrEnum):
@@ -3376,6 +3381,7 @@ class Kind36(StrEnum):
     stat_definition = "stat_definition"
     stat_role = "stat_role"
     slug = "slug"
+    template = "template"
 
 
 class Action1(StrEnum):
@@ -3473,6 +3479,8 @@ class Kind39(StrEnum):
     entity = "entity"
     stat_group = "stat_group"
     stat_definition = "stat_definition"
+    system = "system"
+    template = "template"
 
 
 class State6(StrEnum):
@@ -3499,6 +3507,8 @@ class Kind41(StrEnum):
     entity = "entity"
     stat_group = "stat_group"
     stat_definition = "stat_definition"
+    system = "system"
+    template = "template"
 
 
 class RuleOptionOut(BaseModel):
@@ -4203,6 +4213,7 @@ class TenantOut(BaseModel):
         description="Whether every GM of the library reads the GM-only text of the entries no campaign owns: the beings that are in no campaign, and what a copy of a repository brought, such as its catalog items. On (the default), every GM reads them; off, only the GMs who wrote an entry, or who share a campaign with whoever did, read it. An entry a campaign owns, because one of its characters holds it or stands in it, is read only by that campaign's GMs either way. Owners and Organizers read everything.",
         title="Npcs Shared With Gms",
     )
+    controllers_award_features: bool | None = Field(False, title="Controllers Award Features")
     being_stat_group_id: UUID | None = Field(None, title="Being Stat Group Id")
     weapon_stat_group_id: UUID | None = Field(..., title="Weapon Stat Group Id")
     ability_information_type: str | None = Field(..., title="Ability Information Type")
@@ -4239,6 +4250,7 @@ class TenantUpdate(BaseModel):
         description="Whether every GM of the library reads the GM-only text of the entries no campaign owns: the beings that are in no campaign, and what a copy of a repository brought, such as its catalog items. On (the default), every GM reads them; off, only the GMs who wrote an entry, or who share a campaign with whoever did, read it. An entry a campaign owns, because one of its characters holds it or stands in it, is read only by that campaign's GMs either way. Owners and Organizers read everything.",
         title="Npcs Shared With Gms",
     )
+    controllers_award_features: bool | None = Field(None, title="Controllers Award Features")
     being_stat_group_id: UUID | None = Field(None, title="Being Stat Group Id")
     weapon_stat_group_id: UUID | None = Field(None, title="Weapon Stat Group Id")
     ability_information_type: constr(min_length=1, max_length=100) | None = Field(
@@ -4283,6 +4295,8 @@ class Kind49(StrEnum):
     entity = "entity"
     stat_group = "stat_group"
     stat_definition = "stat_definition"
+    system = "system"
+    template = "template"
 
 
 class Action2(StrEnum):
@@ -6217,6 +6231,7 @@ class PublishedOut(BaseModel):
         description="Whether every GM of the library reads the GM-only text of the entries no campaign owns: the beings that are in no campaign, and what a copy of a repository brought, such as its catalog items. On (the default), every GM reads them; off, only the GMs who wrote an entry, or who share a campaign with whoever did, read it. An entry a campaign owns, because one of its characters holds it or stands in it, is read only by that campaign's GMs either way. Owners and Organizers read everything.",
         title="Npcs Shared With Gms",
     )
+    controllers_award_features: bool | None = Field(False, title="Controllers Award Features")
     being_stat_group_id: UUID | None = Field(None, title="Being Stat Group Id")
     weapon_stat_group_id: UUID | None = Field(..., title="Weapon Stat Group Id")
     ability_information_type: str | None = Field(..., title="Ability Information Type")

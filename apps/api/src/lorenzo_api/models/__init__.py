@@ -67,6 +67,8 @@ from lorenzo_api.models.repository_copy import (
     RepositoryCopyLinkEntity,
     RepositoryCopyLinkStatDefinition,
     RepositoryCopyLinkStatGroup,
+    RepositoryCopyLinkSystem,
+    RepositoryCopyLinkTemplate,
 )
 from lorenzo_api.models.repository_profile import RepositoryProfile
 from lorenzo_api.models.repository_release import RepositoryRelease
@@ -218,6 +220,8 @@ __all__ = [
     "RepositoryCopyLinkAttachment",
     "RepositoryCopyLinkEntity",
     "RepositoryCopyLinkStatDefinition",
+    "RepositoryCopyLinkSystem",
+    "RepositoryCopyLinkTemplate",
     "RepositoryCopyLinkStatGroup",
     "ReleaseFanout",
     "RepositoryProfile",

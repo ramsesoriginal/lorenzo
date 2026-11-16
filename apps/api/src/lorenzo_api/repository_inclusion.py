@@ -331,7 +331,7 @@ def flatten(content: Content, included: set[uuid.UUID]) -> None:
         return
     links = content.links
     gone = {source for source, tenant in links.origin_tenant.items() if tenant in included}
-    for kind in ("entity", "stat_group", "stat_definition"):
+    for kind in ("entity", "stat_group", "stat_definition", "system", "template"):
         copied = getattr(links, kind)
         for local_id in [local for local, origin in copied.items() if origin in gone]:
             del copied[local_id]

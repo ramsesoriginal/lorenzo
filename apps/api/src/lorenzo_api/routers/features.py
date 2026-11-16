@@ -39,6 +39,7 @@ from lorenzo_api.features import (
     holds_feature,
     manages_holder,
     may_flip,
+    require_awarder,
     require_holder,
     require_manager,
     usable_feature,
@@ -146,13 +147,14 @@ async def award_feature(
     """An award (ADR 0454): the holder has the feature, with no rule behind it. An instance is a
     new entry named as the feature, with the feature as its one prototype, contained by the holder,
     switched on unless the feature starts its instances inactive or the body says. The holder's
-    manager only (`403`): a GM of its campaigns, an administrator for one in none, an Author in a
-    repository. `409` for a feature the holder has and that is not `repeatable`, `422` for an entry
+    manager (`403` otherwise): a GM of its campaigns, an administrator for one in none, an Author in
+    a repository; and its controller when the library allows it (`controllers_award_features`,
+    ADR 0467). `409` for a feature the holder has and that is not `repeatable`, `422` for an entry
     that is no feature here (a hidden one included) or a holder that holds nothing."""
     await require_tenant_participant(session, tenant_id=tenant_id, user=user)
     holder = await get_entity_or_404(session, entity_id, tenant_id)
     kind = await require_holder(session, tenant_id=tenant_id, entity_id=entity_id)
-    await require_manager(
+    await require_awarder(
         session, tenant_id=tenant_id, user_id=user.id, holder_id=entity_id, kind=kind
     )
     feature = await usable_feature(session, tenant_id=tenant_id, feature_id=body.feature_id)

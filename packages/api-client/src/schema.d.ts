@@ -7701,8 +7701,9 @@ export interface paths {
          * @description An award (ADR 0454): the holder has the feature, with no rule behind it. An instance is a
          *     new entry named as the feature, with the feature as its one prototype, contained by the holder,
          *     switched on unless the feature starts its instances inactive or the body says. The holder's
-         *     manager only (`403`): a GM of its campaigns, an administrator for one in none, an Author in a
-         *     repository. `409` for a feature the holder has and that is not `repeatable`, `422` for an entry
+         *     manager (`403` otherwise): a GM of its campaigns, an administrator for one in none, an Author in
+         *     a repository; and its controller when the library allows it (`controllers_award_features`,
+         *     ADR 0467). `409` for a feature the holder has and that is not `repeatable`, `422` for an entry
          *     that is no feature here (a hidden one included) or a holder that holds nothing.
          */
         post: operations["award_feature"];
@@ -7746,7 +7747,7 @@ export interface components {
              * Kind
              * @enum {string}
              */
-            kind: "entity" | "stat_group" | "stat_definition";
+            kind: "entity" | "stat_group" | "stat_definition" | "system" | "template";
             /**
              * Source Id
              * Format: uuid
@@ -9506,7 +9507,7 @@ export interface components {
              * Kind
              * @enum {string}
              */
-            kind: "stat_group" | "stat_definition" | "stat_role" | "slug";
+            kind: "stat_group" | "stat_definition" | "stat_role" | "slug" | "template";
             /**
              * Source Id
              * Format: uuid
@@ -10025,7 +10026,7 @@ export interface components {
              * Kind
              * @enum {string}
              */
-            kind: "entity" | "stat_group" | "stat_definition";
+            kind: "entity" | "stat_group" | "stat_definition" | "system" | "template";
             /** Local Id */
             local_id: string | null;
             /**
@@ -16231,6 +16232,11 @@ export interface components {
              * @description Whether every GM of the library reads the GM-only text of the entries no campaign owns: the beings that are in no campaign, and what a copy of a repository brought, such as its catalog items. On (the default), every GM reads them; off, only the GMs who wrote an entry, or who share a campaign with whoever did, read it. An entry a campaign owns, because one of its characters holds it or stands in it, is read only by that campaign's GMs either way. Owners and Organizers read everything.
              */
             npcs_shared_with_gms: boolean;
+            /**
+             * Controllers Award Features
+             * @default false
+             */
+            controllers_award_features: boolean;
             /** Being Stat Group Id */
             being_stat_group_id?: string | null;
             /** Weapon Stat Group Id */
@@ -17208,7 +17214,7 @@ export interface components {
              * Kind
              * @enum {string}
              */
-            kind: "stat_group" | "stat_definition" | "stat_role" | "slug";
+            kind: "stat_group" | "stat_definition" | "stat_role" | "slug" | "template";
             /**
              * Source Id
              * Format: uuid
@@ -17358,7 +17364,7 @@ export interface components {
              * Kind
              * @enum {string}
              */
-            kind: "entity" | "stat_group" | "stat_definition";
+            kind: "entity" | "stat_group" | "stat_definition" | "system" | "template";
             /**
              * Source Id
              * Format: uuid
@@ -17408,7 +17414,7 @@ export interface components {
              * Kind
              * @enum {string}
              */
-            kind: "entity" | "stat_group" | "stat_definition";
+            kind: "entity" | "stat_group" | "stat_definition" | "system" | "template";
             /**
              * Source Id
              * Format: uuid
@@ -19185,6 +19191,11 @@ export interface components {
              * @description Whether every GM of the library reads the GM-only text of the entries no campaign owns: the beings that are in no campaign, and what a copy of a repository brought, such as its catalog items. On (the default), every GM reads them; off, only the GMs who wrote an entry, or who share a campaign with whoever did, read it. An entry a campaign owns, because one of its characters holds it or stands in it, is read only by that campaign's GMs either way. Owners and Organizers read everything.
              */
             npcs_shared_with_gms: boolean;
+            /**
+             * Controllers Award Features
+             * @default false
+             */
+            controllers_award_features: boolean;
             /** Being Stat Group Id */
             being_stat_group_id?: string | null;
             /** Weapon Stat Group Id */
@@ -19247,6 +19258,8 @@ export interface components {
              * @description Whether every GM of the library reads the GM-only text of the entries no campaign owns: the beings that are in no campaign, and what a copy of a repository brought, such as its catalog items. On (the default), every GM reads them; off, only the GMs who wrote an entry, or who share a campaign with whoever did, read it. An entry a campaign owns, because one of its characters holds it or stands in it, is read only by that campaign's GMs either way. Owners and Organizers read everything.
              */
             npcs_shared_with_gms?: boolean | null;
+            /** Controllers Award Features */
+            controllers_award_features?: boolean | null;
             /** Being Stat Group Id */
             being_stat_group_id?: string | null;
             /** Weapon Stat Group Id */
@@ -19347,7 +19360,7 @@ export interface components {
              * Kind
              * @enum {string}
              */
-            kind: "entity" | "stat_group" | "stat_definition";
+            kind: "entity" | "stat_group" | "stat_definition" | "system" | "template";
             /**
              * Source Id
              * Format: uuid
@@ -25197,7 +25210,7 @@ export interface operations {
     list_repository_contributions: {
         parameters: {
             query?: {
-                kind?: ("entity" | "stat_group" | "stat_definition") | null;
+                kind?: ("entity" | "stat_group" | "stat_definition" | "system" | "template") | null;
                 page?: number;
                 size?: number;
             };

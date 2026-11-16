@@ -104,6 +104,8 @@ from lorenzo_api.models import (
     RepositoryCopyLinkEntity,
     RepositoryCopyLinkStatDefinition,
     RepositoryCopyLinkStatGroup,
+    RepositoryCopyLinkSystem,
+    RepositoryCopyLinkTemplate,
     SceneTelling,
     SocialWeb,
     SocialWebEntry,
@@ -265,6 +267,9 @@ class Links:
     entity: dict[uuid.UUID, uuid.UUID] = field(default_factory=dict)
     stat_group: dict[uuid.UUID, uuid.UUID] = field(default_factory=dict)
     stat_definition: dict[uuid.UUID, uuid.UUID] = field(default_factory=dict)
+    # A game system and a template are copied and tracked as a stat group is (ADR 0469).
+    system: dict[uuid.UUID, uuid.UUID] = field(default_factory=dict)
+    template: dict[uuid.UUID, uuid.UUID] = field(default_factory=dict)
     origin_tenant: dict[uuid.UUID, uuid.UUID] = field(default_factory=dict)
     merged: set[uuid.UUID] = field(default_factory=set)
     deleted: dict[str, set[uuid.UUID]] = field(default_factory=lambda: defaultdict(set))
@@ -412,6 +417,8 @@ async def load_links(session: AsyncSession, tenant_id: uuid.UUID) -> Links:
             RepositoryCopyLinkStatDefinition,
             RepositoryCopyLinkStatDefinition.stat_definition_id,
         ),
+        ("system", RepositoryCopyLinkSystem, RepositoryCopyLinkSystem.system_id),
+        ("template", RepositoryCopyLinkTemplate, RepositoryCopyLinkTemplate.template_id),
     ):
         mode_col = getattr(model, "mode", None)
         columns = [local, model.source_id, model.source_tenant_id, model.snapshot]
@@ -1945,9 +1952,55 @@ def assert_acyclic(parts: dict[uuid.UUID, dict[str, Any]]) -> None:
             node = parts[node]["parent"]
 
 
-def stat_group_snapshot(content: Content, group_id: uuid.UUID) -> dict[str, Any]:
+def stat_group_snapshot(
+    content: Content, group_id: uuid.UUID, *, system: bool = True
+) -> dict[str, Any]:
+    """What a copy of a stat group records. `system` adds the slug of the game system the group
+    belongs to when it belongs to one (ADR 0469); a release digest hashes it without."""
     group = content.groups[group_id]
-    return {"name": group["name"], "priority": group["priority"], "mandatory": group["mandatory"]}
+    snapshot: dict[str, Any] = {
+        "name": group["name"],
+        "priority": group["priority"],
+        "mandatory": group["mandatory"],
+    }
+    belongs = group.get("system")
+    if system and belongs is not None and belongs in content.systems:
+        snapshot["system"] = content.systems[belongs]["slug"]
+    return snapshot
+
+
+def system_snapshot(content: Content, system_id: uuid.UUID, name: Namer) -> dict[str, Any]:
+    """What a copy of a game system records (ADR 0469): its name, and its root entry by origin.
+    The slug is the identity a copy joins by, so it is not a field."""
+    system = content.systems[system_id]
+    root = system["root"]
+    return {"name": system["name"], "root": name("entity", root) if root is not None else None}
+
+
+def template_snapshot(content: Content, template_id: uuid.UUID, name: Namer) -> dict[str, Any]:
+    """What a copy of a template records (ADR 0469): its name, the slug of its game system, its
+    filter, and its slots in order with every group, stat and entry by origin."""
+    template = content.templates[template_id]
+    belongs = template["system"]
+    ancestor = template["ancestor"]
+    return {
+        "name": template["name"],
+        "system": content.systems[belongs]["slug"] if belongs in content.systems else None,
+        "kind": template["kind"],
+        "ancestor": name("entity", ancestor) if ancestor is not None else None,
+        "slots": [
+            {
+                "kind": slot["kind"],
+                "label": slot["label"],
+                "group": name("stat_group", slot["group"]) if slot["group"] is not None else None,
+                "information_type": slot["information_type"],
+                "held_order": slot["held_order"],
+                "stats": [[name("stat_definition", stat), label] for stat, label in slot["stats"]],
+                "exclude": sorted(name("stat_definition", stat) for stat in slot["exclude"]),
+            }
+            for slot in template["slots"]
+        ],
+    }
 
 
 def stat_definition_snapshot(

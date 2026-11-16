@@ -42,6 +42,8 @@ export const ROW_KIND_LABEL: Record<RowKindName, string> = {
   entity: 'Entry',
   stat_group: 'Stat group',
   stat_definition: 'Stat',
+  system: 'Game system',
+  template: 'Template',
 };
 
 // The key a row is known by in the page: its kind and the repository's row.

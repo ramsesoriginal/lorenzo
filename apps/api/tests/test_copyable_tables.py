@@ -95,13 +95,17 @@ def test_the_derived_lists_are_the_registry_in_order() -> None:
         "link_entity",
         "link_stat_group",
         "link_stat_definition",
+        "link_system",
+        "link_template",
     ]
     assert [column for _, _, column in COPY_LINKS] == [
         "entity_id",
         "stat_group_id",
         "stat_definition_id",
+        "system_id",
+        "template_id",
     ]
-    assert len(LINK_MODELS) == 4  # the three copy links and the attachment link
+    assert len(LINK_MODELS) == 6  # the five copy links and the attachment link
     assert "attachment" in PURGE_COUNTED
     assert PURGE_COUNTED - {"attachment"} <= {name for name, _ in COPIED_TABLES}
 
