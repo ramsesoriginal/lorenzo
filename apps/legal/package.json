@@ -1,0 +1,34 @@
+{
+  "name": "@lorenzo/legal",
+  "private": true,
+  "type": "module",
+  "version": "0.0.0",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "build-branding-package": "pnpm --filter @lorenzo/brand run build",
+    "copy-branding": "node scripts/copy-branding.mjs",
+    "dev": "LEGAL_PROFILE_SAMPLE=1 astro dev --port 4330",
+    "build": "pnpm run build-branding-package && pnpm run copy-branding && astro build",
+    "preview": "astro preview",
+    "astro": "astro",
+    "check": "astro check",
+    "lint": "biome check . && astro check && prettier --check \"**/*.astro\"",
+    "format": "biome check --write . && prettier --write \"**/*.astro\"",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@lorenzo/brand": "workspace:*",
+    "astro": "^7.4.5"
+  },
+  "devDependencies": {
+    "@astrojs/check": "^0.9.12",
+    "@biomejs/biome": "^2.6.4",
+    "@types/node": "^26.6.6",
+    "prettier": "^3.9.10",
+    "prettier-plugin-astro": "^1.1.2",
+    "typescript": "^6.0.3",
+    "vitest": "^5.1.0"
+  }
+}

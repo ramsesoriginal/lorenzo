@@ -6,6 +6,7 @@
 
 import { ApiError } from '../../lib/apiError';
 import { isAuthConfigured, isAuthenticated, login } from '../../lib/auth';
+import { BRANDING_CSS_URL } from '../../lib/config';
 import { GM_WORDS, type GmWords, gmWords } from '../../lib/gmTitle';
 import {
   DEAD_LINK_MESSAGE,
@@ -26,6 +27,7 @@ import { getManaged, getMe } from '../../lib/me';
 import { fetchPictureUrl } from '../../lib/pictureFetch';
 import { browserSessionStorage } from '../../lib/returnPath';
 import { say, sayError } from '../../lib/statusLine';
+import { studioHref } from '../../lib/studio';
 import { requiredIn } from '../../lib/template';
 import { canCreateTenants, tenantHref } from '../../lib/tenantKind';
 import { getCampaign } from '../../lib/tenants';
@@ -88,17 +90,18 @@ function nextStep(
 
   if (preview.kind === 'tenant_role') {
     return preview.tenant_kind === 'repository'
-      ? { href: `/studio/?repository=${encodeURIComponent(joined.tenant_id)}`, label: 'Open it' }
+      ? { href: studioHref(joined.tenant_id), label: 'Open it' }
       : { href: tenantHref(joined.tenant_id), label: 'Open it' };
   }
 
-  return { href: '/campaigns/', label: 'Your campaigns' };
+  return { href: tenantHref(joined.tenant_id), label: 'Open your campaign' };
 }
 
 // `root` is the <JoinInvite /> block. It shows itself once there is something to say; a failure that
 // is not a dead link rejects, for the page to show.
 export async function renderJoinInvite(root: HTMLElement): Promise<void> {
   const dead = required<HTMLElement>(root, '[data-dead]');
+  const mascot = required<HTMLElement>(root, '[data-mascot]');
   const invite = required<HTMLElement>(root, '[data-invite]');
   const picture = required<HTMLImageElement>(root, '[data-picture]');
   const name = required<HTMLElement>(root, '[data-campaign]');
@@ -153,8 +156,20 @@ export async function renderJoinInvite(root: HTMLElement): Promise<void> {
     window.location.assign(result.href);
   });
 
+  // The mascot beside a moment, or nothing where the picture is not there yet.
+  function showMascot(art: string): void {
+    const picture = document.createElement('img');
+
+    picture.alt = '';
+    picture.src = `${BRANDING_CSS_URL}/mascots/ui_${art}.png`;
+    picture.addEventListener('error', () => mascot.replaceChildren());
+    mascot.replaceChildren(picture);
+    mascot.hidden = false;
+  }
+
   function showDeadLink(): void {
     forgetInviteToken(storage);
+    showMascot('page-not-found');
     invite.hidden = true;
     dead.textContent = DEAD_LINK_MESSAGE;
     dead.hidden = false;
@@ -216,6 +231,7 @@ export async function renderJoinInvite(root: HTMLElement): Promise<void> {
         const joined = await redeemInvite(currentToken, chosen?.id);
 
         forgetInviteToken(storage);
+        showMascot('caught-up');
         say(status, joinedMessageFor(preview, joined, chosen?.name ?? '', await gmWordsOf(joined)));
         joinButton.hidden = true;
         library.disabled = true;

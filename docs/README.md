@@ -12,7 +12,7 @@ Where to look, by what you want to know.
 | How to run and host it: deploys, hosting each app, releases, going public | [Operations](operations/README.md) |
 | The API, its configuration and the well-known stat names | [Reference](reference/README.md) |
 | How Lorenzo looks and sounds: logo, colour, type, voice, the words the product uses | [Brand](brand/README.md) and [identity](brand/identity.md) |
-| What a screen was designed to be | [Design briefs](design): [Beings](design/beings/README.md) and [Bench](design/bench/README.md), each with a prototype and screens |
+| What a screen was designed to be | [Design briefs](design): [Beings](design/beings/README.md), [Bench](design/bench/README.md) and the [web interface](design/web/README.md), each with a prototype and screens |
 | What the finished product is meant to do | [v1.0](../v1.0.md) |
 | Which apps and packages exist | [Apps](../apps/README.md) and [Packages](../packages/README.md) |
 

@@ -1,6 +1,7 @@
-// Leaving a library or repository (ADR 0170). Asks first with window.confirm, the pattern
+// Leaving a library or repository (ADR 0170). Asks first with a dialog (askFirst), the pattern
 // characters.astro uses for "Leave this campaign".
 
+import { askFirst } from '../../lib/askFirst';
 import { leaveTenantConfirmation, soleOwnerMessage } from '../../lib/exits';
 import { say, sayError } from '../../lib/statusLine';
 import { requiredIn } from '../../lib/template';
@@ -40,7 +41,14 @@ export function bindLeaveTenant(
     const turn = shown;
 
     if (!target) return;
-    if (!window.confirm(leaveTenantConfirmation(target.name, target.kind))) return;
+    if (
+      !(await askFirst(leaveTenantConfirmation(target.name, target.kind), {
+        confirm: 'Leave',
+        cancel: 'Stay',
+      }))
+    ) {
+      return;
+    }
 
     button.disabled = true;
     say(status, 'Leaving…');

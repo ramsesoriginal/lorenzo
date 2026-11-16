@@ -3,6 +3,16 @@ import { apiAs, ok, refreshTokenFor } from './support/api.ts';
 import { AUTHGEAR_URL, REFRESH_TOKEN_KEY, SITE_URL, SUBJECT_COOKIE } from './support/env.ts';
 import { buildWorld } from './support/world.ts';
 
+/** Chooses what to write on the day on show, from the panel's "Add to this day" menu. */
+async function addToDay(page: Page, item: string) {
+  await page.getByRole('button', { name: 'Add to this day', exact: true }).click();
+  await page.getByRole('menuitem', { name: item, exact: true }).click();
+}
+
+/** The chip of a month or festival in the strip above the grid. */
+const segmentChip = (page: Page, name: string) =>
+  page.locator('.seg-chip').filter({ has: page.getByText(name, { exact: true }) });
+
 /** The cell of one day: its button, which names the date, and what is written beneath it. */
 const dayCell = (page: Page, name: string) =>
   page.locator('.day').filter({ has: page.getByRole('button', { name, exact: true }) });
@@ -17,6 +27,19 @@ async function signedIn(browser: Browser, subject: string): Promise<Page> {
   });
   return context.newPage();
 }
+/** Chooses a theme in the Appearance dialog of the account menu, as the web shell has it. */
+async function chooseTheme(page: Page, choice: 'System' | 'Light' | 'Dark') {
+  await page.getByRole('button', { name: 'Account menu' }).click();
+  await page.getByRole('menuitem', { name: 'Appearance…' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Appearance' });
+  await dialog
+    .getByRole('radiogroup', { name: 'Theme' })
+    .getByRole('radio', { name: choice })
+    .click();
+  await dialog.getByRole('button', { name: 'Done' }).click();
+  await expect(dialog).toBeHidden();
+}
+
 test('the header offers the skip link, the page links and the account once signed in', async ({
   browser,
 }) => {
@@ -27,11 +50,16 @@ test('the header offers the skip link, the page links and the account once signe
   await expect(page.getByRole('heading', { name: 'Calendars', exact: true })).toBeVisible();
   await expect(page.getByRole('link', { name: 'Skip to content' })).toBeAttached();
   const pages = page.getByRole('navigation', { name: 'Pages' });
-  await expect(pages.getByRole('link', { name: 'Home' })).toHaveAttribute('aria-current', 'page');
+  await expect(pages.getByRole('link', { name: 'Calendar', exact: true })).toHaveAttribute(
+    'aria-current',
+    'page',
+  );
   await expect(pages.getByRole('link', { name: 'Events' })).toBeVisible();
-  await expect(page.getByRole('link', { name: 'Account' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Log out', exact: true })).toBeVisible();
+  // The account is one button that opens its menu, which has the way out.
   await expect(page.getByRole('button', { name: 'Log in', exact: true })).toBeHidden();
+  await page.getByRole('button', { name: 'Account menu' }).click();
+  await expect(page.getByRole('menuitem', { name: 'Sign out' })).toBeVisible();
+  await page.keyboard.press('Escape');
   await page.getByRole('link', { name: 'Skip to content' }).focus();
   await expect(page.getByRole('link', { name: 'Skip to content' })).toBeVisible();
   // One library needs no switcher; with two it is in the header and switching reopens the list.
@@ -46,6 +74,243 @@ test('the header offers the skip link, the page links and the account once signe
   await expect(switcher.locator('option:checked')).toHaveText('Second library');
   await page.context().close();
 });
+test('Home draws the calendars as cards, offers New calendar to writers only, and Continue after one was opened', async ({
+  browser,
+}) => {
+  const world = await buildWorld();
+  const page = await signedIn(browser, world.subject);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto(`/?tenant=${world.tenantId}`);
+  await expect(
+    page.getByRole('heading', { name: 'Calendars', exact: true, level: 1 }),
+  ).toBeVisible();
+  await expect(page.locator('.page-sub')).toContainText('The calendars of');
+  const card = page
+    .locator('.calendar-card')
+    .filter({ has: page.getByRole('link', { name: 'Isles calendar', exact: true }) });
+  await expect(card).toContainText('Last changed');
+  // Nothing to continue yet; the apps are offered where the registry names some.
+  await expect(page.getByRole('heading', { name: 'Continue' })).toHaveCount(0);
+
+  // The whole card opens the calendar, not only its name.
+  await card.click({ position: { x: 250, y: 60 } });
+  await expect(
+    page.getByRole('heading', { name: 'Isles calendar', exact: true, level: 1 }),
+  ).toBeVisible();
+
+  // Back home through the tab: what was opened is offered.
+  await page
+    .getByRole('navigation', { name: 'Pages' })
+    .getByRole('link', { name: 'Calendar', exact: true })
+    .click();
+  await expect(page.getByRole('heading', { name: 'Continue' })).toBeVisible();
+  await expect(
+    page
+      .locator('.home-tiles')
+      .first()
+      .getByRole('link', { name: /Isles calendar/ }),
+  ).toBeVisible();
+
+  // The page's main action opens the form that makes a calendar.
+  await page.getByRole('button', { name: 'New calendar' }).click();
+  await expect(page.getByLabel('Calendar name', { exact: true })).toBeVisible();
+
+  // Someone who cannot write is offered no such thing.
+  const reader = await signedIn(browser, world.readerSubject);
+  await reader.goto(`/?tenant=${world.tenantId}`);
+  await expect(reader.getByRole('link', { name: 'Isles calendar', exact: true })).toBeVisible();
+  await expect(reader.getByRole('button', { name: 'New calendar' })).toHaveCount(0);
+  await page.context().close();
+  await reader.context().close();
+});
+
+test('the bell in the header counts the unread notifications and goes to the hub', async ({
+  browser,
+}) => {
+  const world = await buildWorld();
+  await ok(
+    world.api.POST('/tenants/{tenant_id}/notifications', {
+      params: { path: { tenant_id: world.tenantId } },
+      body: {
+        recipient_user_id: world.ownerId,
+        type: 'announcement',
+        title: 'The harbour is open',
+        body: 'Come in.',
+      },
+    }),
+  );
+  const page = await signedIn(browser, world.subject);
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto(`/?tenant=${world.tenantId}`);
+  const bell = page.getByRole('link', { name: /Notifications/ }).first();
+  await expect(bell).toBeVisible();
+  await expect(bell).toContainText('1');
+  await expect(bell).toHaveAttribute('href', /\/notifications\/$/);
+  await page.context().close();
+});
+
+test('a day lists the Sessions that start on it or cover it, linked to the Sessions app', async ({
+  browser,
+}) => {
+  const world = await buildWorld();
+  const periods = await ok(
+    world.api.GET('/tenants/{tenant_id}/calendars/{calendar_id}/periods', {
+      params: {
+        path: { tenant_id: world.tenantId, calendar_id: world.calendarId },
+        query: { year: 3286, size: 100 },
+      },
+    }),
+  );
+  const day = periods.items.find((p) => p.segment === 'segment-6' && p.day === 16);
+  expect(day).toBeDefined();
+  const campaign = await ok(
+    world.api.POST('/tenants/{tenant_id}/campaigns', {
+      params: { path: { tenant_id: world.tenantId } },
+      body: {
+        name: 'The harbour job',
+        slug: 'the-harbour-job',
+        description: '',
+        game_system: 'test',
+        secret: false,
+      },
+    }),
+  );
+  // A Session is prepared in a campaign one runs.
+  await ok(
+    world.api.PUT('/tenants/{tenant_id}/campaigns/{campaign_id}/gms/{user_id}', {
+      params: {
+        path: { tenant_id: world.tenantId, campaign_id: campaign.id, user_id: world.ownerId },
+      },
+    }),
+  );
+  const created = await ok(
+    world.api.POST('/tenants/{tenant_id}/sessions', {
+      params: { path: { tenant_id: world.tenantId } },
+      body: {
+        name: 'The blackout',
+        campaign_id: campaign.id,
+        start_period_id: day?.entity_id ?? null,
+      },
+    }),
+  );
+  // Its game time also covers the 17th, which it does not start on.
+  const next = periods.items.find((p) => p.segment === 'segment-6' && p.day === 17);
+  expect(next).toBeDefined();
+  const saved = await world.api.GET('/tenants/{tenant_id}/entities/{entity_id}', {
+    params: { path: { tenant_id: world.tenantId, entity_id: created.id } },
+  });
+  await ok(
+    world.api.PUT('/tenants/{tenant_id}/entities/{entity_id}/dates', {
+      params: {
+        path: { tenant_id: world.tenantId, entity_id: created.id },
+        header: { 'if-match': saved.response.headers.get('etag') ?? '' },
+      },
+      body: { period_ids: [next?.entity_id ?? ''] },
+    }),
+  );
+  const page = await signedIn(browser, world.subject);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto(
+    `/calendar/?tenant=${world.tenantId}&id=${world.calendarId}&year=3286&segment=segment-6&day=16`,
+  );
+  const panel = page.locator('aside');
+  await expect(panel.getByRole('heading', { name: 'Sessions', exact: true })).toBeVisible();
+  const session = panel.getByRole('link', { name: 'The blackout', exact: true });
+  await expect(session).toBeVisible();
+  await expect(session).toHaveAttribute('href', /\/session\/\?tenant=.*&id=/);
+  await expect(panel.getByText('Starts here', { exact: true })).toBeVisible();
+  // A day the Session covers lists it too, and says it does not start there.
+  await page.goto(
+    `/calendar/?tenant=${world.tenantId}&id=${world.calendarId}&year=3286&segment=segment-6&day=17`,
+  );
+  await expect(panel.getByRole('heading', { name: '17 Quirm 3286', exact: true })).toBeVisible();
+  await expect(panel.getByRole('link', { name: 'The blackout', exact: true })).toBeVisible();
+  await expect(panel.getByText('Covers this day', { exact: true })).toBeVisible();
+  // A day it neither starts nor covers lists none.
+  await page.goto(
+    `/calendar/?tenant=${world.tenantId}&id=${world.calendarId}&year=3286&segment=segment-6&day=19`,
+  );
+  await expect(panel.getByRole('heading', { name: '19 Quirm 3286', exact: true })).toBeVisible();
+  await expect(panel.getByRole('heading', { name: 'Sessions', exact: true })).toHaveCount(0);
+  await page.context().close();
+});
+
+test('the arrow keys move through the days of the month and Page Down to the next segment', async ({
+  browser,
+}) => {
+  const world = await buildWorld();
+  const page = await signedIn(browser, world.subject);
+  await page.goto(
+    `/calendar/?tenant=${world.tenantId}&id=${world.calendarId}&year=3286&segment=segment-1`,
+  );
+  const day = (name: string) => page.getByRole('button', { name, exact: true });
+  await day('1 Rimsep 3286').focus();
+  await page.keyboard.press('ArrowRight');
+  await expect(day('2 Rimsep 3286')).toBeFocused();
+  // A week is seven days.
+  await page.keyboard.press('ArrowDown');
+  await expect(day('9 Rimsep 3286')).toBeFocused();
+  await page.keyboard.press('ArrowLeft');
+  await page.keyboard.press('ArrowUp');
+  await expect(day('1 Rimsep 3286')).toBeFocused();
+  // Page Down changes the segment, and the strip says which is on show.
+  await page.keyboard.press('PageDown');
+  await expect(segmentChip(page, 'Sogmen')).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByRole('heading', { name: 'Sogmen', exact: true, level: 2 })).toBeVisible();
+  await page.context().close();
+});
+
+test('the status bar says which date is on show and whether anything is written on it', async ({
+  browser,
+}) => {
+  const world = await buildWorld();
+  const page = await signedIn(browser, world.subject);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const open = (day: number) =>
+    page.goto(
+      `/calendar/?tenant=${world.tenantId}&id=${world.calendarId}&year=3286&segment=segment-6&day=${day}`,
+    );
+  await open(16);
+  await expect(page.locator('[data-shell-meta]')).toHaveText('16 Quirm 3286 · period written');
+  // Opening a day that has nothing creates nothing, and says so.
+  await open(5);
+  await expect(page.locator('[data-shell-meta]')).toHaveText('5 Quirm 3286 · nothing written');
+  await page.context().close();
+});
+
+test('on a phone the day panel is a sheet: there when a date is chosen, gone with Close', async ({
+  browser,
+}) => {
+  const world = await buildWorld();
+  const page = await signedIn(browser, world.subject);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(`/calendar/?tenant=${world.tenantId}&id=${world.calendarId}&year=3286`);
+  const panel = page.locator('.calendar-layout > aside');
+  await segmentChip(page, 'Quirm').click();
+  await expect(page.locator('.day')).toHaveCount(27);
+  // Nothing is chosen yet, so no sheet is over the page.
+  await expect(panel).toBeHidden();
+  // An address that names a segment and no day does not put the sheet over the grid either.
+  await page.goto(
+    `/calendar/?tenant=${world.tenantId}&id=${world.calendarId}&year=3286&segment=segment-6`,
+  );
+  await expect(page.locator('.day')).toHaveCount(27);
+  await expect(panel).toBeHidden();
+  await page.getByRole('button', { name: '16 Quirm 3286', exact: true }).click();
+  await expect(panel).toBeVisible();
+  expect(await panel.evaluate((node) => getComputedStyle(node).position)).toBe('fixed');
+  const box = await panel.boundingBox();
+  expect((box?.y ?? 0) + (box?.height ?? 0)).toBeGreaterThan(800);
+  await panel.getByRole('button', { name: 'Close', exact: true }).click();
+  await expect(panel).toBeHidden();
+  await expect(page.getByRole('button', { name: '16 Quirm 3286', exact: true })).toBeFocused();
+  // Beside the grid, at a desktop width, the panel is always there and has no Close.
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await expect(panel).toBeVisible();
+  await expect(panel.getByRole('button', { name: 'Close', exact: true })).toBeHidden();
+  await page.context().close();
+});
+
 test('imported irregular year is browsable without creating periods, and dated information stays separate', async ({
   browser,
 }) => {
@@ -67,9 +332,7 @@ test('imported irregular year is browsable without creating periods, and dated i
   const before = await periods();
   await page.goto(`/calendar/?tenant=${world.tenantId}&id=${world.calendarId}&year=3286`);
   await expect(page.getByRole('heading', { name: 'Isles calendar', exact: true })).toBeVisible();
-  await expect(
-    page.getByRole('combobox', { name: /^Month or festival/ }).locator('option'),
-  ).toHaveCount(19);
+  await expect(page.locator('.seg-chip')).toHaveCount(19);
   await expect(page.locator('.day')).toHaveCount(27);
   await expect(page.locator('.weekday').first()).toHaveText('Montag');
   const firstMoon = page.locator('.day').first().locator('.moon-phase').first();
@@ -79,9 +342,9 @@ test('imported irregular year is browsable without creating periods, and dated i
     'aria-description',
     /Maira:.*Mendra:.*Galon:/,
   );
-  await page.getByRole('combobox', { name: /^Month or festival/ }).selectOption('segment-4');
+  await segmentChip(page, 'Nordtage').click();
   await expect(page.locator('.day')).toHaveCount(2);
-  await page.getByRole('combobox', { name: /^Month or festival/ }).selectOption('segment-6');
+  await segmentChip(page, 'Quirm').click();
   const diaryDay = page.getByRole('button', { name: '16 Quirm 3286', exact: true });
   await expect(dayCell(page, '16 Quirm 3286')).toContainText('A lantern was lit by the harbour.');
   await expect(dayCell(page, '17 Quirm 3286')).toContainText('Harbour storm');
@@ -97,8 +360,20 @@ test('imported irregular year is browsable without creating periods, and dated i
     page.getByRole('heading', { name: 'Harbour storm', exact: true, level: 1 }),
   ).toBeVisible();
   await expect(page.getByText('A storm reaches the harbour.', { exact: true })).toBeVisible();
+  // An Event is under the Events tab, not Calendar.
+  await expect(page.getByRole('link', { name: 'Events', exact: true }).first()).toHaveAttribute(
+    'aria-current',
+    'page',
+  );
   await page.goBack();
-  await page.getByRole('button', { name: 'Next year', exact: true }).click();
+  // The arrows step the month; the year's field reaches another year.
+  await page.getByRole('button', { name: 'Next month', exact: true }).click();
+  await expect(page.getByLabel('Year', { exact: true })).toHaveValue('3286');
+  await expect(segmentChip(page, 'Emsest')).toHaveAttribute('aria-pressed', 'true');
+  await page.getByRole('button', { name: 'Previous month', exact: true }).click();
+  await expect(segmentChip(page, 'Quirm')).toHaveAttribute('aria-pressed', 'true');
+  await page.getByLabel('Year', { exact: true }).fill('3287');
+  await page.getByRole('button', { name: 'Open year', exact: true }).click();
   await expect(page.getByLabel('Year', { exact: true })).toHaveValue('3287');
   await expect(page.getByRole('link', { name: /Harbour feast/ })).toBeVisible();
   expect(writes).toEqual([]);
@@ -116,7 +391,7 @@ test('authoring creates periods explicitly and edits ordered information and sto
   const page = await signedIn(browser, world.subject);
   await page.goto(`/calendar/?tenant=${world.tenantId}&id=${world.calendarId}&year=3286`);
   await page.getByRole('button', { name: '2 Rimsep 3286', exact: true }).click();
-  await page.getByRole('button', { name: 'Add a note to this date', exact: true }).click();
+  await addToDay(page, 'A note on this day');
   await page.getByLabel('Note title', { exact: true }).fill('Harbour log');
   await page.getByLabel('Text', { exact: true }).fill('The beacon is repaired.');
   await page.locator('input[type=file]').setInputFiles({
@@ -129,14 +404,14 @@ test('authoring creates periods explicitly and edits ordered information and sto
   await expect(page.getByRole('img', { name: 'Harbour log', exact: true })).toBeVisible();
   await page.goto(`/calendar/?tenant=${world.tenantId}&id=${world.calendarId}&year=3286`);
   await page.getByRole('button', { name: '3 Rimsep 3286', exact: true }).click();
-  await page.getByText('Create a fact or story event', { exact: true }).click();
+  await addToDay(page, 'An Event');
   await page.getByLabel('Entry name', { exact: true }).fill('Beacon relit');
   await page.getByRole('button', { name: 'Create dated entry', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Beacon relit', exact: true })).toBeVisible();
   await expect(page.getByRole('link', { name: '3 Rimsep 3286', exact: true })).toBeVisible();
   await page.goto(`/calendar/?tenant=${world.tenantId}&id=${world.calendarId}&year=3286`);
   await page.getByRole('button', { name: '4 Rimsep 3286', exact: true }).click();
-  await page.getByText('Associate an existing fact or event', { exact: true }).click();
+  await addToDay(page, 'An existing Event or Fact…');
   await page.getByLabel('Find a fact or event').fill('Beacon relit');
   await page.getByRole('button', { name: 'Search entries', exact: true }).click();
   await page.getByRole('button', { name: 'Beacon relit', exact: true }).click();
@@ -152,7 +427,7 @@ test('definition conflict retains the draft until the saved version has been rev
   const world = await buildWorld();
   const page = await signedIn(browser, world.subject);
   await page.goto(`/calendar/?tenant=${world.tenantId}&id=${world.calendarId}&year=3286`);
-  await page.getByText('Edit calendar definition', { exact: true }).click();
+  await page.getByRole('button', { name: 'Edit the calendar', exact: true }).click();
   await page.getByLabel('Segment name', { exact: true }).first().fill('Rimsep draft');
   await page.getByRole('button', { name: 'Preview this year', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Save definition', exact: true })).toBeEnabled();
@@ -191,7 +466,7 @@ test('readers see permitted names and dates without private information or autho
   const world = await buildWorld();
   const page = await signedIn(browser, world.readerSubject);
   await page.goto(`/calendar/?tenant=${world.tenantId}&id=${world.calendarId}&year=3286`);
-  await page.getByRole('combobox', { name: /^Month or festival/ }).selectOption('segment-6');
+  await segmentChip(page, 'Quirm').click();
   await expect(dayCell(page, '16 Quirm 3286')).toContainText('A lantern was lit by the harbour.');
   await expect(dayCell(page, '17 Quirm 3286')).toContainText('Harbour storm');
   await expect(page.getByText('A storm reaches the harbour.', { exact: true })).toHaveCount(0);
@@ -253,7 +528,7 @@ test('recurring observance creation and rule edits do not materialize occurrence
   const before = await periods();
   await page.goto(`/calendar/?tenant=${world.tenantId}&id=${world.calendarId}&year=3286`);
   await page.getByRole('button', { name: '5 Rimsep 3286', exact: true }).click();
-  await page.getByText('Create a recurring observance', { exact: true }).click();
+  await addToDay(page, 'A recurring observance…');
   await page.getByLabel('Observance name', { exact: true }).fill('Lantern feast');
   await page.getByLabel('Every N years', { exact: true }).fill('3');
   await page.locator('aside').getByLabel('Year offset', { exact: true }).fill('1');
@@ -285,55 +560,44 @@ test('home recovers from a deleted remembered library without substituting expli
 });
 
 // The shared header remains usable before authentication and at phone widths.
-test('signed-out welcome and appearance controls work in light and dark themes', async ({
+test('signed-out welcome follows the system appearance at phone and desktop widths', async ({
   browser,
 }) => {
-  const context = await browser.newContext({
-    colorScheme: 'light',
-    viewport: { width: 390, height: 844 },
-  });
-  const page = await context.newPage();
-  await page.goto('/');
-  await expect(page.getByRole('heading', { name: 'Calendars', exact: true })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Log in', exact: true })).toBeVisible();
-  // At phone width the header shows the spark alone (identity 12.2); the lockup is for wider screens.
-  await expect(page.locator('.brand-spark')).toBeVisible();
-  await expect(page.locator('.brand-mark--light')).toBeHidden();
-  expect(
-    await page.locator('.brand-spark').evaluate((node) => (node as HTMLImageElement).naturalWidth),
-  ).toBeGreaterThan(0);
-  await page.getByRole('button', { name: 'Dark theme', exact: true }).click();
-  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
-  await expect(page.locator('.brand-spark')).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Light theme', exact: true })).toHaveAttribute(
-    'aria-pressed',
-    'true',
-  );
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-  await page.screenshot({ path: test.info().outputPath('welcome-dark-phone.png'), fullPage: true });
-  await page.getByRole('button', { name: 'Light theme', exact: true }).click();
-  await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
-  await page.setViewportSize({ width: 1280, height: 900 });
-  await expect(page.locator('.brand-spark')).toBeHidden();
-  await expect(page.locator('.brand-mark--light')).toBeVisible();
-  expect(
-    await page
-      .locator('.brand-mark--light')
-      .evaluate((node) => (node as HTMLImageElement).naturalWidth),
-  ).toBeGreaterThan(0);
-  await page.getByRole('button', { name: 'Dark theme', exact: true }).click();
-  await expect(page.locator('.brand-mark--dark')).toBeVisible();
-  expect(
-    await page
-      .locator('.brand-mark--dark')
-      .evaluate((node) => (node as HTMLImageElement).naturalWidth),
-  ).toBeGreaterThan(0);
-  await page.getByRole('button', { name: 'Light theme', exact: true }).click();
-  await page.screenshot({
-    path: test.info().outputPath('welcome-light-desktop.png'),
-    fullPage: true,
-  });
-  await context.close();
+  for (const scheme of ['light', 'dark'] as const) {
+    const context = await browser.newContext({
+      colorScheme: scheme,
+      viewport: { width: 390, height: 844 },
+    });
+    const page = await context.newPage();
+    await page.goto('/');
+    await expect(page.getByRole('heading', { name: 'Calendars', exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Log in', exact: true })).toBeVisible();
+    await expect(page.locator('html')).toHaveAttribute('data-theme', scheme);
+    // At phone width the header shows the spark alone (identity 12.2); the lockup is for wider screens.
+    await expect(page.locator('.brand-spark')).toBeVisible();
+    expect(
+      await page
+        .locator('.brand-spark')
+        .evaluate((node) => (node as HTMLImageElement).naturalWidth),
+    ).toBeGreaterThan(0);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
+      true,
+    );
+    await page.screenshot({
+      path: test.info().outputPath(`welcome-${scheme}-phone.png`),
+      fullPage: true,
+    });
+    await page.setViewportSize({ width: 1280, height: 900 });
+    // One library or none is one row: the spark and the product's name (D29), the wordmark is for the
+    // header of several libraries.
+    await expect(page.locator('.brand-spark')).toBeVisible();
+    await expect(page.locator('[data-site-header] .prod')).toHaveText('Calendars');
+    await page.screenshot({
+      path: test.info().outputPath(`welcome-${scheme}-desktop.png`),
+      fullPage: true,
+    });
+    await context.close();
+  }
 });
 
 test('month content is cached and moon names remain available when selecting a day on a phone', async ({
@@ -351,15 +615,15 @@ test('month content is cached and moon names remain available when selecting a d
     if (r.url().includes('/period-summaries')) summaries.push(r.url());
   });
   await page.goto(`/calendar/?tenant=${world.tenantId}&id=${world.calendarId}&year=3286`);
-  await page.getByRole('combobox', { name: /^Month or festival/ }).selectOption('segment-6');
+  await segmentChip(page, 'Quirm').click();
   await expect(page.locator('.day-content').filter({ hasText: 'Loading notes' })).toHaveCount(0);
   await expect(dayCell(page, '16 Quirm 3286')).toContainText('A lantern was lit by the harbour.');
   // Only the selected day's own panel reads a period by itself; no cell does.
   expect(reads.length).toBeLessThanOrEqual(2);
   const loaded = summaries.length;
   expect(loaded).toBeGreaterThan(0);
-  await page.getByRole('combobox', { name: /^Month or festival/ }).selectOption('segment-4');
-  await page.getByRole('combobox', { name: /^Month or festival/ }).selectOption('segment-6');
+  await segmentChip(page, 'Nordtage').click();
+  await segmentChip(page, 'Quirm').click();
   await expect(dayCell(page, '16 Quirm 3286')).toContainText('A lantern was lit by the harbour.');
   // Another month asks once more; coming back to Quirm asks for nothing.
   expect(summaries.length).toBeLessThanOrEqual(loaded + 1);
@@ -415,9 +679,9 @@ test('whole year reuses month content and supports keyboard tabs, festivals and 
     );
   const before = await periods();
   await page.goto(`/calendar/?tenant=${world.tenantId}&id=${world.calendarId}&year=3286`);
-  await page.getByRole('combobox', { name: /^Month or festival/ }).selectOption('segment-6');
+  await segmentChip(page, 'Quirm').click();
   await expect(dayCell(page, '16 Quirm 3286')).toContainText('A lantern was lit');
-  await page.getByRole('tab', { name: 'Month or festival', exact: true }).press('End');
+  await page.getByRole('tab', { name: 'Month', exact: true }).press('End');
   const yearPanel = page.getByRole('tabpanel', { name: 'Whole year', exact: true });
   await expect(page.getByRole('tab', { name: 'Whole year', exact: true })).toHaveAttribute(
     'aria-selected',
@@ -436,8 +700,8 @@ test('whole year reuses month content and supports keyboard tabs, festivals and 
   );
   const loaded = reads.length;
   await page.getByRole('tab', { name: 'Whole year', exact: true }).press('Home');
-  await expect(page.getByRole('combobox', { name: /^Month or festival/ })).toHaveValue('segment-6');
-  await page.getByRole('tab', { name: 'Month or festival', exact: true }).press('ArrowRight');
+  await expect(segmentChip(page, 'Quirm')).toHaveAttribute('aria-pressed', 'true');
+  await page.getByRole('tab', { name: 'Month', exact: true }).press('ArrowRight');
   await expect(yearPanel.locator('.day-content').filter({ hasText: 'Loading notes' })).toHaveCount(
     0,
   );
@@ -487,7 +751,7 @@ test('whole year on a phone keeps reader visibility and returns from day detail 
   await expect(day).toBeInViewport();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.screenshot({ path: test.info().outputPath('whole-year-phone.png') });
-  await page.getByRole('tab', { name: 'Month or festival', exact: true }).click();
+  await page.getByRole('tab', { name: 'Month', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Back to calendar', exact: true })).toHaveCount(0);
   await expect(page.locator('.day')).toHaveCount(27);
   await page.context().close();
@@ -521,7 +785,9 @@ test('Event order shows evidence, keeps conflicting selections, and stays absent
   const page = await signedIn(browser, world.subject);
   await page.goto(`/entry/?tenant=${world.tenantId}&id=${first.id}`);
   const panel = page.locator('[data-event-order]');
-  await panel.getByText('Order and causes', { exact: true }).click();
+  // The head's button opens the card and takes the reader to it.
+  await page.getByRole('button', { name: 'Order and causes', exact: true }).click();
+  await expect(panel).toHaveAttribute('open', '');
   await panel.getByLabel('Find an Event').fill('The gates');
   await panel.getByRole('button', { name: 'Search Events', exact: true }).click();
   await panel.getByRole('button', { name: second.name, exact: true }).click();
@@ -600,7 +866,7 @@ test('standalone Events can be found by participating being without acquiring a 
   );
   const page = await signedIn(browser, world.subject);
   await page.goto(`/events/?tenant=${world.tenantId}`);
-  await page.getByText('Create an Event', { exact: true }).click();
+  await page.getByRole('button', { name: 'New Event', exact: true }).click();
   await page.getByLabel('Event name', { exact: true }).fill('The beacon is lit');
   await page.getByRole('button', { name: 'Create Event', exact: true }).click();
   await expect(
@@ -628,6 +894,19 @@ test('standalone Events can be found by participating being without acquiring a 
   await page.getByRole('button', { name: being.name, exact: true }).click();
   await expect(page.locator('[data-event-list] > li')).toHaveCount(1);
   await expect(page.locator('[data-event-list]')).toContainText('The beacon is lit');
+  await expect(page.locator('[data-event-list] .event-meta')).toHaveText(
+    'Undated · Aster the traveller',
+  );
+  // The time filter is a strip of a calendar's year: a range on it keeps the Events dated inside it,
+  // and an undated Event is not among them.
+  const handle = page.getByRole('slider', { name: 'From', exact: true });
+  await expect(page.getByText('Any time', { exact: true }).first()).toBeVisible();
+  await page.locator('.time-filter-seg').first().click();
+  await expect(handle).toBeVisible();
+  await expect(page.getByText('No Events match these filters.', { exact: true })).toBeVisible();
+  await handle.press('End');
+  await page.getByRole('button', { name: 'Any time', exact: true }).click();
+  await expect(page.locator('[data-event-list] > li')).toHaveCount(1);
   await page.getByRole('combobox', { name: 'List order', exact: true }).selectOption('order');
   await page.getByRole('button', { name: 'Find Events', exact: true }).click();
   await expect(page.getByText('1 Event.', { exact: true })).toBeVisible();
@@ -649,7 +928,7 @@ test('standalone Events can be found by participating being without acquiring a 
     reader.getByRole('heading', { name: 'Events', exact: true, level: 1 }),
   ).toBeVisible();
   await expect(reader.getByText('Participants and causes', { exact: true })).toHaveCount(0);
-  await expect(reader.getByText('Create an Event', { exact: true })).toHaveCount(1);
+  await expect(reader.getByRole('button', { name: 'New Event', exact: true })).toHaveCount(1);
   await expect(reader.getByRole('link', { name: 'The beacon is lit', exact: true })).toHaveCount(0);
   await page.context().close();
   await reader.context().close();
@@ -700,7 +979,7 @@ test('calendar addresses and named or numbered date links preserve identity with
   await expect(page.locator('a.ls-cal')).toHaveCount(2);
   await expect(page.locator('a.ls-cal').first()).toHaveText('16 Quirm 3286');
   await page.locator('a.ls-cal').first().click();
-  await expect(page.getByRole('combobox', { name: /^Month or festival/ })).toHaveValue('segment-6');
+  await expect(segmentChip(page, 'Quirm')).toHaveAttribute('aria-pressed', 'true');
   await expect(
     page.locator('aside').getByRole('heading', { name: '16 Quirm 3286', exact: true }),
   ).toBeVisible();
@@ -874,12 +1153,7 @@ for (const preferred of ['dark', 'light'] as const) {
     await page.emulateMedia({ colorScheme: preferred === 'dark' ? 'light' : 'dark' });
     await page.goto(`/?tenant=${world.tenantId}`);
     await expect(page.getByRole('link', { name: 'Isles calendar', exact: true })).toBeVisible();
-    await page
-      .getByRole('button', {
-        name: preferred === 'dark' ? 'Dark theme' : 'Light theme',
-        exact: true,
-      })
-      .click();
+    await chooseTheme(page, preferred === 'dark' ? 'Dark' : 'Light');
     await expect(page.locator('html')).toHaveAttribute('data-theme', preferred);
     await page.getByRole('link', { name: 'Isles calendar', exact: true }).click();
     await expect(
@@ -901,12 +1175,15 @@ for (const preferred of ['dark', 'light'] as const) {
       page.getByRole('heading', { name: 'Isles calendar', exact: true, level: 1 }),
     ).toBeVisible();
     await expect(page.locator('html')).toHaveAttribute('data-theme', preferred);
+    // The dialog shows what is chosen.
+    await page.getByRole('button', { name: 'Account menu' }).click();
+    await page.getByRole('menuitem', { name: 'Appearance…' }).click();
     await expect(
-      page.getByRole('button', {
-        name: preferred === 'dark' ? 'Light theme' : 'Dark theme',
-        exact: true,
-      }),
-    ).toHaveAttribute('aria-pressed', String(preferred === 'dark'));
+      page
+        .getByRole('dialog', { name: 'Appearance' })
+        .getByRole('radiogroup', { name: 'Theme' })
+        .getByRole('radio', { name: preferred === 'dark' ? 'Dark' : 'Light' }),
+    ).toHaveAttribute('aria-checked', 'true');
     await page.context().close();
   });
 }
@@ -934,16 +1211,12 @@ test('appearance choice survives page swaps when preference storage is unavailab
   const errors: string[] = [];
   page.on('pageerror', (error) => errors.push(error.message));
   await page.goto(`/?tenant=${world.tenantId}`);
-  await page.getByRole('button', { name: 'Dark theme', exact: true }).click();
+  await chooseTheme(page, 'Dark');
   await page.getByRole('link', { name: 'Isles calendar', exact: true }).click();
   await expect(
     page.getByRole('heading', { name: 'Isles calendar', exact: true, level: 1 }),
   ).toBeVisible();
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
-  await expect(page.getByRole('button', { name: 'Light theme', exact: true })).toHaveAttribute(
-    'aria-pressed',
-    'true',
-  );
   expect(errors).toEqual([]);
   await page.context().close();
 });
@@ -1150,7 +1423,7 @@ test('shared Event order is readable without exposing private relationships or e
   await reader.getByRole('link', { name: 'All Events', exact: true }).click();
   await reader.getByLabel('List order', { exact: true }).selectOption('order');
   await reader.getByRole('button', { name: 'Find Events', exact: true }).click();
-  await expect(reader.getByRole('status')).toHaveText('3 Events.');
+  await expect(reader.locator('#content').getByRole('status')).toHaveText('3 Events.');
   await expect(reader.locator('[data-event-list]')).toContainText(
     'Linearized · no visible recorded ordering path',
   );
@@ -1182,7 +1455,7 @@ test('players create their own Events and Facts and contribute only their own no
   const world = await buildWorld();
   const page = await signedIn(browser, world.readerSubject);
   await page.goto(`/events/?tenant=${world.tenantId}`);
-  await page.getByText('Create an Event', { exact: true }).click();
+  await page.getByRole('button', { name: 'New Event', exact: true }).click();
   await page.getByLabel('Event name', { exact: true }).fill('A player records arrival');
   await page.getByRole('button', { name: 'Create Event', exact: true }).click();
   await expect(
@@ -1202,7 +1475,7 @@ test('players create their own Events and Facts and contribute only their own no
   await expect(page.getByText('We arrived before supper.', { exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Edit note', exact: true })).toHaveCount(1);
   await page.goto(`/events/?tenant=${world.tenantId}`);
-  await page.getByText('Create an Event', { exact: true }).click();
+  await page.getByRole('button', { name: 'New Event', exact: true }).click();
   await page.getByLabel('Entry kind', { exact: true }).selectOption('fact');
   await page.getByLabel('Event name', { exact: true }).fill('The harbour has a beacon');
   await page.getByRole('button', { name: 'Create Fact', exact: true }).click();
@@ -1220,7 +1493,7 @@ test('Event creation visibility and participant note audiences remain separate',
   const world = await buildWorld();
   const page = await signedIn(browser, world.subject);
   await page.goto(`/events/?tenant=${world.tenantId}`);
-  await page.getByText('Create an Event', { exact: true }).click();
+  await page.getByRole('button', { name: 'New Event', exact: true }).click();
   await page.getByLabel('Event name', { exact: true }).fill('The participants meet');
   await page.getByLabel('Entry visibility', { exact: true }).selectOption('participants');
   await page.getByRole('button', { name: 'Create Event', exact: true }).click();
@@ -1313,4 +1586,187 @@ test('Event managers create an ordinary group snapshot including an untracked NP
   await page.setViewportSize({ width: 390, height: 844 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.context().close();
+});
+
+test('the Events time filter marks the days things are dated on and keeps the Events inside a range', async ({
+  browser,
+}) => {
+  const world = await buildWorld();
+  const before = world.definition.segments
+    .slice(0, 5)
+    .reduce((sum: number, s: { days: number }) => sum + s.days, 0);
+  const storm = before + 17;
+  const base = `/events/?tenant=${world.tenantId}&calendar=${world.calendarId}&year=3286`;
+  const page = await signedIn(browser, world.subject);
+  await page.goto(base);
+  await expect(page.locator('.time-filter-marks > i').first()).toBeAttached();
+  await expect(
+    page.locator('[data-event-list] > li').filter({ hasText: 'Harbour storm' }),
+  ).toBeVisible();
+  await page.goto(`${base}&from=${storm - 3}&to=${storm + 3}`);
+  await expect(page.getByText('Harbour storm', { exact: true })).toBeVisible();
+  await expect(page.locator('.time-filter-out')).toContainText(' to ');
+  await page.goto(`${base}&from=1&to=${storm - 5}`);
+  await expect(page.getByText('No Events match these filters.', { exact: true })).toBeVisible();
+  // A handle moves by key, and Any time clears the range.
+  const to = page.getByRole('slider', { name: 'To', exact: true });
+  await to.focus();
+  await to.press('End');
+  await expect(page.getByText('Harbour storm', { exact: true })).toBeVisible();
+  // A range over the whole year is any time, and the handles stand at its two ends.
+  await expect(page.locator('.time-filter-out')).toHaveText('Any time');
+  await expect(page.getByRole('slider', { name: 'From', exact: true })).toHaveAttribute(
+    'aria-valuenow',
+    '1',
+  );
+});
+
+test('the month arrows carry on into the neighbouring year at the ends of a year', async ({
+  browser,
+}) => {
+  const world = await buildWorld();
+  const page = await signedIn(browser, world.subject);
+  await page.goto(
+    `/calendar/?tenant=${world.tenantId}&id=${world.calendarId}&year=3286&segment=segment-1`,
+  );
+  await expect(segmentChip(page, 'Rimsep')).toHaveAttribute('aria-pressed', 'true');
+  await page.getByRole('button', { name: 'Previous month', exact: true }).click();
+  await expect(page.getByLabel('Year', { exact: true })).toHaveValue('3285');
+  await expect(segmentChip(page, 'Rimsep')).toHaveAttribute('aria-pressed', 'false');
+  await expect(page.locator('.seg-chip[aria-pressed="true"]')).toHaveCount(1);
+  await page.getByRole('button', { name: 'Next month', exact: true }).click();
+  await expect(page.getByLabel('Year', { exact: true })).toHaveValue('3286');
+  await expect(segmentChip(page, 'Rimsep')).toHaveAttribute('aria-pressed', 'true');
+});
+
+test('a day mark says what kind of thing is on the day', async ({ browser }) => {
+  const world = await buildWorld();
+  const page = await signedIn(browser, world.subject);
+  await page.goto(
+    `/calendar/?tenant=${world.tenantId}&id=${world.calendarId}&year=3286&segment=segment-6`,
+  );
+  // The month has a note (the 16th) and an Event (the 17th), and nothing it would call a Fact.
+  await expect(page.locator('.day-mark--note').first()).toBeAttached();
+  await expect(page.locator('.day-mark--event').first()).toBeAttached();
+  await expect(page.locator('.day-mark--fact')).toHaveCount(0);
+  // The panel names the kinds too: the Event is under Events, and Facts says there are none.
+  await page.getByRole('button', { name: '17 Quirm 3286', exact: true }).click();
+  const panel = page.locator('aside');
+  await expect(panel.getByRole('heading', { name: 'Events', exact: true })).toBeVisible();
+  await expect(panel.getByRole('link', { name: 'Harbour storm', exact: true })).toBeVisible();
+  await expect(panel.getByText('No Facts dated here.', { exact: true })).toBeVisible();
+  await expect(panel.getByRole('heading', { name: 'Recurring', exact: true })).toBeVisible();
+  await expect(panel.getByText('Nothing recurs on this day.', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: '18 Quirm 3286', exact: true }).click();
+  await expect(panel.getByRole('link', { name: /Harbour feast/ })).toBeVisible();
+});
+
+test('an Event says which Sessions presented it in a played Scene', async ({ browser }) => {
+  const world = await buildWorld();
+  const events = await ok(
+    world.api.GET('/tenants/{tenant_id}/events', {
+      params: { path: { tenant_id: world.tenantId }, query: { q: 'Harbour storm' } },
+    }),
+  );
+  const storm = events.items[0];
+  expect(storm).toBeDefined();
+  const campaign = await ok(
+    world.api.POST('/tenants/{tenant_id}/campaigns', {
+      params: { path: { tenant_id: world.tenantId } },
+      body: {
+        name: 'The harbour job',
+        slug: 'the-harbour-job',
+        description: '',
+        game_system: 'test',
+        secret: false,
+      },
+    }),
+  );
+  await ok(
+    world.api.PUT('/tenants/{tenant_id}/campaigns/{campaign_id}/gms/{user_id}', {
+      params: {
+        path: { tenant_id: world.tenantId, campaign_id: campaign.id, user_id: world.ownerId },
+      },
+    }),
+  );
+  const session = await ok(
+    world.api.POST('/tenants/{tenant_id}/sessions', {
+      params: { path: { tenant_id: world.tenantId } },
+      body: { name: 'The blackout', campaign_id: campaign.id, start_period_id: null },
+    }),
+  );
+  const scene = await ok(
+    world.api.POST('/tenants/{tenant_id}/scenes', {
+      params: { path: { tenant_id: world.tenantId } },
+      body: { name: 'The lamps go out', is_public: false },
+    }),
+  );
+  const fresh = await world.api.GET('/tenants/{tenant_id}/sessions/{session_id}', {
+    params: { path: { tenant_id: world.tenantId, session_id: session.id } },
+  });
+  const played = await ok(
+    world.api.POST('/tenants/{tenant_id}/sessions/{session_id}/scenes', {
+      params: {
+        path: { tenant_id: world.tenantId, session_id: session.id },
+        header: { 'if-match': fresh.response.headers.get('etag') ?? '' },
+      },
+      body: {
+        scene_entity_id:
+          (scene as { entity_id?: string; id?: string }).entity_id ?? (scene as { id: string }).id,
+        is_shared: false,
+      },
+    }),
+  );
+  const appearance = played.scenes[0];
+  const again = await world.api.GET('/tenants/{tenant_id}/sessions/{session_id}', {
+    params: { path: { tenant_id: world.tenantId, session_id: session.id } },
+  });
+  await ok(
+    world.api.POST(
+      '/tenants/{tenant_id}/sessions/{session_id}/scenes/{appearance_id}/presentations',
+      {
+        params: {
+          path: {
+            tenant_id: world.tenantId,
+            session_id: session.id,
+            appearance_id: appearance?.id ?? '',
+          },
+          header: { 'if-match': again.response.headers.get('etag') ?? '' },
+        },
+        body: { event_id: storm?.entity_id ?? '', is_shared: false },
+      },
+    ),
+  );
+  const page = await signedIn(browser, world.subject);
+  await page.goto(`/entry/?tenant=${world.tenantId}&id=${storm?.entity_id}`);
+  const card = page.locator('section.card', { hasText: 'Where it was presented' });
+  await expect(card.getByRole('link', { name: 'The blackout', exact: true })).toHaveAttribute(
+    'href',
+    /\/session\/\?tenant=.*&id=/,
+  );
+  await expect(card).toContainText('The lamps go out');
+  // An Event no Scene presented says nothing of the kind.
+  const other = events.items.find((e) => e.entity_id !== storm?.entity_id);
+  if (other) {
+    await page.goto(`/entry/?tenant=${world.tenantId}&id=${other.entity_id}`);
+    await expect(page.getByText('Where it was presented', { exact: true })).toHaveCount(0);
+  }
+});
+
+test('a visitor who is not signed in can still choose the appearance, from the palette', async ({
+  browser,
+}) => {
+  const page = await (await browser.newContext()).newPage();
+  await page.goto('/');
+  await page.getByRole('button', { name: /Search or go anywhere/ }).click();
+  await page.getByRole('option', { name: /Change theme/ }).click();
+  const dialog = page.getByRole('dialog', { name: 'Appearance' });
+  await dialog
+    .getByRole('radiogroup', { name: 'Theme' })
+    .getByRole('radio', { name: 'Dark' })
+    .click();
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+  await dialog.getByRole('button', { name: 'Done' }).click();
+  await page.reload();
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
 });

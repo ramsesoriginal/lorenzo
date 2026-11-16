@@ -37,7 +37,7 @@ from lorenzo_api.repository_releases import (
     release_notice,
     set_current_release,
 )
-from lorenzo_api.repository_upstream import is_public
+from lorenzo_api.repository_upstream import reads_through_release, visibility_of
 from lorenzo_api.schemas.repositories import PublishRequest
 
 __all__ = ["Published", "publish_release"]
@@ -46,7 +46,7 @@ __all__ = ["Published", "publish_release"]
 @dataclass(frozen=True)
 class Published:
     release: RepositoryRelease
-    # Whether a document was written for it: the repository is public.
+    # Whether a document was written for it: the repository is public or protected.
     public: bool
     # Whether it had been published before.
     was_published: bool
@@ -104,16 +104,16 @@ async def publish_release(
 ) -> Published:
     """Makes the repository's next release and everything it carries: `409` for an entry of a
     kind no round trip proves, for the label, for breaking changes not acknowledged, and, for a
-    public repository, `409 built-on-behind` while a repository it is built on has a release it
-    has not taken (ADR 0289). Then the released rows, the document and its files if the
-    repository is public, the pointer to the release, retention, the log, and the notice to every
-    library it is granted to. `flipped` says the repository was made public by this publish, which
-    the notice says."""
+    public or protected repository, `409 built-on-behind` while a repository it is built on has a
+    release it has not taken (ADR 0289). Then the released rows, the document and its files if the
+    repository is public or protected, the pointer to the release, retention, the log, and the
+    notice to every library it is granted to. `flipped` says the repository was made public or
+    protected by this publish, which the notice says."""
     tenant_id = repository.id
     was_published = repository.published_at is not None
     await lock_repository(session, tenant_id)
-    public = await is_public(session, tenant_id)
-    if public and not flipped:
+    documented = await reads_through_release(session, tenant_id)
+    if documented and not flipped:
         await refuse_inside_cooldown(session, tenant_id)
     assessed = await assess(session, tenant_id)
     assert_acyclic(assessed.content.location_parts)
@@ -125,7 +125,7 @@ async def publish_release(
                 for e in assessed.unproven_kinds
             ],
         )
-    if public:
+    if documented:
         behind = await built_on_behind(session, tenant_id)
         if behind:
             raise BuiltOnBehindError(
@@ -134,12 +134,13 @@ async def publish_release(
                 + ", ".join(b.name for b in behind),
                 repositories=[b.as_json() for b in behind],
             )
-    if assessed.hits and not body.acknowledge_breaking:
+    if (assessed.hits or assessed.inclusion_changes) and not body.acknowledge_breaking:
         raise ReleaseHasBreakingChangesError(
-            detail=f"{len(assessed.hits)} of the changes in this release break what libraries "
-            "built on this repository hold. Look at them, then publish again, saying you "
-            "acknowledge it.",
+            detail=f"{len(assessed.hits) + len(assessed.inclusion_changes)} of the changes in this "
+            "release break what libraries built on this repository hold. Look at them, then "
+            "publish again, saying you acknowledge it.",
             breaking_rows=[b.as_json() for b in assessed.hits],
+            inclusion_changes=[c.as_json() for c in assessed.inclusion_changes],
         )
     release = await make_release(
         session,
@@ -147,22 +148,24 @@ async def publish_release(
         user_id=user_id,
         label=body.label,
         notes=body.notes,
-        breaking=body.breaking or bool(assessed.hits),
+        breaking=body.breaking or bool(assessed.hits) or bool(assessed.inclusion_changes),
         digest=assessed.digest,
         counts=assessed.counts,
         breaking_rows=[b.as_json() for b in assessed.hits],
         warning_rows=[b.as_json() for b in assessed.warnings],
     )
     await replace_stored_rows(session, tenant_id, assessed.live.values())
-    if public:
-        # What a library reads of a public repository, written from the load the digest was
-        # made from, so the two cannot disagree (ADR 0286).
+    if documented:
+        # What a library reads of a public or protected repository, written from the load the
+        # digest was made from, so the two cannot disagree (ADR 0286).
         await store_release_document(
             session, tenant_id=tenant_id, release_id=release.id, content=assessed.content
         )
     await set_current_release(session, repository, release.id)
-    await set_listing_facts(session, tenant_id, release=release, content=assessed.content)
-    if public:
+    await set_listing_facts(
+        session, tenant_id, release=release, content=assessed.content, documented=documented
+    )
+    if documented:
         await prune_release_documents(
             session,
             tenant_id=tenant_id,
@@ -203,6 +206,7 @@ async def publish_release(
         release=release,
         first=not was_published,
         flipped=flipped,
+        protected=await visibility_of(session, tenant_id) == "protected",
     )
     await announce(
         session,
@@ -214,4 +218,4 @@ async def publish_release(
         created_by=user_id,
         recipients=subscribers,
     )
-    return Published(release, public, was_published)
+    return Published(release, documented, was_published)

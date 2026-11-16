@@ -1,7 +1,7 @@
 import uuid
 
 from fastapi import APIRouter
-from fastapi.responses import RedirectResponse, Response
+from fastapi.responses import Response
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -14,10 +14,8 @@ from lorenzo_api.models import (
     Tenant,
     TenantKind,
     TenantProfilePicture,
-    User,
     UserProfilePicture,
 )
-from lorenzo_api.profile_pictures import gravatar_url
 
 # Deliberately its own router, with no router-level auth dependency and no
 # CurrentUser on any route below - see ADR 0056. `routers/campaigns.py`'s
@@ -33,11 +31,10 @@ router = APIRouter(tags=["pictures"])
 
 @router.get("/users/{user_id}/picture")
 async def get_user_picture(user_id: uuid.UUID, session: SessionDep) -> Response:
-    """No auth - see module docstring. Falls back to a computed Gravatar
-    URL (302, not 301 - so a later custom upload isn't cached past) when
-    the user has no upload but does have a verified email; 404 only when
-    neither exists. `user_profile_picture` carries no RLS (ADR 0056), so no
-    `set_tenant_rls_context` call is needed here, unlike the tenant/
+    """No auth - see module docstring. The uploaded picture, or a copy kept once from Gravatar
+    when the account's email was first cached (ADR 0439); 404 when the account has neither. No
+    redirect to a third party: a browser never talks to Gravatar. `user_profile_picture` carries
+    no RLS (ADR 0056), so no `set_tenant_rls_context` call is needed here, unlike the tenant/
     campaign routes below.
     """
     link = await session.get(UserProfilePicture, user_id)
@@ -45,9 +42,6 @@ async def get_user_picture(user_id: uuid.UUID, session: SessionDep) -> Response:
         picture = await session.get_one(ProfilePicture, link.profile_picture_id)
         return Response(content=picture.data, media_type=picture.file_type)
 
-    user = await session.get(User, user_id)
-    if user is not None and user.email is not None:
-        return RedirectResponse(gravatar_url(user.email), status_code=302)
     raise ProfilePictureNotFoundError(detail=f"No profile picture for user {user_id}")
 
 

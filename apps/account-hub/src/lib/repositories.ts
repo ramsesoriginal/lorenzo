@@ -5,6 +5,7 @@
 import { fetchAllPages, LorenzoApiError, MAX_PAGE_SIZE } from '@lorenzo/api-client';
 import { client, pictureUpload, unwrap } from './api';
 import { cached } from './cache';
+import type { Inclusion } from './inclusion';
 import { fetchPictureUrl } from './pictureFetch';
 import type {
   ApplyUpdatesOut,
@@ -14,7 +15,10 @@ import type {
   CopyRequest,
   DeprecatedOut,
   FlipCheckOut,
+  InclusionOut,
   MadePrivateOut,
+  MadeProtectedOut,
+  MakeProtectedRequest,
   MakePublicRequest,
   MemberProfileOut,
   Page,
@@ -358,6 +362,22 @@ export async function makePublic(repositoryId: string, body: MakePublicRequest):
   );
 }
 
+// Makes it protected (ADR 0434): a private repository with its first release, in one step; a public one
+// without a release, leaving Discover. A library reads it only as a step of the copy of a public
+// repository built on it. Refused, with the number of libraries that copied it by themselves, until
+// the body says `acknowledge_revokes`. An Owner's.
+export async function makeProtected(
+  repositoryId: string,
+  body: MakeProtectedRequest,
+): Promise<MadeProtectedOut> {
+  return unwrap(
+    await client.PUT('/tenants/{tenant_id}/protected', {
+      params: { path: { tenant_id: repositoryId } },
+      body,
+    }),
+  );
+}
+
 // Makes it private again: the libraries that copied it by themselves lose its updates and keep what
 // they copied. Refused, with their number, until `acknowledgeRevokes`. An Owner's.
 export async function makePrivate(
@@ -370,6 +390,24 @@ export async function makePrivate(
         path: { tenant_id: repositoryId },
         query: { acknowledge_revokes: acknowledgeRevokes },
       },
+    }),
+  );
+}
+
+// How this repository carries one it is built on when it releases (ADR 0431): `include` makes its
+// entries this repository's own in the release, `show` keeps it a repository of its own and `hide` one whose
+// entries the libraries hold and do not see (ADR 0437). An Owner's; `include` is refused (`409
+// repository-not-includable`) unless the Owner may include it, as `show` and `hide` are by its terms. The
+// answer says whether the next release is breaking for it.
+export async function setInclusion(
+  repositoryId: string,
+  sourceId: string,
+  inclusion: Inclusion,
+): Promise<InclusionOut> {
+  return unwrap(
+    await client.PUT('/tenants/{tenant_id}/repositories/{repository_id}/inclusion', {
+      params: { path: { tenant_id: repositoryId, repository_id: sourceId } },
+      body: { inclusion },
     }),
   );
 }

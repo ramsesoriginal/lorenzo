@@ -26,7 +26,9 @@ class RepositorySubscription(Base):
             "repository_tenant_id <> subscriber_tenant_id",
             name="repository_subscription_not_self",
         ),
-        CheckConstraint("source IN ('invited', 'public')", name="repository_subscription_source"),
+        CheckConstraint(
+            "source IN ('invited', 'public', 'protected')", name="repository_subscription_source"
+        ),
     )
 
     repository_tenant_id: Mapped[uuid.UUID] = mapped_column(

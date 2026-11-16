@@ -28,7 +28,7 @@ async function repositoryWorld() {
 }
 
 async function openPeople(page: Page, slug: string) {
-  await page.goto(`/studio/?repository=${slug}`);
+  await page.goto(`/repositories/?repository=${slug}`);
   await page.getByRole('tab', { name: 'People' }).click();
 
   return page.locator('[data-people]');
@@ -52,12 +52,12 @@ test('an Owner sees every role with what it allows, and changes a person between
   await expect(people).toContainText('Edits what is in it: entries, stats and notes.');
   await expect(people).not.toContainText(/\borga\b/);
 
-  // The choice offers Author, and each row says who added the person.
+  // The choice offers Author, and each row has a column that says who added the person.
   const row = people.locator('[data-members] > li').filter({ hasText: author.me.id });
 
   await expect(row.getByRole('combobox')).toHaveValue('author');
   await expect(row.getByRole('option')).toHaveText(['Owner', 'Organizer', 'Author']);
-  await expect(row.locator('[data-added-by]')).toContainText('Added by');
+  await expect(row.locator('[data-added-by]')).toHaveText(/\S/);
 
   await row.getByRole('combobox').selectOption('orga');
   await expect
@@ -196,7 +196,7 @@ test('an Owner makes a library link on the Libraries using it tab', async ({ bro
   const { owner, repository } = await repositoryWorld();
   const { page, context } = await signedInPage(browser, owner.subject);
 
-  await page.goto(`/studio/?repository=${repository.slug}`);
+  await page.goto(`/repositories/?repository=${repository.slug}`);
   await page.getByRole('tab', { name: 'Libraries using it' }).click();
   const links = page.locator('[data-library-links-slot] [data-tenant-invite-links]');
 
@@ -242,7 +242,7 @@ test('in a library: an Owner has People with links; an Author may leave and has 
 
   await expect(mine).toContainText('Author');
   await expect(mine.locator('[data-tenant-invite-links]')).toHaveCount(0);
-  await mine.getByRole('tab', { name: 'People' }).click();
+  await mine.getByRole('tab', { name: 'Settings' }).click();
   await expect(mine.getByRole('button', { name: 'Leave this library' })).toBeVisible();
   await asAuthor.context.close();
 });

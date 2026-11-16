@@ -1,0 +1,12 @@
+---
+import Base from '../../layouts/Base.astro';
+---
+
+<Base title="Web — Lorenzo Social">
+  <div id="social-web" class="stack"></div>
+  <script>
+    import '@lorenzo/graph-renderer/graph.css';
+    import { mountWeb } from '../../lib/web-view';
+    document.addEventListener('astro:page-load', () => void mountWeb());
+  </script>
+</Base>

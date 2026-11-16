@@ -2,6 +2,7 @@
 // one. A token exists exactly once, in the response to creating a link; the panel shows the whole
 // link then and nowhere else.
 
+import { askFirst } from '../../lib/askFirst';
 import { GM_WORDS } from '../../lib/gmTitle';
 import {
   EXPIRY_PRESETS,
@@ -68,7 +69,8 @@ function inviteRow(
     rowStatus.remove();
   } else {
     revoke.addEventListener('click', async () => {
-      if (!window.confirm(revokeConfirmation())) return;
+      if (!(await askFirst(revokeConfirmation(), { confirm: 'Revoke link', cancel: 'Keep it' })))
+        return;
 
       revoke.disabled = true;
       say(rowStatus, 'Revoking…');

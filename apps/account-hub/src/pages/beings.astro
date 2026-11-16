@@ -1,23 +1,28 @@
 ---
-import BeingsPanel from '../components/BeingsPanel/BeingsPanel.astro';
+// Beings has its own app (ADR 0270, ADR 0428: the hub no longer lists beings). This page is for the
+// old address: it sends the visitor on, with the query, to where the registry says Beings is.
 import Base from '../layouts/Base.astro';
 ---
 
 <Base title="Beings — Lorenzo">
   <h1 class="display">Beings</h1>
-
   <p id="loading">Loading&hellip;</p>
   <p id="load-error" class="error-text" hidden></p>
-
-  <BeingsPanel />
+  <p data-moved hidden>
+    Beings has its own app now. Open it from <strong>Apps and about</strong> at the bottom of the
+    page.
+  </p>
 
   <script>
-    import { renderBeingsPanel } from '../components/BeingsPanel/renderer';
-    import { runPage } from '../lib/pageLoad';
-    import { requiredIn } from '../lib/template';
+    import { beingsBaseUrl } from '../lib/appLinks';
 
-    const panel = requiredIn('Beings')<HTMLElement>(document, '[data-beings-panel]');
+    const base = await beingsBaseUrl();
 
-    await runPage(() => renderBeingsPanel(panel));
+    if (base) {
+      window.location.replace(`${base}/beings/${window.location.search}`);
+    } else {
+      document.getElementById('loading')!.hidden = true;
+      document.querySelector<HTMLElement>('[data-moved]')!.hidden = false;
+    }
   </script>
 </Base>

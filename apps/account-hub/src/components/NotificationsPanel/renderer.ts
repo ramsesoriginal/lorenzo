@@ -3,11 +3,13 @@
 // No server push exists yet (see ADR 0071/RFC 0013) - the interval is a deliberately simple,
 // honest "pull", paused while the tab isn't visible so it doesn't poll a backgrounded page forever.
 
+import { pageState } from '@lorenzo/app-shell';
 import { onCacheRefreshed } from '../../lib/cache';
+import { BRANDING_CSS_URL } from '../../lib/config';
 import { bindOpensToBody } from '../../lib/disclosure';
-import { countUnread } from '../../lib/format';
 import { listNotifications, markNotificationRead } from '../../lib/notifications';
-import { formatTimestamp } from '../../lib/relativeTime';
+import { emptyWords, unreadIds, unreadSummary } from '../../lib/notificationsView';
+import { formatTimestamp, relativeTime } from '../../lib/relativeTime';
 import { say, sayError } from '../../lib/statusLine';
 import { cloneRoot, requiredIn } from '../../lib/template';
 import type { Notification } from '../../lib/types';
@@ -22,7 +24,9 @@ const POLL_INTERVAL_MS = 30_000;
 export async function renderNotificationsPanel(root: HTMLElement): Promise<void> {
   const error = required<HTMLElement>(root, '[data-error]');
   const summary = required<HTMLElement>(root, '[data-summary]');
-  const unreadOnly = required<HTMLInputElement>(root, '[data-unread-only]');
+  const filters = [...root.querySelectorAll<HTMLButtonElement>('[data-filter]')];
+  const markAll = required<HTMLButtonElement>(root, '[data-mark-all]');
+  let unreadOnly = false;
   const empty = required<HTMLElement>(root, '[data-empty]');
   const list = required<HTMLElement>(root, '[data-list]');
 
@@ -37,7 +41,12 @@ export async function renderNotificationsPanel(root: HTMLElement): Promise<void>
     required<HTMLElement>(row, '[data-body]').textContent = notification.body;
     required<HTMLElement>(row, '[data-meta]').textContent =
       `${notification.scope}/${notification.type} · ${formatTimestamp(notification.created_at)}`;
-    required<HTMLElement>(row, '[data-unread-badge]').hidden = !unread;
+    const when = required<HTMLElement>(row, '[data-when]');
+
+    when.textContent = relativeTime(notification.created_at);
+    when.title = formatTimestamp(notification.created_at);
+    required<HTMLElement>(row, '[data-dot]').hidden = !unread;
+    required<HTMLElement>(row, '[data-unread-word]').hidden = !unread;
 
     // Opens to its text; one without any has nothing to open to.
     bindOpensToBody(
@@ -62,24 +71,30 @@ export async function renderNotificationsPanel(root: HTMLElement): Promise<void>
     return row;
   }
 
+  let unread = 0;
+
   // Only the newest load paints: a poll, a refresh and the checkbox can overlap.
   let latest = 0;
 
   async function load(force = false): Promise<void> {
     const turn = ++latest;
-    const page = await listNotifications(unreadOnly.checked, { force });
+    const page = await listNotifications(unreadOnly, { force });
 
     if (turn !== latest) return;
 
     list.replaceChildren(...page.items.map(renderNotification));
     empty.hidden = page.items.length > 0;
-    error.hidden = true;
-    say(
-      summary,
-      unreadOnly.checked
-        ? `${page.items.length} unread`
-        : `${countUnread(page.items)} unread of ${page.items.length} shown`,
+    // Nothing to read: a page state with the mascot, in words either way.
+    empty.replaceChildren(
+      ...(page.items.length === 0
+        ? [pageState(BRANDING_CSS_URL, { art: 'caught-up', level: 2, ...emptyWords(unreadOnly) })]
+        : []),
     );
+    error.hidden = true;
+    unread = unreadIds(page.items).length;
+    markAll.disabled = unread === 0;
+    // The count the page was asked for: of the unread view, all of it; of everything, what is shown.
+    say(summary, unreadSummary(unread));
   }
 
   // After the first: a failure is said in place. Asked of the API, not the cache.
@@ -91,8 +106,27 @@ export async function renderNotificationsPanel(root: HTMLElement): Promise<void>
     }
   }
 
-  required<HTMLElement>(root, '[data-refresh]').addEventListener('click', () => void reload());
-  unreadOnly.addEventListener('change', () => void reload());
+  for (const filter of filters) {
+    filter.addEventListener('click', () => {
+      unreadOnly = filter.dataset.filter === 'unread';
+      for (const other of filters) other.setAttribute('aria-checked', String(other === filter));
+      void reload();
+    });
+  }
+
+  // Every one still unread, read at once; the bell is asked again once, at the end.
+  markAll.addEventListener('click', async () => {
+    markAll.disabled = true;
+    try {
+      const page = await listNotifications(false, { force: true });
+
+      await Promise.all(unreadIds(page.items).map((id) => markNotificationRead(id)));
+      await load(true);
+    } catch (cause) {
+      markAll.disabled = false;
+      sayError(error, cause);
+    }
+  });
   bindSent(root, error);
 
   // What was shown came from the cache, and the API has something different.

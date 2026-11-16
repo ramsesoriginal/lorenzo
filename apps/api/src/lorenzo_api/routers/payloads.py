@@ -5,7 +5,7 @@ from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, Header
 from fastapi.responses import Response
-from sqlalchemy import select
+from sqlalchemy import exists, select
 from sqlalchemy.orm import selectinload
 
 from lorenzo_api.activity_log import record_activity
@@ -17,6 +17,8 @@ from lorenzo_api.dependencies import (
     set_tenant_rls_context,
 )
 from lorenzo_api.description_payloads import write_description
+from lorenzo_api.entity_access import prototype_descendants_cte
+from lorenzo_api.entry_visibility import visible_entry_clause
 from lorenzo_api.etag import check_if_match, etag_for, matches_if_none_match
 from lorenzo_api.exceptions import (
     PayloadContentNotFoundError,
@@ -26,9 +28,9 @@ from lorenzo_api.exceptions import (
     PayloadPreconditionRequiredError,
 )
 from lorenzo_api.information_bundles import touch_bundle
-from lorenzo_api.information_visibility import resolve_information_visibility
+from lorenzo_api.information_visibility import InformationVisibility, resolve_information_visibility
 from lorenzo_api.learning import require_no_learning
-from lorenzo_api.models import Information, Payload
+from lorenzo_api.models import Entity, Information, Payload
 from lorenzo_api.routers.entities import authorize_information_edit
 from lorenzo_api.routers.information import locked_information
 from lorenzo_api.schemas.payloads import (
@@ -56,6 +58,35 @@ def _content_disposition(disposition_type: str, filename: str) -> str:
     if quoted != filename:
         return f"{disposition_type}; filename*=utf-8''{quoted}"
     return f'{disposition_type}; filename="{filename}"'
+
+
+async def _inherited_from_hidden(
+    session: SessionDep, visibility: InformationVisibility, information: Information
+) -> bool:
+    """Whether the payload is a text or picture that an entry the repository it came with hides
+    gives to an entry the reader can see (ADR 0437): the hidden entry is not named, listed or
+    opened, and what it gives to the entries below it reaches the reader as theirs, the bytes of a
+    picture included. Only a description's, which is all an entry gives down (ADR 0111), and only
+    where an audience lets the reader read it and an entry they can see has the hidden one among
+    its ancestors."""
+    if (
+        information.type not in ("description", "main_picture")
+        or not visibility.is_hidden_by_source(information.entity_id)
+        or not visibility.can_see_inherited(information)
+    ):
+        return False
+    heirs = prototype_descendants_cte(information.entity_id, information.tenant_id)
+    return bool(
+        await session.scalar(
+            select(
+                exists().where(
+                    Entity.tenant_id == information.tenant_id,
+                    Entity.id.in_(select(heirs.c.descendant_id)),
+                    visible_entry_clause(visibility, Entity.id),
+                )
+            )
+        )
+    )
 
 
 @router.get(
@@ -97,7 +128,9 @@ async def get_payload_content(
         raise PayloadNotFoundError(detail=f"No payload with id {payload_id} in tenant {tenant_id}")
 
     visibility = await resolve_information_visibility(session, user_id=user.id, tenant_id=tenant_id)
-    if not visibility.can_see(payload.information):
+    if not visibility.can_see(payload.information) and not await _inherited_from_hidden(
+        session, visibility, payload.information
+    ):
         raise PayloadNotFoundError(detail=f"No payload with id {payload_id} in tenant {tenant_id}")
 
     if payload.picture is not None:

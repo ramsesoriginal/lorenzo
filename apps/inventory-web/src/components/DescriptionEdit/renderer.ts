@@ -7,6 +7,7 @@ import { at, type Renderer } from '../../lib/descriptions';
 import { errorMessage } from '../../lib/errorMessage';
 import { descriptionDraft, getDescription, saveDescription } from '../../lib/information';
 import { requiredIn } from '../../lib/template';
+import { hasOwnText } from '../../lib/textSources';
 import type { ItemBase } from '../../lib/types';
 import { renderInfoForm } from '../InfoForm/renderer';
 
@@ -39,7 +40,7 @@ export function renderDescriptionEdit(options: DescriptionEditOptions): Rendered
   function showAudience() {
     audience?.remove();
     audience = null;
-    if (!item?.descriptions.some((description) => !description.from_entity)) return;
+    if (!item || !hasOwnText(item.descriptions)) return;
     audience = renderAudienceControl({
       client,
       tenantId,
@@ -98,7 +99,7 @@ export function renderDescriptionEdit(options: DescriptionEditOptions): Rendered
     show(shown) {
       item = shown;
       showAudience();
-      edit.textContent = shown.descriptions.some((description) => !description.from_entity)
+      edit.textContent = hasOwnText(shown.descriptions)
         ? 'Edit description'
         : 'Write a description';
     },

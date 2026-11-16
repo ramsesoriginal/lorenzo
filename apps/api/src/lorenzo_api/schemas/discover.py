@@ -47,6 +47,8 @@ class DiscoverItemOut(BaseModel):
     summary: str
     tags: list[str]
     system: str | None
+    # The game systems its current release carries (ADR 0453), by slug.
+    systems: list[str] = []
     languages: list[str]
     has_cover: bool
     release: DiscoverReleaseOut
