@@ -3,6 +3,7 @@ import AxeBuilder from '@axe-core/playwright';
 import { type Browser, expect, test } from '@playwright/test';
 import { apiAs, ok, refreshTokenFor } from './support/api.ts';
 import { REFRESH_TOKEN_KEY, SITE_URL } from './support/env.ts';
+import { openPanel } from './support/map-ui.ts';
 
 async function signedIn(browser: Browser, subject: string, theme?: 'light' | 'dark') {
   const token = await refreshTokenFor(subject);
@@ -163,6 +164,7 @@ test('a Map says where a place leads, with the other Maps it is on', async ({ br
   try {
     await page.goto(`/map/?tenant=${w.tenant.id}&id=${west.id}`);
     await expect(page.getByRole('heading', { name: 'Western Map', exact: true })).toBeVisible();
+    await openPanel(page, 'Places');
     await page.locator('.map-place', { hasText: 'Gate' }).click();
     const panel = page.locator('.map-panel');
     await expect(panel.getByRole('heading', { name: 'Leads to' })).toBeVisible();
@@ -171,6 +173,7 @@ test('a Map says where a place leads, with the other Maps it is on', async ({ br
     // A place with no connection says nothing of the kind.
     await w.draw(west.id, (await w.place('Hermitage')).id, [400, 400]);
     await page.reload();
+    await openPanel(page, 'Places');
     await page.locator('.map-place', { hasText: 'Hermitage' }).click();
     await expect(panel.getByRole('heading', { name: 'Leads to' })).toHaveCount(0);
   } finally {
@@ -212,6 +215,7 @@ for (const theme of ['light', 'dark'] as const) {
       const section = await new AxeBuilder({ page }).exclude('.shell-bottom').analyze();
       expect(section.violations.map((v) => `${v.id}: ${v.nodes[0]?.html}`)).toEqual([]);
       await page.goto(`/map/?tenant=${w.tenant.id}&id=${west.id}`);
+      await openPanel(page, 'Places');
       await page.locator('.map-place', { hasText: 'Hollowmere' }).click();
       await expect(page.getByRole('heading', { name: 'Leads to' })).toBeVisible();
       const panel = await new AxeBuilder({ page }).exclude('.shell-bottom').analyze();

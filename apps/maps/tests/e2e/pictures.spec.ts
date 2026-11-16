@@ -4,6 +4,7 @@ import AxeBuilder from '@axe-core/playwright';
 import { type Browser, expect, type Page, test } from '@playwright/test';
 import { apiAs, ok, refreshTokenFor } from './support/api.ts';
 import { REFRESH_TOKEN_KEY, SITE_URL } from './support/env.ts';
+import { openControl, openPanel } from './support/map-ui.ts';
 
 async function signedIn(browser: Browser, subject: string, theme?: 'light' | 'dark') {
   const token = await refreshTokenFor(subject);
@@ -148,6 +149,7 @@ test('a writer adds a picture, sets it by two points, orders two and reviews a r
   const page = await signedIn(browser, w.subject);
   try {
     await page.goto(`/map/?tenant=${w.tenant.id}&id=${chart.id}`);
+    await openPanel(page, 'Settings');
     await expect(page.getByRole('heading', { name: 'Coast', exact: true })).toBeVisible();
     await expect(pictures(page)).toHaveCount(0);
     await addPicture(
@@ -165,7 +167,8 @@ test('a writer adds a picture, sets it by two points, orders two and reviews a r
       content_type: 'image/png',
       needs_review: false,
     });
-    await expect(page.getByLabel('Pictures', { exact: true })).toBeChecked();
+    await openControl(page, 'Layers');
+    await expect(page.getByRole('checkbox', { name: 'Pictures', exact: true })).toBeChecked();
 
     // Fit the sheet first: the picture is square, the sheet is 1000 by 800, so it is 800 wide.
     const fitted = await pictures(page).first().getAttribute('transform');
@@ -277,6 +280,7 @@ test('an SVG is a picture when it passes the lint, and a refused one leaves noth
   const page = await signedIn(browser, w.subject);
   try {
     await page.goto(`/map/?tenant=${w.tenant.id}&id=${chart.id}`);
+    await openPanel(page, 'Settings');
     await expect(page.getByRole('heading', { name: 'Coast', exact: true })).toBeVisible();
     await addPicture(page, { name: 'bad.svg', mimeType: 'image/svg+xml', buffer: BAD_SVG }, 'Bad');
     await expect(page.getByText(/element that a picture may not/)).toBeVisible();
@@ -313,6 +317,7 @@ test('a player sees a picture whose Information is open to them, and can hide it
   const gmPage = await signedIn(browser, w.subject);
   try {
     await gmPage.goto(`/map/?tenant=${w.tenant.id}&id=${chart.id}`);
+    await openPanel(gmPage, 'Settings');
     await addPicture(
       gmPage,
       { name: 'open.png', mimeType: 'image/png', buffer: png(1, 2, 3) },
@@ -336,7 +341,8 @@ test('a player sees a picture whose Information is open to them, and can hide it
     await expect(page.getByRole('heading', { name: 'Coast', exact: true })).toBeVisible();
     // Only the open one is read; the other is not even said to exist.
     await expect(pictures(page)).toHaveCount(1);
-    const toggle = page.getByLabel('Pictures', { exact: true });
+    await openControl(page, 'Layers');
+    const toggle = page.getByRole('checkbox', { name: 'Pictures', exact: true });
     await expect(toggle).toBeChecked();
     await toggle.uncheck();
     await expect(pictures(page)).toHaveCount(0);
@@ -359,6 +365,7 @@ test('a sphere offers no pictures', async ({ browser }) => {
   try {
     await page.goto(`/map/?tenant=${w.tenant.id}&id=${chart.id}`);
     await expect(page.getByRole('heading', { name: 'Aeris', exact: true })).toBeVisible();
+    await openPanel(page, 'Settings');
     await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Pictures' })).toHaveCount(0);
   } finally {
@@ -375,6 +382,7 @@ for (const theme of ['light', 'dark'] as const) {
     const page = await signedIn(browser, w.subject, theme);
     try {
       await page.goto(`/map/?tenant=${w.tenant.id}&id=${chart.id}`);
+      await openPanel(page, 'Settings');
       await expect(page.getByRole('heading', { name: 'Coast', exact: true })).toBeVisible();
       await addPicture(
         page,

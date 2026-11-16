@@ -4,6 +4,7 @@ import { cellAt, cellCentre, type GridSpec } from '@lorenzo/map-renderer';
 import { type Browser, expect, type Page, test } from '@playwright/test';
 import { apiAs, ok, refreshTokenFor } from './support/api.ts';
 import { REFRESH_TOKEN_KEY, SITE_URL } from './support/env.ts';
+import { openControl, openPanel } from './support/map-ui.ts';
 
 async function signedIn(browser: Browser, subject: string, theme?: 'light' | 'dark') {
   const token = await refreshTokenFor(subject);
@@ -204,7 +205,7 @@ test('on a grid the pointer says its cell, a pin snaps to a cell and the Cells t
     expect(Math.abs(pinned[0] - centre[0])).toBeLessThan(0.011);
     expect(Math.abs(pinned[1] - centre[1])).toBeLessThan(0.011);
     // A selected pin says its cell.
-    await expect(page.getByText(/In cell: Column \d+, row \d+/)).toBeVisible();
+    await expect(page.locator('.map-panel')).toContainText(/In cell: Column \d+, row \d+/);
 
     // The Cells tool: a region of three hexes.
     await page.getByRole('button', { name: 'Cells', exact: true }).click();
@@ -214,9 +215,9 @@ test('on a grid the pointer says its cell, a pin snaps to a cell and the Cells t
       .getByRole('button', { name: /^Marsh location$/ })
       .click();
     for (const [x, y] of [
-      [0.2, 0.3],
-      [0.3, 0.3],
-      [0.25, 0.4],
+      [0.45, 0.3],
+      [0.55, 0.3],
+      [0.5, 0.4],
     ] as const) {
       await clickSheet(page, x, y);
     }
@@ -274,6 +275,7 @@ test('a plane draws a grid over itself, a hex Map under places refuses to turn i
     await page.goto(`/map/?tenant=${w.tenant.id}&id=${plane.id}`);
     await expect(page.getByRole('heading', { name: 'Plain sheet', exact: true })).toBeVisible();
     await expect(gridPaths(page)).toHaveCount(0);
+    await openPanel(page, 'Settings');
     await page.getByLabel('Draw a grid over it').check();
     await page.getByRole('combobox', { name: 'The grid is' }).selectOption('square');
     await page.getByLabel('Cell size').filter({ visible: true }).fill('80');
@@ -287,17 +289,21 @@ test('a plane draws a grid over itself, a hex Map under places refuses to turn i
     );
     expect(header.view).toEqual({ grid: { kind: 'square', cell: { size: 80 } } });
     // The Grid switch hides it.
-    await page.getByLabel('Grid', { exact: true }).uncheck();
+    await openControl(page, 'Layers');
+    await page.getByRole('checkbox', { name: 'Grid', exact: true }).uncheck();
     await expect(gridPaths(page)).toHaveCount(0);
 
     // Turning the hexes under a place is refused, and the form keeps what was typed.
     await page.goto(`/map/?tenant=${w.tenant.id}&id=${hexes.id}`);
     await expect(page.getByRole('heading', { name: 'Hex sheet', exact: true })).toBeVisible();
+    await openPanel(page, 'Settings');
     await page.getByRole('combobox', { name: 'Hexes are' }).selectOption('flat');
     await page.getByRole('button', { name: 'Save settings' }).click();
+    await openPanel(page, 'Settings');
     await expect(page.getByText(/cannot turn its hexes/)).toBeVisible();
     await expect(page.getByRole('combobox', { name: 'Hexes are' })).toHaveValue('flat');
     // A cell of another size is allowed, and said to line up less.
+    await openPanel(page, 'Settings');
     await page.getByRole('combobox', { name: 'Hexes are' }).selectOption('pointy');
     await page.getByLabel('Cell size').filter({ visible: true }).fill('90');
     await page.getByRole('button', { name: 'Save settings' }).click();
@@ -332,7 +338,8 @@ test('a player sees the grid and the cell words and none of the tools', async ({
     await page.goto(`/map/?tenant=${w.tenant.id}&id=${chart.id}`);
     await expect(page.getByRole('heading', { name: 'Squares', exact: true })).toBeVisible();
     await expect(gridPaths(page)).toHaveCount(1);
-    await expect(page.getByLabel('Grid', { exact: true })).toBeChecked();
+    await openControl(page, 'Layers');
+    await expect(page.getByRole('checkbox', { name: 'Grid', exact: true })).toBeChecked();
     const box = await page.locator('.map-stage').boundingBox();
     if (!box) throw new Error('no box');
     await page.mouse.move(box.x + box.width * 0.5, box.y + box.height * 0.5);

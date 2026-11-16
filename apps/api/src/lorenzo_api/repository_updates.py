@@ -22,6 +22,7 @@ from sqlalchemy import delete, func, insert, select, update
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from lorenzo_api import dice
 from lorenzo_api.activity_log import record_activity
 from lorenzo_api.entity_kinds import feature_is_held, inventory_items_inherit
 from lorenzo_api.exceptions import (
@@ -39,6 +40,8 @@ from lorenzo_api.models import (
     ComputedStat,
     ComputedStatComparison,
     ComputedStatContents,
+    ComputedStatDice,
+    ComputedStatDiceValue,
     ComputedStatExtremum,
     ComputedStatExtremumInput,
     ComputedStatLinear,
@@ -402,7 +405,7 @@ class Names:
         return found if isinstance(found, str) and found else None
 
 
-_FORMULA_ROLES = ("source", "left", "right", "numerator", "denominator", "where")
+_FORMULA_ROLES = ("source", "left", "right", "numerator", "denominator", "where", "count", "sides")
 
 
 def _formula_inputs(formula: Any) -> list[str]:
@@ -1502,13 +1505,15 @@ class _Applier:
                     ComputedStat.tenant_id == t,
                 )
             )
-            value_column = _value_column(self.value_types.get(definition))
+            stored: dict[str, Any]
+            if self.value_types.get(definition) is StatValueType.DICE:
+                # The upstream value is the notation; the row holds its parts (RFC 0056).
+                stored = dict(dice.columns(dice.parse(change.upstream)))
+            else:
+                stored = {_value_column(self.value_types.get(definition)): change.upstream}
             await s.execute(
                 insert(EntityStat).values(
-                    entity_id=e,
-                    stat_definition_id=definition,
-                    tenant_id=t,
-                    **{value_column: change.upstream},
+                    entity_id=e, stat_definition_id=definition, tenant_id=t, **stored
                 )
             )
             return True
@@ -1650,6 +1655,25 @@ class _Applier:
                     }
                     for position, (stat, _, constant) in enumerate(operands)
                 ],
+            )
+        elif formula["kind"] == "dice":
+            await s.execute(
+                insert(ComputedStatDice).values(
+                    **keys,
+                    count_stat_definition_id=inputs.get("count"),
+                    count_constant=formula.get("count_constant"),
+                    sides_stat_definition_id=inputs.get("sides"),
+                    sides_constant=formula.get("sides_constant"),
+                )
+            )
+        elif formula["kind"] == "dice_value":
+            await s.execute(
+                insert(ComputedStatDiceValue).values(
+                    **keys,
+                    source_stat_definition_id=inputs["source"],
+                    read_as=formula["as"],
+                    round_mode=formula["round_mode"],
+                )
             )
         elif formula["kind"] == "linear":
             await s.execute(

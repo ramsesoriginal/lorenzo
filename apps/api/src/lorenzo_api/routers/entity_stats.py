@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, Header, Query, Request, Response
 from sqlalchemy import func, select
 from sqlalchemy.orm import selectinload
 
+from lorenzo_api import dice
 from lorenzo_api.campaign_access import (
     campaign_ids_for_character,
     can_author_entry,
@@ -27,6 +28,7 @@ from lorenzo_api.exceptions import (
     ComputedStatConflictError,
     EntityStatManagementForbiddenError,
     EntityStatNotFoundError,
+    InvalidDiceError,
     InvalidStatScaleError,
     InvalidStatValueError,
     InvalidStatValueTypeError,
@@ -57,6 +59,7 @@ from lorenzo_api.schemas.computed_stats import (
     StatExplanationOut,
     formula_body_of,
 )
+from lorenzo_api.schemas.dice import DiceIn, dice_out
 from lorenzo_api.schemas.entities import EntityDetailOut, EntityStatWriteOut, PreviousOwnStat
 from lorenzo_api.schemas.stats import SetEntityStatRequest
 from lorenzo_api.stat_contents import load_contents
@@ -151,8 +154,10 @@ async def _authorize_entity_stat_write(
 
 
 async def _validate_value(
-    session: SessionDep, value: int | str | float | bool, stat_definition: StatDefinition
-) -> None:
+    session: SessionDep,
+    value: int | str | float | bool | DiceIn,
+    stat_definition: StatDefinition,
+) -> int | str | float | bool:
     """Real type-checking at the application level (ADR 0014's own gap:
     entity_stat's CHECK constraint only enforces "exactly one value_* column
     is set," not which one matches stat_definition.value_type). bool is
@@ -162,8 +167,19 @@ async def _validate_value(
     fractional/exponent part, matching this project's existing preference
     for real typed columns over a single untyped one every write has to be
     trusted against. An `enum` stat takes a string that must be one of its
-    allowed values (ADR 0103).
+    allowed values (ADR 0103). A `dice` stat takes its notation or its parts (RFC 0056, ADR 0462),
+    and what comes back is the value to store: for dice its canonical notation, whichever way it
+    was written.
     """
+    if stat_definition.value_type is StatValueType.DICE:
+        return _validate_dice(value, stat_definition)
+    if isinstance(value, DiceIn):
+        raise InvalidStatValueTypeError(
+            detail=(
+                f"Stat {stat_definition.name!r} is declared "
+                f"{stat_definition.value_type.value}, got a dice value"
+            )
+        )
     if isinstance(value, bool):
         actual = StatValueType.BOOL
     elif isinstance(value, int):
@@ -184,7 +200,7 @@ async def _validate_value(
             raise InvalidStatValueError(
                 detail=f"{value!r} is not an allowed value of stat {stat_definition.name!r}"
             )
-        return
+        return value
     if actual is not expected:
         raise InvalidStatValueTypeError(
             detail=(
@@ -193,6 +209,33 @@ async def _validate_value(
             )
         )
     check_scale(value, stat_definition)
+    return value
+
+
+def _validate_dice(
+    value: int | str | float | bool | DiceIn, stat_definition: StatDefinition
+) -> str:
+    """A dice stat's value as its canonical notation: a notation or the parts, within the limits
+    (422 `invalid-dice` naming the part that failed, ADR 0462)."""
+    try:
+        if isinstance(value, DiceIn):
+            drop = value.drop
+            return dice.from_parts(
+                value.count,
+                value.sides,
+                None if drop is None else drop.mode,
+                None if drop is None else drop.count,
+            ).notation
+        if isinstance(value, str):
+            return dice.parse(value).notation
+    except dice.InvalidDice as error:
+        raise InvalidDiceError(detail=f"{error.part}: {error}") from error
+    actual = StatValueType.BOOL if isinstance(value, bool) else StatValueType.INT
+    if isinstance(value, float):
+        actual = StatValueType.FLOAT
+    raise InvalidStatValueTypeError(
+        detail=f"Stat {stat_definition.name!r} is declared dice, got a {actual.value} value"
+    )
 
 
 def check_scale(value: int | str | float | bool, stat_definition: StatDefinition) -> None:
@@ -227,7 +270,12 @@ def _apply_stat_value(
     stat.value_text = None
     stat.value_float = None
     stat.value_bool = None
-    if value_type is StatValueType.INT:
+    stat.dice_count = stat.dice_sides = stat.dice_drop_mode = stat.dice_drop_count = None
+    if value_type is StatValueType.DICE:
+        assert isinstance(value, str)
+        for column, part in dice.columns(dice.parse(value)).items():
+            setattr(stat, column, part)
+    elif value_type is StatValueType.INT:
         assert isinstance(value, int) and not isinstance(value, bool)
         stat.value_int = value
     elif value_type in (StatValueType.TEXT, StatValueType.ENUM):
@@ -263,6 +311,9 @@ def _own_value(stat: EntityStat, value_type: StatValueType) -> int | str | float
         return stat.value_text
     if value_type is StatValueType.FLOAT:
         return stat.value_float
+    if value_type is StatValueType.DICE:
+        held = dice.of_row(stat)
+        return None if held is None else held.notation
     return stat.value_bool
 
 
@@ -432,7 +483,7 @@ async def set_entity_stat(
     entity = await get_entity_or_404(session, entity_id, tenant_id)
     stat_definition = await _get_stat_definition_or_404(session, stat_definition_id, tenant_id)
     await _authorize_entity_stat_write(session, tenant_id=tenant_id, user=user, entity_id=entity.id)
-    await _validate_value(session, body.value, stat_definition)
+    value = await _validate_value(session, body.value, stat_definition)
 
     previous = await _write_own_value(
         session,
@@ -441,7 +492,7 @@ async def set_entity_stat(
         tenant_id=tenant_id,
         entity_id=entity_id,
         stat_definition=stat_definition,
-        value=body.value,
+        value=value,
         if_match=if_match,
         acquire_group=body.acquire_group,
     )
@@ -812,6 +863,7 @@ async def explain_entity_stat(
         system=winner.system_slug(),
         name=definition.name,
         value=values[definition.id],
+        dice=dice_out(definition.value_type, values[definition.id]),
         own=own,
         computed=winner.computed_entity_id is not None,
         from_entity=None
