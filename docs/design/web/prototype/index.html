@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <title>Web design prototype</title>
+    <!-- Brand tokens, fonts, the reset, base elements and motion come from apps/brand, linked in place and unchanged. -->
+    <link rel="stylesheet" href="../../../../apps/brand/normalize.css" />
+    <link rel="stylesheet" href="../../../../apps/brand/tokens.css" />
+    <link rel="stylesheet" href="../../../../apps/brand/fonts.css" />
+    <link rel="stylesheet" href="../../../../apps/brand/base.css" />
+    <link rel="stylesheet" href="../../../../apps/brand/motion.css" />
+    <!-- Tokens this design proposes (not in apps/brand), then the shell and the templates -->
+    <link rel="stylesheet" href="proposed-tokens.css" />
+    <link rel="stylesheet" href="shell.css" />
+  </head>
+  <body>
+    <div class="proto-bar" id="proto" role="region" aria-label="Prototype controls"></div>
+    <div class="stage"><div class="frame" id="frame"></div></div>
+    <script src="data.js"></script>
+    <script src="core.js"></script>
+    <script src="pages.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>

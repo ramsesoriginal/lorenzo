@@ -63,6 +63,14 @@ The section checks current Event-order access before querying. Other readers and
 with a visibility opt-out get no Event participation/order section. These associations
 record participation, never learning or a being's lived sequence.
 
+## Relationships of a being
+
+A being's page shows the relationships it is an end of that the reader may see, drawn around it with
+[`@lorenzo/graph-renderer`](../../packages/graph-renderer) (the radial layout, the being at the centre) and told
+in one sentence each ([ADR 0407](../../docs/adr/0407-the-graph-renderer.md), [RFC 0049](../../docs/rfcs/0049-lorenzo-social-relationships-and-social-webs.md)).
+A being with none the reader may see shows no section. The page reads; relationships are made in Lorenzo Social
+([`apps/social`](../social)).
+
 ## Deploy
 
 Deployed at <https://lorenzo-beings.pages.dev/> on Cloudflare Pages; the procedure is recorded in [docs/operations/beings-setup.md](../../docs/operations/beings-setup.md).

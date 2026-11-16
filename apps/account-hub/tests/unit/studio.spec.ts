@@ -12,13 +12,13 @@ import {
 
 describe('studioHref and readStudioLocation', () => {
   it('builds the address of the list, and of one repository', () => {
-    expect(studioHref()).toBe('/studio/');
-    expect(studioHref('core-rules')).toBe('/studio/?repository=core-rules');
-    expect(STUDIO_NEW_HREF).toBe('/studio/?new=1');
+    expect(studioHref()).toBe('/repositories/');
+    expect(studioHref('core-rules')).toBe('/repositories/?repository=core-rules');
+    expect(STUDIO_NEW_HREF).toBe('/repositories/?new=1');
   });
 
   it('escapes what it is given', () => {
-    expect(studioHref('a b&c')).toBe('/studio/?repository=a+b%26c');
+    expect(studioHref('a b&c')).toBe('/repositories/?repository=a+b%26c');
   });
 
   it('reads them back, and says nothing for what the address leaves out', () => {

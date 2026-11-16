@@ -31,9 +31,11 @@ test('an account that may create makes a repository, which opens on its Overview
   const maker = await newUser('maker', ['tenant_creator']);
   const { page, context } = await signedInPage(browser, maker.subject);
 
-  // Studio is in the header for someone who may make one, and opens on the form.
-  await page.getByRole('banner').getByRole('link', { name: 'My repositories' }).click();
-  await expect(page).toHaveURL(/\/studio\/\?new=1/);
+  // Repositories is in the header for someone who may make one; its first group offers the form.
+  await page.getByRole('banner').getByRole('link', { name: 'Repositories', exact: true }).click();
+  await expect(page).toHaveURL(/\/repositories\/?$/);
+  await page.locator('[data-yours]').getByRole('link', { name: 'New repository' }).click();
+  await expect(page).toHaveURL(/\/repositories\/\?new=1/);
   await expect(page.getByRole('heading', { name: 'Create a repository' })).toBeVisible();
 
   const name = `Core rules ${crypto.randomUUID().slice(0, 8)}`;
@@ -42,7 +44,7 @@ test('an account that may create makes a repository, which opens on its Overview
   await page.getByRole('button', { name: 'Create repository' }).click();
 
   // It opens on its Overview: a draft, said in words.
-  await expect(page).toHaveURL(/\/studio\/\?repository=/);
+  await expect(page).toHaveURL(/\/repositories\/\?repository=/);
   await expect(page.getByRole('heading', { name })).toBeVisible();
   await expect(page.getByRole('tab', { name: 'Overview' })).toHaveAttribute(
     'aria-selected',
@@ -70,10 +72,10 @@ test('an account that may not create, and works on nothing, is told so and offer
   const plain = await newUser('plain');
   const { page, context } = await signedInPage(browser, plain.subject);
 
-  await expect(page.getByRole('banner').getByRole('link', { name: 'My repositories' })).toHaveCount(
-    0,
-  );
-  await page.goto('/studio/');
+  await expect(
+    page.getByRole('banner').getByRole('link', { name: 'Repositories', exact: true }),
+  ).toHaveCount(0);
+  await page.goto('/repositories/');
   await expect(page.getByText('You do not work on a repository yet.')).toBeVisible();
   await expect(
     page.getByText("Creating a repository isn't open to your account yet."),
@@ -88,7 +90,7 @@ test('People: every role with what it means, and an Owner changes who works on i
   const { owner, organizer, repository } = await studioWorld();
   const { page, context } = await signedInPage(browser, owner.subject);
 
-  await page.goto(`/studio/?repository=${repository.slug}`);
+  await page.goto(`/repositories/?repository=${repository.slug}`);
   await page.getByRole('tab', { name: 'People' }).click();
 
   // The roles are explained next to the people who have them, in the glossary's words.
@@ -133,7 +135,7 @@ test('an Organizer reads who works on it and edits it, and changes nobody', asyn
   const { owner, organizer, repository } = await studioWorld();
   const { page, context } = await signedInPage(browser, organizer.subject);
 
-  await page.goto(`/studio/?repository=${repository.slug}`);
+  await page.goto(`/repositories/?repository=${repository.slug}`);
   await expect(page.locator('[data-role]').first()).toHaveText('Organizer');
   // Whoever edits can rename it.
   await expect(page.getByRole('button', { name: 'Edit repository' })).toBeVisible();
@@ -162,7 +164,7 @@ test('a published repository says so, and that libraries see edits live', async 
 
   const { page, context } = await signedInPage(browser, owner.subject);
 
-  await page.goto(`/studio/?repository=${repository.slug}`);
+  await page.goto(`/repositories/?repository=${repository.slug}`);
   await expect(page.locator('[data-overview] [data-state]')).toHaveText(
     /^Published \d{4}-\d{2}-\d{2}$/,
   );
@@ -175,7 +177,7 @@ test('renaming and leaving, in the words of a repository', async ({ browser }) =
   const { owner, organizer, repository } = await studioWorld();
   const { page, context, confirmations } = await signedInPage(browser, organizer.subject);
 
-  await page.goto(`/studio/?repository=${repository.slug}`);
+  await page.goto(`/repositories/?repository=${repository.slug}`);
 
   const renamed = `Renamed ${crypto.randomUUID().slice(0, 8)}`;
 
@@ -213,17 +215,17 @@ test('repositories are not on the libraries page: an address that names one goes
   await expect(page.getByText(repository.name)).toHaveCount(0);
 
   await page.goto(`/tenants/?tenant=${repository.slug}`);
-  await expect(page).toHaveURL(new RegExp(`/studio/\\?repository=${repository.slug}`));
+  await expect(page).toHaveURL(new RegExp(`/repositories/\\?repository=${repository.slug}`));
   await expect(page.getByRole('heading', { name: repository.name })).toBeVisible();
 
   await page.goto('/tenants/?new=repository');
-  await expect(page).toHaveURL(/\/studio\/\?new=1/);
+  await expect(page).toHaveURL(/\/repositories\/\?new=1/);
 
   // The home page links to it there too.
   await page.goto('/');
   await expect(page.getByRole('link', { name: repository.name })).toHaveAttribute(
     'href',
-    new RegExp(`/studio/\\?repository=${repository.slug}`),
+    new RegExp(`/repositories/\\?repository=${repository.slug}`),
   );
   await context.close();
 });
@@ -257,7 +259,7 @@ test('on a phone, Studio is one column and everything pressed is big enough', as
     expect(Math.min(...heights)).toBeGreaterThanOrEqual(44);
   }
 
-  await page.goto(`/studio/?repository=${repository.slug}`);
+  await page.goto(`/repositories/?repository=${repository.slug}`);
   await expect(page.getByRole('heading', { name: repository.name })).toBeVisible();
   await checkScreen();
 

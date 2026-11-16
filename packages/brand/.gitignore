@@ -11,3 +11,5 @@ motion.css
 icons.svg
 icons.manifest.yaml
 fonts/
+test-results/
+playwright-report/

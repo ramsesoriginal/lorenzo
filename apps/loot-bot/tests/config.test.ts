@@ -106,6 +106,19 @@ describe("loadConfig - notification bridge (ADR 0095)", () => {
     expect(config.notificationSchedulerServiceAccount).toBeUndefined();
   });
 
+  it("has no legal address unless the deployment sets one, and drops a trailing slash (ADR 0439)", () => {
+    const legalUrl = (extra: Record<string, string>) => {
+      resetConfigForTests();
+      return loadConfig({ ...validEnv, ...extra }).legalUrl;
+    };
+
+    expect(legalUrl({})).toBeUndefined();
+    expect(legalUrl({ LEGAL_URL: "" })).toBeUndefined();
+    expect(legalUrl({ LEGAL_URL: "https://legal.example.org/" })).toBe("https://legal.example.org");
+    resetConfigForTests();
+    expect(() => loadConfig({ ...validEnv, LEGAL_URL: "not a url" })).toThrow("LEGAL_URL");
+  });
+
   it("rejects a value that isn't an email address", () => {
     expect(() =>
       loadConfig({ ...validEnv, NOTIFICATION_SCHEDULER_SERVICE_ACCOUNT: "not-an-email" }),

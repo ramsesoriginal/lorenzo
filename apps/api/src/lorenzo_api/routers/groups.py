@@ -29,6 +29,7 @@ from lorenzo_api.exceptions import (
     InvalidGroupMemberError,
     InvalidUserError,
 )
+from lorenzo_api.features import delete_held_features, holder_kind
 from lorenzo_api.information_visibility import resolve_information_visibility
 from lorenzo_api.models import (
     Being,
@@ -414,6 +415,10 @@ async def delete_group(
             GroupMember.group_entity_id == group_entity_id, GroupMember.tenant_id == tenant_id
         )
     )
+    if (await holder_kind(session, tenant_id=tenant_id, entity_id=group_entity_id)) is None:
+        # It stops being a group, and with nothing else that holds features, the ones it had go
+        # (ADR 0454).
+        await delete_held_features(session, tenant_id=tenant_id, holder_ids={group_entity_id})
     if member_count:
         await record_activity(
             session,

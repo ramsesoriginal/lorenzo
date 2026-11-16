@@ -1,5 +1,6 @@
 // The status bar (ADR 0254): how the changes are doing, what is selected, and the connection.
 
+import { legalHolders, rebindLegalLinks } from '@lorenzo/app-shell/legal';
 import type { Bench } from '../core/bench';
 import type { Command } from '../core/commands';
 import { kindsText } from './entryPane';
@@ -76,5 +77,7 @@ export function drawStatusBar(
     `sb-online${bench.offline ? ' bad' : ''}`,
     bench.offline ? 'Offline' : 'Online',
   );
-  bar.replaceChildren(state, what, line);
+  bar.replaceChildren(state, what, line, ...legalHolders('en'));
+  // Redrawn with the bar, so they are filled again from the registry read at start (ADR 0439).
+  rebindLegalLinks(bar);
 }

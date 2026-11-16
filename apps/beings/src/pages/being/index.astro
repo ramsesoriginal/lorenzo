@@ -11,6 +11,7 @@ import BeingPage from '../../components/BeingPage/BeingPage.astro';
   <BeingPage />
 
   <script>
+    import '@lorenzo/graph-renderer/graph.css';
     import { renderBeingPage } from '../../components/BeingPage/renderer';
     import { addressedTenant, isId } from '../../lib/addresses';
     import { isAuthenticated } from '../../lib/auth';

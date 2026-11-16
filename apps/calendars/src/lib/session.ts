@@ -1,19 +1,56 @@
-import { getAppLinks } from '@lorenzo/api-client';
 import { bindShell } from '@lorenzo/app-shell';
 import { rememberTenantAddress, tenantAddress } from './addresses';
 import { client, fetchAllPages, unwrap } from './api';
 import { isAuthConfigured, isAuthenticated, login, logout } from './auth';
-import { API_BASE_URL } from './config';
 import { message } from './dom';
 import { currentTenant, rememberTenant } from './lastTenant';
 import { calendarReads, readScope } from './read-cache';
+import { appRegistry } from './registry';
+
+// Whether the library has a clock to read: the tab of them is offered only then.
+async function libraryHasClocks(tenantId: string): Promise<boolean> {
+  const clocks = await unwrap(
+    await client.GET('/tenants/{tenant_id}/clocks', { params: { path: { tenant_id: tenantId } } }),
+  );
+
+  return clocks.length > 0;
+}
+
+async function showUnread(shell: Shell): Promise<void> {
+  try {
+    const hub = (await appRegistry())?.apps.account_hub?.url;
+
+    if (!hub) return;
+
+    const { total } = await unwrap(
+      await client.GET('/me/notifications', {
+        params: { query: { unread_only: true, page: 1, size: 1 } },
+      }),
+    );
+
+    shell.notifications({ count: total, href: new URL('/notifications/', hub).href });
+  } catch {
+    // No bell: nothing is lost that a page needs.
+  }
+}
+
 export type Session = {
   tenantId: string;
+  tenantName: string;
   canWrite: boolean;
   canCreateEntries: boolean;
   canOrderEvents: boolean;
   canReadEventOrder: boolean;
 };
+type Shell = NonNullable<ReturnType<typeof bindShell>>;
+
+let started: Shell | null = null;
+
+/** The shell this page started, for a page that says something in the status bar; null before it starts. */
+export function currentShell(): Shell | null {
+  return started;
+}
+
 export async function start(): Promise<Session | null> {
   calendarReads.suspend();
   const shell = bindShell({
@@ -28,14 +65,17 @@ export async function start(): Promise<Session | null> {
   });
   const marker = document.querySelector('[data-session]');
   if (!shell || !marker) return null;
+  started = shell;
   shell.account({ state: 'checking' });
+  shell.palette();
   // The registry, the viewer and the libraries do not wait for one another, and none of them blocks
   // the page: calendar reading does not depend on the registry.
-  void getAppLinks(API_BASE_URL, calendarReads.fetch)
-    .then((registry) => {
-      if (registry.apps.account_hub) shell.accountLink(registry.apps.account_hub.url);
-    })
-    .catch(() => {});
+  void appRegistry().then((registry) => {
+    if (!registry) return;
+    const hub = registry.apps.account_hub?.url;
+    if (hub) shell.accountLink(hub);
+    shell.apps(registry);
+  });
   if (!isAuthConfigured()) {
     shell.account({ state: 'error', message: 'Sign-in is not set up' });
     shell.status('Sign-in for this calendar app is not set up yet.');
@@ -55,6 +95,9 @@ export async function start(): Promise<Session | null> {
       ),
     ]);
     shell.account({ state: 'signed-in', label: viewer.email ?? undefined });
+    // The bell (D18) is the account's unread count, with the hub's page of them to go to; without the
+    // hub's address, or the count, it is not shown.
+    void showUnread(shell);
     if (!marker.isConnected) return null;
     if (!tenants.length) {
       calendarReads.clear();
@@ -106,8 +149,20 @@ export async function start(): Promise<Session | null> {
     );
     shell.status('');
     shell.reveal();
+    shell.statusBar({ sync: 'synced', syncedAt: new Date() });
+    // Clocks are a tab for a library that has some (CS5), and for whoever can write, since that is
+    // where the first one is made.
+    if (['owner', 'orga', 'author'].includes(tenant.role)) shell.allow('clocks');
+    else
+      void libraryHasClocks(tenant.id).then(
+        (has) => {
+          if (has) shell.allow('clocks');
+        },
+        () => {},
+      );
     return {
       tenantId: tenant.id,
+      tenantName: tenant.name,
       canWrite: ['owner', 'orga', 'author'].includes(tenant.role),
       canCreateEntries: true,
       canOrderEvents,

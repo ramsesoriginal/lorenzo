@@ -36,7 +36,7 @@ export async function listPublicRepositories(query: DiscoverQuery): Promise<Disc
   );
 }
 
-// A repository's page, or null for one that is not listed: private, not released yet, retired by its
+// A repository's page, or null for one that cannot be opened: private, not released yet, retired by its
 // Owner (ADR 0384), delisted or not there. That is a state to show, not a failure. Always asked for,
 // never answered from what was held, for the reason the listing is not.
 export async function getStorefront(repositoryId: string): Promise<StorefrontOut | null> {

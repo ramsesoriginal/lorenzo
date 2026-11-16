@@ -21,6 +21,9 @@
           <a href="index.html">Tokens</a>
           <a href="motion.html">Motion</a>
           <a href="dialogs.html" aria-current="page">Dialogs</a>
+          <a href="shell.html">Shell</a>
+          <a href="pages.html">Pages</a>
+          <a href="graph.html">Graph</a>
           <a href="forms.html">Forms</a>
           <a href="trees.html">Trees</a>
           <a href="outline.html">Outline</a>
@@ -137,6 +140,80 @@
             <button class="btn btn-secondary" data-close="drop-b">Close</button>
           </div>
         </dialog>
+
+        <section id="menu">
+          <h2>A menu</h2>
+          <p class="lede">
+            <code>.menu</code> with <code>.menu-head</code>,
+            <code>.menu-label</code>, <code>.menu-item</code> and
+            <code>.menu-sep</code>; below 720px add <code>.as-sheet</code> and
+            it is a bottom sheet.
+          </p>
+          <div class="menu" role="menu" aria-label="Item actions">
+            <div class="menu-label">Rusted Shortsword</div>
+            <button class="menu-item" role="menuitem" type="button">
+              <span class="grow">Give to a character</span>
+            </button>
+            <button class="menu-item" role="menuitem" type="button">
+              <span class="grow">Move to a container</span>
+            </button>
+            <div class="menu-sep" role="separator"></div>
+            <button class="menu-item danger" role="menuitem" type="button">
+              <span class="grow">Delete</span>
+            </button>
+          </div>
+        </section>
+
+        <section id="sheet">
+          <h2>A bottom sheet</h2>
+          <p class="lede">
+            Below 720px every dialog is a bottom sheet. Open this one at a phone
+            width: <code>.sheet-grip</code>, then <code>.dialog-actions</code>
+            stacked and full width.
+          </p>
+          <button class="btn btn-primary" id="open-sheet" type="button">
+            Open as a sheet
+          </button>
+        </section>
+
+        <dialog id="sheet-dialog">
+          <div class="sheet-grip" aria-hidden="true"></div>
+          <h2>Retire this item?</h2>
+          <p class="status-text">It stays in the history.</p>
+          <div class="dialog-actions">
+            <button class="btn btn-secondary" data-close="sheet-dialog">
+              Cancel
+            </button>
+            <button class="btn btn-danger" data-close="sheet-dialog">
+              Retire
+            </button>
+          </div>
+        </dialog>
+
+        <section id="toasts">
+          <h2>Toasts</h2>
+          <p class="lede">
+            <code>.toast-region</code> is a polite live region;
+            <code>.toast-card</code> with <code>data-kind</code> of
+            <code>ok</code> or <code>error</code>. A timed one drains
+            <code>.toast-bar</code>; an error has none and stays until closed.
+          </p>
+          <button class="btn btn-secondary" id="toast-ok" type="button">
+            Saved
+          </button>
+          <button class="btn btn-secondary" id="toast-err" type="button">
+            Refused
+          </button>
+          <button class="btn btn-secondary" id="toast-undo" type="button">
+            Moved, with Undo
+          </button>
+        </section>
+        <div
+          class="toast-region"
+          id="toast-region"
+          role="status"
+          aria-live="polite"
+        ></div>
       </div>
     </main>
 
@@ -177,7 +254,7 @@
         document
           .getElementById("open-single")
           .addEventListener("click", function () {
-            document.getElementById("award-dialog").showModal();
+            openDialog(document.getElementById("award-dialog"));
           });
 
         document
@@ -187,9 +264,85 @@
             document.getElementById("drop-b").show();
           });
 
+        function toast(kind, text, ms, action) {
+          var t = document.createElement("div");
+          t.className = "toast-card";
+          t.setAttribute("data-kind", kind);
+          t.innerHTML =
+            '<span class="toast-text"></span>' +
+            '<button class="btn btn-secondary" type="button">Close</button>' +
+            (kind === "error" ? "" : '<span class="toast-bar"></span>');
+          t.querySelector(".toast-text").textContent = text;
+          if (action) {
+            var u = document.createElement("button");
+            u.className = "btn btn-secondary toast-action";
+            u.type = "button";
+            u.textContent = action;
+            u.addEventListener("click", close);
+            t.insertBefore(u, t.querySelector("button"));
+          }
+          function close() {
+            t.classList.add("out");
+            setTimeout(function () {
+              t.remove();
+            }, 220);
+          }
+          t.querySelector("button").addEventListener("click", close);
+          if (kind !== "error") {
+            t.style.setProperty("--toast-ms", ms + "ms");
+            setTimeout(close, ms);
+          }
+          document.getElementById("toast-region").appendChild(t);
+        }
+        document
+          .getElementById("toast-ok")
+          .addEventListener("click", function () {
+            toast("ok", "Saved.", 6000);
+          });
+        document
+          .getElementById("toast-undo")
+          .addEventListener("click", function () {
+            toast("undo", "Moved to Backpack.", 8000, "Undo");
+          });
+        document
+          .getElementById("toast-err")
+          .addEventListener("click", function () {
+            toast("error", "Not saved: the name is already used.");
+          });
+        document
+          .getElementById("open-sheet")
+          .addEventListener("click", function () {
+            openDialog(document.getElementById("sheet-dialog"));
+          });
+        function closeDialog(d) {
+          if (!d.open || d.hasAttribute("data-closing")) return;
+          d.setAttribute("data-closing", "");
+          d.addEventListener("animationend", function done(e) {
+            if (e.target !== d || !d.hasAttribute("data-closing")) return;
+            d.removeEventListener("animationend", done);
+            d.removeAttribute("data-closing");
+            d.close();
+          });
+        }
+        function openDialog(d) {
+          d.removeAttribute("data-closing");
+          if (!d.open) d.showModal();
+        }
+        window.closeDialog = closeDialog;
+        window.openDialog = openDialog;
+        ["award-dialog", "sheet-dialog"].forEach(function (id) {
+          var d = document.getElementById(id);
+          d.addEventListener("cancel", function (e) {
+            e.preventDefault();
+            closeDialog(d);
+          });
+        });
         document.querySelectorAll("[data-close]").forEach(function (btn) {
           btn.addEventListener("click", function () {
-            document.getElementById(btn.getAttribute("data-close")).close();
+            var d = document.getElementById(btn.getAttribute("data-close"));
+            if (d.id === "award-dialog" || d.id === "sheet-dialog")
+              closeDialog(d);
+            else d.close();
           });
         });
       })();

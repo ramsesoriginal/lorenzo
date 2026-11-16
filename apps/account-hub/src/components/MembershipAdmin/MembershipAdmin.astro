@@ -5,12 +5,22 @@ import UserPicker from '../UserPicker/UserPicker.astro';
 ---
 
 <div class="stack" data-membership-admin>
-  <h3 data-heading></h3>
-  <ul class="stack-tight" data-roles></ul>
+  <section class="hub-card stack-tight">
+    <h3 class="hub-heading" data-heading></h3>
+    <ul class="stack-tight hub-roles" data-roles></ul>
+  </section>
 
-  <ul class="list" data-members></ul>
+  <div class="hub-table hub-people">
+    <div class="hub-head" aria-hidden="true">
+      <span>Name</span>
+      <span>Role</span>
+      <span>Added by</span>
+      <span></span>
+    </div>
+    <ul class="list hub-rows" data-members></ul>
+  </div>
 
-  <div class="row card card-body" data-invite>
+  <div class="hub-card hub-add" data-invite>
     <label class="field">
       <span class="field-label" data-invite-label></span>
       <select class="text-input" aria-label="Role" data-invite-role>
@@ -26,14 +36,14 @@ import UserPicker from '../UserPicker/UserPicker.astro';
     <UserPicker />
   </div>
 
-  <div class="stack card card-body" data-bulk-invite>
-    <strong>Bulk invite:</strong>
+  <div class="hub-card stack" data-bulk-invite>
+    <h3 class="hub-heading">Bulk invite</h3>
     <div class="list" data-bulk-rows></div>
     <div class="row">
-      <button type="button" data-add-row>
+      <button type="button" class="btn btn-secondary" data-add-row>
         Add another
       </button>
-      <button type="button" data-send>
+      <button type="button" class="btn btn-primary" data-send>
         Send invites
       </button>
       <span class="status-text" role="status" data-status hidden></span>
@@ -42,11 +52,8 @@ import UserPicker from '../UserPicker/UserPicker.astro';
   </div>
 
   <template data-member-template>
-    <li class="row">
-      <span class="grow stack-tight">
-        <span data-name></span>
-        <span class="caption" data-added-by hidden></span>
-      </span>
+    <li class="hub-member">
+      <span class="hub-name" data-name></span>
       <span class="row-tight">
         <select class="text-input" aria-label="Role" data-role>
           <option value="owner">Owner</option>
@@ -54,10 +61,13 @@ import UserPicker from '../UserPicker/UserPicker.astro';
           <option value="author">Author</option>
         </select>
       </span>
-      <button type="button" data-remove>
-        Remove
-      </button>
-      <span class="status-text" role="status" data-status hidden></span>
+      <span class="hub-cell" data-added-by></span>
+      <span class="row-tight hub-end">
+        <span class="status-text" role="status" data-status hidden></span>
+        <button type="button" class="btn btn-text" data-remove>
+          Remove
+        </button>
+      </span>
     </li>
   </template>
 

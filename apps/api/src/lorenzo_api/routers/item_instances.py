@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends, Header, Query, Request, Response
 from fastapi_pagination import Page
 from fastapi_pagination.ext.sqlalchemy import apaginate
 from fastapi_problem.error import Problem
-from sqlalchemy import ColumnElement, Select, and_, exists, or_, select, true
+from sqlalchemy import ColumnElement, Select, and_, exists, func, or_, select, true
 
 from lorenzo_api.activity_log import record_activity
 from lorenzo_api.binding import (
@@ -47,6 +47,7 @@ from lorenzo_api.entity_access import (
     recursive_descendants_cte,
     surroundings,
 )
+from lorenzo_api.entry_visibility import unhidden
 from lorenzo_api.etag import check_if_match, etag_for
 from lorenzo_api.exceptions import (
     EntityNotFoundError,
@@ -62,6 +63,8 @@ from lorenzo_api.exceptions import (
     SelfServiceDisabledError,
     StackNeedsContainerError,
 )
+from lorenzo_api.features import delete_held_features
+from lorenzo_api.grants import revoke_by_sources, revoke_orphans
 from lorenzo_api.identical import signatures
 from lorenzo_api.information_visibility import (
     InformationVisibility,
@@ -197,7 +200,7 @@ async def _visible_owner_predicate(
     """
     return _owner_predicate_for(
         await caller_reach(session, tenant_id=tenant_id, user=user, visibility=visibility)
-    )
+    ) & await unhidden(session, tenant_id, VItemInstance.entity_id)
 
 
 async def caller_reach(
@@ -346,7 +349,11 @@ async def _grouped_by_container_response(
     stmt = (
         select(VItemInstance, Containment.parent_entity_id)
         .outerjoin(Containment, Containment.child_entity_id == VItemInstance.entity_id)
-        .where(owner_predicate, VItemInstance.tenant_id == tenant_id)
+        .where(
+            owner_predicate,
+            VItemInstance.tenant_id == tenant_id,
+            await unhidden(session, tenant_id, VItemInstance.entity_id),
+        )
         .options(*eager_load_options(VItemInstance.entity))
         .order_by(Containment.parent_entity_id, VItemInstance.entity_id)
     )
@@ -462,6 +469,7 @@ async def list_item_instances_held_by(
         .where(
             VItemInstance.entity_id.in_(held - {entity_id}),
             _owner_predicate_for(reach),
+            await unhidden(session, tenant_id, VItemInstance.entity_id),
             VItemInstance.tenant_id == tenant_id,
         )
         .options(*eager_load_options(VItemInstance.entity))
@@ -647,6 +655,7 @@ async def list_item_instances_controlled_by(
                 .where(
                     VItemInstance.entity_id.in_(walked - {entity_id} - group_ids),
                     VItemInstance.tenant_id == tenant_id,
+                    await unhidden(session, tenant_id, VItemInstance.entity_id),
                 )
                 .options(*eager_load_options(VItemInstance.entity))
                 .order_by(VItemInstance.entity_id)
@@ -1205,7 +1214,7 @@ async def create_item_instance(
     user: CurrentUser,
 ) -> ItemInstanceOut:
     proto_stmt = (
-        select(Entity, Item.in_public_catalog)
+        select(Entity, Item.in_public_catalog, Item.starts_inactive)
         .join(Item, Item.entity_id == Entity.id)
         .where(Entity.id == body.prototype_id, Entity.tenant_id == tenant_id)
     )
@@ -1214,7 +1223,7 @@ async def create_item_instance(
         raise InvalidItemPrototypeError(
             detail=f"{body.prototype_id} is not a base item in tenant {tenant_id}"
         )
-    prototype_entity, prototype_is_public = proto_row
+    prototype_entity, prototype_is_public, prototype_starts_inactive = proto_row
 
     self_service = await _authorize_create_instance(
         session, tenant_id=tenant_id, user=user, owner_character_id=body.owner_character_id
@@ -1263,7 +1272,14 @@ async def create_item_instance(
     )
     session.add(entity)
     await session.flush()
-    session.add(ItemInstance(entity_id=entity.id, tenant_id=tenant_id))
+    # It starts as its prototype says unless the caller says (ADR 0447).
+    session.add(
+        ItemInstance(
+            entity_id=entity.id,
+            tenant_id=tenant_id,
+            active=body.active if body.active is not None else not prototype_starts_inactive,
+        )
+    )
     if body.slug is not None:
         session.add(EntitySlug(entity_id=entity.id, tenant_id=tenant_id, slug=body.slug))
     session.add(
@@ -1509,6 +1525,23 @@ async def update_item_instance(
     check_if_match(if_match, updated_at=entity.updated_at)
     await _authorize_instance_write(session, tenant_id=tenant_id, user=user, entity_id=entity_id)
     update = body.model_dump(exclude_unset=True)
+    if "active" in update:
+        # The holder flips the switch by the rule that lets them edit the instance (ADR 0447); it
+        # moves nothing and frees nothing.
+        instance = await session.get_one(ItemInstance, entity_id)
+        if instance.active != update["active"]:
+            instance.active = update["active"]
+            entity.updated_by = user.id
+            entity.updated_at = func.now()
+            # What it gave its holder while it was on goes when it is switched off (ADR 0456).
+            await session.flush()
+            holder = await session.scalar(
+                select(Containment.parent_entity_id).where(Containment.child_entity_id == entity_id)
+            )
+            if holder is not None:
+                await revoke_orphans(
+                    session, tenant_id=tenant_id, actor_id=user.id, holder_ids={holder}
+                )
     if "prototype_id" in update:
         await _change_prototype(
             session,
@@ -1562,6 +1595,10 @@ async def delete_item_instance(
         session, tenant_id=tenant_id, user=user, entity_id=entity_id, kind="give"
     )
     await require_no_learning(session, tenant_id, entity_id=entity_id)
+    # What it gave goes with it, and the features it has, before what is inside moves out
+    # (ADR 0454, 0456).
+    await revoke_by_sources(session, tenant_id=tenant_id, actor_id=user.id, source_ids={entity_id})
+    await delete_held_features(session, tenant_id=tenant_id, holder_ids={entity_id})
     kept = await _keep_contents(
         session, tenant_id=tenant_id, actor_id=user.id, container=entity, split=split
     )
@@ -1609,6 +1646,12 @@ async def _set_down_pieces(
     is in a container; the caller removes the stack's own containment row.
     Returns the new pieces' ids."""
     stack = await session.get_one(Entity, stack_id)
+    # A piece is the stack's own kind of thing, its switch as it is (ADR 0447).
+    stack_active = await session.scalar(
+        select(ItemInstance.active).where(
+            ItemInstance.entity_id == stack_id, ItemInstance.tenant_id == tenant_id
+        )
+    )
     prototype_ids = (
         await session.scalars(
             select(EntityPrototype.prototype_id)
@@ -1638,7 +1681,9 @@ async def _set_down_pieces(
         )
         session.add(piece)
         await session.flush()
-        session.add(ItemInstance(entity_id=piece.id, tenant_id=tenant_id))
+        session.add(
+            ItemInstance(entity_id=piece.id, tenant_id=tenant_id, active=stack_active is not False)
+        )
         session.add_all(
             EntityPrototype(
                 entity_id=piece.id,
@@ -1667,6 +1712,10 @@ async def _set_down_pieces(
                 value_text=stat.value_text,
                 value_float=stat.value_float,
                 value_bool=stat.value_bool,
+                dice_count=stat.dice_count,
+                dice_sides=stat.dice_sides,
+                dice_drop_mode=stat.dice_drop_mode,
+                dice_drop_count=stat.dice_drop_count,
             )
             for stat in stats
         )
@@ -2050,6 +2099,7 @@ async def _contain(
     checks - _perform_set_container's and _HandOver's shared tail, so the two
     can't drift."""
     await require_physical_container(session, container_entity_id)
+    previous = existing.parent_entity_id if existing is not None else None
     if existing is not None:
         existing.parent_entity_id = container_entity_id
     else:
@@ -2064,6 +2114,15 @@ async def _contain(
         await binding.finish()
     if check is not None:
         await check.finish(moved_ids=[entity_id])
+    if previous is not None and previous != container_entity_id:
+        # What it gave the one it was taken from goes with it (ADR 0456).
+        await session.flush()
+        await revoke_orphans(
+            session,
+            tenant_id=tenant_id,
+            actor_id=session.info.get("entry_reader_user_id"),
+            holder_ids={previous},
+        )
 
 
 async def _merge_identical(
@@ -2250,9 +2309,15 @@ async def clear_item_instance_container(
         detail = f"container={existing.parent_entity_id}"
         if pieces:
             detail += f"; split into {existing.quantity}"
+        set_down_from = existing.parent_entity_id
         await session.delete(existing)
         if binding is not None:
             await binding.finish()
+        # What it gave its holder while held goes with it (ADR 0456).
+        await session.flush()
+        await revoke_orphans(
+            session, tenant_id=tenant_id, actor_id=user.id, holder_ids={set_down_from}
+        )
         await record_activity(
             session,
             tenant_id=tenant_id,
@@ -2382,6 +2447,12 @@ async def _perform_split(
     current_owner_id = await _current_owner_character_id(
         session, entity_id=entity_id, tenant_id=tenant_id
     )
+    # What changes hands keeps its switch (ADR 0447).
+    entity_active = await session.scalar(
+        select(ItemInstance.active).where(
+            ItemInstance.entity_id == entity_id, ItemInstance.tenant_id == tenant_id
+        )
+    )
     new_owner_id = owner_character_id if owner_character_id is not None else current_owner_id
     # The part changing hands is the bound stack's owner changing (ADR 0129).
     # Into its own owner's hands it stays under whatever binds it.
@@ -2399,7 +2470,11 @@ async def _perform_split(
     )
     session.add(new_entity)
     await session.flush()
-    session.add(ItemInstance(entity_id=new_entity.id, tenant_id=tenant_id))
+    session.add(
+        ItemInstance(
+            entity_id=new_entity.id, tenant_id=tenant_id, active=entity_active is not False
+        )
+    )
     for position, prototype_id in enumerate(prototype_ids):
         session.add(
             EntityPrototype(

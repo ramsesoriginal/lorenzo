@@ -18,6 +18,7 @@ from sqlalchemy import func, select
 from lorenzo_api.models import (
     AuditLog,
     ComputedStat,
+    ComputedStatContents,
     ComputedStatLinear,
     ContentReference,
     Entity,
@@ -25,6 +26,8 @@ from lorenzo_api.models import (
     EntitySlug,
     EntityStat,
     EntityStatGroup,
+    Item,
+    ItemInstance,
     RepositoryCopy,
     RepositoryCopyLinkEntity,
     RepositoryCopyLinkStatDefinition,
@@ -78,7 +81,7 @@ async def test_copying_a_repository(
         plan = (await gm.get(f"/tenants/{table}/repositories/{faerun}/copy-plan")).json()
         assert plan["collisions"] == []
         (step,) = plan["steps"]
-        assert (step["entities"], step["stat_groups"], step["stat_definitions"]) == (24, 1, 6)
+        assert (step["entities"], step["stat_groups"], step["stat_definitions"]) == (29, 1, 7)
         assert (step["granted"], step["published"], step["already_copied"]) == (True, True, False)
 
         copied = await gm.post(f"/tenants/{table}/repositories/{faerun}/copy")
@@ -98,7 +101,14 @@ async def test_copying_a_repository(
         # and the sum 16 + 2 * 3 + 1 = 23 (ADR 0126).
         sword = (await gm.get(f"/tenants/{table}/entities/{mine['Sword']}")).json()
         stats = {s["name"]: s["value"] for s in sword["stats"]}
-        assert stats == {"Strength": 16, "Modifier": 3, "Strong": True, "Might": 23}
+        # The Hit dice are the Sword's own dice value, copied as its parts (ADR 0462).
+        assert stats == {
+            "Strength": 16,
+            "Modifier": 3,
+            "Strong": True,
+            "Might": 23,
+            "Hit dice": "4d6dl1",
+        }
         # The Chest's Load adds up the Strength of what's in it: the Blade,
         # which inherits 16 from the Sword (ADR 0127).
         chest = (await gm.get(f"/tenants/{table}/entities/{mine['Chest']}")).json()
@@ -106,6 +116,29 @@ async def test_copying_a_repository(
         blade = (await gm.get(f"/tenants/{table}/entities/{mine['Blade']}")).json()
         assert [p["id"] for p in blade["prototypes"]] == [str(mine["Sword"])]
         assert blade["parent"]["id"] == str(mine["Chest"])
+        # ADR 0447: the Sword starts its instances inactive, so the copied Blade does, and the
+        # options of a contents formula came with it.
+        async with admin_session_factory() as session:
+            assert await session.scalar(
+                select(Item.starts_inactive).where(Item.entity_id == mine["Sword"])
+            )
+            assert not await session.scalar(
+                select(ItemInstance.active).where(ItemInstance.entity_id == mine["Blade"])
+            )
+            options = (
+                await session.execute(
+                    select(
+                        ComputedStatContents.aggregate,
+                        ComputedStatContents.only_active,
+                        ComputedStatContents.only_kind,
+                        ComputedStatContents.where_stat_definition_id,
+                        ComputedStatContents.if_none,
+                    ).where(ComputedStatContents.entity_id == mine["Harpers"])
+                )
+            ).one()
+            assert options[:3] == ("max", True, "item_instance")
+            assert options[3] is not None
+            assert options[4] == Decimal("5")
 
         # What was recorded: one link per copied row, with its origin and a
         # snapshot in origin ids, and the copy itself.
@@ -257,6 +290,7 @@ async def test_collisions_need_a_choice(
                 "Strong",
                 "Alignment",
                 "Might",
+                "Hit dice",
                 "Load",
             }
             strength_values = (
@@ -318,10 +352,19 @@ async def test_skipping_drops_what_depends_on_it(
         dropped = {d["kind"] for d in copied.json()["steps"][0]["dropped"]}
         # Skipping the group skips its definitions, and with them every
         # value, formula, and attachment that used them.
-        assert dropped == {"stat_definition", "entity_stat", "computed_stat", "entity_stat_group"}
+        # The template that shows the skipped group goes too (ADR 0453).
+        assert dropped == {
+            "stat_definition",
+            "entity_stat",
+            "computed_stat",
+            "entity_stat_group",
+            "template",
+            "grant_rule",
+            "feature_prerequisite",
+        }
         assert copied.json()["steps"][0]["stat_definitions"] == 0
         assert await _count(StatDefinition, table) == 0
-        assert await _count(Entity, table) == 24
+        assert await _count(Entity, table) == 29
     finally:
         await cleanup([table, faerun], [author, gm])
 

@@ -47,7 +47,7 @@ test('a player opens a library without reading other public campaigns details', 
     await expect(panel).not.toContainText('Another public table description');
     expect(detailRequests).toContain(`/tenants/${library.id}/campaigns/${played.id}`);
     expect(detailRequests).not.toContain(`/tenants/${library.id}/campaigns/${other.id}`);
-    await expect(panel.getByRole('button', { name: 'Edit library' })).toHaveCount(0);
+    await expect(panel.getByLabel('Library slug')).toHaveCount(0);
   } finally {
     await context.close();
   }
