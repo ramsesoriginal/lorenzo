@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { parseCommand, parsePoint } from '../../src/lib/command-line';
-import { TOOLS } from '../../src/lib/tools';
+import { SNAP, TOOLS, toolById } from '../../src/lib/tools';
 
 const flat = { grid: false, sphere: false };
 
@@ -40,11 +40,56 @@ describe('the command line', () => {
 
   it('takes a tool by its name, says a planned one is planned and one the Map cannot use', () => {
     expect(parseCommand('line', TOOLS, flat)).toMatchObject({ kind: 'tool' });
-    expect(parseCommand('Spline', TOOLS, flat)).toMatchObject({ kind: 'planned' });
+    expect(parseCommand('Freehand', TOOLS, flat)).toMatchObject({ kind: 'planned' });
+    expect(parseCommand('Spline', TOOLS, flat)).toMatchObject({ kind: 'tool' });
+    expect(parseCommand('Spline', TOOLS, { grid: false, sphere: true })).toMatchObject({
+      kind: 'unavailable',
+    });
     expect(parseCommand('cells', TOOLS, flat)).toMatchObject({ kind: 'unavailable' });
     expect(parseCommand('cells', TOOLS, { grid: true, sphere: false })).toMatchObject({
       kind: 'tool',
     });
     expect(parseCommand('nonsense', TOOLS, flat)?.kind).toBe('error');
+  });
+
+  it('sets an option of the tool that is on by its word, and refuses what it cannot take (ADR 0470)', () => {
+    const line = toolById('line');
+    const onGrid = { grid: true, sphere: false, tool: line };
+
+    expect(parseCommand('SNAP OFF', TOOLS, onGrid)).toEqual({
+      kind: 'option',
+      option: SNAP,
+      value: false,
+    });
+    expect(parseCommand('snap on', TOOLS, onGrid)).toMatchObject({ kind: 'option', value: true });
+    expect(parseCommand('SNAP maybe', TOOLS, onGrid)).toEqual({
+      kind: 'error',
+      message: 'SNAP takes ON or OFF.',
+    });
+    expect(parseCommand('SNAP', TOOLS, onGrid)).toMatchObject({ kind: 'error' });
+    // Without a grid the option is not offered, and without a tool there is nothing to set.
+    expect(parseCommand('SNAP OFF', TOOLS, { ...flat, tool: line })).toEqual({
+      kind: 'error',
+      message: 'Line has no options on this Map.',
+    });
+    expect(parseCommand('SNAP OFF', TOOLS, flat)).toMatchObject({ kind: 'error' });
+    // A number is kept to the option's step and refused outside its range.
+    const spline = { ...flat, tool: toolById('spline') };
+
+    expect(parseCommand('TENSION 0.4', TOOLS, spline)).toMatchObject({
+      kind: 'option',
+      value: 0.4,
+    });
+    expect(parseCommand('tension 0.42', TOOLS, spline)).toMatchObject({ value: 0.4 });
+    for (const bad of ['TENSION 2', 'TENSION -1', 'TENSION', 'TENSION round']) {
+      expect(parseCommand(bad, TOOLS, spline)).toEqual({
+        kind: 'error',
+        message: 'TENSION takes a number from 0 to 1.',
+      });
+    }
+    expect(parseCommand('TENSION 0.4', TOOLS, onGrid)).toEqual({
+      kind: 'error',
+      message: 'Line has no option TENSION on this Map. It has SNAP.',
+    });
   });
 });
