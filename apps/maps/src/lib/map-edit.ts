@@ -357,12 +357,18 @@ export function createEditor(context: EditorContext): Editor {
   async function guarded(action: () => Promise<void>) {
     if (busy) return;
     busy = true;
+    // While a write is on its way the panel takes no press: one made then would be dropped, and
+    // would have been made against a drawing that is about to change.
+    panel.inert = true;
+    panel.setAttribute('aria-busy', 'true');
     try {
       await action();
     } catch (error) {
       say(asText(error), true);
     } finally {
       busy = false;
+      panel.inert = false;
+      panel.removeAttribute('aria-busy');
       renderToolbar();
     }
   }

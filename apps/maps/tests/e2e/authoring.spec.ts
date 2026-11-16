@@ -1007,6 +1007,53 @@ for (const theme of ['light', 'dark'] as const) {
   });
 }
 
+test('the panel takes no press while a write is on its way', async ({ browser }) => {
+  const w = await world();
+  await severalParts(w);
+  const page = await signedIn(browser, w.subject);
+  const drawn = async () => ((await w.read())[0]?.geometry ?? { parts: [] }) as Parts;
+  try {
+    await page.goto(`/map/?tenant=${w.tenant.id}&id=${w.chart.id}`);
+    await expect(page.getByRole('heading', { name: 'Sword Coast', exact: true })).toBeVisible();
+    await page.getByRole('button', { name: 'Edit this map' }).click();
+    await openPanel(page, 'Places');
+    await page
+      .locator('.map-places')
+      .getByRole('button', { name: /Quarry/ })
+      .click();
+    const parts = page.locator('.map-parts');
+    await expect(parts.getByRole('button', { name: 'Remove Point 1' })).toBeVisible();
+    // The write of the first removal is held back, so the page is busy for a while.
+    let release: () => void = () => {};
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    await page.route('**/placements/**', async (route) => {
+      if (route.request().method() === 'PUT') await held;
+      await route.continue();
+    });
+    await parts.getByRole('button', { name: 'Remove Point 1' }).click();
+    const panel = page.locator('.map-edit-panel');
+    await expect(panel).toHaveAttribute('aria-busy', 'true');
+    await expect(panel).toHaveAttribute('inert', '');
+    // A second press now reaches nothing: forced past the check, it still changes nothing.
+    await parts
+      .getByRole('button', { name: 'Remove Hole 1 of Area 1' })
+      .click({ force: true, timeout: 2000 })
+      .catch(() => undefined);
+    release();
+    await expect(panel).not.toHaveAttribute('aria-busy', 'true');
+    await expect.poll(async () => (await drawn()).parts.length).toBe(2);
+    expect((await drawn()).parts[0]?.rings).toHaveLength(2);
+    // Once the write is done the panel takes the press again.
+    await page.unroute('**/placements/**');
+    await parts.getByRole('button', { name: 'Remove Hole 1 of Area 1' }).click();
+    await expect.poll(async () => (await drawn()).parts[0]?.rings?.length).toBe(1);
+  } finally {
+    await page.context().close();
+  }
+});
+
 test('a height line is added to an entry already drawn as height lines', async ({ browser }) => {
   const w = await world();
   const slope = await w.place('Slope');
