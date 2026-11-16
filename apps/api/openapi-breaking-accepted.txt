@@ -1369,3 +1369,27 @@ GET /tenants/{tenant_id}/vocabulary-check added the new `unset-input` enum value
 
 # ADR 0460: the vocabulary check says a tie.
 GET /tenants/{tenant_id}/vocabulary-check added the new `tie` enum value to the `items/items/code` response property for the response status `200`
+
+# ADR 0462: stat_definition.value_type gains `dice`, so every response that carries a definition can have it.
+GET /repositories/{repository_id}/stat-groups added the new `dice` enum value to the `items/definitions/items/value_type` response property for the response status `200`
+GET /tenants/{tenant_id}/repositories/{repository_id}/stat-groups added the new `dice` enum value to the `items/definitions/items/value_type` response property for the response status `200`
+GET /tenants/{tenant_id}/stat-definitions added the new `dice` enum value to the `items/items/value_type` response property for the response status `200`
+POST /tenants/{tenant_id}/stat-definitions added the new `dice` enum value to the `value_type` response property for the response status `201`
+GET /tenants/{tenant_id}/stat-definitions/{stat_definition_id} added the new `dice` enum value to the `value_type` response property for the response status `200`
+PATCH /tenants/{tenant_id}/stat-definitions/{stat_definition_id} added the new `dice` enum value to the `value_type` response property for the response status `200`
+POST /tenants/{tenant_id}/stat-definitions/{stat_definition_id}/enum-values added the new `dice` enum value to the `value_type` response property for the response status `201`
+DELETE /tenants/{tenant_id}/stat-definitions/{stat_definition_id}/enum-values/{enum_value_id} added the new `dice` enum value to the `value_type` response property for the response status `200`
+PATCH /tenants/{tenant_id}/stat-definitions/{stat_definition_id}/enum-values/{enum_value_id} added the new `dice` enum value to the `value_type` response property for the response status `200`
+PUT /tenants/{tenant_id}/stat-groups/{stat_group_id}/order added the new `dice` enum value to the `items/value_type` response property for the response status `200`
+
+# ADR 0463 (RFC 0056): computed stats gain the formula kind `dice_value`, which formula responses and dependents can now carry.
+GET /tenants/{tenant_id}/entities/{entity_id}/computed-stats added `#/components/schemas/DiceValueFormulaBody` to the `items/formula` response property `oneOf` list for the response status `200`
+PUT /tenants/{tenant_id}/entities/{entity_id}/computed-stats/{stat_definition_id} added `#/components/schemas/DiceValueFormulaBody` to the `formula` response property `oneOf` list for the response status `200`
+GET /tenants/{tenant_id}/entities/{entity_id}/stats/{stat_definition_id}/explanation added `#/components/schemas/DiceValueFormulaBody` to the `formula/anyOf[subschema #1]` response property `oneOf` list for the response status `200`
+GET /tenants/{tenant_id}/stat-definitions/{stat_definition_id}/dependents added the new `dice_value` enum value to the `items/kind` response property for the response status `200`
+
+# ADR 0464 (RFC 0056): computed stats gain the formula kind `dice`, which formula responses and dependents can now carry.
+GET /tenants/{tenant_id}/entities/{entity_id}/computed-stats added `#/components/schemas/DiceFormulaBody` to the `items/formula` response property `oneOf` list for the response status `200`
+PUT /tenants/{tenant_id}/entities/{entity_id}/computed-stats/{stat_definition_id} added `#/components/schemas/DiceFormulaBody` to the `formula` response property `oneOf` list for the response status `200`
+GET /tenants/{tenant_id}/entities/{entity_id}/stats/{stat_definition_id}/explanation added `#/components/schemas/DiceFormulaBody` to the `formula/anyOf[subschema #1]` response property `oneOf` list for the response status `200`
+GET /tenants/{tenant_id}/stat-definitions/{stat_definition_id}/dependents added the new `dice` enum value to the `items/kind` response property for the response status `200`
