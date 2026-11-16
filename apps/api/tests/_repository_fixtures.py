@@ -92,6 +92,8 @@ from lorenzo_api.models import (
     RepositoryCopyLinkEntity,
     RepositoryCopyLinkStatDefinition,
     RepositoryCopyLinkStatGroup,
+    RepositoryCopyLinkSystem,
+    RepositoryCopyLinkTemplate,
     RepositoryRelease,
     RepositoryReleaseBlob,
     RepositoryReleaseDocument,
@@ -160,7 +162,8 @@ async def seed_every_content_table(
     group = StatGroup(tenant_id=tenant_id, name="Abilities")
     session.add(group)
     # A game system, which a repository holds as content (ADR 0448).
-    session.add(System(tenant_id=tenant_id, slug="fx", name="Fixture system"))
+    fixture_system = System(tenant_id=tenant_id, slug="fx", name="Fixture system")
+    session.add(fixture_system)
     await session.flush()
 
     session.add_all(
@@ -880,6 +883,10 @@ async def seed_every_content_table(
             RepositoryCopyLinkStatDefinition(
                 **link, stat_definition_id=strength.id, source_id=uuid.uuid4(), mode="copied"
             ),
+            RepositoryCopyLinkSystem(
+                **link, system_id=fixture_system.id, source_id=uuid.uuid4(), mode="copied"
+            ),
+            RepositoryCopyLinkTemplate(**link, template_id=template.id, source_id=uuid.uuid4()),
         ]
     )
     await session.flush()

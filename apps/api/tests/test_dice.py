@@ -139,7 +139,7 @@ def test_a_dice_value_is_written_as_its_parts_and_reads_back_exactly() -> None:
 def test_a_document_of_format_45_has_no_dice_and_reads_with_none() -> None:
     content, _, _ = _with_dice()
     document, files = rd.encode(content)
-    assert rd.FORMAT == 48
+    assert rd.FORMAT == 49
 
     old = dict(document)
     old["definitions"] = {
@@ -207,7 +207,7 @@ def test_a_dice_value_formula_round_trips_and_a_document_of_format_46_has_none()
         kind="dice_value", source=dice_stat, read_as="average", round_mode="ceil"
     )
     document, files = rd.encode(content)
-    assert rd.FORMAT == 48
+    assert rd.FORMAT == 49
     back = rd.decode(rd.loads(rd.dumps(document)), files)
     assert differences(content, back) == []
     assert back.formulas[(holder, reading)].read_as == "average"
