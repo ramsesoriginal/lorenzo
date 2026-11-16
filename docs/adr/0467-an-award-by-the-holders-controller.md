@@ -1,4 +1,4 @@
-# 0465 - An award by the holder's controller
+# 0467 - An award by the holder's controller
 
 Status: accepted, built (2026-11-16). Slice G1 of the follow-ups tracked in #1229. Takes up what
 [RFC 0054](../rfcs/0054-features-grants-and-choices.md) section 2 says of an award ("the GM's, or the holder's controller where the

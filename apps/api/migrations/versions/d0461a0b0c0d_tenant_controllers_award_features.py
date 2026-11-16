@@ -1,4 +1,4 @@
-"""tenant.controllers_award_features (ADR 0465)
+"""tenant.controllers_award_features (ADR 0467)
 
 Whether the controller of a holder, and not only its manager, may award it a feature (RFC 0054
 section 2, "where the library allows"). Off by default, so no library's behaviour changes until an

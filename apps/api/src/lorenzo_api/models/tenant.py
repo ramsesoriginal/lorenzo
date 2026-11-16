@@ -159,7 +159,7 @@ class Tenant(Base):
     # GMs who share a campaign with its author. Meaningless for a repository,
     # which holds no campaigns and so has no GMs.
     npcs_shared_with_gms: Mapped[bool] = mapped_column(server_default=text("true"))
-    # ADR 0465: whether the controller of a holder may award it a feature, as its manager may
+    # ADR 0467: whether the controller of a holder may award it a feature, as its manager may
     # (RFC 0054 section 2). Off, the default, an award is a manager's alone.
     controllers_award_features: Mapped[bool] = mapped_column(server_default=text("false"))
     # ADR 0262: bumped once per transaction that writes anything the entity export shows, by

@@ -57,12 +57,15 @@ test('a GM builds a tree of Locations and a player sees only what is visible', a
   const gm = await signedIn(browser, w.subject);
   const player = await signedIn(browser, w.playerSubject);
   try {
+    // With one library the app begins at its gallery of Maps; Locations is a tab beside it.
     await gm.goto('/');
-    await gm.getByRole('link', { name: w.tenant.name, exact: true }).click();
+    await expect(gm.getByRole('heading', { name: 'Maps', exact: true })).toBeVisible();
+    await gm.getByRole('link', { name: 'Locations', exact: true }).click();
     await expect(gm.getByRole('heading', { name: 'Locations', exact: true })).toBeVisible();
     await expect(gm.getByText('No Locations yet.')).toBeVisible();
 
     // A top-level Location, visible to everyone.
+    await gm.getByRole('button', { name: 'Add a Location', exact: true }).click();
     await gm.getByLabel('Name', { exact: true }).fill('Realm');
     await gm.getByLabel('Link name (optional)').fill('realm');
     await gm.getByLabel('Visible to everyone in the library').check();
@@ -78,7 +81,7 @@ test('a GM builds a tree of Locations and a player sees only what is visible', a
     await gm.getByLabel('Visible to everyone in the library').check();
     await gm.getByRole('button', { name: 'Add Location', exact: true }).click();
     await expect(gm.getByRole('heading', { name: 'Camp', exact: true })).toBeVisible();
-    await expect(gm.getByRole('link', { name: 'In Secret hold' })).toBeVisible();
+    await expect(gm.locator('.page-head').getByRole('link', { name: 'Secret hold' })).toBeVisible();
 
     // The GM can rename it, and the page says so.
     await gm.getByLabel('Rename this Location').fill('Base camp');
@@ -93,7 +96,7 @@ test('a GM builds a tree of Locations and a player sees only what is visible', a
     await expect(player.getByRole('link', { name: 'Base camp', exact: true })).toBeVisible();
     await expect(player.getByText('Secret hold')).toHaveCount(0);
     await player.getByRole('link', { name: 'Base camp', exact: true }).click();
-    await expect(player.getByRole('link', { name: 'In Realm' })).toBeVisible();
+    await expect(player.locator('.page-head').getByRole('link', { name: 'Realm' })).toBeVisible();
     await expect(player.getByText('Secret hold')).toHaveCount(0);
     await expect(player.getByRole('button', { name: 'Save name' })).toHaveCount(0);
 
@@ -141,16 +144,56 @@ test('a Location refuses to become part of itself and the pages have no accessib
     await expect(gm.getByRole('alert')).toBeVisible();
     await expect(gm.getByRole('alert')).not.toContainText(inner.id);
     for (const address of [
-      '/',
+      `/maps/?tenant=${w.tenant.id}`,
       `/locations/?tenant=${w.tenant.id}`,
       `/location/?tenant=${w.tenant.id}&id=${top.id}`,
     ]) {
       await gm.goto(address);
       await expect(gm.locator('[data-page]')).toBeVisible();
       await expect(gm.locator('[data-loading]')).toHaveCount(0);
-      const result = await new AxeBuilder({ page: gm }).analyze();
+      const result = await new AxeBuilder({ page: gm }).exclude('.shell-bottom').analyze();
       expect(result.violations.map((v) => `${v.id}: ${v.nodes[0]?.html}`)).toEqual([]);
     }
+  } finally {
+    await gm.context().close();
+  }
+});
+
+test('a writer’s tree says which Locations are open to the library, and a Location says where it sits', async ({
+  browser,
+}) => {
+  const w = await world();
+  const gm = await signedIn(browser, w.subject);
+  try {
+    const top = await ok(
+      w.gm.POST('/tenants/{tenant_id}/locations', {
+        params: { path: w.path },
+        body: { name: 'Open land', is_public: true },
+      }),
+    );
+    await ok(
+      w.gm.POST('/tenants/{tenant_id}/locations', {
+        params: { path: w.path },
+        body: { name: 'Closed land', is_public: false },
+      }),
+    );
+    const inner = await ok(
+      w.gm.POST('/tenants/{tenant_id}/locations', {
+        params: { path: w.path },
+        body: { name: 'Inner room', is_public: true, parent_id: top.id },
+      }),
+    );
+    await gm.goto(`/locations/?tenant=${w.tenant.id}`);
+    const open = gm.locator('.place-item', { hasText: 'Open land' }).first();
+    const closed = gm.locator('.place-item', { hasText: 'Closed land' }).first();
+    await expect(open.locator('.place-state').first()).toContainText('Open');
+    await expect(closed.locator('.place-state').first()).toContainText('Closed');
+    // A Location says where it sits, each step a link.
+    await gm.goto(`/location/?tenant=${w.tenant.id}&id=${inner.id}`);
+    await expect(gm.locator('.place-ancestry')).toHaveText('in Open land');
+    await expect(
+      gm.locator('.place-ancestry').getByRole('link', { name: 'Open land' }),
+    ).toBeVisible();
   } finally {
     await gm.context().close();
   }

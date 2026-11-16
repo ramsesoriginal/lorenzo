@@ -6,22 +6,36 @@ import appStyles from '../styles/app.css?url';
 
 interface Props {
   title?: string;
+  // The page's template (ADR 0412); the Map's page is a workspace, the rest are lists.
+  template?: 'list-detail' | 'workspace';
   // What the welcome says while the page works out who is signed in.
   status?: string;
 }
 
-const { title = 'Lorenzo Maps', status = 'Opening your libraries…' } = Astro.props;
+const {
+  title = 'Lorenzo Maps',
+  status = 'Opening your libraries…',
+  template = 'list-detail',
+} = Astro.props;
 ---
 
 <AppPage
   title={title}
   product="Maps"
+  icon="map"
   brandingUrl={BRANDING_CSS_URL}
   themeKey="lorenzo:maps:theme"
+  shell="web"
+  template={template}
   nav={[
-    { label: 'Libraries', href: '/' },
-    { label: 'Locations', href: '/locations/', needsLibrary: true },
-    { label: 'Maps', href: '/maps/', needsLibrary: true },
+    { label: 'Maps', href: '/', icon: 'map', also: ['/maps/', '/map/'] },
+    {
+      label: 'Locations',
+      href: '/locations/',
+      needsLibrary: true,
+      icon: 'kind-location',
+      also: ['/location/'],
+    },
   ]}
   path="apps/maps"
   welcome={{

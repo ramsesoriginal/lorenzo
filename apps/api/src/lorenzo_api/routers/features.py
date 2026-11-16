@@ -149,7 +149,7 @@ async def award_feature(
     switched on unless the feature starts its instances inactive or the body says. The holder's
     manager (`403` otherwise): a GM of its campaigns, an administrator for one in none, an Author in
     a repository; and its controller when the library allows it (`controllers_award_features`,
-    ADR 0465). `409` for a feature the holder has and that is not `repeatable`, `422` for an entry
+    ADR 0467). `409` for a feature the holder has and that is not `repeatable`, `422` for an entry
     that is no feature here (a hidden one included) or a holder that holds nothing."""
     await require_tenant_participant(session, tenant_id=tenant_id, user=user)
     holder = await get_entity_or_404(session, entity_id, tenant_id)
