@@ -77,6 +77,13 @@ AUTHORING = {
     ("POST", STAT_DEFINITION + "/enum-values"),
     ("PATCH", STAT_DEFINITION + "/enum-values/{enum_value_id}"),
     ("POST", T + "/stat-groups"),
+    ("POST", T + "/systems"),
+    ("PATCH", T + "/systems/{system_id}"),
+    ("POST", T + "/templates"),
+    ("PUT", T + "/templates/{template_id}"),
+    ("POST", T + "/grant-rules"),
+    ("PUT", T + "/grant-rules/{rule_id}"),
+    ("PUT", T + "/features/prototypes/{feature_id}/prerequisites"),
     ("PATCH", STAT_GROUP),
     ("PUT", T + "/stat-groups/order"),
     ("PUT", STAT_GROUP + "/order"),
@@ -92,6 +99,9 @@ ADMIN_UNLESS_DRY_RUN = {
 
 # An Owner or an Organizer: `get_tenant_admin_context`.
 ADMIN = {
+    ("DELETE", T + "/systems/{system_id}"),
+    ("DELETE", T + "/templates/{template_id}"),
+    ("DELETE", T + "/grant-rules/{rule_id}"),
     ("PATCH", T),
     ("GET", T + "/activity-log"),
     ("POST", T + "/campaigns"),
@@ -123,6 +133,7 @@ OWNER = {
     ("PUT", T + "/published"),
     ("GET", T + "/flip-check"),
     ("PUT", T + "/public"),
+    ("PUT", T + "/protected"),
     ("PUT", T + "/showcase"),
     ("DELETE", T + "/public"),
     ("PUT", T + "/deprecation"),
@@ -132,6 +143,8 @@ OWNER = {
     ("PUT", T + "/releases/{release_id}/current"),
     ("PUT", T + "/subscribers/{subscriber_tenant_id}"),
     ("DELETE", T + "/subscribers/{subscriber_tenant_id}"),
+    # How it carries a repository it is built on (ADR 0431).
+    ("PUT", REPOSITORY + "/inclusion"),
     ("DELETE", REPOSITORY),
     # An Owner's invite links (ADR 0220): made, listed and revoked.
     ("POST", T + "/invites"),
@@ -209,6 +222,7 @@ _BODIES: dict[tuple[str, str], object] = {
     ("POST", T + "/invites"): {"kind": "tenant_role", "role": "author"},
     ("PUT", T + "/showcase"): {"entity_ids": []},
     ("PATCH", T + "/profile"): {"summary": "x"},
+    ("PUT", REPOSITORY + "/inclusion"): {"inclusion": "show"},
 }
 
 

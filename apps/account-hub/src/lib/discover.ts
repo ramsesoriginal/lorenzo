@@ -19,6 +19,7 @@ import type {
   PublicDependencyOut,
   PublisherOut,
   ReleaseOut,
+  RepositoryProfileOut,
   TenantSummaryOut,
 } from './types';
 
@@ -31,7 +32,7 @@ export const NOTHING_PUBLIC_HINT =
 export const NOTHING_FOUND = 'Nothing found. Try another word, or remove a filter.';
 export const TOO_DEEP = 'Narrow your search with a word or a filter.';
 export const NOT_LISTED =
-  'This repository is not listed. It may be private, it may not have a release yet, or it may not exist.';
+  'This repository cannot be opened. It may be private, it may not have a release yet, it may have been retired, or it may not exist.';
 export const NO_LICENCE = 'No licence stated';
 export const PAST_THE_END = 'There is nothing on that page.';
 export const REPORT_LABEL = 'Report this repository';
@@ -394,6 +395,26 @@ export function factsOf(item: DiscoverItemOut): Fact[] {
   }
 
   return facts;
+}
+
+// ---------------------------------------------------------------------------------------------
+// A repository its Owner left off Discover (RFC 0051 H2, ADR 0432).
+
+export const UNLISTED_NOTE =
+  'This repository is not listed on Discover. Only people who have its address can open this page.';
+
+// What the Owners of an unlisted repository read at the top of its page, and nobody else: a visitor
+// who has the address is not told how it was found or left out, only shown the page.
+export function unlistedNote(
+  profile: Pick<RepositoryProfileOut, 'listed'>,
+  tenants: readonly Pick<TenantSummaryOut, 'id' | 'role'>[],
+  repositoryId: string,
+): string | null {
+  if (profile.listed) return null;
+
+  return tenants.some((tenant) => tenant.id === repositoryId && tenant.role === 'owner')
+    ? UNLISTED_NOTE
+    : null;
 }
 
 // ---------------------------------------------------------------------------------------------

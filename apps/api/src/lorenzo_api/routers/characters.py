@@ -26,7 +26,7 @@ from lorenzo_api.dependencies import (
     set_tenant_rls_context,
 )
 from lorenzo_api.entity_access import controlled_character_entity_ids
-from lorenzo_api.entry_visibility import visible_entry_clause
+from lorenzo_api.entry_visibility import unhidden, visible_entry_clause
 from lorenzo_api.etag import check_if_match
 from lorenzo_api.exceptions import (
     CharacterManagementForbiddenError,
@@ -124,7 +124,9 @@ async def list_characters(
     0004).
     """
     await require_tenant_participant(session, tenant_id=tenant_id, user=user)
-    stmt = select(Character).where(Character.tenant_id == tenant_id)
+    stmt = select(Character).where(
+        Character.tenant_id == tenant_id, await unhidden(session, tenant_id, Character.entity_id)
+    )
     if mine:
         # Mirrors entity_access.py's own "resolve the caller's Player rows
         # in this tenant first" idiom rather than an inline subquery - see

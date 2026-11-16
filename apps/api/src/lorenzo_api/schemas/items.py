@@ -66,6 +66,9 @@ class DescriptionOut(BaseModel):
     locale: str
     # ADR 0111: null for the item's own; otherwise the ancestor it inherits from.
     from_entity: EntitySummary | None
+    # Inherited from an entry the caller may not see (a hidden entry, ADR 0437): `from_entity` is
+    # null, as for the stat values, and the text is still given, as the entry's value is.
+    from_hidden: bool | None = None
 
 
 class PictureRefOut(BaseModel):
@@ -86,6 +89,9 @@ class PictureRefOut(BaseModel):
     file_type: str
     # ADR 0111: null for the item's own; otherwise the ancestor it inherits from.
     from_entity: EntitySummary | None
+    # Inherited from an entry the caller may not see (a hidden entry, ADR 0437), as on a
+    # description.
+    from_hidden: bool | None = None
 
 
 def _picture_refs(
@@ -93,7 +99,11 @@ def _picture_refs(
     request: Request,
     visibility: InformationReader,
     from_entity: EntitySummary | None,
+    *,
+    inherited: bool = False,
+    from_hidden: bool | None = None,
 ) -> list[PictureRefOut]:
+    can_see = visibility.can_see_inherited if inherited else visibility.can_see
     return [
         PictureRefOut(
             url=str(
@@ -103,9 +113,10 @@ def _picture_refs(
             ),
             file_type=payload.picture.file_type,
             from_entity=from_entity,
+            from_hidden=from_hidden,
         )
         for info in entity.information
-        if info.type == "description" and visibility.can_see(info)
+        if info.type == "description" and can_see(info)
         for payload in info.payloads
         if payload.picture is not None
     ]
@@ -139,20 +150,42 @@ def _described_out(
     """`descriptions` and `pictures`: the item's own, then each ancestor's,
     nearest first, each labelled with where it comes from (ADR 0111).
     `ancestors` comes from inherited_information.prototype_ancestors."""
-    sources: list[tuple[EntitySummary | None, Entity]] = [
-        (None, view.entity),
-        *((EntitySummary(id=a.id, name=a.name), a) for a in ancestors),
+    # An ancestor the repository it came with hides (ADR 0437) still gives its texts, as it gives
+    # its values: they are the item's inherited ones, and the ancestor is not named.
+    sources: list[tuple[EntitySummary | None, bool, Entity]] = [
+        (None, False, view.entity),
+        *(
+            (
+                None
+                if visibility.is_hidden_by_source(a.id)
+                else EntitySummary(id=a.id, name=a.name),
+                visibility.is_hidden_by_source(a.id),
+                a,
+            )
+            for a in ancestors
+        ),
     ]
     return dict(
         descriptions=[
-            DescriptionOut(content=content, locale=locale, from_entity=source)
-            for source, entity in sources
-            for content, locale in description_pairs(entity, visibility)
+            DescriptionOut(
+                content=content, locale=locale, from_entity=source, from_hidden=hidden or None
+            )
+            for source, hidden, entity in sources
+            for content, locale in description_pairs(
+                entity, visibility, inherited=source is not None or hidden
+            )
         ],
         pictures=[
             picture
-            for source, entity in sources
-            for picture in _picture_refs(entity, request, visibility, source)
+            for source, hidden, entity in sources
+            for picture in _picture_refs(
+                entity,
+                request,
+                visibility,
+                source,
+                inherited=source is not None or hidden,
+                from_hidden=hidden or None,
+            )
         ],
     )
 
@@ -178,7 +211,9 @@ def _title_out(title: str | None, *, name: str) -> str:
     return title or name
 
 
-def _is_container_out(tags: list[tuple[str, bool | None]], *, has_children: bool) -> bool | None:
+def _is_container_out(
+    container_tag: tuple[bool, bool | None], *, has_children: bool
+) -> bool | None:
     """`is_container` as a first-class field, mirroring whatever `tags`
     already carries for that name - see ADR 0066. Not a new stat_definition
     lookup of its own and not a new `v_item`/`v_item_instance` SQL column
@@ -198,9 +233,9 @@ def _is_container_out(tags: list[tuple[str, bool | None]], *, has_children: bool
     from "we don't know" under this heuristic, so it stays unset rather
     than being inferred `False`.
     """
-    for name, value in tags:
-        if name == "is_container":
-            return value
+    present, value = container_tag
+    if present:
+        return value
     return True if has_children else None
 
 
@@ -217,16 +252,20 @@ class ItemCreate(BaseModel):
     name: str
     prototype_ids: list[uuid.UUID] = []
     in_public_catalog: bool = False
+    # ADR 0447: its instances start with the `active` switch off, as an item that needs attunement
+    # does. Left out is false, so a client built before it keeps sending what it did.
+    starts_inactive: bool | None = None
     slug: Slug | None = None
 
 
 class ItemUpdate(BaseModel):
-    """PATCH /items/{id} - Entity.name, and the Item row's own
-    in_public_catalog (ADR 0116). Either left out stays as it is.
+    """PATCH /items/{id} - Entity.name, and the Item row's own in_public_catalog (ADR 0116) and
+    starts_inactive (ADR 0447). Any left out stays as it is.
     """
 
     name: str | None = None
     in_public_catalog: bool | None = None
+    starts_inactive: bool | None = None
 
 
 def _prototype_ids_out(entity: Entity, visibility: InformationReader) -> list[uuid.UUID]:
@@ -238,13 +277,13 @@ def _prototype_ids_out(entity: Entity, visibility: InformationReader) -> list[uu
     return [link.prototype_id for link in links if visibility.can_see_entry(link.prototype_id)]
 
 
-def _named_number(view: VItem | VItemInstance, name: str, column: int | None) -> int | float | None:
+def _named_number(view: VItem | VItemInstance, role: str, column: int | None) -> int | float | None:
     """A named v_item/v_item_instance column holds stored integers only - SQL can't
     evaluate a formula, and the view reads the integer column - so a computed winner (ADR 0104)
     or a stored float (ADR 0141) comes from the Python pass instead."""
     if column is not None:
         return column
-    value = view.resolved_value_by_name(name)
+    value = view.resolved_value_by_role(role)
     return value if isinstance(value, int | float) and not isinstance(value, bool) else None
 
 
@@ -274,7 +313,9 @@ def _common_item_fields(
         container_entity_id=view.container_entity_id,
         quantity=view.quantity,
         prototype_ids=_prototype_ids_out(view.entity, visibility),
-        is_container=_is_container_out(view.tags, has_children=bool(view.entity.contained_links)),
+        is_container=_is_container_out(
+            view.container_tag, has_children=bool(view.entity.contained_links)
+        ),
         **_described_out(view, request, visibility, ancestors),
         physical_stats=_stats_out(view.physical_stats),
         economic_stats=_stats_out(view.economic_stats),
@@ -344,6 +385,8 @@ class ItemOut(_ItemFields):
     """
 
     in_public_catalog: bool
+    # ADR 0447: its instances start with the `active` switch off.
+    starts_inactive: bool
 
     @classmethod
     def from_v_item(
@@ -358,6 +401,7 @@ class ItemOut(_ItemFields):
         return cls(
             **_common_item_fields(view, request, visibility=visibility, ancestors=ancestors),
             in_public_catalog=item is not None and item.in_public_catalog,
+            starts_inactive=item is not None and item.starts_inactive,
         )
 
 
@@ -383,6 +427,9 @@ class ItemInstanceCreate(BaseModel):
     quantity: int = Field(default=1, ge=1)
     # ADR 0128: a GM creates it inside anyway, past capacity.
     override: bool = False
+    # ADR 0447: the `active` switch; left out, it starts as its prototype says (on, unless the
+    # prototype `starts_inactive`).
+    active: bool | None = None
 
     @model_validator(mode="after")
     def _a_stack_needs_a_container(self) -> Self:
@@ -405,6 +452,15 @@ class ItemInstanceUpdate(BaseModel):
     # What the instance is: replaces its prototype. A manager's alone (ADR 0192),
     # and the name and notes stay.
     prototype_id: uuid.UUID | None = None
+    # ADR 0447: the `active` switch, by the rule that lets someone who holds the instance edit it.
+    # It cannot be null.
+    active: bool | None = None
+
+    @model_validator(mode="after")
+    def _active_is_not_null(self) -> ItemInstanceUpdate:
+        if "active" in self.model_fields_set and self.active is None:
+            raise ValueError("active is on or off, not null")
+        return self
 
 
 class SetOwnerRequest(BaseModel):
@@ -510,6 +566,8 @@ class ItemInstanceOut(_ItemFields):
     slug: str | None
     # ADR 0129: its owner can't change, and it can't leave what binds it.
     bound: bool
+    # ADR 0447: whether it counts where a formula asks for what is switched on; its holder flips it.
+    active: bool
 
     @classmethod
     def from_v_item_instance(
@@ -528,6 +586,7 @@ class ItemInstanceOut(_ItemFields):
             owner_entity_id=view.owner_entity_id,
             slug=view.slug,
             bound=view.bound,
+            active=view.active,
         )
 
 

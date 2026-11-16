@@ -38,6 +38,7 @@ import { createReadiness } from './readiness';
 import { createRetiredControls } from './retired';
 import { createActivity, createBuiltOn, createReleases, createUsing } from './sections';
 import { createShowcaseControls } from './showcase';
+import { createTermsCard } from './terms';
 import { createViewAs } from './viewAs';
 import { createVisibilityControls } from './visibility';
 
@@ -59,7 +60,7 @@ export type RenderedRepository = {
   hide(): void;
   // False where the person was asked whether to leave what they typed in the profile unsaved, and said
   // no: the page does not go elsewhere (ADR 0385).
-  mayLeave(): boolean;
+  mayLeave(): boolean | Promise<boolean>;
 };
 
 // The tabs, in the order of the markup.
@@ -114,7 +115,7 @@ export function renderRepository(
   const publishControls = createPublishControls(root, hooks.onChanged);
   // Private or public is a change of the same kind: the page reads the repository again after it.
   const visibility = createVisibilityControls(root, hooks.onChanged, (kind, check, repository) => {
-    publishControls.markPublic(kind === 'public');
+    publishControls.markPublic(kind !== 'private');
     void readiness.paint(repository, check);
   });
   // What is still missing before it can be public, each a link to where it is fixed (ADR 0385).
@@ -137,6 +138,8 @@ export function renderRepository(
   const releases = createReleases(root);
   const using = createUsing(root, () => undefined);
   const builtOn = createBuiltOn(root);
+  // What repositories built on this one may use it for (ADR 0431), on the Profile tab.
+  const terms = createTermsCard(root);
   const activity = createActivity(root);
   let lastId: string | null = null;
 
@@ -157,16 +160,16 @@ export function renderRepository(
   }
 
   // Opens where a link of the readiness list points: the tab, and the field.
-  function jump(target: ReadinessTarget): void {
+  async function jump(target: ReadinessTarget): Promise<void> {
     if (target.kind === 'built-on') {
-      tabs.select(TAB.builtOn);
+      await tabs.select(TAB.builtOn);
 
       return;
     }
 
     if (target.kind === 'page') return;
 
-    if (tabs.select(TAB.profile)) profile.focus(target.kind);
+    if (await tabs.select(TAB.profile)) profile.focus(target.kind);
   }
 
   // `keepDraft`: the same repository drawn again keeps what was typed in its profile and not saved.
@@ -189,6 +192,7 @@ export function renderRepository(
     visibility.clear();
     readiness.clear();
     profile.clear(keepDraft);
+    terms.clear();
     delisted.clear();
     retired.clear();
     showcase.clear();
@@ -225,7 +229,6 @@ export function renderRepository(
       const panel = cloneRoot(root, '[data-membership-admin-template]');
 
       renderMembershipAdmin(panel, repository, members, hooks.onChanged, {
-        heading: 'Everyone with a role',
         inviteLabel: 'Add a person, as:',
       });
       membershipsSlot.replaceChildren(panel);
@@ -335,6 +338,7 @@ export function renderRepository(
 
         await Promise.all([
           profile.load(repository, isCurrent),
+          terms.load(repository, isCurrent),
           releases.load(repository, isCurrent, roster?.items ?? null),
           // Who copied it and the activity are the people who run it's to read; an Author's tabs are
           // the ones the API serves them.

@@ -1,0 +1,11 @@
+---
+import Base from '../../layouts/Base.astro';
+---
+
+<Base title="Webs — Lorenzo Social">
+  <div id="social-webs" class="stack"></div>
+  <script>
+    import { mountWebs } from '../../lib/web-view';
+    document.addEventListener('astro:page-load', () => void mountWebs());
+  </script>
+</Base>

@@ -45,3 +45,17 @@
   object-fit: cover;
   border-radius: inherit;
 }
+
+/* The relationships of a being, drawn around it (ADR 0407): a box of a definite height. */
+.relationship-graph {
+  height: 22rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-control);
+  overflow: hidden;
+}
+
+@media (max-width: 720px) {
+  .relationship-graph {
+    height: 18rem;
+  }
+}

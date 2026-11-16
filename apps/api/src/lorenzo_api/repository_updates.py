@@ -13,7 +13,7 @@ conflict is never resolved without being named.
 
 import uuid
 from collections.abc import Mapping
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Any, Literal
@@ -22,8 +22,9 @@ from sqlalchemy import delete, func, insert, select, update
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from lorenzo_api import dice
 from lorenzo_api.activity_log import record_activity
-from lorenzo_api.entity_kinds import inventory_items_inherit
+from lorenzo_api.entity_kinds import feature_is_held, inventory_items_inherit
 from lorenzo_api.exceptions import (
     InvalidRepositoryUpdateError,
     RepositoryCopyNeedsChoicesError,
@@ -39,7 +40,16 @@ from lorenzo_api.models import (
     ComputedStat,
     ComputedStatComparison,
     ComputedStatContents,
+    ComputedStatDice,
+    ComputedStatDiceValue,
+    ComputedStatExtremum,
+    ComputedStatExtremumInput,
     ComputedStatLinear,
+    ComputedStatProduct,
+    ComputedStatProductFactor,
+    ComputedStatRatio,
+    ComputedStatSelect,
+    ComputedStatSelectStep,
     ComputedStatSum,
     ComputedStatSumTerm,
     Containment,
@@ -50,6 +60,11 @@ from lorenzo_api.models import (
     EntitySlug,
     EntityStat,
     EntityStatGroup,
+    Feature,
+    FeaturePrerequisite,
+    GrantRule,
+    GrantRuleCondition,
+    GrantRuleOption,
     Item,
     ItemInstance,
     Location,
@@ -60,15 +75,24 @@ from lorenzo_api.models import (
     RepositoryCopyLinkEntity,
     RepositoryCopyLinkStatDefinition,
     RepositoryCopyLinkStatGroup,
+    RepositoryCopyLinkSystem,
+    RepositoryCopyLinkTemplate,
+    RepositorySubscription,
     StatDefinition,
     StatDefinitionEnumValue,
     StatGroup,
     StatValueType,
+    System,
+    Template,
+    TemplateSlot,
+    TemplateSlotExclusion,
+    TemplateSlotStat,
     Tenant,
+    TenantKind,
 )
 from lorenzo_api.models.calendar import Calendar
 from lorenzo_api.models.fact import EntityAudience, Fact
-from lorenzo_api.repository_access import reading_repository
+from lorenzo_api.repository_access import reading_repository_held
 from lorenzo_api.repository_content import (
     Content,
     Namer,
@@ -79,6 +103,8 @@ from lorenzo_api.repository_content import (
     origin_namer,
     stat_definition_snapshot,
     stat_group_snapshot,
+    system_snapshot,
+    template_snapshot,
 )
 from lorenzo_api.repository_copying import (
     LOOP_REASON,
@@ -92,6 +118,9 @@ from lorenzo_api.repository_copying import (
     write_rows,
 )
 from lorenzo_api.repository_digest import (
+    KINDS as DIGEST_KINDS,
+)
+from lorenzo_api.repository_digest import (
     BreakingNote,
     Key,
     live_rows,
@@ -100,20 +129,43 @@ from lorenzo_api.repository_digest import (
     stored_rows,
 )
 from lorenzo_api.repository_digest import State as RowState
+from lorenzo_api.repository_hiding import (
+    HIDDEN_ENTRY,
+    HiddenChanges,
+    carries_of,
+    hidden_label,
+    hidden_sources,
+    refresh_hidden,
+    scrub_rows,
+    unused_hidden_entries,
+)
 from lorenzo_api.repository_releases import ReleaseRef
 from lorenzo_api.repository_upstream import load_upstream
-from lorenzo_api.stat_enum_values import enum_value_uses
+from lorenzo_api.stat_enum_values import enum_value_uses, formulas_reading_as_number
 
-RowKind = Literal["entity", "stat_group", "stat_definition"]
-_ROW_KINDS: tuple[RowKind, ...] = ("entity", "stat_group", "stat_definition")
-# Groups before definitions before entities: the order additions need.
-_ADD_ORDER: tuple[RowKind, ...] = ("stat_group", "stat_definition", "entity")
+RowKind = Literal["entity", "stat_group", "stat_definition", "system", "template"]
+_ROW_KINDS: tuple[RowKind, ...] = (
+    "entity",
+    "stat_group",
+    "stat_definition",
+    "system",
+    "template",
+)
+# Systems before groups before definitions before entities before templates: the order additions
+# need (a template shows groups, stats and entries; ADR 0469).
+_ADD_ORDER: tuple[RowKind, ...] = (
+    "system",
+    "stat_group",
+    "stat_definition",
+    "entity",
+    "template",
+)
 State = Literal["clean", "conflict", "not_applicable"]
 
 # `kinds` is a set like the others: an entry gaining or losing a kind is shown, and a kind is added
 # or removed element by element (ADR 0217). Before, an entry's kinds were not compared.
 _HINTS = ("max_hint", "min_hint", "resolved_hint")
-_DISPLAY = ("unit", "adjustable_in_play", "pin", "signed")
+_DISPLAY = ("unit", "adjustable_in_play", "pin", "signed", "min_value", "max_value")
 _SETS = {"prototypes", "stat_groups", "enum_values", "kinds"}
 _KEYED = {"stats", "formulas", "placements"}
 # What a keyed field is keyed by: a stat, except the placements of a Map (an entry).
@@ -129,6 +181,7 @@ _MARKER_MODELS: dict[str, Any] = {
     "being": Being,
     "fact": Fact,
     "location": Location,
+    "feature": Feature,
 }
 
 _LINK_MODELS: dict[str, Any] = {
@@ -138,12 +191,16 @@ _LINK_MODELS: dict[str, Any] = {
         RepositoryCopyLinkStatDefinition,
         RepositoryCopyLinkStatDefinition.stat_definition_id,
     ),
+    "system": (RepositoryCopyLinkSystem, RepositoryCopyLinkSystem.system_id),
+    "template": (RepositoryCopyLinkTemplate, RepositoryCopyLinkTemplate.template_id),
 }
 # What an added row of each kind can collide on (ADR 0119).
 COLLISION_KIND: dict[str, Any] = {
     "entity": "slug",
     "stat_group": "stat_group",
     "stat_definition": "stat_definition",
+    "system": "stat_group",
+    "template": "template",
 }
 
 
@@ -240,6 +297,9 @@ class Updates:
     warnings: dict[Key, list[BreakingNote]] = field(default_factory=dict)
     upstream: Content | None = None
     local: Content | None = None
+    # What the update does to the entries this library hides, as counts: the rows themselves are
+    # not in `changed`, `removed` or `added` (ADR 0437). None where it hides nothing of them.
+    hidden: HiddenChanges | None = None
 
 
 # --- Finding updates -------------------------------------------------------------
@@ -313,6 +373,10 @@ def _snapshot(
         return entity_snapshot(content, index, row_id, namer)
     if kind == "stat_group":
         return stat_group_snapshot(content, row_id)
+    if kind == "system":
+        return system_snapshot(content, row_id, namer)
+    if kind == "template":
+        return template_snapshot(content, row_id, namer)
     return stat_definition_snapshot(content, row_id, namer)
 
 
@@ -321,6 +385,8 @@ def _rows(content: Content, kind: str) -> dict[uuid.UUID, Any]:
         "entity": content.entities,
         "stat_group": content.groups,
         "stat_definition": content.definitions,
+        "system": content.systems,
+        "template": content.templates,
     }
     return rows[kind]
 
@@ -374,11 +440,23 @@ class Names:
         return found if isinstance(found, str) and found else None
 
 
+_FORMULA_ROLES = ("source", "left", "right", "numerator", "denominator", "where", "count", "sides")
+
+
 def _formula_inputs(formula: Any) -> list[str]:
     if not isinstance(formula, dict):
         return []
-    inputs = [formula[role] for role in ("source", "left", "right") if formula.get(role)]
-    return inputs + [term["source"] for term in formula.get("terms") or []]
+    inputs = [formula[role] for role in _FORMULA_ROLES if formula.get(role)]
+    inputs += [term["source"] for term in formula.get("terms") or []]
+    inputs += formula.get("factors") or []
+    # A select's result stats (ADR 0446): in its steps and in `otherwise`.
+    results = [step["result"] for step in formula.get("steps") or []]
+    if formula.get("otherwise"):
+        results.append(formula["otherwise"])
+    inputs += [result["stat"] for result in results if result.get("stat")]
+    return inputs + [
+        operand["source"] for operand in formula.get("inputs") or [] if operand["source"]
+    ]
 
 
 def mentioned(change: FieldChange) -> list[tuple[str, str]]:
@@ -394,6 +472,8 @@ def mentioned(change: FieldChange) -> list[tuple[str, str]]:
         found += [("stat_definition", value) for value in values if isinstance(value, str)]
     elif change.field == "stat_group":
         found += [("stat_group", value) for value in values if isinstance(value, str)]
+    elif change.field in ("root", "ancestor"):
+        found += [("entity", value) for value in values if isinstance(value, str)]
     elif change.field.partition(":")[0] in _KEYED:
         prefix, _, definition = change.field.partition(":")
         found.append((_KEY_KIND[prefix], definition))
@@ -421,7 +501,7 @@ async def compute_updates(
     copy = await session.get(RepositoryCopy, (tenant_id, repository_id))
     if copy is None:
         raise RepositoryNotCopiedError(detail=f"Copy repository {repository_id} first")
-    async with reading_repository(session, repository_id) as allowed:
+    async with reading_repository_held(session, repository_id) as allowed:
         if not allowed:
             raise RepositoryNotFoundError(
                 detail=f"No published repository {repository_id} is granted to tenant {tenant_id}"
@@ -478,6 +558,7 @@ async def compute_updates(
     local_group_names = {g["name"] for g in local.groups.values()}
     local_def_names = {d["name"] for d in local.definitions.values()}
     local_slugs = set(local.slugs.values())
+    local_template_names = {t["name"] for t in local.templates.values()}
     for kind in _ADD_ORDER:
         for row_id in _rows(upstream, kind):
             if not upstream.own(kind, row_id) or row_id in links.snapshots:
@@ -497,6 +578,10 @@ async def compute_updates(
                     None,
                     ["rename", "merge", "skip"],
                 )
+            elif kind == "template" and name in local_template_names:
+                collision = Collision(
+                    repository_id, "template", row_id, name, None, ["rename", "skip"]
+                )
             elif kind == "entity" and upstream.slugs.get(row_id) in local_slugs:
                 collision = Collision(
                     repository_id, "slug", row_id, upstream.slugs[row_id], None, ["rename", "skip"]
@@ -507,6 +592,7 @@ async def compute_updates(
     updates.breaking = noted
     updates.warnings = warned
     _mark(updates, stored)
+    await _hide(session, updates, tenant_id)
     return updates
 
 
@@ -518,7 +604,9 @@ def _mark(updates: Updates, stored: dict[Key, Any] | None) -> None:
     live = live_rows(updates.upstream) if stored is not None else {}
 
     def mark(item: Any, key: Key) -> None:
-        item.state = state_of(stored, live, key) if stored is not None else None
+        # A game system and a template are not in the digest (ADR 0469): no state is said of them.
+        known = stored is not None and key[0] in DIGEST_KINDS
+        item.state = state_of(stored, live, key) if known and stored is not None else None
         item.breaking = updates.breaking.get(key, [])
 
     rows: list[Any] = [
@@ -536,6 +624,72 @@ def _mark(updates: Updates, stored: dict[Key, Any] | None) -> None:
     ):
         mark(a, ("attachment", a.child_source_id, a.parent_source_id))
         a.warnings = updates.warnings.get(("attachment", a.child_source_id, a.parent_source_id), [])
+
+
+async def _hide(session: AsyncSession, updates: Updates, tenant_id: uuid.UUID) -> None:
+    """Takes what an update does to the entries the library hides out of the lists a library reads
+    and counts it (ADR 0437): the entries of a repository the library hides are not named, so their
+    changes, additions and removals are `updates.hidden`, which `apply_updates` applies with the
+    rest; and the name of a hidden entry that a visible row mentions (a parent it has, say) is
+    "a hidden entry". Only a library hides."""
+    assert updates.upstream is not None
+    tenant = await session.get(Tenant, tenant_id)
+    if tenant is None or tenant.kind is TenantKind.REPOSITORY or not tenant.hides_entries:
+        return
+    hidden_repositories = hidden_sources(
+        list(
+            await session.scalars(
+                select(RepositoryCopy.carries).where(RepositoryCopy.tenant_id == tenant_id)
+            )
+        )
+    )
+    held = set(
+        await session.scalars(
+            select(RepositoryCopyLinkEntity.source_id).where(
+                RepositoryCopyLinkEntity.tenant_id == tenant_id,
+                RepositoryCopyLinkEntity.hidden.is_(True),
+            )
+        )
+    )
+    origins = updates.upstream.links.origin_tenant
+
+    def hidden_entry(ref: Any) -> bool:
+        try:
+            origin = uuid.UUID(str(ref))
+        except ValueError:
+            return False
+        return origin in held or origins.get(origin) in hidden_repositories
+
+    if updates.repository_id in hidden_repositories:
+        if updates.release is not None:
+            updates.release = replace(
+                updates.release,
+                breaking_rows=scrub_rows(updates.release.breaking_rows),
+                warning_rows=scrub_rows(updates.release.warning_rows),
+            )
+        hidden = HiddenChanges()
+        hidden.changed_rows = [r for r in updates.changed if r.kind == "entity"]
+        hidden.removed_rows = [r for r in updates.removed if r.kind == "entity"]
+        hidden.added_rows = [a for a in updates.added if a.kind == "entity"]
+        updates.changed = [r for r in updates.changed if r.kind != "entity"]
+        updates.removed = [r for r in updates.removed if r.kind != "entity"]
+        updates.added = [a for a in updates.added if a.kind != "entity"]
+        updates.hidden = hidden if hidden.total else None
+    for row in updates.changed:
+        for change in row.fields:
+            for kind, ref in mentioned(change):
+                if kind == "entity" and hidden_entry(ref):
+                    updates.names[ref] = HIDDEN_ENTRY
+    for attachments in (
+        updates.attachments_added,
+        updates.attachments_removed,
+        updates.attachments_deleted_locally,
+    ):
+        for a in attachments:
+            if hidden_entry(a.child_source_id):
+                a.child_name = HIDDEN_ENTRY
+            if hidden_entry(a.parent_source_id):
+                a.parent_name = HIDDEN_ENTRY
 
 
 def _local_entity(
@@ -657,6 +811,8 @@ class ApplyResult:
     attachments_added: int = 0
     attachments_detached: int = 0
     not_applied: list[NotApplied] = field(default_factory=list)
+    # What was taken of the entries the library hides, as counts (ADR 0437).
+    hidden: HiddenChanges | None = None
 
 
 class _Applier:
@@ -951,6 +1107,105 @@ class _Applier:
             joined.one_way = True if change.upstream["one_way"] else None
             await s.flush()
             return True
+        if name == "relationship":
+            from lorenzo_api.models import Relationship
+
+            tied = await s.get(Relationship, e)
+            if tied is None or tied.tenant_id != t:
+                self.skip(row, name, "The local entry is no longer a relationship")
+                return False
+            end_a = self.resolve("entity", change.upstream["end_a"])
+            end_b = self.resolve("entity", change.upstream["end_b"])
+            if end_a is None or end_b is None or end_a == end_b:
+                self.skip(row, name, "Copy the entries it ties first")
+                return False
+            tied.end_a = end_a
+            tied.end_b = end_b
+            tied.one_way = True if change.upstream["one_way"] else None
+            # A limit in time follows when its Event is here; otherwise it is left unset (ADR 0405).
+            tied.starts_at = (
+                self.resolve("entity", change.upstream["starts_at"])
+                if change.upstream.get("starts_at")
+                else None
+            )
+            tied.ends_at = (
+                self.resolve("entity", change.upstream["ends_at"])
+                if change.upstream.get("ends_at")
+                else None
+            )
+            if tied.starts_at is not None and tied.starts_at == tied.ends_at:
+                tied.ends_at = None
+            await s.flush()
+            # The chain follows, by the steps' names; a step not copied here is left out and the
+            # rest are renumbered from 1 (ADR 0402).
+            from lorenzo_api.models import RelationshipThrough
+
+            await s.execute(
+                delete(RelationshipThrough).where(
+                    RelationshipThrough.relationship_entity_id == e,
+                    RelationshipThrough.tenant_id == t,
+                )
+            )
+            steps = [self.resolve("entity", via) for via in change.upstream.get("through", [])]
+            held = [via for via in steps if via is not None and via != e]
+            held = [via for via in held if await s.get(Relationship, via) is not None]
+            for step, via in enumerate(dict.fromkeys(held), start=1):
+                s.add(
+                    RelationshipThrough(
+                        relationship_entity_id=e, step=step, via_entity_id=via, tenant_id=t
+                    )
+                )
+            await s.flush()
+            return True
+        if name == "social_web":
+            from lorenzo_api.models import SocialWeb, SocialWebEntry, SocialWebType
+
+            web = await s.get(SocialWeb, e)
+            if web is None or web.tenant_id != t:
+                self.skip(row, name, "The local entry is no longer a social web")
+                return False
+            up = change.upstream
+            web.layout = up["layout"]
+            web.layout_seed = up["layout_seed"]
+            web.theme_hint = up["theme_hint"]
+            web.view = up["view"]
+            web.standing_stat_id = (
+                self.resolve("stat_definition", up["standing_stat"])
+                if up["standing_stat"]
+                else None
+            )
+            web.as_of_event = (
+                self.resolve("entity", up["as_of_event"]) if up["as_of_event"] else None
+            )
+            # Members and types follow by name; one not copied here is left out (ADR 0406).
+            await s.execute(
+                delete(SocialWebEntry).where(
+                    SocialWebEntry.web_entity_id == e, SocialWebEntry.tenant_id == t
+                )
+            )
+            await s.execute(
+                delete(SocialWebType).where(
+                    SocialWebType.web_entity_id == e, SocialWebType.tenant_id == t
+                )
+            )
+            for member in up["members"]:
+                local_entry = self.resolve("entity", member["entry"])
+                if local_entry is not None and local_entry != e:
+                    s.add(
+                        SocialWebEntry(
+                            web_entity_id=e,
+                            entry_entity_id=local_entry,
+                            tenant_id=t,
+                            x=member["x"],
+                            y=member["y"],
+                        )
+                    )
+            for kind_name in dict.fromkeys(up["types"]):
+                local_kind = self.resolve("entity", kind_name)
+                if local_kind is not None:
+                    s.add(SocialWebType(web_entity_id=e, type_entity_id=local_kind, tenant_id=t))
+            await s.flush()
+            return True
         if name == "place":
             if await s.get(Entity, e) is None:
                 self.skip(row, name, "The local entry is gone")
@@ -1134,6 +1389,74 @@ class _Applier:
             return True
         if name == "kinds":
             return await self._kinds(row, change)
+        if name == "starts_inactive":
+            await s.execute(
+                update(Item)
+                .where(Item.entity_id == e, Item.tenant_id == t)
+                .values(starts_inactive=bool(change.upstream))
+            )
+            await s.execute(
+                update(Feature)
+                .where(Feature.entity_id == e, Feature.tenant_id == t)
+                .values(starts_inactive=bool(change.upstream))
+            )
+            return True
+        if name == "repeatable":
+            await s.execute(
+                update(Feature)
+                .where(Feature.entity_id == e, Feature.tenant_id == t)
+                .values(repeatable=bool(change.upstream))
+            )
+            return True
+        if name == "grant_rules":
+            # The entry's rules are replaced by the repository's, in its order (ADR 0455); one
+            # that needs an entry or a stat not copied here is left out and said.
+            await s.execute(
+                delete(GrantRule).where(GrantRule.entry_id == e, GrantRule.tenant_id == t)
+            )
+            complete = True
+            for position, up in enumerate(change.upstream or []):
+                complete = await self._make_rule(e, position, up) and complete
+            if not complete:
+                self.skip(row, name, "a rule needs an entry or a stat that isn't copied here")
+            return complete
+        if name == "prerequisites":
+            if await s.get(Feature, e) is None:
+                self.skip(row, name, "The local entry is no longer a feature")
+                return False
+            await s.execute(
+                delete(FeaturePrerequisite).where(
+                    FeaturePrerequisite.feature_id == e, FeaturePrerequisite.tenant_id == t
+                )
+            )
+            complete = True
+            position = 0
+            for up in change.upstream or []:
+                stat = self.resolve("stat_definition", up["stat"])
+                right = (
+                    self.resolve("stat_definition", up["right_stat"]) if up["right_stat"] else None
+                )
+                if stat is None or (up["right_stat"] and right is None):
+                    complete = False
+                    continue
+                s.add(
+                    FeaturePrerequisite(
+                        tenant_id=t,
+                        feature_id=e,
+                        position=position,
+                        stat_definition_id=stat,
+                        comparator=up["comparator"],
+                        right_constant=(
+                            None if up["constant"] is None else Decimal(up["constant"])
+                        ),
+                        right_stat_definition_id=right,
+                    )
+                )
+                position += 1
+            await s.flush()
+            if not complete:
+                self.skip(row, name, "a prerequisite reads a stat that isn't copied here")
+            return complete
         if name == "in_public_catalog":
             if change.upstream is None:
                 # The entry stopped being an item upstream: the kind is what is removed, or
@@ -1226,13 +1549,15 @@ class _Applier:
                     ComputedStat.tenant_id == t,
                 )
             )
-            value_column = _value_column(self.value_types.get(definition))
+            stored: dict[str, Any]
+            if self.value_types.get(definition) is StatValueType.DICE:
+                # The upstream value is the notation; the row holds its parts (RFC 0056).
+                stored = dict(dice.columns(dice.parse(change.upstream)))
+            else:
+                stored = {_value_column(self.value_types.get(definition)): change.upstream}
             await s.execute(
                 insert(EntityStat).values(
-                    entity_id=e,
-                    stat_definition_id=definition,
-                    tenant_id=t,
-                    **{value_column: change.upstream},
+                    entity_id=e, stat_definition_id=definition, tenant_id=t, **stored
                 )
             )
             return True
@@ -1241,13 +1566,42 @@ class _Applier:
         inputs: dict[str, uuid.UUID | None] = {}
         # A sum's terms, in order: each term's local stat and coefficient (ADR 0126).
         terms: list[tuple[uuid.UUID | None, str]] = []
+        operands: list[tuple[uuid.UUID | None, bool, str | None]] = []
+        factors: list[uuid.UUID | None] = []
+        select_stats: dict[str, uuid.UUID | None] = {}
         if formula is not None:
-            for role in ("source", "left", "right"):
+            for role in _FORMULA_ROLES:
                 if formula.get(role):
                     inputs[role] = self.resolve("stat_definition", formula[role])
+            # A product's factors, in order (ADR 0445).
+            for factor in formula.get("factors") or []:
+                factors.append(self.resolve("stat_definition", factor))
+            # A select's result stats by name, each resolved to a local stat (ADR 0446).
+            for result in [s["result"] for s in formula.get("steps") or []] + (
+                [formula["otherwise"]] if formula.get("otherwise") else []
+            ):
+                if result.get("stat"):
+                    select_stats[result["stat"]] = self.resolve("stat_definition", result["stat"])
             for term in formula.get("terms") or []:
                 terms.append((self.resolve("stat_definition", term["source"]), term["coefficient"]))
-            if None in inputs.values() or any(source is None for source, _ in terms):
+            # A min or max's inputs, in order: a local stat or a constant (ADR 0444).
+            for operand in formula.get("inputs") or []:
+                operands.append(
+                    (
+                        None
+                        if operand["source"] is None
+                        else self.resolve("stat_definition", operand["source"]),
+                        operand["source"] is None,
+                        operand["constant"],
+                    )
+                )
+            if (
+                None in inputs.values()
+                or any(source is None for source, _ in terms)
+                or any(factor is None for factor in factors)
+                or None in select_stats.values()
+                or any(stat is None and not is_constant for stat, is_constant, _ in operands)
+            ):
                 self.skip(row, name, "a stat its formula uses wasn't copied here")
                 return False
         await s.execute(
@@ -1268,7 +1622,104 @@ class _Applier:
         )
         keys = {"entity_id": e, "stat_definition_id": definition, "tenant_id": t}
         await s.execute(insert(ComputedStat).values(**keys))
-        if formula["kind"] == "linear":
+        if formula["kind"] == "select":
+
+            def result_columns(prefix: str, result: dict[str, Any] | None) -> dict[str, Any]:
+                result = result or {}
+                return {
+                    f"{prefix}_number": result.get("number"),
+                    f"{prefix}_text": result.get("text"),
+                    f"{prefix}_bool": result.get("flag"),
+                    f"{prefix}_stat_definition_id": select_stats.get(result.get("stat") or ""),
+                }
+
+            await s.execute(
+                insert(ComputedStatSelect).values(
+                    **keys,
+                    source_stat_definition_id=inputs["source"],
+                    mode=formula["mode"],
+                    **result_columns("otherwise", formula.get("otherwise")),
+                )
+            )
+            await s.execute(
+                insert(ComputedStatSelectStep),
+                [
+                    {
+                        **keys,
+                        "position": position,
+                        "threshold": step["from"],
+                        "match_value": step["value"],
+                        **result_columns("result", step["result"]),
+                    }
+                    for position, step in enumerate(formula["steps"])
+                ],
+            )
+        elif formula["kind"] == "product":
+            await s.execute(
+                insert(ComputedStatProduct).values(
+                    **keys,
+                    multiplier=formula["multiplier"],
+                    offset=formula["offset"],
+                    round_mode=formula["round_mode"],
+                )
+            )
+            await s.execute(
+                insert(ComputedStatProductFactor),
+                [
+                    {**keys, "position": position, "source_stat_definition_id": factor}
+                    for position, factor in enumerate(factors)
+                ],
+            )
+        elif formula["kind"] == "ratio":
+            await s.execute(
+                insert(ComputedStatRatio).values(
+                    **keys,
+                    numerator_stat_definition_id=inputs["numerator"],
+                    denominator_stat_definition_id=inputs.get("denominator"),
+                    denominator_constant=formula["denominator_constant"],
+                    multiplier=formula["multiplier"],
+                    offset=formula["offset"],
+                    round_mode=formula["round_mode"],
+                )
+            )
+        elif formula["kind"] in ("min", "max"):
+            await s.execute(
+                insert(ComputedStatExtremum).values(
+                    **keys, pick=formula["kind"], round_mode=formula["round_mode"]
+                )
+            )
+            await s.execute(
+                insert(ComputedStatExtremumInput),
+                [
+                    {
+                        **keys,
+                        "position": position,
+                        "source_stat_definition_id": stat,
+                        "constant": constant,
+                    }
+                    for position, (stat, _, constant) in enumerate(operands)
+                ],
+            )
+        elif formula["kind"] == "dice":
+            await s.execute(
+                insert(ComputedStatDice).values(
+                    **keys,
+                    count_stat_definition_id=inputs.get("count"),
+                    count_constant=formula.get("count_constant"),
+                    sides_stat_definition_id=inputs.get("sides"),
+                    sides_constant=formula.get("sides_constant"),
+                )
+            )
+        elif formula["kind"] == "dice_value":
+            await s.execute(
+                insert(ComputedStatDiceValue).values(
+                    **keys,
+                    source_stat_definition_id=inputs["source"],
+                    read_as=formula["as"],
+                    round_mode=formula["round_mode"],
+                )
+            )
+        elif formula["kind"] == "linear":
             await s.execute(
                 insert(ComputedStatLinear).values(
                     **keys,
@@ -1281,7 +1732,13 @@ class _Applier:
         elif formula["kind"] == "contents":
             await s.execute(
                 insert(ComputedStatContents).values(
-                    **keys, source_stat_definition_id=inputs["source"]
+                    **keys,
+                    source_stat_definition_id=inputs.get("source"),
+                    aggregate=formula.get("aggregate") or "sum",
+                    only_active=bool(formula.get("only_active")),
+                    only_kind=formula.get("only_kind"),
+                    where_stat_definition_id=inputs.get("where"),
+                    if_none=formula.get("if_none"),
                 )
             )
         elif formula["kind"] == "sum":
@@ -1316,6 +1773,72 @@ class _Applier:
             )
         return True
 
+    async def _make_rule(self, entry: uuid.UUID, position: int, up: dict[str, Any]) -> bool:
+        """One of the repository's rules for a library entry, its references found among what is
+        copied here; `False` (nothing written) when the category, a stat it reads, or every one
+        of its options is not. An option that is not here is left out of a rule that has others."""
+        t, s = self.tenant_id, self.session
+        category = self.resolve("entity", up["category"]) if up["category"] else None
+        count_stat = self.resolve("stat_definition", up["count_stat"]) if up["count_stat"] else None
+        kept = list(
+            dict.fromkeys(
+                o for o in (self.resolve("entity", name) for name in up["options"]) if o is not None
+            )
+        )
+        if (
+            (up["category"] and category is None)
+            or (up["count_stat"] and count_stat is None)
+            or (not up["category"] and not kept)
+        ):
+            return False
+        conditions: list[dict[str, Any]] = []
+        for index, condition in enumerate(up["conditions"]):
+            stat = self.resolve("stat_definition", condition["stat"])
+            right = (
+                self.resolve("stat_definition", condition["right_stat"])
+                if condition["right_stat"]
+                else None
+            )
+            if stat is None or (condition["right_stat"] and right is None):
+                return False
+            conditions.append(
+                {
+                    "position": index,
+                    "subject": condition["subject"],
+                    "stat_definition_id": stat,
+                    "comparator": condition["comparator"],
+                    "right_constant": (
+                        None if condition["constant"] is None else Decimal(condition["constant"])
+                    ),
+                    "right_stat_definition_id": right,
+                }
+            )
+        rule = GrantRule(
+            tenant_id=t,
+            entry_id=entry,
+            label=up["label"],
+            position=position,
+            mode=up["mode"],
+            min_count=up["min"],
+            max_count=up["max"],
+            count_stat_definition_id=count_stat,
+            option_category_entry_id=category,
+            lasts=up["lasts"],
+            changeable=up["changeable"],
+        )
+        s.add(rule)
+        await s.flush()
+        for condition in conditions:
+            s.add(GrantRuleCondition(tenant_id=t, rule_id=rule.id, **condition))
+        for index, option in enumerate(kept):
+            s.add(
+                GrantRuleOption(
+                    rule_id=rule.id, option_entry_id=option, tenant_id=t, position=index
+                )
+            )
+        await s.flush()
+        return True
+
     async def _kinds(self, row: RowChange, change: FieldChange) -> bool:
         """Adds and removes the markers of an entry's kinds (ADR 0217). A kind the library's copy
         does not allow to go is skipped with the reason and is offered again, as an enum value
@@ -1334,6 +1857,9 @@ class _Applier:
             elif kind == "being" and await s.get(Character, e) is not None:
                 self.skip(row, "kinds", "it is a character here")
                 ok = False
+            elif kind == "feature" and await feature_is_held(s, tenant_id=t, feature_id=e):
+                self.skip(row, "kinds", "a holder still has it here")
+                ok = False
             else:
                 marker = _MARKER_MODELS[kind]
                 await s.execute(delete(marker).where(marker.entity_id == e, marker.tenant_id == t))
@@ -1348,6 +1874,10 @@ class _Applier:
                 values: dict[str, Any] = {"entity_id": e, "tenant_id": t}
                 if kind == "item":
                     values["in_public_catalog"] = bool(row.upstream.get("in_public_catalog"))
+                    values["starts_inactive"] = bool(row.upstream.get("starts_inactive"))
+                if kind == "feature":
+                    values["repeatable"] = bool(row.upstream.get("repeatable"))
+                    values["starts_inactive"] = bool(row.upstream.get("starts_inactive"))
                 await s.execute(insert(_MARKER_MODELS[kind]).values(**values))
                 if kind == "fact" and await s.get(EntityAudience, e) is None:
                     s.add(EntityAudience(entity_id=e, tenant_id=t, is_public=False))
@@ -1357,6 +1887,18 @@ class _Applier:
 
     async def _stat_group(self, row: RowChange, change: FieldChange) -> bool:
         g, t, s = row.local_id, self.tenant_id, self.session
+        if change.field == "system":
+            # The game system is named by its slug, which is the same in every library (ADR 0469).
+            system = await self._system_by_slug(change.upstream)
+            if change.upstream is not None and system is None:
+                self.skip(row, "system", f"the library has no game system {change.upstream!r}")
+                return False
+            await s.execute(
+                update(StatGroup)
+                .where(StatGroup.id == g, StatGroup.tenant_id == t)
+                .values(system_id=system)
+            )
+            return True
         if change.field == "name":
             taken = await s.scalar(
                 select(StatGroup.id).where(
@@ -1371,6 +1913,145 @@ class _Applier:
             .where(StatGroup.id == g, StatGroup.tenant_id == t)
             .values(**{change.field: change.upstream})
         )
+        return True
+
+    async def _system_by_slug(self, slug: str | None) -> uuid.UUID | None:
+        if slug is None:
+            return None
+        found: uuid.UUID | None = await self.session.scalar(
+            select(System.id).where(System.tenant_id == self.tenant_id, System.slug == slug)
+        )
+        return found
+
+    # game system ------------------------------------------------------------
+
+    async def _system(self, row: RowChange, change: FieldChange) -> bool:
+        system, t, s = row.local_id, self.tenant_id, self.session
+        values: dict[str, Any]
+        if change.field == "name":
+            values = {"name": change.upstream}
+        elif change.field == "root":
+            root = None if change.upstream is None else self.resolve("entity", change.upstream)
+            if change.upstream is not None and root is None:
+                self.skip(row, "root", "that entry wasn't copied here")
+                return False
+            values = {"root_entry_id": root}
+        else:
+            return False
+        await s.execute(
+            update(System).where(System.id == system, System.tenant_id == t).values(**values)
+        )
+        return True
+
+    # template ---------------------------------------------------------------
+
+    async def _template(self, row: RowChange, change: FieldChange) -> bool:
+        template, t, s = row.local_id, self.tenant_id, self.session
+        values: dict[str, Any]
+        if change.field == "name":
+            taken = await s.scalar(
+                select(Template.id).where(
+                    Template.tenant_id == t,
+                    Template.name == change.upstream,
+                    Template.id != template,
+                )
+            )
+            if taken is not None:
+                self.skip(row, "name", f"{change.upstream!r} is taken here")
+                return False
+            values = {"name": change.upstream}
+        elif change.field == "system":
+            system = await self._system_by_slug(change.upstream)
+            if change.upstream is not None and system is None:
+                self.skip(row, "system", f"the library has no game system {change.upstream!r}")
+                return False
+            values = {"system_id": system}
+        elif change.field == "kind":
+            values = {"required_kind": change.upstream}
+        elif change.field == "ancestor":
+            ancestor = None if change.upstream is None else self.resolve("entity", change.upstream)
+            if change.upstream is not None and ancestor is None:
+                self.skip(row, "ancestor", "that entry wasn't copied here")
+                return False
+            values = {"required_ancestor_entry_id": ancestor}
+        elif change.field == "slots":
+            return await self._template_slots(row, change)
+        else:
+            return False
+        await s.execute(
+            update(Template)
+            .where(Template.id == template, Template.tenant_id == t)
+            .values(**values)
+        )
+        return True
+
+    async def _template_slots(self, row: RowChange, change: FieldChange) -> bool:
+        """Replaces a template's slots by the repository's, every group and stat re-pointed to the
+        library's copy. A template that would show less than it says is not changed (ADR 0453)."""
+        template, t, s = row.local_id, self.tenant_id, self.session
+        planned: list[
+            tuple[dict[str, Any], uuid.UUID | None, list[uuid.UUID], list[uuid.UUID]]
+        ] = []
+        for slot in change.upstream or []:
+            group = None
+            if slot["group"] is not None:
+                group = self.resolve("stat_group", slot["group"])
+                if group is None:
+                    self.skip(row, "slots", "a stat group it shows wasn't copied here")
+                    return False
+            listed = [self.resolve("stat_definition", stat) for stat, _ in slot["stats"]]
+            left_out = [self.resolve("stat_definition", stat) for stat in slot["exclude"]]
+            if any(stat is None for stat in listed + left_out):
+                self.skip(row, "slots", "a stat it lists wasn't copied here")
+                return False
+            planned.append(
+                (
+                    slot,
+                    group,
+                    [stat for stat in listed if stat is not None],
+                    [stat for stat in left_out if stat is not None],
+                )
+            )
+        await s.execute(
+            delete(TemplateSlot).where(
+                TemplateSlot.template_id == template, TemplateSlot.tenant_id == t
+            )
+        )
+        for position, (slot, group, listed_ids, left_out_ids) in enumerate(planned):
+            slot_id = uuid.uuid4()
+            await s.execute(
+                insert(TemplateSlot).values(
+                    id=slot_id,
+                    tenant_id=t,
+                    template_id=template,
+                    position=position,
+                    kind=slot["kind"],
+                    label=slot["label"],
+                    stat_group_id=group,
+                    information_type=slot["information_type"],
+                    held_order=slot["held_order"],
+                )
+            )
+            taken: set[uuid.UUID] = set()
+            for stat, (_, label) in zip(listed_ids, slot["stats"], strict=True):
+                if stat in taken:
+                    continue
+                taken.add(stat)
+                await s.execute(
+                    insert(TemplateSlotStat).values(
+                        slot_id=slot_id,
+                        position=len(taken) - 1,
+                        tenant_id=t,
+                        stat_definition_id=stat,
+                        label=label,
+                    )
+                )
+            for stat in dict.fromkeys(left_out_ids):
+                await s.execute(
+                    insert(TemplateSlotExclusion).values(
+                        slot_id=slot_id, stat_definition_id=stat, tenant_id=t
+                    )
+                )
         return True
 
     # stat definition --------------------------------------------------------
@@ -1430,6 +2111,10 @@ class _Applier:
         for value in change.removed or []:
             if await enum_value_uses(s, t, d, value):
                 self.skip(row, "enum_values", f"{value!r} is still in use here")
+                ok = False
+                continue
+            if await formulas_reading_as_number(s, t, d):
+                self.skip(row, "enum_values", "a formula here reads its order as a number")
                 ok = False
                 continue
             await s.execute(
@@ -1521,6 +2206,7 @@ async def apply_updates(
     user_id: uuid.UUID,
     actions: list[UpdateAction],
     attachments: list[AttachmentAction] | None = None,
+    acknowledge_hidden_breaking: bool = False,
 ) -> ApplyResult:
     """Applies the listed actions in one transaction (doesn't commit), then the
     listed attachments (ADR 0172), which can point at a row an action added."""
@@ -1583,7 +2269,55 @@ async def apply_updates(
             detail="Name each conflicting field in keep_local or take_upstream", conflicts=unnamed
         )
 
-    result = ApplyResult()
+    hidden = updates.hidden
+    if hidden is not None:
+        # What the library hides is taken with the rest, since it cannot be named to be chosen: a
+        # conflict is the repository's, a collision of a slug leaves the entry without one, and a
+        # breaking change among them is acknowledged as one line (ADR 0437).
+        if hidden.breaking and not acknowledge_hidden_breaking:
+            raise UpdateNeedsConfirmationError(
+                detail="A release since this library last updated called some changes to hidden "
+                "entries breaking. Acknowledge them as one line to take this update.",
+                unconfirmed=[
+                    {
+                        "kind": "hidden",
+                        "source_id": None,
+                        "parent_source_id": None,
+                        "name": hidden_label(hidden.breaking),
+                        "reason": "hidden",
+                        "detail": hidden_label(hidden.breaking),
+                        "release": updates.release.label if updates.release else "",
+                    }
+                ],
+            )
+        for row in hidden.changed_rows:
+            changed[(row.kind, row.source_id)] = row
+            actions = [
+                *actions,
+                UpdateAction(
+                    row.kind,
+                    row.source_id,
+                    "apply",
+                    take_upstream=[f.field for f in row.fields if f.state == "conflict"],
+                    confirm=True,
+                ),
+            ]
+        for new in hidden.added_rows:
+            added[(new.kind, new.source_id)] = new
+            actions = [
+                *actions,
+                UpdateAction(
+                    new.kind,
+                    new.source_id,
+                    "add",
+                    resolution=(
+                        Resolution("slug", new.source_id, "skip") if new.collision else None
+                    ),
+                    confirm=True,
+                ),
+            ]
+
+    result = ApplyResult(hidden=hidden)
     # Additions first, so an applied change can point at a row added in the
     # same call; then the tenant's content again, with them in it.
     additions = [a for a in actions if a.action == "add"]
@@ -1621,20 +2355,36 @@ async def apply_updates(
             result.applied += 1
 
     await _attach(session, updates, tenant_id, local, attachments, result)
+    if hidden is not None and hidden.removed_rows:
+        await _drop_hidden(session, tenant_id, hidden)
 
+    # A repository held only through another is not named in anything the library reads, so its
+    # name is left as the copy recorded it (ADR 0434).
+    held = await session.get(RepositorySubscription, (repository_id, tenant_id))
+    taken = await session.get(RepositoryCopy, (tenant_id, repository_id))
+    values: dict[str, Any] = {
+        "synced_at": datetime.now(UTC),
+        "synced_release_id": updates.release.id if updates.release else None,
+        # What the release just taken brings separate and hidden (ADR 0437), kept beside the
+        # mark of a repository the library copied for itself.
+        "carries": carries_of(
+            updates.upstream,
+            repository_id,
+            for_itself=bool(taken and str(repository_id) in (taken.carries or {})),
+        ),
+    }
+    if held is None or held.source != "protected":
+        values["repository_name"] = (await session.get_one(Tenant, repository_id)).name
     await session.execute(
         update(RepositoryCopy)
         .where(
             RepositoryCopy.tenant_id == tenant_id,
             RepositoryCopy.repository_tenant_id == repository_id,
         )
-        .values(
-            synced_at=datetime.now(UTC),
-            synced_release_id=updates.release.id if updates.release else None,
-            repository_name=(await session.get_one(Tenant, repository_id)).name,
-        )
+        .values(**values)
     )
     await check_formula_cycles(session, tenant_id)
+    await refresh_hidden(session, tenant_id)
     await record_activity(
         session,
         tenant_id=tenant_id,
@@ -1763,6 +2513,8 @@ async def _add(
         "entity": set(),
         "stat_group": set(),
         "stat_definition": set(),
+        "system": set(),
+        "template": set(),
     }
     for a in additions:
         only[a.kind].add(a.source_id)
@@ -1786,3 +2538,26 @@ async def _add(
                 {"tenant_id": tenant_id, "stat_definition_id": definition_id, "value": value}
             )
     await write_rows(session, planner.rows)
+
+
+async def _drop_hidden(session: AsyncSession, tenant_id: uuid.UUID, hidden: HiddenChanges) -> None:
+    """Removes the hidden entries the repository no longer brings, when nothing visible uses them
+    (ADR 0437, RFC 0051 default 4): a library cannot delete a hidden entry, and one nobody can see
+    must not stay for ever. One something visible still uses stays, hidden, until that lets go.
+    Each is removed on its own, in a savepoint, and one the database refuses to remove (a manuscript
+    or a telling that hangs on it) stays."""
+    candidates = {row.local_id for row in hidden.removed_rows if row.local_id is not None}
+    for local_id in sorted(await unused_hidden_entries(session, tenant_id, candidates), key=str):
+        try:
+            async with session.begin_nested():
+                await session.execute(
+                    delete(RepositoryCopyLinkEntity).where(
+                        RepositoryCopyLinkEntity.tenant_id == tenant_id,
+                        RepositoryCopyLinkEntity.entity_id == local_id,
+                    )
+                )
+                await session.execute(
+                    delete(Entity).where(Entity.tenant_id == tenant_id, Entity.id == local_id)
+                )
+        except DBAPIError:
+            continue

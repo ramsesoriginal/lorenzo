@@ -6,6 +6,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING
 
 from sqlalchemy import BigInteger, Enum, ForeignKey, ForeignKeyConstraint, text
+from sqlalchemy.dialects.postgresql import ARRAY, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from lorenzo_api.db import Base, CreatedAt, CreatedBy, UpdatedAt, UpdatedBy, UuidPk
@@ -54,6 +55,29 @@ class Tenant(Base):
             ["being_stat_group_id", "id"],
             ["stat_group.id", "stat_group.tenant_id"],
             name="tenant_being_stat_group_id_fkey",
+            ondelete="SET NULL",
+            use_alter=True,
+        ),
+        # ADR 0400: the three stats that say how a type of relationship points and reads; the
+        # migration clears only the reference when the definition is deleted.
+        ForeignKeyConstraint(
+            ["relationship_directed_stat_id", "id"],
+            ["stat_definition.id", "stat_definition.tenant_id"],
+            name="tenant_relationship_directed_stat_id_fkey",
+            ondelete="SET NULL",
+            use_alter=True,
+        ),
+        ForeignKeyConstraint(
+            ["relationship_reads_as_stat_id", "id"],
+            ["stat_definition.id", "stat_definition.tenant_id"],
+            name="tenant_relationship_reads_as_stat_id_fkey",
+            ondelete="SET NULL",
+            use_alter=True,
+        ),
+        ForeignKeyConstraint(
+            ["relationship_reads_as_back_stat_id", "id"],
+            ["stat_definition.id", "stat_definition.tenant_id"],
+            name="tenant_relationship_reads_as_back_stat_id_fkey",
             ondelete="SET NULL",
             use_alter=True,
         ),
@@ -113,6 +137,20 @@ class Tenant(Base):
     # same reason: the gate and the policies read this row.
     deprecated_at: Mapped[datetime | None]
     deprecated_message: Mapped[str | None]
+    # ADR 0434: what the current release of a public or protected repository was built on and did
+    # not include, and whether the repository is public: the two facts the gate needs of the
+    # repository a library goes through to read a protected one, kept here because no policy hides
+    # this row and a policy on the profile cannot read the profile. Written by
+    # `repository_reach.sync_reach` whenever the profile's `release_sources` or `visibility`
+    # change; empty while it is private.
+    released_over: Mapped[list[uuid.UUID]] = mapped_column(
+        ARRAY(UUID(as_uuid=True)), server_default=text("'{}'::uuid[]")
+    )
+    released_public: Mapped[bool] = mapped_column(server_default=text("false"))
+    # ADR 0437: whether any copy link of the tenant is hidden (`repository_copy_link_entity`).
+    # Read by the gate every read of an entry applies, so that a tenant that hides nothing pays
+    # nothing; written by `repository_hiding.refresh_hidden`, which derives both.
+    hides_entries: Mapped[bool] = mapped_column(server_default=text("false"))
     # ADR 0288: the release a library reads of a repository, set by a publish and by "make release
     # current"; null for a play tenant and for a repository that has made none.
     current_release_id: Mapped[uuid.UUID | None]
@@ -121,6 +159,9 @@ class Tenant(Base):
     # GMs who share a campaign with its author. Meaningless for a repository,
     # which holds no campaigns and so has no GMs.
     npcs_shared_with_gms: Mapped[bool] = mapped_column(server_default=text("true"))
+    # ADR 0467: whether the controller of a holder may award it a feature, as its manager may
+    # (RFC 0054 section 2). Off, the default, an award is a manager's alone.
+    controllers_award_features: Mapped[bool] = mapped_column(server_default=text("false"))
     # ADR 0262: bumped once per transaction that writes anything the entity export shows, by
     # deferred triggers on those tables (migration c4e7a19b5d28). The export's ETag.
     export_revision: Mapped[int] = mapped_column(BigInteger, server_default=text("0"))
@@ -129,6 +170,12 @@ class Tenant(Base):
     being_stat_group_id: Mapped[uuid.UUID | None]
     weapon_stat_group_id: Mapped[uuid.UUID | None]
     ability_information_type: Mapped[str | None]
+    # ADR 0400: which stat definitions say that a type of relationship is directed (a bool tag),
+    # and the verb it reads as from its first end and from its second (text). Unset until a
+    # library says; a library without them works.
+    relationship_directed_stat_id: Mapped[uuid.UUID | None]
+    relationship_reads_as_stat_id: Mapped[uuid.UUID | None]
+    relationship_reads_as_back_stat_id: Mapped[uuid.UUID | None]
     # ADR 0029's attribution pair, landing here alongside created_at/
     # updated_at themselves (ADR 0033/RFC 0012) - unlike every other table
     # ADR 0018 covers, `tenant`'s original bootstrap (ADR 0013) predates
@@ -155,6 +202,7 @@ class Tenant(Base):
         passive_deletes=True,
     )
     stat_definitions: Mapped[list[StatDefinition]] = relationship(
+        foreign_keys="StatDefinition.tenant_id",
         lazy="raise_on_sql",
         back_populates="tenant",
         cascade="all, delete-orphan",

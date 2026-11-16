@@ -41,6 +41,7 @@ def thing(
         quantity=quantity,
         slug=None,
         bound=False,
+        active=True,
         is_container=holds,
     )
     return made
@@ -133,6 +134,7 @@ class Table(World):
                 quantity=body.get("quantity"),
                 slug=None,
                 bound=False,
+                active=True,
             )
             return httpx.Response(201, json=made)
         if path.endswith("/information") and method == "GET":

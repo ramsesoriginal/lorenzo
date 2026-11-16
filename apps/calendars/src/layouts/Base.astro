@@ -16,11 +16,26 @@ const { title = 'Lorenzo Calendars', status = 'Opening your calendars…' } = As
 <AppPage
   title={title}
   product="Calendars"
+  icon="kind-calendar"
   brandingUrl={BRANDING_CSS_URL}
   themeKey="lorenzo:calendars:theme"
+  shell="web"
+  template="list-detail"
   nav={[
-    { label: 'Home', href: '/' },
-    { label: 'Events', href: '/events/', needsLibrary: true },
+    {
+      label: 'Calendar',
+      href: '/',
+      icon: 'kind-calendar',
+      also: ['/calendar/', '/entry/'],
+    },
+    { label: 'Events', href: '/events/', needsLibrary: true, icon: 'kind-event' },
+    {
+      label: 'Clocks',
+      href: '/clocks/',
+      needsLibrary: true,
+      requires: 'clocks',
+      icon: 'kind-clock',
+    },
   ]}
   path="apps/calendars"
   welcome={{
@@ -33,3 +48,13 @@ const { title = 'Lorenzo Calendars', status = 'Opening your calendars…' } = As
   <link slot="head" rel="stylesheet" href={appStyles} />
   <slot />
 </AppPage>
+<script>
+  import { bindLegalLinksFromApi } from '@lorenzo/app-shell/legal';
+  import { API_BASE_URL } from '../lib/config';
+
+  // The legal notice, the privacy policy and the support link, when the deployment has them
+  // (ADR 0439). The footer is replaced when the client router swaps a page, so it is bound again.
+  const bind = () => void bindLegalLinksFromApi(API_BASE_URL);
+  bind();
+  document.addEventListener('astro:page-load', bind);
+</script>

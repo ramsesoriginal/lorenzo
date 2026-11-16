@@ -42,8 +42,22 @@ describe("formatItemEmbed", () => {
     const embed = formatItemEmbed(
       entity({
         stats: [
-          { name: "damage", value: 10, own: true, computed: false },
-          { name: "magical", value: true, own: false, computed: false },
+          {
+            stat_definition_id: "sd-1",
+            group_id: "g-1",
+            name: "damage",
+            value: 10,
+            own: true,
+            computed: false,
+          },
+          {
+            stat_definition_id: "sd-2",
+            group_id: "g-1",
+            name: "magical",
+            value: true,
+            own: false,
+            computed: false,
+          },
         ],
       }),
     );

@@ -193,13 +193,19 @@ def test_missing_input_leaves_the_stat_without_a_value() -> None:
     assert evaluate(stats) == {}
 
 
-def test_bool_is_not_a_number() -> None:
+def test_bool_is_one_or_zero_in_a_formula() -> None:
+    """ADR 0444: a bool counts as 1 when true and 0 when false."""
     flag = uuid.uuid4()
-    stats = [
+    on = [
         _stored(flag, StatValueType.BOOL, True),
-        _linear_row(MODIFIER, StatValueType.INT, flag, "1", "0", RoundMode.FLOOR),
+        _linear_row(MODIFIER, StatValueType.INT, flag, "3", "0", RoundMode.FLOOR),
     ]
-    assert MODIFIER not in evaluate(stats)
+    off = [
+        _stored(flag, StatValueType.BOOL, False),
+        _linear_row(MODIFIER, StatValueType.INT, flag, "3", "0", RoundMode.FLOOR),
+    ]
+    assert evaluate(on)[MODIFIER] == 3
+    assert evaluate(off)[MODIFIER] == 0
 
 
 def test_a_cycle_resolves_to_nothing_without_raising() -> None:
@@ -320,7 +326,14 @@ def _contents_row(
             linear=None,
             comparison=None,
             sum=None,
-            contents=SimpleNamespace(source_stat_definition_id=source),
+            contents=SimpleNamespace(
+                source_stat_definition_id=source,
+                aggregate="sum",
+                only_active=False,
+                only_kind=None,
+                where_stat_definition_id=None,
+                if_none=None,
+            ),
         ),
     )
 
@@ -423,3 +436,21 @@ def test_a_contents_override_evaluates_for_one_call() -> None:
         contents=contents,
     )
     assert values[SAVE] == 12
+
+
+def test_a_chain_too_long_to_follow_from_its_top_has_no_value_and_does_not_raise() -> None:
+    """ADR 0443: the recursion limit is hit when the top of a chain of 600 formulas is reached
+    first, and that stat has no value; reached from the tail instead, every step is shallow and
+    the whole chain resolves. The order of the rows decides, so it is fixed here."""
+    ids = [uuid.uuid4() for _ in range(601)]
+    rows = [
+        _linear_row(ids[i], StatValueType.INT, ids[i + 1], "1", "0", RoundMode.NONE)
+        for i in range(600)
+    ]
+    tail = _stored(ids[600], StatValueType.INT, 1)
+
+    from_the_top = evaluate([*rows, tail])
+    from_the_tail = evaluate([tail, *reversed(rows)])
+
+    assert ids[0] not in from_the_top and from_the_top[ids[600]] == 1
+    assert all(from_the_tail[i] == 1 for i in ids)

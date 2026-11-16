@@ -60,16 +60,26 @@ export type BreakingRowOut = Schema<'BreakingRowOut'>;
 export type BreakingNoteOut = Schema<'BreakingNoteOut'>;
 export type PublishRequest = Schema<'PublishRequest'>;
 
-// Private and public (RFC 0038, ADR 0290).
+// Private, protected and public (RFC 0038, RFC 0051 H3, ADR 0290, ADR 0434).
 export type FlipCheckOut = Schema<'FlipCheckOut'>;
 export type PublisherOut = Schema<'PublisherOut'>;
 export type SubscribersSummaryOut = Schema<'SubscribersSummaryOut'>;
 export type MakePublicRequest = Schema<'MakePublicRequest'>;
 export type MadePrivateOut = Schema<'MadePrivateOut'>;
+export type MadeProtectedOut = Schema<'MadeProtectedOut'>;
+export type MakeProtectedRequest = Schema<'MakeProtectedRequest'>;
 export type RepositoryProfileOut = Schema<'RepositoryProfileOut'>;
 export type MemberProfileOut = Schema<'MemberProfileOut'>;
 export type RepositoryProfileUpdate = Schema<'RepositoryProfileUpdate'>;
 export type DelistedOut = Schema<'DelistedOut'>;
+
+// Carrying a repository it is built on in a release, and the terms that allow it (RFC 0051, ADR 0431).
+export type IncludableOut = Schema<'IncludableOut'>;
+export type InclusionOut = Schema<'InclusionOut'>;
+export type InclusionChangeOut = Schema<'InclusionChangeOut'>;
+export type IncludedSourceOut = Schema<'IncludedSourceOut'>;
+export type TermsOut = Schema<'TermsOut'>;
+export type BuiltOnSourceOut = Schema<'BuiltOnSourceOut'>;
 export type DeprecatedOut = Schema<'DeprecatedOut'>;
 export type DeprecatedNoticeOut = Schema<'DeprecatedNoticeOut'>;
 export type UndeprecatedOut = Schema<'UndeprecatedOut'>;
