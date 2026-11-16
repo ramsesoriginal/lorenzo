@@ -606,3 +606,78 @@
 .map-small-title {
   margin: 0;
 }
+
+/* The toolbox (MP4, MP6): tools in their groups, close together for a pointer that is fine; on a
+   touch screen every control stays at the size it is pressed at. */
+.map-tool-group {
+  padding-inline-end: var(--space-2);
+  border-inline-end: 1px solid var(--border-subtle);
+}
+
+.map-tool-group:last-child {
+  border-inline-end: none;
+}
+
+.map-all-tools {
+  padding: var(--space-2);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-card);
+  background: var(--surface-canvas);
+}
+
+.map-all-tools-list {
+  max-block-size: 40dvh;
+  overflow: auto;
+}
+
+.map-all-tools-list [aria-disabled="true"] {
+  opacity: 0.7;
+}
+
+@media (pointer: fine) {
+  .map-edit-bar {
+    gap: var(--space-1) var(--space-2);
+  }
+
+  .map-edit-bar .btn {
+    padding-block: var(--space-1);
+    padding-inline: var(--space-2);
+  }
+}
+
+.map-outline-row {
+  cursor: grab;
+}
+.map-history-list {
+  display: grid;
+  gap: var(--space-1);
+}
+.map-history-list button {
+  width: 100%;
+  justify-content: flex-start;
+}
+.map-history-list button[aria-current="true"] {
+  background: var(--fill-soft);
+}
+.map-history-list button[data-state="undone"] {
+  opacity: 0.7;
+}
+
+.map-command {
+  align-items: center;
+}
+.map-command-answer {
+  flex-basis: 100%;
+  margin: 0;
+}
+.map-command-answer[data-failed="true"] {
+  color: var(--text-secondary);
+}
+
+.map-shortcuts {
+  max-inline-size: 32rem;
+  padding: var(--space-4);
+}
+.map-shortcuts::backdrop {
+  background: var(--fill-soft);
+}
