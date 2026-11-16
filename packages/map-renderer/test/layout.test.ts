@@ -744,9 +744,10 @@ describe('layout', () => {
           x: 250,
           y: 94,
           anchor: 'middle',
-          entryId: 'ridge',
         });
         expect(label.cls).toContain('m-lbl-value');
+        // It is no part of the mark's button, and is drawn after every mark.
+        expect(label.entryId).toBeUndefined();
       }
     });
 
@@ -842,6 +843,37 @@ describe('layout', () => {
       );
       expect(scene.prims.find((p) => p.entryId === 'five')?.label).toBe(
         'Hill, height 10 m height 20 m height 30 m and 2 more heights',
+      );
+    });
+
+    it('writes the values above every mark, so a mark stays one button with its own words', () => {
+      const works = place(
+        'works',
+        'Quarry',
+        ['location'],
+        [
+          {
+            shape: 'polyline',
+            pts: [
+              [100, 100],
+              [300, 100],
+            ],
+            value: 40,
+            unit: 'm',
+          },
+          { shape: 'point', at: [500, 300] },
+        ],
+      );
+      const scene = layout(only([works, road]), view());
+      const order = ids(scene);
+      const mine = scene.prims.filter((p) => p.entryId === 'works');
+
+      // The line and the pin are one run of primitives, with the pin's name its only text.
+      expect(mine.flatMap((p) => (p.kind === 'text' ? [p.text] : []))).toEqual(['Quarry']);
+      expect(mine[0]?.label).toBe('Quarry, height 40 m');
+      expect(order.indexOf('works:0:value')).toBe(order.length - 1);
+      expect(order.indexOf('works:0:value')).toBeGreaterThan(
+        Math.max(...order.map((id, i) => (id.startsWith('road:') ? i : -1))),
       );
     });
 

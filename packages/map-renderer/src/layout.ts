@@ -365,6 +365,8 @@ export function layout(model: MapModel, view: View, theme: Theme = defaultTheme)
 
   if (view.groups.grid) prims.push(...gridPrims(model, t).prims);
 
+  // The values lines carry (ADR 0473), drawn after every placement so no mark covers them.
+  const values: Prim[] = [];
   const onSphere = isSphere(system);
   const onScreen = (p: Point): Point => sp(toScreen(t, p));
 
@@ -400,32 +402,30 @@ export function layout(model: MapModel, view: View, theme: Theme = defaultTheme)
         words !== null && view.groups.names && shape.kind === 'line' ? middleOf(shape.d) : null;
 
       if (at && words !== null) {
-        prims.push(
-          primOf(
-            {
-              type: 'text',
-              purpose: 'value',
-              cls: 'm-lbl m-lbl-value',
-              at: [at[0], at[1] - VALUE_LIFT],
-              text: words,
-              anchor: 'middle',
-            },
-            `${entryId}:${partIndex}:value`,
-            entryId,
-            view,
-          ),
+        // Written above every mark and outside the placement's own button: a mark's name could not
+        // hold the text of every line it has (WCAG 2.5.3), and it says the heights itself.
+        const { entryId: _mark, ...label } = primOf(
+          {
+            type: 'text',
+            purpose: 'value',
+            cls: 'm-lbl m-lbl-value',
+            at: [at[0], at[1] - VALUE_LIFT],
+            text: words,
+            anchor: 'middle',
+          },
+          `${entryId}:${partIndex}:value`,
+          entryId,
+          view,
         );
+
+        values.push(label as Prim);
       }
     });
 
     const lead = prims[first];
 
     if (lead) {
-      const drawn = prims
-        .slice(first)
-        .flatMap((prim) =>
-          prim.kind === 'text' && !heights.includes(prim.text) ? [prim.text] : [],
-        );
+      const drawn = prims.slice(first).flatMap((prim) => (prim.kind === 'text' ? [prim.text] : []));
       const said =
         heights.length > HEIGHTS_SAID
           ? [
@@ -437,6 +437,8 @@ export function layout(model: MapModel, view: View, theme: Theme = defaultTheme)
       lead.label = accessibleName(placement, role, [...drawn, ...said]);
     }
   }
+
+  prims.push(...values);
 
   if (view.overlay?.length) prims.push(...overlayPrims(view.overlay, system, t));
 
