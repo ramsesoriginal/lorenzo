@@ -146,7 +146,7 @@ async def require_awarder(
     kind: HolderKind,
 ) -> None:
     """An award is the holder's manager's; where the library allows it
-    (`controllers_award_features`, ADR 0465) it is also its controller's: anyone whose characters
+    (`controllers_award_features`, ADR 0467) it is also its controller's: anyone whose characters
     or groups reach the holder (ADR 0124's rule for editing what one holds). `403` otherwise."""
     if await manages_holder(
         session, tenant_id=tenant_id, user_id=user_id, holder_id=holder_id, kind=kind

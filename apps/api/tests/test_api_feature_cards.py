@@ -1,4 +1,4 @@
-"""ADR 0466: the card of a feature, and of one a holder has, shows the stats a template of the
+"""ADR 0468: the card of a feature, and of one a holder has, shows the stats a template of the
 library names; any other kind has the card its kind has.
 """
 

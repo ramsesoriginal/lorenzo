@@ -1,4 +1,4 @@
-# 0466 - The card of a feature shows the stats a template names
+# 0468 - The card of a feature shows the stats a template names
 
 Status: accepted, built (2026-11-16). Slice G2 of the follow-ups tracked in #1229. Takes up what
 [RFC 0054](../rfcs/0054-features-grants-and-choices.md) section 8 says of a feature's link preview ("its description and a few stats")
