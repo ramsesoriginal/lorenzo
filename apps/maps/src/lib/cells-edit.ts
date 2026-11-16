@@ -12,6 +12,7 @@ import {
   type Part,
   type Point,
 } from '@lorenzo/map-renderer';
+import { type Valued, valued } from './geometry-edit';
 
 /** A placement has at most 256 parts (ADR 0337), so a region of cells has at most 256 cells. */
 export const MAX_CELLS_PER_PLACEMENT = 256;
@@ -62,17 +63,64 @@ export function snapCorner(grid: GridSpec, extent: BBox, p: Point): Point {
   return best;
 }
 
-/** The geometry of a region of whole cells: one polygon part for each. */
-export function cellsGeometry(grid: GridSpec, extent: BBox, cells: readonly Cell[]): Geometry {
+/**
+ * The geometry of a region of whole cells: one polygon part for each. A cell that `was` already
+ * drew with a value and a unit keeps them (ADR 0337), so changing a region never drops a value.
+ */
+export function cellsGeometry(
+  grid: GridSpec,
+  extent: BBox,
+  cells: readonly Cell[],
+  was?: Geometry,
+): Geometry {
+  const carried = new Map<string, Valued>();
+
+  for (const part of was?.parts ?? []) {
+    const cell = cellOfPart(part, grid, extent);
+
+    if (cell) carried.set(`${cell[0]},${cell[1]}`, valued(part));
+  }
+
   return {
     format: 'lorenzo.geometry/1',
     parts: cells.map(
       (cell): Part => ({
         shape: 'polygon',
         rings: [cellPolygon(grid, extent, cell).map((p): Point => [roundTo(p[0]), roundTo(p[1])])],
+        ...carried.get(`${cell[0]},${cell[1]}`),
       }),
     ),
   };
+}
+
+/** The cell a part is exactly the polygon of (to two decimals), or null. */
+function cellOfPart(part: Part, grid: GridSpec, extent: BBox): Cell | null {
+  if (part.shape !== 'polygon' || part.rings.length !== 1) return null;
+
+  const ring = part.rings[0] as readonly Point[];
+  const corners = ring.length;
+  const middle: Point = [
+    ring.reduce((sum, p) => sum + p[0], 0) / corners,
+    ring.reduce((sum, p) => sum + p[1], 0) / corners,
+  ];
+  const cell = cellOfPoint(grid, extent, middle);
+
+  if (!cell) return null;
+
+  const polygon = cellPolygon(grid, extent, cell);
+
+  if (
+    polygon.length !== corners ||
+    polygon.some((p, i) => {
+      const q = ring[i] as Point;
+
+      return Math.abs(p[0] - q[0]) > 0.011 || Math.abs(p[1] - q[1]) > 0.011;
+    })
+  ) {
+    return null;
+  }
+
+  return cell;
 }
 
 /**
@@ -85,30 +133,9 @@ export function cellsOf(geometry: Geometry, grid: GridSpec, extent: BBox): Cell[
   const cells: Cell[] = [];
 
   for (const part of geometry.parts) {
-    if (part.shape !== 'polygon' || part.rings.length !== 1) return null;
-
-    const ring = part.rings[0] as readonly Point[];
-    const corners = ring.length;
-    const middle: Point = [
-      ring.reduce((sum, p) => sum + p[0], 0) / corners,
-      ring.reduce((sum, p) => sum + p[1], 0) / corners,
-    ];
-    const cell = cellOfPoint(grid, extent, middle);
+    const cell = cellOfPart(part, grid, extent);
 
     if (!cell) return null;
-
-    const polygon = cellPolygon(grid, extent, cell);
-
-    if (
-      polygon.length !== corners ||
-      polygon.some((p, i) => {
-        const q = ring[i] as Point;
-
-        return Math.abs(p[0] - q[0]) > 0.011 || Math.abs(p[1] - q[1]) > 0.011;
-      })
-    ) {
-      return null;
-    }
 
     if (!cells.some((c) => same(c, cell))) cells.push(cell);
   }
