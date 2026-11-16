@@ -55,9 +55,19 @@ def _clean(url: str) -> str:
     return url.strip().rstrip("/")
 
 
+# The legal app's pages (ADR 0439), per language: one canonical address each. The paths are
+# the legal app's own (`apps/legal/src/lib/site.ts`); a link exists only where `LEGAL_URL` is set.
+_LEGAL_PATHS: dict[str, str] = {
+    "legal_notice_de": "/de/impressum/",
+    "legal_notice_en": "/en/legal-notice/",
+    "legal_privacy_de": "/de/datenschutz/",
+    "legal_privacy_en": "/en/privacy-policy/",
+}
+
+
 def apps(settings: Settings) -> dict[str, str]:
-    """Each app's address, without a trailing slash."""
-    return {
+    """Each app's address, without a trailing slash. The legal app appears only when set."""
+    found = {
         "account_hub": _clean(settings.account_hub_url),
         "inventory_web": _clean(settings.inventory_web_url),
         "beings": _clean(settings.beings_url),
@@ -68,6 +78,9 @@ def apps(settings: Settings) -> dict[str, str]:
         "maps": _clean(settings.maps_url),
         "social": _clean(settings.social_url),
     }
+    if settings.legal_url:
+        found["legal"] = _clean(settings.legal_url)
+    return found
 
 
 def account_hub_url(settings: Settings) -> str:
@@ -84,6 +97,8 @@ def links(settings: Settings) -> dict[str, str]:
     """Every link template, defaults first, then APP_LINK_TEMPLATES overrides on top."""
     where = apps(settings)
     built = {name: where[app] + path for name, (app, path) in _DEFAULTS.items()}
+    if "legal" in where:
+        built.update({name: where["legal"] + path for name, path in _LEGAL_PATHS.items()})
     built.update(settings.app_link_templates)
     return built
 
@@ -93,4 +108,5 @@ def document(settings: Settings) -> dict[str, Any]:
     return {
         "apps": {name: {"url": url} for name, url in apps(settings).items()},
         "links": links(settings),
+        "support_url": settings.support_url,
     }

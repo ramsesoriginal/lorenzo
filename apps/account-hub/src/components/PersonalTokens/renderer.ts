@@ -1,9 +1,9 @@
-// Your personal access tokens (ADR 0269): name, when made, when last used, when it stops, and
-// Revoke (asked first with window.confirm, like the other things that cannot be undone).
+// Your personal access tokens (ADR 0269, ADR 0418): the name and the last four characters, a state in
+// words with an icon, and Revoke (asked first in a dialog that names what happens).
 
-import { neverUsed, revokeTokenConfirmation, tokenState } from '../../lib/personalTokens';
+import { describeToken, revokeTokenConfirmation } from '../../lib/personalTokens';
 import { listPersonalTokens, revokePersonalToken } from '../../lib/personalTokensApi';
-import { formatTimestamp, relativeTime } from '../../lib/relativeTime';
+import { currentShell } from '../../lib/shell';
 import { say, sayError } from '../../lib/statusLine';
 import { fromTemplate, requiredIn, rootElement } from '../../lib/template';
 import type { PersonalTokenOut } from '../../lib/types';
@@ -14,24 +14,34 @@ function tokenRow(root: HTMLElement, token: PersonalTokenOut, onChanged: () => v
   const fragment = fromTemplate(root, '[data-token-template]');
   const revoke = required<HTMLButtonElement>(fragment, '[data-revoke]');
   const status = required<HTMLElement>(fragment, '[data-status]');
-  const now = new Date();
+  const row = fragment.querySelector<HTMLElement>('.token-row');
+  const description = describeToken(token, new Date());
 
   required<HTMLElement>(fragment, '[data-name]').textContent = token.name;
-  required<HTMLElement>(fragment, '[data-state]').textContent =
-    tokenState(token) === 'expired' ? 'Expired' : 'Active';
+  required<HTMLElement>(fragment, '[data-hint]').textContent = token.hint;
+  required<HTMLElement>(fragment, '[data-used]').textContent = description.used;
+  required<HTMLElement>(fragment, '[data-note]').textContent = description.note;
+  if (row) row.dataset.tone = description.tone;
 
-  const used = neverUsed(token)
-    ? 'Never used'
-    : `Last used ${relativeTime(token.last_used_at ?? '', now)}`;
-  const stops = token.expires_at
-    ? `${tokenState(token) === 'expired' ? 'Expired' : 'Expires'} ${formatTimestamp(token.expires_at)}`
-    : 'Never expires';
+  const icon = fragment.querySelector('[data-icon]');
+  const href = icon?.getAttribute('href');
 
-  required<HTMLElement>(fragment, '[data-meta]').textContent =
-    `…${token.hint} · Created ${formatTimestamp(token.created_at)} · ${used} · ${stops}`;
+  if (icon && href) icon.setAttribute('href', `${href.split('#')[0]}#icon-${description.icon}`);
 
+  // A token that stops is named, and what happens is said, before it is asked (ADR 0418, D26).
   revoke.addEventListener('click', async () => {
-    if (!window.confirm(revokeTokenConfirmation(token.name))) return;
+    const shell = currentShell();
+    const yes = shell
+      ? await shell.confirm({
+          title: `Revoke “${token.name}”?`,
+          body: revokeTokenConfirmation(token.name),
+          confirm: 'Revoke',
+          cancel: 'Keep it',
+          danger: true,
+        })
+      : window.confirm(revokeTokenConfirmation(token.name));
+
+    if (!yes) return;
 
     revoke.disabled = true;
     say(status, 'Revoking…');

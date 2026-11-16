@@ -22,6 +22,7 @@ if TYPE_CHECKING:
     from lorenzo_api.models.entity_stat import EntityStat
     from lorenzo_api.models.entity_stat_group import EntityStatGroup
     from lorenzo_api.models.fact import Fact
+    from lorenzo_api.models.feature import Feature, FeatureInstance
     from lorenzo_api.models.group_member import GroupMember
     from lorenzo_api.models.information import Information
     from lorenzo_api.models.item import Item
@@ -84,6 +85,15 @@ class Entity(Base):
     )
     social_web_marker: Mapped[SocialWeb | None] = relationship(
         "SocialWeb", foreign_keys="SocialWeb.entity_id", viewonly=True, lazy="raise_on_sql"
+    )
+    feature_marker: Mapped[Feature | None] = relationship(
+        "Feature", foreign_keys="Feature.entity_id", viewonly=True, lazy="raise_on_sql"
+    )
+    feature_instance_marker: Mapped[FeatureInstance | None] = relationship(
+        "FeatureInstance",
+        foreign_keys="FeatureInstance.entity_id",
+        viewonly=True,
+        lazy="raise_on_sql",
     )
 
     clock: Mapped[Clock | None] = relationship(
@@ -334,6 +344,8 @@ class Entity(Base):
         secondary="entity_prototype",
         primaryjoin="Entity.id == EntityPrototype.entity_id",
         secondaryjoin="Entity.id == EntityPrototype.prototype_id",
+        # In parent order, the one a stat's tie-break uses (ADR 0266, ADR 0443).
+        order_by="EntityPrototype.position, EntityPrototype.prototype_id",
         viewonly=True,
     )
     instances: Mapped[list[Entity]] = relationship(

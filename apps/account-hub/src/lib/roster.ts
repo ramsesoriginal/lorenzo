@@ -1,6 +1,6 @@
 // Pure helpers over a campaign's players, for the roster view's controls
 // (ADR 0170). Dependency-free like format.ts.
-import type { PlayerRosterEntryOut, PlayerSummaryOut } from './types';
+import type { GmOut, GmRosterEntryOut, PlayerRosterEntryOut, PlayerSummaryOut } from './types';
 
 // A campaign's players as roster entries, for a GM with no library membership:
 // the roster itself is a library admins' read, but GET .../players is open to
@@ -20,6 +20,18 @@ export function rosterFromPlayers(
     characters: player.characters,
     created_by: player.created_by,
     updated_by: player.updated_by,
+  }));
+}
+
+// A campaign's GMs as roster entries, in the same way: GET .../gms carries their names.
+export function rosterFromGms(campaignId: string, gms: GmOut[]): GmRosterEntryOut[] {
+  return gms.map((gm) => ({
+    kind: 'gm',
+    user_id: gm.user_id,
+    nickname: gm.nickname,
+    display_name: gm.display_name,
+    user_color: gm.user_color,
+    campaign_id: campaignId,
   }));
 }
 

@@ -20,6 +20,7 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from lorenzo_api import dice
 from lorenzo_api.models import (
     Being,
     Book,
@@ -36,7 +37,16 @@ from lorenzo_api.models import (
     ComputedStat,
     ComputedStatComparison,
     ComputedStatContents,
+    ComputedStatDice,
+    ComputedStatDiceValue,
+    ComputedStatExtremum,
+    ComputedStatExtremumInput,
     ComputedStatLinear,
+    ComputedStatProduct,
+    ComputedStatProductFactor,
+    ComputedStatRatio,
+    ComputedStatSelect,
+    ComputedStatSelectStep,
     ComputedStatSum,
     ComputedStatSumTerm,
     Connection,
@@ -58,7 +68,14 @@ from lorenzo_api.models import (
     EventRelationship,
     Fact,
     FactAbout,
+    Feature,
+    FeatureInstance,
+    FeaturePrerequisite,
     Frame,
+    GrantRecord,
+    GrantRule,
+    GrantRuleCondition,
+    GrantRuleOption,
     GroupMember,
     Information,
     Item,
@@ -87,6 +104,8 @@ from lorenzo_api.models import (
     RepositoryCopyLinkEntity,
     RepositoryCopyLinkStatDefinition,
     RepositoryCopyLinkStatGroup,
+    RepositoryCopyLinkSystem,
+    RepositoryCopyLinkTemplate,
     SceneTelling,
     SocialWeb,
     SocialWebEntry,
@@ -95,6 +114,11 @@ from lorenzo_api.models import (
     StatDefinitionEnumValue,
     StatGroup,
     StoryEvent,
+    System,
+    Template,
+    TemplateSlot,
+    TemplateSlotExclusion,
+    TemplateSlotStat,
     WritingBiography,
 )
 from lorenzo_api.models.story_context import SceneBeing, SceneEvent, SceneFact
@@ -113,6 +137,8 @@ KINDS = (
     "connection",
     "relationship",
     "social_web",
+    "feature",
+    "feature_instance",
     "calendar_period",
     "event",
     "observance",
@@ -125,12 +151,37 @@ class StatValue:
     value_text: str | None
     value_float: float | None
     value_bool: bool | None
+    # A dice value as its parts (RFC 0056), all None for any other.
+    dice_count: int | None = None
+    dice_sides: int | None = None
+    dice_drop_mode: str | None = None
+    dice_drop_count: int | None = None
 
     def as_json(self) -> Any:
         for value in (self.value_int, self.value_text, self.value_float, self.value_bool):
             if value is not None:
                 return value
-        return None
+        held = dice.of_row(self)
+        return None if held is None else held.notation
+
+
+@dataclass
+class SelectResultData:
+    """What a select gives (ADR 0446): a number, a text, a flag or a stat, exactly one."""
+
+    number: Decimal | None = None
+    text: str | None = None
+    flag: bool | None = None
+    stat: uuid.UUID | None = None
+
+
+@dataclass
+class SelectStepData:
+    """One step of a select (ADR 0446): a `from` value or a value to match, and its result."""
+
+    threshold: Decimal | None
+    match_value: str | None
+    result: SelectResultData
 
 
 @dataclass
@@ -150,10 +201,44 @@ class Formula:
     false_value: str | None = None
     # A sum's (source, coefficient) terms, in order (ADR 0126).
     terms: list[tuple[uuid.UUID, Decimal]] | None = None
+    # A `min` or `max`'s (stat, constant) operands, in order, one of the two each (ADR 0444); the
+    # kind is `min` or `max`.
+    operands: list[tuple[uuid.UUID | None, Decimal | None]] | None = None
+    # A contents formula (ADR 0447): its aggregate, options and the stat it filters by.
+    aggregate: str | None = None
+    only_active: bool | None = None
+    only_kind: str | None = None
+    where: uuid.UUID | None = None
+    if_none: Decimal | None = None
+    # A select (ADR 0446): `source` is its source stat; the mode, the steps and `otherwise`.
+    select_mode: str | None = None
+    steps: list[SelectStepData] | None = None
+    otherwise: SelectResultData | None = None
+    # A `dice_value` (ADR 0463): `source` is its dice stat, and this is what it reads of it, `min`,
+    # `max` or `average`.
+    read_as: str | None = None
+    # A `dice` (ADR 0464): the stat or the constant each of its count and its sides comes from, one
+    # of the two for each.
+    count: uuid.UUID | None = None
+    count_constant: int | None = None
+    sides: uuid.UUID | None = None
+    sides_constant: int | None = None
 
     def inputs(self) -> list[uuid.UUID]:
-        own = [i for i in (self.source, self.left, self.right) if i is not None]
-        return own + [source for source, _ in self.terms or []]
+        own = [
+            i
+            for i in (self.source, self.left, self.right, self.where, self.count, self.sides)
+            if i is not None
+        ]
+        results = [step.result for step in self.steps or []]
+        if self.otherwise is not None:
+            results.append(self.otherwise)
+        return (
+            own
+            + [source for source, _ in self.terms or []]
+            + [stat for stat, _ in self.operands or [] if stat is not None]
+            + [r.stat for r in results if r.stat is not None]
+        )
 
 
 @dataclass
@@ -182,6 +267,9 @@ class Links:
     entity: dict[uuid.UUID, uuid.UUID] = field(default_factory=dict)
     stat_group: dict[uuid.UUID, uuid.UUID] = field(default_factory=dict)
     stat_definition: dict[uuid.UUID, uuid.UUID] = field(default_factory=dict)
+    # A game system and a template are copied and tracked as a stat group is (ADR 0469).
+    system: dict[uuid.UUID, uuid.UUID] = field(default_factory=dict)
+    template: dict[uuid.UUID, uuid.UUID] = field(default_factory=dict)
     origin_tenant: dict[uuid.UUID, uuid.UUID] = field(default_factory=dict)
     merged: set[uuid.UUID] = field(default_factory=set)
     deleted: dict[str, set[uuid.UUID]] = field(default_factory=lambda: defaultdict(set))
@@ -204,9 +292,29 @@ class Content:
     entities: dict[uuid.UUID, str] = field(default_factory=dict)
     kinds: dict[uuid.UUID, set[str]] = field(default_factory=lambda: defaultdict(set))
     in_public_catalog: dict[uuid.UUID, bool] = field(default_factory=dict)
+    # An item or a feature whose instances start with the `active` switch off (ADR 0447, 0454).
+    starts_inactive: dict[uuid.UUID, bool] = field(default_factory=dict)
+    # A feature a holder may have twice (ADR 0454).
+    repeatable: dict[uuid.UUID, bool] = field(default_factory=dict)
     slugs: dict[uuid.UUID, str] = field(default_factory=dict)
     prototypes: list[tuple[uuid.UUID, uuid.UUID]] = field(default_factory=list)
     groups: dict[uuid.UUID, dict[str, Any]] = field(default_factory=dict)
+    # The game systems a stat group may belong to: id -> {slug, name, root} (ADR 0453); `root` is an
+    # entry id or none. A group says its own with `system`.
+    systems: dict[uuid.UUID, dict[str, Any]] = field(default_factory=dict)
+    # Templates (ADR 0451, 0453): id -> {name, system, kind, ancestor, slots}, each slot {kind,
+    # label, group, information_type, held_order, stats: [(stat, label)], exclude: [stat]}, in
+    # order.
+    templates: dict[uuid.UUID, dict[str, Any]] = field(default_factory=dict)
+    # Grant rules (ADR 0455): id -> {entry, label, position, mode, min, max, count_stat, category,
+    # lasts, changeable, conditions: [{subject, stat, comparator, constant, right_stat}], options:
+    # [entry]}, and the prerequisites of a feature (its id -> [{stat, comparator, constant,
+    # right_stat}], in order).
+    grant_rules: dict[uuid.UUID, dict[str, Any]] = field(default_factory=dict)
+    prerequisites: dict[uuid.UUID, list[dict[str, Any]]] = field(default_factory=dict)
+    # How the holders have what they have (ADR 0456): the active records, id -> {holder, rule,
+    # source, feature, instance}. `rule` and `source` are empty for an award.
+    grant_records: dict[uuid.UUID, dict[str, Any]] = field(default_factory=dict)
     definitions: dict[uuid.UUID, dict[str, Any]] = field(default_factory=dict)
     enum_values: dict[uuid.UUID, list[tuple[str, int]]] = field(
         default_factory=lambda: defaultdict(list)
@@ -280,6 +388,11 @@ class Content:
     entry_audiences: dict[uuid.UUID, bool] = field(default_factory=dict)
     entry_knowledge: list[tuple[uuid.UUID, uuid.UUID]] = field(default_factory=list)
     fact_about: list[tuple[uuid.UUID, uuid.UUID]] = field(default_factory=list)
+    # How a release of a public repository carries each repository it is built on (ADR 0431):
+    # origin repository -> {inclusion, name, licence}, where `licence` is `{label, url}` or none.
+    # Written only by the release builder, from the repository's copy records; a `Content` loaded
+    # for any other purpose has none.
+    sources: dict[uuid.UUID, dict[str, Any]] = field(default_factory=dict)
     links: Links = field(default_factory=Links)
 
     def origin(self, kind: str, local_id: uuid.UUID) -> uuid.UUID:
@@ -304,12 +417,17 @@ async def load_links(session: AsyncSession, tenant_id: uuid.UUID) -> Links:
             RepositoryCopyLinkStatDefinition,
             RepositoryCopyLinkStatDefinition.stat_definition_id,
         ),
+        ("system", RepositoryCopyLinkSystem, RepositoryCopyLinkSystem.system_id),
+        ("template", RepositoryCopyLinkTemplate, RepositoryCopyLinkTemplate.template_id),
     ):
         mode_col = getattr(model, "mode", None)
         columns = [local, model.source_id, model.source_tenant_id, model.snapshot]
         if mode_col is not None:
             columns.append(mode_col)
-        for row in await session.execute(select(*columns).where(model.tenant_id == tenant_id)):
+        # In the order of the source: the maps are read twice (a document and the rows) and are
+        # compared in order (ADR 0214), which a scan of the table does not promise.
+        stmt = select(*columns).where(model.tenant_id == tenant_id).order_by(model.source_id)
+        for row in await session.execute(stmt):
             local_id, source_id, source_tenant, snapshot = row[0], row[1], row[2], row[3]
             links.origin_tenant[source_id] = source_tenant
             links.snapshots[source_id] = snapshot
@@ -335,6 +453,125 @@ async def load_links(session: AsyncSession, tenant_id: uuid.UUID) -> Links:
     return links
 
 
+async def _load_templates(session: AsyncSession, c: Content, t: uuid.UUID) -> None:
+    """The tenant's templates with their slots, in the order written (ADR 0451)."""
+    listed: dict[uuid.UUID, list[tuple[uuid.UUID, str | None]]] = defaultdict(list)
+    for slot_id, stat_id, label in await session.execute(
+        select(
+            TemplateSlotStat.slot_id, TemplateSlotStat.stat_definition_id, TemplateSlotStat.label
+        )
+        .where(TemplateSlotStat.tenant_id == t)
+        .order_by(TemplateSlotStat.slot_id, TemplateSlotStat.position)
+    ):
+        listed[slot_id].append((stat_id, label))
+    left_out: dict[uuid.UUID, list[uuid.UUID]] = defaultdict(list)
+    for slot_id, stat_id in await session.execute(
+        select(TemplateSlotExclusion.slot_id, TemplateSlotExclusion.stat_definition_id)
+        .where(TemplateSlotExclusion.tenant_id == t)
+        .order_by(TemplateSlotExclusion.slot_id, TemplateSlotExclusion.stat_definition_id)
+    ):
+        left_out[slot_id].append(stat_id)
+    slots: dict[uuid.UUID, list[dict[str, Any]]] = defaultdict(list)
+    for slot in await session.scalars(
+        select(TemplateSlot)
+        .where(TemplateSlot.tenant_id == t)
+        .order_by(TemplateSlot.template_id, TemplateSlot.position)
+    ):
+        slots[slot.template_id].append(
+            {
+                "kind": slot.kind,
+                "label": slot.label,
+                "group": slot.stat_group_id,
+                "information_type": slot.information_type,
+                "held_order": slot.held_order,
+                "stats": listed[slot.id],
+                "exclude": left_out[slot.id],
+            }
+        )
+    for template in await session.scalars(
+        select(Template).where(Template.tenant_id == t).order_by(Template.name, Template.id)
+    ):
+        c.templates[template.id] = {
+            "name": template.name,
+            "system": template.system_id,
+            "kind": template.required_kind,
+            "ancestor": template.required_ancestor_entry_id,
+            "slots": slots[template.id],
+        }
+
+
+async def _load_grant_rules(session: AsyncSession, c: Content, t: uuid.UUID) -> None:
+    """The tenant's grant rules with their conditions and options, and the prerequisites of its
+    features, each in the order written (ADR 0455)."""
+    conditions: dict[uuid.UUID, list[dict[str, Any]]] = defaultdict(list)
+    for condition in await session.scalars(
+        select(GrantRuleCondition)
+        .where(GrantRuleCondition.tenant_id == t)
+        .order_by(GrantRuleCondition.rule_id, GrantRuleCondition.position)
+    ):
+        conditions[condition.rule_id].append(
+            {
+                "subject": condition.subject,
+                "stat": condition.stat_definition_id,
+                "comparator": condition.comparator,
+                "constant": condition.right_constant,
+                "right_stat": condition.right_stat_definition_id,
+            }
+        )
+    options: dict[uuid.UUID, list[uuid.UUID]] = defaultdict(list)
+    for rule_id, option_id in await session.execute(
+        select(GrantRuleOption.rule_id, GrantRuleOption.option_entry_id)
+        .where(GrantRuleOption.tenant_id == t)
+        .order_by(GrantRuleOption.rule_id, GrantRuleOption.position)
+    ):
+        options[rule_id].append(option_id)
+    for rule in await session.scalars(
+        select(GrantRule)
+        .where(GrantRule.tenant_id == t)
+        .order_by(GrantRule.entry_id, GrantRule.position, GrantRule.id)
+    ):
+        c.grant_rules[rule.id] = {
+            "entry": rule.entry_id,
+            "label": rule.label,
+            "position": rule.position,
+            "mode": rule.mode,
+            "min": rule.min_count,
+            "max": rule.max_count,
+            "count_stat": rule.count_stat_definition_id,
+            "category": rule.option_category_entry_id,
+            "lasts": rule.lasts,
+            "changeable": rule.changeable,
+            "conditions": conditions[rule.id],
+            "options": options[rule.id],
+        }
+    for prerequisite in await session.scalars(
+        select(FeaturePrerequisite)
+        .where(FeaturePrerequisite.tenant_id == t)
+        .order_by(FeaturePrerequisite.feature_id, FeaturePrerequisite.position)
+    ):
+        c.prerequisites.setdefault(prerequisite.feature_id, []).append(
+            {
+                "stat": prerequisite.stat_definition_id,
+                "comparator": prerequisite.comparator,
+                "constant": prerequisite.right_constant,
+                "right_stat": prerequisite.right_stat_definition_id,
+            }
+        )
+    for record in await session.scalars(
+        select(GrantRecord)
+        .where(GrantRecord.tenant_id == t, GrantRecord.state == "active")
+        .order_by(GrantRecord.created_at, GrantRecord.id)
+    ):
+        assert record.feature_instance_id is not None
+        c.grant_records[record.id] = {
+            "holder": record.holder_id,
+            "rule": record.rule_id,
+            "source": record.source_ref_id,
+            "feature": record.feature_id,
+            "instance": record.feature_instance_id,
+        }
+
+
 async def load_content(session: AsyncSession, tenant_id: uuid.UUID) -> Content:
     """Everything a repository can hold, for one tenant."""
     c = Content(tenant_id=tenant_id)
@@ -343,7 +580,11 @@ async def load_content(session: AsyncSession, tenant_id: uuid.UUID) -> Content:
     async def rows(*columns: Any, where: Any, order_by: tuple[Any, ...] = ()) -> Any:
         return (await session.execute(select(*columns).where(where).order_by(*order_by))).all()
 
-    for entity_id, name in await rows(Entity.id, Entity.name, where=Entity.tenant_id == t):
+    # By id: a load is the same whenever it is made (the heap order of a table moves when rows are
+    # updated), so a release document and a later read of the same content agree on their order.
+    for entity_id, name in await rows(
+        Entity.id, Entity.name, where=Entity.tenant_id == t, order_by=(Entity.id,)
+    ):
         c.entities[entity_id] = name
     excluded = set(
         await session.scalars(select(StorySession.entity_id).where(StorySession.tenant_id == t))
@@ -456,12 +697,23 @@ async def load_content(session: AsyncSession, tenant_id: uuid.UUID) -> Content:
     c.scenes = dict(await rows(Scene.entity_id, Scene.period_entity_id, where=Scene.tenant_id == t))
     for entity_id in c.scenes:
         c.kinds[entity_id].add("scene")
-    for entity_id, public in await rows(
-        Item.entity_id, Item.in_public_catalog, where=Item.tenant_id == t
+    for entity_id, public, inactive in await rows(
+        Item.entity_id, Item.in_public_catalog, Item.starts_inactive, where=Item.tenant_id == t
     ):
         c.kinds[entity_id].add("item")
         c.in_public_catalog[entity_id] = public
+        c.starts_inactive[entity_id] = inactive
+    for entity_id, repeatable, inactive in await rows(
+        Feature.entity_id,
+        Feature.repeatable,
+        Feature.starts_inactive,
+        where=Feature.tenant_id == t,
+    ):
+        c.kinds[entity_id].add("feature")
+        c.repeatable[entity_id] = repeatable
+        c.starts_inactive[entity_id] = inactive
     for kind, model in (
+        ("feature_instance", FeatureInstance),
         ("book", Book),
         ("carrier", Carrier),
         ("edition", Edition),
@@ -503,14 +755,33 @@ async def load_content(session: AsyncSession, tenant_id: uuid.UUID) -> Content:
             )
         ).all()
     ]
-    for group_id, name, priority, mandatory in await rows(
+    for system_id, slug, system_name, root in await rows(
+        System.id,
+        System.slug,
+        System.name,
+        System.root_entry_id,
+        where=System.tenant_id == t,
+        order_by=(System.slug,),
+    ):
+        c.systems[system_id] = {"slug": slug, "name": system_name, "root": root}
+    for group_id, name, priority, mandatory, group_role, group_system in await rows(
         StatGroup.id,
         StatGroup.name,
         StatGroup.priority,
         StatGroup.mandatory,
+        StatGroup.role,
+        StatGroup.system_id,
         where=StatGroup.tenant_id == t,
     ):
-        c.groups[group_id] = {"name": name, "priority": priority, "mandatory": mandatory}
+        c.groups[group_id] = {
+            "name": name,
+            "priority": priority,
+            "mandatory": mandatory,
+            "role": group_role,
+            "system": group_system,
+        }
+    await _load_templates(session, c, t)
+    await _load_grant_rules(session, c, t)
     for (
         def_id,
         name,
@@ -526,6 +797,7 @@ async def load_content(session: AsyncSession, tenant_id: uuid.UUID) -> Content:
         resolved_hint,
         min_value,
         max_value,
+        definition_role,
     ) in await rows(
         StatDefinition.id,
         StatDefinition.name,
@@ -541,12 +813,14 @@ async def load_content(session: AsyncSession, tenant_id: uuid.UUID) -> Content:
         StatDefinition.resolved_hint_id,
         StatDefinition.min_value,
         StatDefinition.max_value,
+        StatDefinition.role,
         where=StatDefinition.tenant_id == t,
     ):
         c.definitions[def_id] = {
             "name": name,
             "value_type": value_type,
             "group": group_id,
+            "role": definition_role,
             "unit": unit,
             "adjustable_in_play": adjustable,
             "pin": pin,
@@ -575,16 +849,20 @@ async def load_content(session: AsyncSession, tenant_id: uuid.UUID) -> Content:
             where=EntityStatGroup.tenant_id == t,
         )
     ]
-    for e, d, vi, vt, vf, vb in await rows(
+    for e, d, vi, vt, vf, vb, dc, ds, dm, dn in await rows(
         EntityStat.entity_id,
         EntityStat.stat_definition_id,
         EntityStat.value_int,
         EntityStat.value_text,
         EntityStat.value_float,
         EntityStat.value_bool,
+        EntityStat.dice_count,
+        EntityStat.dice_sides,
+        EntityStat.dice_drop_mode,
+        EntityStat.dice_drop_count,
         where=EntityStat.tenant_id == t,
     ):
-        c.stats[(e, d)] = StatValue(vi, vt, vf, vb)
+        c.stats[(e, d)] = StatValue(vi, vt, vf, vb, dc, ds, dm, dn)
     linear = {
         (row.entity_id, row.stat_definition_id): row
         for row in (
@@ -617,17 +895,164 @@ async def load_content(session: AsyncSession, tenant_id: uuid.UUID) -> Content:
             (term.source_stat_definition_id, term.coefficient)
         )
     contained = {
-        (row.entity_id, row.stat_definition_id): row.source_stat_definition_id
+        (row.entity_id, row.stat_definition_id): row
         for row in (
             await session.scalars(
                 select(ComputedStatContents).where(ComputedStatContents.tenant_id == t)
             )
         )
     }
+    built_dice = {
+        (row.entity_id, row.stat_definition_id): row
+        for row in (
+            await session.scalars(select(ComputedStatDice).where(ComputedStatDice.tenant_id == t))
+        )
+    }
+    dice_values = {
+        (row.entity_id, row.stat_definition_id): row
+        for row in (
+            await session.scalars(
+                select(ComputedStatDiceValue).where(ComputedStatDiceValue.tenant_id == t)
+            )
+        )
+    }
+    extrema = {
+        (row.entity_id, row.stat_definition_id): row
+        for row in (
+            await session.scalars(
+                select(ComputedStatExtremum).where(ComputedStatExtremum.tenant_id == t)
+            )
+        )
+    }
+    operands: dict[tuple[uuid.UUID, uuid.UUID], list[tuple[uuid.UUID | None, Decimal | None]]] = (
+        defaultdict(list)
+    )
+    for operand in await session.scalars(
+        select(ComputedStatExtremumInput)
+        .where(ComputedStatExtremumInput.tenant_id == t)
+        .order_by(ComputedStatExtremumInput.position)
+    ):
+        operands[(operand.entity_id, operand.stat_definition_id)].append(
+            (operand.source_stat_definition_id, operand.constant)
+        )
+    products = {
+        (row.entity_id, row.stat_definition_id): row
+        for row in (
+            await session.scalars(
+                select(ComputedStatProduct).where(ComputedStatProduct.tenant_id == t)
+            )
+        )
+    }
+    factors: dict[tuple[uuid.UUID, uuid.UUID], list[tuple[uuid.UUID | None, Decimal | None]]] = (
+        defaultdict(list)
+    )
+    for factor in await session.scalars(
+        select(ComputedStatProductFactor)
+        .where(ComputedStatProductFactor.tenant_id == t)
+        .order_by(ComputedStatProductFactor.position)
+    ):
+        factors[(factor.entity_id, factor.stat_definition_id)].append(
+            (factor.source_stat_definition_id, None)
+        )
+    ratios = {
+        (row.entity_id, row.stat_definition_id): row
+        for row in (
+            await session.scalars(select(ComputedStatRatio).where(ComputedStatRatio.tenant_id == t))
+        )
+    }
+    selects = {
+        (row.entity_id, row.stat_definition_id): row
+        for row in (
+            await session.scalars(
+                select(ComputedStatSelect).where(ComputedStatSelect.tenant_id == t)
+            )
+        )
+    }
+    select_steps: dict[tuple[uuid.UUID, uuid.UUID], list[SelectStepData]] = defaultdict(list)
+    for step in await session.scalars(
+        select(ComputedStatSelectStep)
+        .where(ComputedStatSelectStep.tenant_id == t)
+        .order_by(ComputedStatSelectStep.position)
+    ):
+        select_steps[(step.entity_id, step.stat_definition_id)].append(
+            SelectStepData(
+                threshold=step.threshold,
+                match_value=step.match_value,
+                result=SelectResultData(
+                    number=step.result_number,
+                    text=step.result_text,
+                    flag=step.result_bool,
+                    stat=step.result_stat_definition_id,
+                ),
+            )
+        )
     for e, d in await rows(
         ComputedStat.entity_id, ComputedStat.stat_definition_id, where=ComputedStat.tenant_id == t
     ):
-        if (e, d) in linear:
+        if (e, d) in selects:
+            chosen = selects[(e, d)]
+            otherwise = SelectResultData(
+                number=chosen.otherwise_number,
+                text=chosen.otherwise_text,
+                flag=chosen.otherwise_bool,
+                stat=chosen.otherwise_stat_definition_id,
+            )
+            c.formulas[(e, d)] = Formula(
+                kind="select",
+                source=chosen.source_stat_definition_id,
+                select_mode=chosen.mode,
+                steps=select_steps[(e, d)],
+                otherwise=otherwise
+                if any(
+                    v is not None
+                    for v in (otherwise.number, otherwise.text, otherwise.flag, otherwise.stat)
+                )
+                else None,
+            )
+        elif (e, d) in products:
+            product = products[(e, d)]
+            c.formulas[(e, d)] = Formula(
+                kind="product",
+                multiplier=product.multiplier,
+                offset=product.offset,
+                round_mode=product.round_mode,
+                operands=factors[(e, d)],
+            )
+        elif (e, d) in ratios:
+            ratio = ratios[(e, d)]
+            c.formulas[(e, d)] = Formula(
+                kind="ratio",
+                left=ratio.numerator_stat_definition_id,
+                right=ratio.denominator_stat_definition_id,
+                right_constant=ratio.denominator_constant,
+                multiplier=ratio.multiplier,
+                offset=ratio.offset,
+                round_mode=ratio.round_mode,
+            )
+        elif (e, d) in extrema:
+            c.formulas[(e, d)] = Formula(
+                kind=extrema[(e, d)].pick,
+                round_mode=extrema[(e, d)].round_mode,
+                operands=operands[(e, d)],
+            )
+        elif (e, d) in built_dice:
+            built = built_dice[(e, d)]
+            c.formulas[(e, d)] = Formula(
+                kind="dice",
+                count=built.count_stat_definition_id,
+                count_constant=built.count_constant,
+                sides=built.sides_stat_definition_id,
+                sides_constant=built.sides_constant,
+            )
+        elif (e, d) in dice_values:
+            reading = dice_values[(e, d)]
+            c.formulas[(e, d)] = Formula(
+                kind="dice_value",
+                source=reading.source_stat_definition_id,
+                read_as=reading.read_as,
+                round_mode=reading.round_mode,
+            )
+        elif (e, d) in linear:
             lin = linear[(e, d)]
             c.formulas[(e, d)] = Formula(
                 kind="linear",
@@ -648,7 +1073,16 @@ async def load_content(session: AsyncSession, tenant_id: uuid.UUID) -> Content:
                 false_value=cmp.false_value,
             )
         elif (e, d) in contained:
-            c.formulas[(e, d)] = Formula(kind="contents", source=contained[(e, d)])
+            held = contained[(e, d)]
+            c.formulas[(e, d)] = Formula(
+                kind="contents",
+                source=held.source_stat_definition_id,
+                aggregate=held.aggregate,
+                only_active=held.only_active,
+                only_kind=held.only_kind,
+                where=held.where_stat_definition_id,
+                if_none=held.if_none,
+            )
         elif (e, d) in sums:
             c.formulas[(e, d)] = Formula(
                 kind="sum",
@@ -1119,9 +1553,100 @@ def _formula_json(formula: Formula, name: Namer) -> dict[str, Any]:
             "offset": str(formula.offset),
             "round_mode": formula.round_mode,
         }
-    if formula.kind == "contents":
+    if formula.kind == "dice":
+        return {
+            "kind": "dice",
+            "count": None if formula.count is None else name("stat_definition", formula.count),
+            "count_constant": formula.count_constant,
+            "sides": None if formula.sides is None else name("stat_definition", formula.sides),
+            "sides_constant": formula.sides_constant,
+        }
+    if formula.kind == "dice_value":
         assert formula.source is not None
-        return {"kind": "contents", "source": name("stat_definition", formula.source)}
+        return {
+            "kind": "dice_value",
+            "source": name("stat_definition", formula.source),
+            "as": formula.read_as,
+            "round_mode": formula.round_mode,
+        }
+    if formula.kind == "select":
+        assert formula.source is not None and formula.steps is not None
+
+        def result_json(result: SelectResultData) -> dict[str, Any]:
+            return {
+                "number": None if result.number is None else str(result.number),
+                "text": result.text,
+                "flag": result.flag,
+                "stat": None if result.stat is None else name("stat_definition", result.stat),
+            }
+
+        return {
+            "kind": "select",
+            "source": name("stat_definition", formula.source),
+            "mode": formula.select_mode,
+            "steps": [
+                {
+                    "from": None if step.threshold is None else str(step.threshold),
+                    "value": step.match_value,
+                    "result": result_json(step.result),
+                }
+                for step in formula.steps
+            ],
+            "otherwise": None if formula.otherwise is None else result_json(formula.otherwise),
+        }
+    if formula.kind == "product":
+        assert formula.operands is not None
+        return {
+            "kind": "product",
+            "factors": [name("stat_definition", stat) for stat, _ in formula.operands if stat],
+            "multiplier": str(formula.multiplier),
+            "offset": str(formula.offset),
+            "round_mode": formula.round_mode,
+        }
+    if formula.kind == "ratio":
+        assert formula.left is not None
+        return {
+            "kind": "ratio",
+            "numerator": name("stat_definition", formula.left),
+            "denominator": name("stat_definition", formula.right) if formula.right else None,
+            "denominator_constant": (
+                str(formula.right_constant) if formula.right_constant is not None else None
+            ),
+            "multiplier": str(formula.multiplier),
+            "offset": str(formula.offset),
+            "round_mode": formula.round_mode,
+        }
+    if formula.kind in ("min", "max"):
+        assert formula.operands is not None
+        return {
+            "kind": formula.kind,
+            "inputs": [
+                {
+                    "source": None if stat is None else name("stat_definition", stat),
+                    "constant": None if constant is None else str(constant),
+                }
+                for stat, constant in formula.operands
+            ],
+            "round_mode": formula.round_mode,
+        }
+    if formula.kind == "contents":
+        # Only what is not the default is said, so the snapshot of a contents formula that sums
+        # everything is what it was before ADR 0447 and no update is proposed for it.
+        contents: dict[str, Any] = {
+            "kind": "contents",
+            "source": None if formula.source is None else name("stat_definition", formula.source),
+        }
+        if formula.aggregate not in (None, "sum"):
+            contents["aggregate"] = formula.aggregate
+        if formula.only_active:
+            contents["only_active"] = True
+        if formula.only_kind is not None:
+            contents["only_kind"] = formula.only_kind
+        if formula.where is not None:
+            contents["where"] = name("stat_definition", formula.where)
+        if formula.if_none is not None:
+            contents["if_none"] = str(formula.if_none)
+        return contents
     if formula.kind == "sum":
         assert formula.terms is not None
         return {
@@ -1156,6 +1681,8 @@ class EntityIndex:
     stats: dict[uuid.UUID, dict[uuid.UUID, StatValue]]
     formulas: dict[uuid.UUID, dict[uuid.UUID, Formula]]
     clock_records: dict[uuid.UUID, list[tuple[str, uuid.UUID, dict[str, Any]]]]
+    # The grant rules of each source entry, in their order (ADR 0455).
+    rules: dict[uuid.UUID, list[dict[str, Any]]]
 
 
 def index_entities(content: Content) -> EntityIndex:
@@ -1165,7 +1692,12 @@ def index_entities(content: Content) -> EntityIndex:
         defaultdict(dict),
         defaultdict(dict),
         defaultdict(list),
+        defaultdict(list),
     )
+    for rule in sorted(
+        content.grant_rules.values(), key=lambda r: (str(r["entry"]), r["position"])
+    ):
+        index.rules[rule["entry"]].append(rule)
     for e, p in content.prototypes:
         index.prototypes[e].append(p)
     for e, g in content.entity_groups:
@@ -1190,6 +1722,40 @@ def index_entities(content: Content) -> EntityIndex:
             )
         )
     return index
+
+
+def _comparison_json(record: dict[str, Any], name: Namer) -> dict[str, Any]:
+    """A comparison of a rule or a prerequisite as a snapshot says it: its stats by name, its
+    constant as the text of the number."""
+    return {
+        "stat": name("stat_definition", record["stat"]),
+        "comparator": record["comparator"],
+        "constant": None if record["constant"] is None else str(record["constant"]),
+        "right_stat": (
+            None if record["right_stat"] is None else name("stat_definition", record["right_stat"])
+        ),
+    }
+
+
+def _rule_json(rule: dict[str, Any], name: Namer) -> dict[str, Any]:
+    """A grant rule as a snapshot says it, in the order its conditions and options were written
+    (ADR 0455): by name, so the source's copy and the repository's compare."""
+    return {
+        "label": rule["label"],
+        "mode": rule["mode"],
+        "min": rule["min"],
+        "max": rule["max"],
+        "count_stat": (
+            None if rule["count_stat"] is None else name("stat_definition", rule["count_stat"])
+        ),
+        "category": None if rule["category"] is None else name("entity", rule["category"]),
+        "lasts": rule["lasts"],
+        "changeable": rule["changeable"],
+        "conditions": [
+            {**_comparison_json(c, name), "subject": c["subject"]} for c in rule["conditions"]
+        ],
+        "options": [name("entity", option) for option in rule["options"]],
+    }
 
 
 def entity_snapshot(
@@ -1303,6 +1869,21 @@ def entity_snapshot(
             if entity_id in content.entity_locations
             else {}
         ),
+        **(
+            {"grant_rules": [_rule_json(rule, name) for rule in index.rules[entity_id]]}
+            if entity_id in index.rules
+            else {}
+        ),
+        **(
+            {
+                "prerequisites": [
+                    _comparison_json(prerequisite, name)
+                    for prerequisite in content.prerequisites[entity_id]
+                ]
+            }
+            if entity_id in content.prerequisites
+            else {}
+        ),
         **({"frame_axes": list(content.frames[entity_id])} if entity_id in content.frames else {}),
         **(
             {
@@ -1337,6 +1918,11 @@ def entity_snapshot(
         "name": content.entities[entity_id],
         "kinds": sorted(content.kinds.get(entity_id, ())),
         "in_public_catalog": content.in_public_catalog.get(entity_id),
+        # Said only when true, so the snapshot of an item that starts active is what it was
+        # before ADR 0447 (no update is proposed for it).
+        "starts_inactive": content.starts_inactive.get(entity_id) or None,
+        # Likewise said only when true (ADR 0454): an entry that is no feature has none.
+        "repeatable": content.repeatable.get(entity_id) or None,
         "slug": content.slugs.get(entity_id),
         "prototypes": sorted(name("entity", p) for p in index.prototypes.get(entity_id, [])),
         "stat_groups": sorted(name("stat_group", g) for g in index.groups.get(entity_id, [])),
@@ -1366,9 +1952,55 @@ def assert_acyclic(parts: dict[uuid.UUID, dict[str, Any]]) -> None:
             node = parts[node]["parent"]
 
 
-def stat_group_snapshot(content: Content, group_id: uuid.UUID) -> dict[str, Any]:
+def stat_group_snapshot(
+    content: Content, group_id: uuid.UUID, *, system: bool = True
+) -> dict[str, Any]:
+    """What a copy of a stat group records. `system` adds the slug of the game system the group
+    belongs to when it belongs to one (ADR 0469); a release digest hashes it without."""
     group = content.groups[group_id]
-    return {"name": group["name"], "priority": group["priority"], "mandatory": group["mandatory"]}
+    snapshot: dict[str, Any] = {
+        "name": group["name"],
+        "priority": group["priority"],
+        "mandatory": group["mandatory"],
+    }
+    belongs = group.get("system")
+    if system and belongs is not None and belongs in content.systems:
+        snapshot["system"] = content.systems[belongs]["slug"]
+    return snapshot
+
+
+def system_snapshot(content: Content, system_id: uuid.UUID, name: Namer) -> dict[str, Any]:
+    """What a copy of a game system records (ADR 0469): its name, and its root entry by origin.
+    The slug is the identity a copy joins by, so it is not a field."""
+    system = content.systems[system_id]
+    root = system["root"]
+    return {"name": system["name"], "root": name("entity", root) if root is not None else None}
+
+
+def template_snapshot(content: Content, template_id: uuid.UUID, name: Namer) -> dict[str, Any]:
+    """What a copy of a template records (ADR 0469): its name, the slug of its game system, its
+    filter, and its slots in order with every group, stat and entry by origin."""
+    template = content.templates[template_id]
+    belongs = template["system"]
+    ancestor = template["ancestor"]
+    return {
+        "name": template["name"],
+        "system": content.systems[belongs]["slug"] if belongs in content.systems else None,
+        "kind": template["kind"],
+        "ancestor": name("entity", ancestor) if ancestor is not None else None,
+        "slots": [
+            {
+                "kind": slot["kind"],
+                "label": slot["label"],
+                "group": name("stat_group", slot["group"]) if slot["group"] is not None else None,
+                "information_type": slot["information_type"],
+                "held_order": slot["held_order"],
+                "stats": [[name("stat_definition", stat), label] for stat, label in slot["stats"]],
+                "exclude": sorted(name("stat_definition", stat) for stat in slot["exclude"]),
+            }
+            for slot in template["slots"]
+        ],
+    }
 
 
 def stat_definition_snapshot(
@@ -1393,8 +2025,23 @@ def stat_definition_snapshot(
     }
 
 
+def hidden_by_source(content: Content, entity_id: uuid.UUID) -> bool:
+    """Whether the document carries the entry hidden (ADR 0437): it is a copy of a row of a
+    repository the release carries `hide`. A document of a repository that hides nothing, and
+    content loaded live, record no sources, so no entry of them is."""
+    origin = content.links.entity.get(entity_id)
+    if origin is None or not content.sources:
+        return False
+    tenant = content.links.origin_tenant.get(origin)
+    source = content.sources.get(tenant) if tenant is not None else None
+    return source is not None and source["inclusion"] == "hide"
+
+
 def public_entry(content: Content, entity_id: uuid.UUID) -> bool:
-    if not content.entry_audiences.get(entity_id, True):
+    """Whether a visitor of the repository may be shown the entry at all: its audience is Everyone
+    and the release does not carry it hidden (ADR 0437), so what a repository hides from the
+    libraries that copy it is not on its storefront, its preview or its counts either."""
+    if hidden_by_source(content, entity_id) or not content.entry_audiences.get(entity_id, True):
         return False
     period = content.calendar_periods.get(entity_id) or content.observances.get(entity_id)
     return period is None or content.entry_audiences.get(period["calendar"], True)

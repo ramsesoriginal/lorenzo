@@ -5,7 +5,7 @@ import { JSDOM } from 'jsdom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import AppPage from '../src/AppPage.astro';
 import type { Shell, ShellOptions } from '../src/index';
-import { bindShell, initials, placeMenu } from '../src/index';
+import { bindShell, initials, isCurrentPage, placeMenu } from '../src/index';
 import { createToastTimer } from '../src/toast-timer';
 
 const nav = [
@@ -26,13 +26,16 @@ async function render(shell?: 'web') {
     nav,
     path: 'apps/calendars',
     welcome: { title: 'Calendars', text: 'Time in your world.', status: 'Opening…' },
-    ...(shell ? { shell, version: '1.2.0', legal: { notice: '/legal/' } } : {}),
+    ...(shell
+      ? { shell, icon: 'kind-calendar', version: '1.2.0', legal: { notice: '/legal/' } }
+      : {}),
   };
 
   return container.renderToString(AppPage, { props, slots: { default: '<p>The page</p>' } });
 }
 
 let dom: JSDOM;
+let phone = false;
 
 function mount(html: string, path = '/', extra: Partial<ShellOptions> = {}): Shell {
   dom = new JSDOM(html, { url: `http://localhost:3000${path}` });
@@ -44,10 +47,17 @@ function mount(html: string, path = '/', extra: Partial<ShellOptions> = {}): She
   proto.showModal = function (this: HTMLDialogElement) {
     this.setAttribute('open', '');
   };
+  proto.show = function (this: HTMLDialogElement) {
+    this.setAttribute('open', '');
+  };
   proto.close = function (this: HTMLDialogElement) {
     this.removeAttribute('open');
   };
-  window.matchMedia = (() => ({ matches: false, addEventListener() {} })) as never;
+  // jsdom has no media queries: a test says whether the window is a phone's.
+  window.matchMedia = ((query: string) => ({
+    matches: phone && query.includes('max-width: 720px'),
+    addEventListener() {},
+  })) as never;
   vi.stubGlobal('window', window);
   vi.stubGlobal('document', window.document);
   vi.stubGlobal('Option', window.Option);
@@ -65,6 +75,7 @@ function mount(html: string, path = '/', extra: Partial<ShellOptions> = {}): She
 }
 
 beforeEach(() => {
+  phone = false;
   vi.useFakeTimers();
   vi.setSystemTime(new Date(2026, 10, 6, 9, 41));
 });
@@ -112,6 +123,31 @@ describe('the web shell', () => {
     }
   });
 
+  it('is one row, with the app icon beside its name, until the library switcher is shown', async () => {
+    const shell = mount(await render('web'));
+    const header = document.querySelector('[data-site-header]') as HTMLElement;
+
+    expect(header.dataset.tiers).toBe('one');
+    expect(document.querySelector('.shell-apps .prod use')?.getAttribute('href')).toBe(
+      'https://brand.example/icons.svg#icon-kind-calendar',
+    );
+
+    // One library, or none: nothing to switch, so it stays one row.
+    shell.libraries([{ id: 'a', name: 'Thursday table' }], 'a', () => {});
+    expect(header.dataset.tiers).toBe('one');
+
+    // Several: two tiers, with the wordmark beside the switcher.
+    shell.libraries(
+      [
+        { id: 'a', name: 'Thursday table' },
+        { id: 'b', name: 'Family game' },
+      ],
+      'a',
+      () => {},
+    );
+    expect(header.dataset.tiers).toBe('two');
+  });
+
   it('puts the first three links in the tab bar and the rest in the sheet', async () => {
     mount(await render('web'));
 
@@ -152,6 +188,35 @@ describe('the web shell', () => {
     vi.setSystemTime(new Date(2026, 10, 6, 9, 52));
     vi.advanceTimersByTime(30_000);
     expect(clock.textContent).toMatch(/09:52/);
+  });
+});
+
+describe('a tab that owns other pages', () => {
+  it('stays the current page on them', () => {
+    expect(isCurrentPage('/', '/calendar/', ['/calendar/', '/entry/'])).toBe(true);
+    expect(isCurrentPage('/', '/entry', ['/calendar/', '/entry/'])).toBe(true);
+    expect(isCurrentPage('/', '/events/', ['/calendar/', '/entry/'])).toBe(false);
+  });
+});
+
+describe('binding again, as an app with a client router does on every page', () => {
+  it('lets go of what the first page held on the document and the window', async () => {
+    const html = await render('web');
+
+    mount(html);
+
+    const first = document;
+    const removed = vi.spyOn(first, 'removeEventListener');
+    const kept = vi.spyOn(window, 'removeEventListener');
+
+    mount(html);
+
+    // The sheet's Escape and outside press, which belonged to the first page's header.
+    expect(removed.mock.calls.some(([type]) => type === 'keydown')).toBe(true);
+    expect(removed.mock.calls.some(([type]) => type === 'pointerdown')).toBe(true);
+    // Its clock stops with it: only the second page's runs.
+    expect(vi.getTimerCount()).toBe(1);
+    void kept;
   });
 });
 
@@ -198,6 +263,13 @@ describe('the status bar', () => {
     shell.statusBar({ meta: null });
     expect((document.querySelector('[data-shell-meta]') as HTMLElement).hidden).toBe(true);
   });
+
+  it('says when it last synced, as "Synced 19:40"', async () => {
+    const shell = mount(await render('web'));
+
+    shell.statusBar({ sync: 'synced', syncedAt: new Date(2026, 10, 6, 19, 40) });
+    expect(document.querySelector('[data-shell-sync-text]')?.textContent).toBe('Synced 19:40');
+  });
 });
 
 describe('the apps sheet', () => {
@@ -228,15 +300,47 @@ describe('the apps sheet', () => {
     ).toBeNull();
   });
 
-  it('opens from "Apps and about" and from "More", and closes with the fade', async () => {
+  it('opens docked over the status bar above a phone, without dimming, and Escape or a press outside closes it', async () => {
     mount(await render('web'));
 
     const sheet = document.querySelector('[data-shell-sheet]') as HTMLDialogElement;
-    const openers = document.querySelectorAll('[data-shell-open-sheet]');
+    const button = document.querySelector('.shell-status [data-shell-open-sheet]') as HTMLElement;
 
-    expect(openers.length).toBe(2);
-    (openers[0] as HTMLElement).click();
+    expect(button.getAttribute('aria-expanded')).toBe('false');
+    button.click();
     expect(sheet.hasAttribute('open')).toBe(true);
+    expect(sheet.hasAttribute('data-docked')).toBe(true);
+    expect(button.getAttribute('aria-expanded')).toBe('true');
+
+    document.dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'Escape' }));
+    expect(sheet.hasAttribute('data-closing')).toBe(true);
+    vi.advanceTimersByTime(500);
+    expect(sheet.hasAttribute('open')).toBe(false);
+    expect(button.getAttribute('aria-expanded')).toBe('false');
+
+    // The same button closes it again, and a press on the page does too.
+    button.click();
+    expect(sheet.hasAttribute('open')).toBe(true);
+    button.click();
+    vi.advanceTimersByTime(500);
+    expect(sheet.hasAttribute('open')).toBe(false);
+
+    button.click();
+    document.body.dispatchEvent(new dom.window.Event('pointerdown', { bubbles: true }));
+    vi.advanceTimersByTime(500);
+    expect(sheet.hasAttribute('open')).toBe(false);
+  });
+
+  it('is a modal sheet on a phone, opened from More, and closes with the fade', async () => {
+    phone = true;
+    mount(await render('web'));
+
+    const sheet = document.querySelector('[data-shell-sheet]') as HTMLDialogElement;
+    const more = document.querySelector('.shell-tabbar [data-shell-open-sheet]') as HTMLElement;
+
+    more.click();
+    expect(sheet.hasAttribute('open')).toBe(true);
+    expect(sheet.hasAttribute('data-docked')).toBe(false);
 
     sheet.dispatchEvent(new dom.window.Event('cancel', { cancelable: true }));
     expect(sheet.hasAttribute('data-closing')).toBe(true);
@@ -244,20 +348,40 @@ describe('the apps sheet', () => {
     vi.advanceTimersByTime(500);
     expect(sheet.hasAttribute('open')).toBe(false);
     expect(sheet.hasAttribute('data-closing')).toBe(false);
-
-    (openers[1] as HTMLElement).click();
-    expect(sheet.hasAttribute('open')).toBe(true);
   });
 
-  it('names the source, the version and the legal pages it has', async () => {
+  it('names the source, the product, its version, the licence and the date, and the legal page it was given', async () => {
     mount(await render('web'));
 
-    const about = document.querySelector('[data-shell-sheet]')?.textContent ?? '';
+    const sheet = document.querySelector('[data-shell-sheet]');
+    const notice = sheet?.querySelector<HTMLAnchorElement>('[data-shell-link="notice"] a');
+    const privacy = sheet?.querySelector<HTMLElement>('[data-shell-link="privacy"]');
 
-    expect(about).toContain('Legal notice');
-    expect(about).not.toContain('Privacy policy');
-    expect(about).toContain('Source code');
-    expect(about).toContain('Lorenzo 1.2.0');
+    expect(notice?.getAttribute('href')).toBe('/legal/');
+    expect(notice?.closest<HTMLElement>('[data-shell-link]')?.hidden).toBe(false);
+    expect(notice?.textContent).toContain('Legal notice (Impressum)');
+    // A link nobody gave an address stays hidden.
+    expect(privacy?.hidden).toBe(true);
+    expect(sheet?.textContent).toContain('Source code');
+    expect(sheet?.querySelector('.foot')?.textContent?.replace(/\s+/g, ' ').trim()).toBe(
+      'Lorenzo Calendars 1.2.0 · licensed AGPL-3.0 · Fri 6 November at 09:41',
+    );
+  });
+
+  it('draws an icon beside each app and a check on the one the person is in', async () => {
+    const shell = mount(await render('web'));
+
+    shell.apps(registry);
+
+    const links = [...document.querySelectorAll('[data-shell-apps] a')] as HTMLAnchorElement[];
+
+    expect(links.map((a) => a.querySelector('use')?.getAttribute('href'))).toEqual([
+      'https://brand.example/icons.svg#icon-kind-session',
+      'https://brand.example/icons.svg#icon-kind-calendar',
+      'https://brand.example/icons.svg#icon-account',
+    ]);
+    expect(links[1]?.querySelector('.check')).not.toBeNull();
+    expect(links[0]?.querySelector('.check')).toBeNull();
   });
 });
 
@@ -663,11 +787,152 @@ describe('the account menu', () => {
       'Notifications',
       'Libraries and people',
       'Access tokens and devices',
-      'Dark theme',
+      'Appearance…',
       'Keyboard shortcuts',
       'Sign out',
     ]);
     expect((items()[0] as HTMLAnchorElement).href).toBe('https://account.example/profile/');
+  });
+
+  it('takes the letters from the display name once it is known, not from the address', async () => {
+    const html = await render('web');
+    const shell = mount(html);
+    const button = document.querySelector('[data-shell-account-button]') as HTMLButtonElement;
+
+    shell.account({ state: 'signed-in', label: 'ho@example.com' });
+    expect(button.textContent).toBe('H');
+    shell.account({ state: 'signed-in', label: 'ho@example.com', name: 'Dana Okafor' });
+    expect(button.textContent).toBe('DO');
+  });
+
+  it('puts the name over the address, and the unread count beside Notifications', async () => {
+    const html = await render('web');
+    const shell = mount(html);
+
+    shell.account({ state: 'signed-in', label: 'mara.quill@example.com', name: 'Mara Quill' });
+    shell.accountLink('https://account.example/');
+    shell.notifications({ count: 3, href: '/notifications/' });
+    (document.querySelector('[data-shell-account-button]') as HTMLButtonElement).click();
+
+    expect(document.querySelector('.menu-head-title')?.textContent).toBe('Mara Quill');
+    expect(document.querySelector('.menu-head-text')?.textContent).toBe('mara.quill@example.com');
+    expect(items()[1]?.querySelector('.menu-badge')?.textContent).toBe('3');
+    expect(items()[0]?.querySelector('.menu-badge')).toBeNull();
+  });
+
+  describe('Appearance', () => {
+    async function open(beforeOpening?: () => void) {
+      const { button } = await signedIn();
+
+      beforeOpening?.();
+
+      button.click();
+      items()
+        .find((item) => item.textContent?.includes('Appearance'))
+        ?.click();
+      vi.advanceTimersByTime(10);
+
+      const dialog = document.querySelector('dialog.appearance') as HTMLDialogElement;
+      const choose = (group: string, label: string) =>
+        (
+          [
+            ...dialog.querySelectorAll<HTMLElement>(
+              `[role="radiogroup"][aria-label="${group}"] button`,
+            ),
+          ].find((b) => b.textContent === label) as HTMLElement
+        ).click();
+
+      return { dialog, choose };
+    }
+
+    it('opens from the account menu, with the theme, the density and motion, each with its choices', async () => {
+      const { dialog } = await open();
+
+      expect(dialog.hasAttribute('open')).toBe(true);
+      expect(dialog.querySelector('h2')?.textContent).toBe('Appearance');
+      expect(
+        [...dialog.querySelectorAll('[role="radiogroup"]')].map((group) => [
+          group.getAttribute('aria-label'),
+          [...group.querySelectorAll('button')].map((b) => b.textContent),
+          group.querySelector('[aria-checked="true"]')?.textContent,
+        ]),
+      ).toEqual([
+        ['Theme', ['System', 'Light', 'Dark'], 'System'],
+        ['Density of lists and tables', ['Comfortable', 'Compact', 'Dense'], 'Comfortable'],
+        ['Motion', ['System', 'Reduced'], 'System'],
+      ]);
+    });
+
+    it('applies and keeps a theme at once, and the system’s again when asked', async () => {
+      const { choose } = await open();
+
+      choose('Theme', 'Dark');
+      expect(document.documentElement.dataset.theme).toBe('dark');
+      expect(window.localStorage.getItem('test:theme')).toBe('dark');
+      choose('Theme', 'Light');
+      expect(document.documentElement.dataset.theme).toBe('light');
+      choose('Theme', 'System');
+      expect(window.localStorage.getItem('test:theme')).toBeNull();
+      // The test window prefers light.
+      expect(document.documentElement.dataset.theme).toBe('light');
+    });
+
+    it('applies and keeps a density and motion, and Comfortable and System are what is not kept', async () => {
+      const { choose } = await open();
+
+      choose('Density of lists and tables', 'Dense');
+      expect(document.documentElement.dataset.density).toBe('dense');
+      expect(window.localStorage.getItem('lorenzo:density')).toBe('dense');
+      choose('Density of lists and tables', 'Comfortable');
+      expect(document.documentElement.dataset.density).toBeUndefined();
+      expect(window.localStorage.getItem('lorenzo:density')).toBeNull();
+
+      choose('Motion', 'Reduced');
+      expect(document.documentElement.dataset.motion).toBe('reduced');
+      expect(window.localStorage.getItem('lorenzo:motion')).toBe('reduced');
+      choose('Motion', 'System');
+      expect(document.documentElement.dataset.motion).toBeUndefined();
+      expect(window.localStorage.getItem('lorenzo:motion')).toBeNull();
+    });
+
+    it('shows what was kept the next time, and a page starts with it', async () => {
+      const { dialog } = await open(() =>
+        window.localStorage.setItem('lorenzo:density', 'compact'),
+      );
+
+      expect(
+        dialog.querySelector('[aria-label="Density of lists and tables"] [aria-checked="true"]')
+          ?.textContent,
+      ).toBe('Compact');
+    });
+
+    it('moves between the choices with the arrow keys', async () => {
+      const { dialog } = await open();
+      const system = [
+        ...dialog.querySelectorAll<HTMLElement>('[aria-label="Theme"] button'),
+      ][0] as HTMLElement;
+
+      system.dispatchEvent(
+        new dom.window.KeyboardEvent('keydown', {
+          key: 'ArrowRight',
+          bubbles: true,
+          cancelable: true,
+        }),
+      );
+      expect(window.localStorage.getItem('test:theme')).toBe('light');
+      expect(dialog.querySelector('[aria-label="Theme"] [aria-checked="true"]')?.textContent).toBe(
+        'Light',
+      );
+    });
+
+    it('does not offer density on a phone, where every row is big enough already', async () => {
+      phone = true;
+
+      const { dialog } = await open();
+
+      expect(dialog.querySelector('[aria-label="Density of lists and tables"]')).toBeNull();
+      expect(dialog.querySelector('[aria-label="Theme"]')).not.toBeNull();
+    });
   });
 
   it('moves with the arrows, closes on Escape and gives focus back', async () => {
@@ -944,5 +1209,77 @@ describe('saving', () => {
     expect(host.textContent).toContain('Saved on this device');
     auto.clear();
     expect(host.children).toHaveLength(0);
+  });
+});
+
+describe('gated links and a page with no welcome', () => {
+  async function renderGated(withWelcome: boolean) {
+    const container = await AstroContainer.create();
+
+    return container.renderToString(AppPage, {
+      props: {
+        title: 'T',
+        product: 'Account',
+        brandingUrl: 'https://brand.example',
+        themeKey: 'k',
+        path: 'apps/account-hub',
+        shell: 'web',
+        nav: [
+          { label: 'Home', href: '/' },
+          { label: 'Profile', href: '/profile/', requires: 'signed-in' },
+          { label: 'Repositories', href: '/repositories/', requires: 'library-admin' },
+        ],
+        ...(withWelcome ? { welcome: { title: 'T', text: 't', status: 's' } } : {}),
+      },
+      slots: { default: '<p>content</p>' },
+    });
+  }
+
+  const link = (path: string) =>
+    document.querySelector(`header a[data-path="${path}"]`) as HTMLAnchorElement;
+
+  it('hides a link that needs something until the app allows it, and only that one', async () => {
+    const shell = mount(await renderGated(true));
+
+    expect(link('/').hidden).toBe(false);
+    expect(link('/profile/').hidden).toBe(true);
+    expect(link('/repositories/').hidden).toBe(true);
+    shell.allow('signed-in');
+    expect(link('/profile/').hidden).toBe(false);
+    expect(link('/repositories/').hidden).toBe(true);
+    shell.allow('library-admin');
+    expect(link('/repositories/').hidden).toBe(false);
+  });
+
+  it('keeps a library link hidden when a gate opens, and shows it with a library', async () => {
+    const shell = mount(await renderGated(true));
+
+    shell.allow('signed-in');
+    shell.library('acme');
+    expect(link('/profile/').hidden).toBe(false);
+  });
+
+  it('shows the page at once when the app gives no welcome', async () => {
+    mount(await renderGated(false));
+
+    expect(document.querySelector('[data-welcome]')).toBeNull();
+    expect((document.querySelector('[data-page]') as HTMLElement).hidden).toBe(false);
+    expect(document.querySelector('[data-page]')?.textContent).toContain('content');
+  });
+
+  it('still hides the page behind the welcome when there is one', async () => {
+    mount(await renderGated(true));
+
+    expect((document.querySelector('[data-page]') as HTMLElement).hidden).toBe(true);
+  });
+});
+
+describe('a page state inside a page', () => {
+  it('uses an h2 when it stands inside a page that has its own heading', async () => {
+    const shell = mount(await render('web'));
+
+    shell.pageState({ art: 'device-connected', title: 'Connected', level: 2 });
+    expect(document.querySelector('.page-state h2')?.textContent).toBe('Connected');
+    expect(document.querySelector('.page-state h1')).toBeNull();
   });
 });

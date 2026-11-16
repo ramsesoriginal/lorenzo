@@ -5,6 +5,7 @@ import { getEntityDetail } from '../../lib/items';
 import { withReflow } from '../../lib/reflow';
 import { createStaleCache, RECENT_MS } from '../../lib/staleCache';
 import { requiredIn } from '../../lib/template';
+import { textHome } from '../../lib/textSources';
 import type { CharacterSummary, ItemBase, ItemInstance } from '../../lib/types';
 import { looksLikeAPack } from '../../lib/unpack';
 import { renderAncestryTree } from '../AncestryTree/renderer';
@@ -330,7 +331,7 @@ export function renderItemDetail(options: ItemDetailOptions): RenderedItemDetail
       options
         .renderer(
           item.descriptions.map((description) => description.content),
-          item.descriptions.map((description) => description.from_entity?.id ?? item.entity_id),
+          item.descriptions.map((description) => textHome(description, item.entity_id)),
         )
         .catch(() => {});
 

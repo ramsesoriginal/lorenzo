@@ -54,6 +54,7 @@ __all__ = [
     "InvalidSubscriberError",
     "InvalidStatGroupError",
     "InvalidProfilePictureError",
+    "InvalidDiceError",
     "InvalidStatValueTypeError",
     "AuthorEntryForbiddenError",
     "InheritedEntryDeletionForbiddenError",
@@ -111,6 +112,8 @@ __all__ = [
     "RepositoryCopyNeedsGrantsError",
     "InvalidRepositoryUpdateError",
     "RepositoryNotCopiedError",
+    "RepositoryNotIncludableError",
+    "RepositoryNotPublicError",
     "RepositoryUpdateNeedsChoicesError",
     "PublicRepositoriesNotAvailableError",
     "TermsNotAcceptedError",
@@ -452,11 +455,18 @@ class StatDefinitionNameTakenError(ConflictProblem):
     title = "A stat with this name already exists"
 
 
-class StatNameReservedError(ConflictProblem):
-    """PATCH of a stat the API reads by name, or of the value `none` of `binding` - renaming it
-    would change what the API does (ADR 0390)."""
+class StatDefinitionFieldImmutableError(UnprocessableProblem):
+    """PATCH /stat-definitions/{id} - the body carries `value_type` or `stat_group_id`, which a
+    stat cannot change once made (ADR 0443; it used to answer 200 and change nothing)."""
 
-    title = "The API reads this stat by name"
+    title = "That field of a stat cannot be changed"
+
+
+class StatNameReservedError(ConflictProblem):
+    """PATCH of the value `none` of a `binding` stat - renaming it would change what the API does
+    (ADR 0390, ADR 0449: reserved by role, no longer a stat by its name)."""
+
+    title = "The API writes this value"
 
 
 class InvalidStatHintError(UnprocessableProblem):
@@ -465,6 +475,14 @@ class InvalidStatHintError(UnprocessableProblem):
     number (ADR 0279)."""
 
     title = "That stat cannot be used as a hint here"
+
+
+class InvalidDiceError(UnprocessableProblem):
+    """A dice value that is not one: a notation that does not read, or a count, a number of sides or
+    a drop outside the limits; the detail names the part that failed (RFC 0056, ADR 0462). Also a
+    unit on a dice stat."""
+
+    title = "That is not a dice value"
 
 
 class InvalidStatScaleError(UnprocessableProblem):
@@ -537,6 +555,13 @@ class InvalidComputedStatError(UnprocessableProblem):
     title = "Invalid formula"
 
 
+class FormulaChainTooDeepError(UnprocessableProblem):
+    """PUT/preview .../computed-stats/{id} - the formula would make a chain of more than 200
+    formulas, one reading the next (ADR 0443); `detail` names the length."""
+
+    title = "Formula chain too deep"
+
+
 class ComputedStatCycleError(UnprocessableProblem):
     """PUT/preview .../computed-stats/{id} - the formula would close a
     cycle in the tenant's formula dependencies (ADR 0104: checked at the
@@ -586,6 +611,16 @@ class StatEnumValueAlreadyExistsError(ConflictProblem):
     """
 
     title = "This value is already allowed for this stat"
+
+
+class StatEnumOrderReadByFormulaError(ConflictProblem):
+    """PATCH .../enum-values/{id} moving a value (`sort_order`), or DELETE removing one, while a
+    formula reads the enum as a number: an enum counts as the `sort_order` of the value it holds,
+    so a change of order or a removal would change what those formulas say (ADR 0444). The
+    detail names the formulas.
+    """
+
+    title = "A formula reads this enum as a number"
 
 
 class StatEnumValueInUseError(ConflictProblem):
@@ -659,8 +694,8 @@ class PreconditionFailedError(StatusProblem):
 
 
 class ProfilePictureNotFoundError(NotFoundProblem):
-    """GET .../picture - no uploaded picture and, for a user, no email to
-    fall back to a Gravatar with either. See ADR 0056.
+    """GET .../picture - no picture was uploaded, and for a user none was kept from the one-time
+    Gravatar lookup either (ADR 0439). See ADR 0056.
     """
 
     title = "Profile picture not found"
@@ -1073,6 +1108,61 @@ class RepositoryNotCopiedError(ConflictProblem):
     title = "This repository hasn't been copied here"
 
 
+class RepositoryNotPublicError(ConflictProblem):
+    """Leaving a repository off Discover when it is not public (`PATCH .../profile` with `listed:
+    false`) - ADR 0432, RFC 0051 H2. Only a public repository is listed or not; a private one is
+    on no listing, so there is nothing to leave it off."""
+
+    title = "This repository is not public"
+
+
+class RepositoryNotIncludableError(ConflictProblem):
+    """Including a repository in another's release when the user is not an Owner of it and its
+    terms do not allow it - ADR 0431, RFC 0051. Carries `repositories`: each one that cannot be
+    included, by id and name. One Owner's content is not published by another without a yes."""
+
+    title = "This repository cannot be included"
+
+
+class RepositoryNotShowableError(ConflictProblem):
+    """Keeping a repository separate and visible (`inclusion = show`) when its terms forbid it and
+    the user is not an Owner of it - ADR 0434, RFC 0051 H3. Carries `repositories`: each one that
+    cannot be shown, by id and name. Only a protected repository can say no: a repository anyone
+    can copy cannot forbid show."""
+
+    title = "This repository cannot be kept separate and visible"
+
+
+class RepositoryProtectedError(ConflictProblem):
+    """Copying, or planning the copy of, a protected repository on its own - ADR 0434, RFC 0051
+    H3. A protected repository comes with the public repositories built on it and is copied as a
+    step of one of them, never alone."""
+
+    title = "This repository is protected"
+
+
+class RepositoryNotHidableError(ConflictProblem):
+    """Keeping a repository separate and hidden (`inclusion = hide`) when its terms forbid it and
+    the user is not an Owner of it - ADR 0437, RFC 0051 H4. Carries `repositories`: each one that
+    cannot be hidden, by id and name. Only a protected repository can say no."""
+
+    title = "This repository cannot be kept separate and hidden"
+
+
+class RepositoryNotProtectedError(ConflictProblem):
+    """Saying a repository may not be shown (`terms.may_be_shown: false`) while it is not
+    protected - ADR 0434, RFC 0051 H3. Only a protected repository can stay hidden: a private one
+    is read by invitation and a public one by anybody."""
+
+    title = "This repository is not protected"
+
+
+class RepositoryAlreadyProtectedError(ConflictProblem):
+    """Making a protected repository protected - ADR 0434."""
+
+    title = "This repository is already protected"
+
+
 class RepositoryUpdateNeedsChoicesError(ConflictProblem):
     """Applying an update where this tenant changed a field too, without
     saying whether to keep its own value or take the repository's - ADR
@@ -1108,7 +1198,9 @@ class PublicRepositoryHasNoReleaseError(ConflictProblem):
 class ReleaseHasBreakingChangesError(ConflictProblem):
     """Publishing a release that holds changes the update engine cannot carry to a library that
     already copied the repository, without `acknowledge_breaking` - ADR 0208, RFC 0037 §3.
-    Carries `breaking_rows`: each row, with the reason it breaks, in words."""
+    Carries `breaking_rows`: each row, with the reason it breaks, in words.
+    Carries `inclusion_changes` too when a repository it is built on is carried differently from
+    the way the last public release carried it (ADR 0431)."""
 
     title = "This release would break things"
 
@@ -1587,3 +1679,162 @@ class LocationTreeError(UnprocessableProblem):
     (ADR 0330)."""
 
     title = "A Location cannot be part of itself, however indirectly, or nest that deeply"
+
+
+class SystemNotFoundError(NotFoundProblem):
+    """.../systems/{id} - no such game system in this tenant (ADR 0448)."""
+
+    title = "System not found"
+
+
+class SystemSlugTakenError(ConflictProblem):
+    """POST or PATCH .../systems - another system of the tenant already has the slug
+    (UNIQUE(tenant_id, slug), ADR 0448)."""
+
+    title = "A system with this slug already exists"
+
+
+class SystemSlugInUseError(ConflictProblem):
+    """PATCH .../systems/{id} changing the slug while a stat group belongs to the system: the
+    names of its definitions start with it (ADR 0448)."""
+
+    title = "A stat group uses this slug"
+
+
+class SystemInUseError(ConflictProblem):
+    """DELETE .../systems/{id} while a stat group belongs to it (ADR 0448)."""
+
+    title = "This system is still in use"
+
+
+class InvalidSystemError(UnprocessableProblem):
+    """POST or PATCH .../systems, or a stat group's `system_id` - the root entry or the system
+    does not resolve in this tenant (ADR 0448)."""
+
+    title = "Invalid system"
+
+
+class StatNamePrefixError(UnprocessableProblem):
+    """A stat definition of a group that belongs to a game system must start with the system's
+    slug and an underscore: on create, on rename, and when a group takes a system whose prefix
+    its definitions do not carry (ADR 0448)."""
+
+    title = "A stat of a system starts with the system's slug"
+
+
+class StatRoleTakenError(ConflictProblem):
+    """A stat definition or a stat group takes a role another already holds in this library: one
+    holds each (ADR 0449)."""
+
+    title = "This role is already held"
+
+
+class InvalidStatRoleError(UnprocessableProblem):
+    """A role does not fit: the stat's type is not one the role is read as, a binding lacks its
+    `none` value, or the stat or group belongs to a game system, which a role-holder may not
+    (ADR 0449)."""
+
+    title = "This stat cannot hold this role"
+
+
+class TemplateNotFoundError(NotFoundProblem):
+    """.../templates/{id} - no such template in this tenant (ADR 0451)."""
+
+    title = "Template not found"
+
+
+class TemplateNameTakenError(ConflictProblem):
+    """POST or PUT .../templates - another template of the tenant has the name
+    (UNIQUE(tenant_id, name), ADR 0451)."""
+
+    title = "A template with this name already exists"
+
+
+class TemplateDoesNotMatchError(ConflictProblem):
+    """GET .../entities/{id}/templates/{template_id} - the entry is not one the template is for:
+    not of its kind, or not under its ancestor. The API does not guess another (ADR 0451)."""
+
+    title = "This template is not for this entry"
+
+
+class InvalidTemplateError(UnprocessableProblem):
+    """POST or PUT .../templates - a slot that does not fit its kind, or a system, entry, stat
+    group or stat that does not resolve in this tenant (ADR 0451)."""
+
+    title = "Invalid template"
+
+
+class FeatureNotFoundError(NotFoundProblem):
+    """.../features/{id} - no such feature instance in this tenant, or none the caller reaches
+    (ADR 0454)."""
+
+    title = "Feature not found"
+
+
+class InvalidFeatureError(UnprocessableProblem):
+    """POST .../entities/{holder}/features - the entry named is not a feature of this tenant
+    (a hidden one is answered as an unknown one, ADR 0437)."""
+
+    title = "Invalid feature"
+
+
+class InvalidFeatureHolderError(UnprocessableProblem):
+    """.../entities/{holder}/features - the entry is not a being, an item instance or a group, the
+    three things that hold features (ADR 0454)."""
+
+    title = "Not a holder of features"
+
+
+class FeatureAlreadyHeldError(ConflictProblem):
+    """POST .../entities/{holder}/features - the holder has this feature and it is not
+    `repeatable` (ADR 0454)."""
+
+    title = "The holder already has this feature"
+
+
+class FeatureManagementForbiddenError(ForbiddenProblem):
+    """Awarding or removing a feature, or flipping its switch, by someone who does not manage
+    the holder (ADR 0454)."""
+
+    title = "Not allowed to manage this holder's features"
+
+
+class GrantRuleNotFoundError(NotFoundProblem):
+    """.../grant-rules/{id} - no such rule in this tenant (ADR 0455)."""
+
+    title = "Grant rule not found"
+
+
+class InvalidGrantRuleError(UnprocessableProblem):
+    """POST or PUT .../grant-rules and PUT .../prerequisites - an option that is no feature, an
+    entry, category, stat or count stat that does not resolve in this tenant (a hidden entry is
+    answered as an unknown one, ADR 0437), or a condition on a stat that is text (ADR 0455)."""
+
+    title = "Invalid grant rule"
+
+
+class InvalidGrantPickError(UnprocessableProblem):
+    """POST .../grants/apply - a pick outside what the rule offers, with no open choice behind it,
+    below its minimum, above its maximum, or of a feature whose prerequisites do not hold, where
+    no GM overrode it (ADR 0456)."""
+
+    title = "Invalid pick"
+
+
+class GrantApplyForbiddenError(ForbiddenProblem):
+    """POST .../grants/apply by someone who neither controls the holder nor manages it."""
+
+    title = "Not allowed to apply this holder's grants"
+
+
+class GrantOverrideForbiddenError(ForbiddenProblem):
+    """POST .../grants/apply with `override` by someone who is not a GM of the holder (ADR 0456)."""
+
+    title = "Only a GM can override a grant's limits"
+
+
+class VocabularyCheckEntryRequiredError(UnprocessableProblem):
+    """GET .../vocabulary-check with the code `tie` and no `entry_id`: a tie is read for one entry
+    per request (ADR 0460)."""
+
+    title = "A tie is read for one entry"

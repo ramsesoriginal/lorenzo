@@ -3,12 +3,18 @@ from datetime import datetime
 from typing import Any, Literal
 
 from fastapi import Request
-from pydantic import BaseModel, Field, model_validator
+from pydantic import (
+    BaseModel,
+    Field,
+    model_validator,
+)
 
 from lorenzo_api.information_visibility import InformationReader
 from lorenzo_api.models import Entity, Information, VEffectiveStat
 from lorenzo_api.schemas.common import EntitySummary, Slug
+from lorenzo_api.schemas.dice import DiceOut, dice_out
 from lorenzo_api.schemas.payloads import PayloadOut, payload_to_schema
+from lorenzo_api.schemas.vocabulary_check import FindingOut
 from lorenzo_api.stat_evaluation import evaluate
 
 
@@ -51,6 +57,8 @@ EntityKind = Literal[
     "connection",
     "relationship",
     "social_web",
+    "feature",
+    "feature_instance",
     "calendar_period",
     "event",
     "observance",
@@ -86,15 +94,25 @@ class EntityCreate(BaseModel):
     id: uuid.UUID | None = None
     name: str
     slug: Slug | None = None
-    kinds: list[Literal["item", "being", "fact", "event"]] = []
+    kinds: list[Literal["item", "being", "fact", "event", "feature"]] = []
     parents: list[uuid.UUID] = []
     in_public_catalog: bool | None = None
+    # The columns of a `feature` (ADR 0454): a holder may hold it twice; its instances begin
+    # with `active` off.
+    repeatable: bool | None = None
+    starts_inactive: bool | None = None
     visibility: Literal["restricted", "participants", "library"] | None = None
 
     @model_validator(mode="after")
     def _catalog_needs_item(self) -> EntityCreate:
         if self.in_public_catalog is not None and "item" not in self.kinds:
             raise ValueError("in_public_catalog is only for an entry of the kind item")
+        if (
+            self.repeatable is not None or self.starts_inactive is not None
+        ) and "feature" not in self.kinds:
+            raise ValueError(
+                "repeatable and starts_inactive are only for an entry of the kind feature"
+            )
         if self.visibility is not None:
             if set(self.kinds) not in ({"event"}, {"fact"}):
                 raise ValueError("Creation visibility is for Events and Facts")
@@ -110,6 +128,9 @@ class EntityKindPut(BaseModel):
 
     in_public_catalog: bool | None = None
     system: dict[str, Any] | None = None
+    # The columns of a `feature` (ADR 0454); a column left out stays as it is.
+    repeatable: bool | None = None
+    starts_inactive: bool | None = None
 
 
 class EntityParentsRequest(BaseModel):
@@ -203,14 +224,24 @@ class EntityStatValueOut(BaseModel):
     for a computed one.
     """
 
+    # ADR 0448: which stat this is, the group it is in and the slug of that group's game system
+    # (null for a neutral one), so a client need not join to the definitions by name.
+    stat_definition_id: uuid.UUID
+    group_id: uuid.UUID
+    system: str | None = None
     name: str
     value: int | str | float | bool
+    # RFC 0056: the parts of a dice stat's `value` (its notation); absent for any other type.
+    dice: DiceOut | None = Field(default=None, exclude_if=lambda value: value is None)
     # ADR 0111: the entity holds the winning value itself, stored or
     # computed; false when it's inherited.
     own: bool
     # ADR 0276: where the winning row is held, when it is not this entity: the
     # prototype the value (or its formula) comes from. Null when `own`.
     from_entity: EntitySummary | None = None
+    # Inherited from an entry the caller may not see (a hidden entry, ADR 0437): `from_entity` is
+    # null and this says why: true there, null otherwise.
+    from_hidden: bool | None = None
     # ADR 0276: a formula produced the value, held by this entity or inherited.
     computed: bool = False
 
@@ -277,14 +308,24 @@ def _stats_out(entity: Entity, visibility: InformationReader) -> list[EntityStat
     values = evaluate(entity.effective_stats, entity_id=entity.id, contents=entity.stat_contents)
     return [
         EntityStatValueOut(
+            stat_definition_id=stat.stat_definition_id,
+            group_id=stat.stat_definition.stat_group_id,
+            system=stat.system_slug(),
             name=stat.stat_definition.name,
             value=values[stat.stat_definition_id],
+            dice=dice_out(stat.stat_definition.value_type, values[stat.stat_definition_id]),
             own=stat.source_entity_id == entity.id,
             from_entity=(
                 None
                 if stat.source_entity_id == entity.id
                 or not visibility.can_see_entry(stat.source_entity_id)
                 else EntitySummary.from_entity(stat.source_entity)
+            ),
+            from_hidden=(
+                True
+                if stat.source_entity_id != entity.id
+                and not visibility.can_see_entry(stat.source_entity_id)
+                else None
             ),
             computed=stat.computed_entity_id is not None,
         )
@@ -358,6 +399,10 @@ def _kinds_out(entity: Entity) -> list[EntityKind]:
         kinds.append("relationship")
     if entity.__dict__.get("social_web_marker") is not None:
         kinds.append("social_web")
+    if entity.__dict__.get("feature_marker") is not None:
+        kinds.append("feature")
+    if entity.__dict__.get("feature_instance_marker") is not None:
+        kinds.append("feature_instance")
     return kinds
 
 
@@ -476,3 +521,6 @@ class EntityStatWriteOut(EntityDetailOut):
     `previous` existed is unaffected (ADR 0225)."""
 
     previous: PreviousOwnStat
+    # What the vocabulary check says of the stat just written, when the request carried
+    # `warnings=true` (ADR 0461); left out of the answer otherwise.
+    warnings: list[FindingOut] | None = Field(default=None, exclude_if=lambda value: value is None)

@@ -29,8 +29,20 @@ class EntityStat(Base):
             ondelete="CASCADE",
         ),
         CheckConstraint(
-            "num_nonnulls(value_int, value_text, value_float, value_bool) = 1",
+            "num_nonnulls(value_int, value_text, value_float, value_bool, dice_count) = 1",
             name="entity_stat_exactly_one_value",
+        ),
+        # A dice value is a count and a number of sides, and a drop is a mode with a count (RFC 0056
+        # section 1, ADR 0462); the limits are the notation's.
+        CheckConstraint(
+            "(dice_count IS NULL) = (dice_sides IS NULL) "
+            "AND (dice_drop_mode IS NULL) = (dice_drop_count IS NULL) "
+            "AND (dice_count IS NOT NULL OR dice_drop_mode IS NULL) "
+            "AND (dice_count IS NULL OR (dice_count BETWEEN 1 AND 100 "
+            "AND dice_sides BETWEEN 2 AND 1000)) "
+            "AND (dice_drop_mode IS NULL OR (dice_drop_mode IN ('lowest', 'highest') "
+            "AND dice_drop_count BETWEEN 1 AND dice_count - 1))",
+            name="entity_stat_dice_parts",
         ),
     )
 
@@ -41,6 +53,11 @@ class EntityStat(Base):
     value_text: Mapped[str | None]
     value_float: Mapped[float | None]
     value_bool: Mapped[bool | None]
+    # A dice value as its parts (RFC 0056): all null unless the stat is a dice stat.
+    dice_count: Mapped[int | None]
+    dice_sides: Mapped[int | None]
+    dice_drop_mode: Mapped[str | None]
+    dice_drop_count: Mapped[int | None]
     created_at: Mapped[CreatedAt]
     updated_at: Mapped[UpdatedAt]
 

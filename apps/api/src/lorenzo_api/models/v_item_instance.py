@@ -41,6 +41,8 @@ class VItemInstance(EntityViewMixin, Base):
     armor: Mapped[int | None]
     container_entity_id: Mapped[uuid.UUID | None]
     quantity: Mapped[int | None]
+    # The switch an item instance has (ADR 0447); true unless its holder turned it off.
+    active: Mapped[bool]
     # Whether it's bound right now (ADR 0129): attached by
     # binding.attach_bound before it's serialized, never persisted. None
     # until attached.

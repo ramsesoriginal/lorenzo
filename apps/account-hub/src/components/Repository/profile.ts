@@ -7,8 +7,10 @@
 // typed and not saved is not lost by a redraw of the page, and leaving it asks first.
 
 import { ApiError } from '../../lib/apiError';
+import { askFirst } from '../../lib/askFirst';
 import { getFacets } from '../../lib/discoverApi';
 import { avatarInitial } from '../../lib/format';
+import { includesFacts } from '../../lib/inclusion';
 import {
   addLanguages,
   addTags,
@@ -84,7 +86,7 @@ export type ProfileControls = {
   // Whether something typed is not saved.
   isDirty(): boolean;
   // True where nothing is unsaved or the person said to leave it.
-  mayLeave(): boolean;
+  mayLeave(): boolean | Promise<boolean>;
   // Moves the cursor to a field, or to where the cover is chosen.
   focus(target: 'summary' | 'cover'): void;
 };
@@ -463,7 +465,9 @@ export function createProfileEditor(
 
     previewCardList.replaceChildren(card);
 
-    const facts = previewFacts(shownDraft, locales);
+    // What it says it includes comes from the release that was made, not from the form: a snapshot
+    // of the names and licences as they were then (ADR 0431).
+    const facts = [...previewFacts(shownDraft, locales), ...includesFacts(saved?.includes)];
 
     previewFactList.replaceChildren(
       ...facts.flatMap((fact) => {
@@ -856,7 +860,7 @@ export function createProfileEditor(
     isDirty: dirty,
 
     mayLeave() {
-      return !dirty() || window.confirm(LEAVE_UNSAVED);
+      return dirty() ? askFirst(LEAVE_UNSAVED, { confirm: 'Leave', cancel: 'Keep editing' }) : true;
     },
 
     focus(target) {

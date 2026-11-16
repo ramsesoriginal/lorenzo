@@ -3,7 +3,7 @@ import UserPicker from '../UserPicker/UserPicker.astro';
 ---
 
 <div class="stack" data-gm-management>
-  <div class="card card-body stack">
+  <div class="hub-card stack">
     <!-- The words are what the campaign calls its game master (ADR 0294), set by
          renderGmManagement. -->
     <strong data-assign></strong>
@@ -11,12 +11,12 @@ import UserPicker from '../UserPicker/UserPicker.astro';
     <p class="error-text" role="alert" data-error hidden></p>
   </div>
   <strong data-heading></strong>
-  <ul class="list" data-gm-list></ul>
+  <ul class="list hub-rows hub-table" data-gm-list></ul>
 
   <template data-row-template>
     <li class="row">
       <span class="grow" data-name></span>
-      <button type="button" data-revoke>
+      <button type="button" class="btn btn-text" data-revoke>
         Revoke
       </button>
       <span class="status-text" role="status" data-status hidden></span>

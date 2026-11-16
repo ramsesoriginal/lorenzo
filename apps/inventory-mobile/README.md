@@ -80,3 +80,7 @@ original capture targeting after recreation, cancellation, logout, and learned i
 including an older download arriving afterward. Emulator tests verify EXIF rotation, unchanged
 original bytes, the actual FileProvider, the Room upgrade, and the mixed note UI. They use local
 fixtures and never sign into a real account or invoke a physical camera.
+
+## Privacy
+
+This Android app keeps encrypted local copies of what you have downloaded until you sign out or the sign-in ends; the privacy policy of the Lorenzo you connect to describes this. Where that policy is: run `lorenzo legal` against the same API, or read `GET /app-links` on it (`links.legal_privacy_en`, `links.legal_privacy_de`). A link inside the app is not built yet ([ADR 0439](../../docs/adr/0439-legal-notice-and-privacy-policy.md)).

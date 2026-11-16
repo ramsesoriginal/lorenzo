@@ -103,3 +103,7 @@ shell?.notifications({ count: 3, href: hubUrl + '/notifications/' }); // the bel
 - **Explicit save bar** for a form with irreversible effects: `const bar = shell.saveBar({ save, discard })`, then `bar.set(n)` with the number of changes. It opens above the status bar when `n > 0`, says "N changes not saved", and rewrites its buttons only when `n` changes (rewriting them on every edit loses a click on Save). A save that fails keeps the changes and shows an error toast with "Try again". Leaving the page, or signing out, with changes asks first, and the sign-out dialog says how many.
 - **Autosave** for writing: `shell.autosave(host).set('saving' | 'saved' | 'device' | 'error')`. `device` says plainly that the change is only on this device and is sent when the connection is back.
 - **`retryRead(read, { onRetry })`** runs a read again after a failure, with a wait that doubles from a second to eight, and throws the last error after the last try so the page can show an error state with "Try again". It is for reads only: a write is never retried automatically.
+
+### Links that need something
+
+A `NavItem` may carry `requires: 'signed-in'` (any name the app uses): the link is rendered hidden and stays hidden until `shell.allow('signed-in')` is called, so a page that has nothing for someone is not offered to them (the account hub's navigation). `AppPage`'s `welcome` is optional: without it the page is shown at once, for an app whose pages say their own loading.

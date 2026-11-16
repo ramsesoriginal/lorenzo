@@ -5,6 +5,7 @@
 // (ADR 0170).
 
 import { removePlayerConfirmation } from '../../lib/adminCopy';
+import { askFirst } from '../../lib/askFirst';
 import { displayNameFor } from '../../lib/format';
 import { playerIdForUser } from '../../lib/roster';
 import { say, sayError } from '../../lib/statusLine';
@@ -46,7 +47,11 @@ function bindPlayerControls(
   controls.hidden = false;
 
   removeButton.addEventListener('click', async () => {
-    if (!window.confirm(removePlayerConfirmation(name, campaign.name))) return;
+    if (
+      !(await askFirst(removePlayerConfirmation(name, campaign.name), { confirm: 'Remove player' }))
+    ) {
+      return;
+    }
 
     removeButton.disabled = true;
     say(status, 'Removing…');
@@ -136,6 +141,7 @@ export function renderCampaignRoster(
   campaign: CampaignSummaryOut,
   roster: RosterEntry[],
   management?: RosterManagement,
+  meId?: string,
 ): void {
   const empty = required<HTMLElement>(root, '[data-empty]');
   const list = required<HTMLElement>(root, '[data-list]');
@@ -150,7 +156,8 @@ export function renderCampaignRoster(
     ...entries.map((entry) => {
       const row = fromTemplate(root, '[data-entry-template]');
 
-      required<HTMLElement>(row, '[data-name]').textContent = displayNameFor(entry);
+      required<HTMLElement>(row, '[data-name]').textContent =
+        entry.user_id === meId ? `${displayNameFor(entry)} (you)` : displayNameFor(entry);
       // A GM's badge says what this campaign calls its game master (ADR 0294).
       required<HTMLElement>(row, '[data-role]').textContent =
         entry.kind === 'gm' ? campaign.gm_title : entry.kind;

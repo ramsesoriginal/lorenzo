@@ -25,6 +25,11 @@ See [ADR 0007](../adr/0007-apps-layout-and-multiplicity.md) for why this exists:
 11. **Create its `app:<name>` label** (`gh label create "app:<name>" --color <hex> --description "apps/<name>"`), add it to the scope table in [labels-milestones-and-metadata.md](labels-milestones-and-metadata.md), and put it on the scaffolding PR and its tracking issues. Without it, the app's issues and PRs can't be filtered.
 12. **List it** in [`apps/README.md`](../../apps/README.md), the one list of apps; the root README, [AGENTS.md](../../AGENTS.md) and the architecture overview describe types and link there.
 
+13. **If it has a web page, wire the legal links and keep the policy true** ([ADR 0439](../adr/0439-legal-notice-and-privacy-policy.md), [Legal pages](../operations/legal-pages.md)):
+    - **Legal notice, privacy policy and support link:** draw them with the shared footer (`AppPage` from `@lorenzo/app-shell` does) or `LegalLinks` from `@lorenzo/app-shell/LegalLinks.astro`, and call `bindLegalLinksFromApi(API_BASE_URL)` from `@lorenzo/app-shell/legal` (and again on `astro:page-load` if the app uses the client router). `apps/legal/tests/wiring.test.ts` fails for an Astro app that does neither.
+    - **Anything it keeps in a browser** (`localStorage`, `sessionStorage`, IndexedDB): add the keys and the file to `apps/legal/src/lib/storage-keys.ts`, which the privacy policy prints. `apps/legal/tests/storage-keys.test.ts` fails for a file that uses storage and is not listed.
+    - **A page never loads a script, image, font or stylesheet from another host**: `apps/legal/tests/third-party.test.ts` fails for one. A new provider that handles personal data, a new stored field of personal data or a new region is a change to the operator profile and the texts in `apps/legal/src/lib/texts/`, in the same pull request.
+
 ## What this deliberately doesn't cover
 
 Choosing the language/framework itself, and the app's actual domain logic — those are scoped case by case when the app is actually being built, not templated here.
