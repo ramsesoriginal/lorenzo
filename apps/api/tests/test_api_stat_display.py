@@ -263,10 +263,14 @@ async def test_a_flag_cannot_be_set_to_null_and_type_is_not_patchable(
     url = f"/tenants/{tenant_id}/stat-definitions/{speed['id']}"
 
     assert (await client.patch(url, json={"pin": None})).status_code == 422
-    unchanged = await client.patch(url, json={"name": "renamed", "value_type": "text"})
-    assert unchanged.status_code == 200
-    assert unchanged.json()["name"] == "renamed"  # ADR 0390
-    assert unchanged.json()["value_type"] == "int"
+    # ADR 0443: carrying the type is refused (it used to be ignored with a 200), nothing applies.
+    refused = await client.patch(url, json={"name": "renamed", "value_type": "text"})
+    assert refused.status_code == 422
+    assert refused.json()["type"].endswith("stat-definition-field-immutable")
+    renamed = await client.patch(url, json={"name": "renamed"})
+    assert renamed.status_code == 200
+    assert renamed.json()["name"] == "renamed"  # ADR 0390
+    assert renamed.json()["value_type"] == "int"
     await delete_tenant(tenant_id)
 
 

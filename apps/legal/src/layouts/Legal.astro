@@ -1,0 +1,91 @@
+---
+import { BRANDING_CSS_URL } from '../lib/config';
+import type { Lang } from '../lib/doc';
+import type { LegalProfile } from '../lib/profile';
+
+interface Props {
+  lang: Lang;
+  title: string;
+  profile: LegalProfile;
+  /** The date shown as the last change. */
+  changed: string;
+  /** Where the same page is in the other language. */
+  other: string;
+  notice: string;
+  policy: string;
+}
+
+const { lang, title, profile, changed, other, notice, policy } = Astro.props;
+const sheets = ['normalize', 'tokens', 'fonts', 'base', 'layout', 'components'];
+const t = {
+  de: {
+    sample: 'Beispieltext: Diese Seite benutzt ein Beispielprofil und gehört keinem Betreiber.',
+    draft:
+      'Entwurf: Dieser Text ist noch nicht rechtlich geprüft und keine Rechtsberatung. Er sagt nicht, dass Lorenzo oder sein Betreiber geltendes Recht einhält.',
+    reviewed: 'Rechtlich geprüft am',
+    changed: 'Stand',
+    other: 'English',
+    otherLang: 'en',
+    binding: 'Maßgeblich ist der deutsche Text.',
+    pages: 'Seiten',
+    notice: 'Impressum',
+    policy: 'Datenschutzerklärung',
+  },
+  en: {
+    sample: 'Sample text: this page uses a sample profile and belongs to no operator.',
+    draft:
+      'Draft: this text has not been legally reviewed and is not legal advice. It does not say that Lorenzo or its operator complies with the law.',
+    reviewed: 'Legally reviewed on',
+    changed: 'Last changed',
+    other: 'Deutsch',
+    otherLang: 'de',
+    binding: 'The German text is binding; this is a translation.',
+    pages: 'Pages',
+    notice: 'Legal notice',
+    policy: 'Privacy policy',
+  },
+}[lang];
+---
+
+<!doctype html>
+<html lang={lang}>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <title>{title} - Lorenzo</title>
+    {sheets.map((name) => (
+      <link rel="stylesheet" href={`${BRANDING_CSS_URL}/${name}.css`} />
+    ))}
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  </head>
+  <body>
+    <main id="content" class="wrap stack">
+      {profile.sample && (
+        <p role="note">
+          <strong>{t.sample}</strong>
+        </p>
+      )}
+      {profile.reviewedOn ? (
+        <p role="note">
+          {t.reviewed} {profile.reviewedOn}.
+        </p>
+      ) : (
+        <p role="note">
+          <strong>{t.draft}</strong>
+        </p>
+      )}
+      <nav aria-label={t.pages}>
+        <a href={notice}>{t.notice}</a> ·<a href={policy}>{t.policy}</a> ·
+        <a href={other} lang={t.otherLang} hreflang={t.otherLang}>
+          {t.other}
+        </a>
+      </nav>
+      <h1>{title}</h1>
+      <p>
+        {t.changed}: {changed}. {t.binding}
+      </p>
+      <slot />
+    </main>
+  </body>
+</html>

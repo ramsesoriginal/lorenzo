@@ -150,6 +150,9 @@ batch = "packages"
 [nodes."packages/read-cache"]
 batch = "packages"
 
+[nodes."packages/time-filter"]
+batch = "packages"
+
 [nodes."apps/inventory-ios"]
 depends_on = ["apps/brand"]
 generated_from = ["apps/api"]
@@ -202,6 +205,9 @@ batch = "web-2"
 [suites.maps-e2e]
 node = "apps/maps"
 depends_on = ["apps/api"]
+
+[nodes."apps/legal"]
+batch = "web-2"
 
 [nodes."apps/social"]
 batch = "web-2"

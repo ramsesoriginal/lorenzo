@@ -1,8 +1,9 @@
 import uuid
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from lorenzo_api.schemas.common import EntitySummary
+from lorenzo_api.schemas.dice import DiceOut
 
 __all__ = ["EffectiveStatOut", "EntryEffectiveStatsOut"]
 
@@ -14,9 +15,17 @@ class EffectiveStatOut(BaseModel):
     source) and whether a formula decided it."""
 
     stat_definition_id: uuid.UUID
+    # ADR 0448: the group of the stat and the slug of that group's game system, null when neutral.
+    group_id: uuid.UUID
+    system: str | None = None
     value: int | str | float | bool
+    # RFC 0056: the parts of a dice stat's `value`; absent for a stat of any other type.
+    dice: DiceOut | None = Field(default=None, exclude_if=lambda value: value is None)
     own: bool
     from_entity: EntitySummary | None = None
+    # Inherited from an entry the caller may not see (a hidden entry, ADR 0437): `from_entity` is
+    # null and this says why (true there, null otherwise), so a client can say "a hidden entry".
+    from_hidden: bool | None = None
     computed: bool
 
 

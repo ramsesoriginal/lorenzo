@@ -60,13 +60,15 @@ def _shown(number: float) -> str:
 
 
 async def _known(session: AsyncSession, tenant_id: uuid.UUID) -> dict[str, uuid.UUID]:
+    """The definitions that hold the capacity roles, by role (ADR 0449)."""
     return {
-        name: definition_id
-        for definition_id, name in await session.execute(
-            select(StatDefinition.id, StatDefinition.name).where(
-                StatDefinition.tenant_id == tenant_id, StatDefinition.name.in_(_NAMES)
+        role: definition_id
+        for definition_id, role in await session.execute(
+            select(StatDefinition.id, StatDefinition.role).where(
+                StatDefinition.tenant_id == tenant_id, StatDefinition.role.in_(_NAMES)
             )
         )
+        if role is not None
     }
 
 
@@ -210,13 +212,18 @@ class CapacityCheck:
             )
             .options(
                 selectinload(VEffectiveStat.stat_definition),
+                selectinload(VEffectiveStat.stat_definition).selectinload(
+                    StatDefinition.enum_values
+                ),
                 *formula_load_options(selectinload(VEffectiveStat.computed_stat)),
             )
             # A re-measure in the same transaction reads what the write changed.
             .execution_options(populate_existing=True)
         ):
             own[stat.entity_id].append(stat)
-        contents = Contents(stats={**loaded.stats, **own}, children=loaded.children)
+        contents = Contents(
+            stats={**loaded.stats, **own}, children=loaded.children, held=loaded.held
+        )
         overrides = {
             key: (ContentsFormula(self.known[load_name]), StatValueType.FLOAT)
             for load_name, key in _LOADS.values()

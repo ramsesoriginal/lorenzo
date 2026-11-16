@@ -48,6 +48,7 @@ def item(entity_id: uuid.UUID, title: str) -> dict[str, Any]:
         "updated_by": None,
         "updated_at": "2026-01-01T00:00:00Z",
         "in_public_catalog": True,
+        "starts_inactive": False,
     }
 
 
@@ -143,6 +144,7 @@ class World:
                 quantity=body.get("quantity") if body.get("container_entity_id") else None,
                 slug=None,
                 bound=False,
+                active=True,
             )
             return httpx.Response(201, json=made)
         return httpx.Response(404, json={"title": "Not Found", "detail": "No such thing."})

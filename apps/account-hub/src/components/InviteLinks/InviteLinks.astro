@@ -9,7 +9,7 @@ import LinkOnce from '../LinkOnce/LinkOnce.astro';
   <strong>Invite links:</strong>
 
   <div class="row sticky-top">
-    <form class="row card card-body grow" data-player-form>
+    <form class="row hub-card grow" data-player-form>
       <label class="field">
         <span class="field-label">Expires in</span>
         <select class="text-input" data-expiry></select>
@@ -24,7 +24,7 @@ import LinkOnce from '../LinkOnce/LinkOnce.astro';
           data-limit
         />
       </label>
-      <button type="submit" data-create>
+      <button type="submit" class="btn btn-secondary" data-create>
         Create link
       </button>
       <span class="status-text" role="status" data-form-status hidden></span>
@@ -33,12 +33,12 @@ import LinkOnce from '../LinkOnce/LinkOnce.astro';
     <!-- A GM link (ADR 0177): one person, one use, at most a week. Next to the player link,
         since whoever may grant GM may hand it over this way. What the campaign calls its game
         master (ADR 0294) is put in the label by renderInviteLinks. -->
-    <form class="row card card-body grow" data-gm-form>
+    <form class="row hub-card grow" data-gm-form>
       <label class="field">
         <span class="field-label" data-gm-expiry-label></span>
         <select class="text-input" data-gm-expiry></select>
       </label>
-      <button type="submit" data-gm-create>
+      <button type="submit" class="btn btn-secondary" data-gm-create>
         Invite someone to run it
       </button>
       <span class="status-text" role="status" data-gm-status hidden></span>
@@ -48,7 +48,7 @@ import LinkOnce from '../LinkOnce/LinkOnce.astro';
   <div class="row-tight grow">
     <div data-created></div>
     <span class="status-text" role="status" data-list-status hidden></span>
-    <ul class="list grow" data-list></ul>
+    <ul class="list hub-rows hub-table grow" data-list></ul>
   </div>
 
   <template data-link-once-template>
@@ -59,7 +59,7 @@ import LinkOnce from '../LinkOnce/LinkOnce.astro';
     <li class="row">
       <span class="badge" data-state></span>
       <span class="campaign-meta grow" data-meta></span>
-      <button type="button" data-revoke>
+      <button type="button" class="btn btn-text" data-revoke>
         Revoke
       </button>
       <span class="status-text" role="status" data-status hidden></span>

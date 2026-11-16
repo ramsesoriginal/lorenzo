@@ -18,23 +18,56 @@ export async function signIn(page: Page, context: BrowserContext, subject: strin
 }
 
 /**
- * A new browser context signed in as `subject`, answering every window.confirm with "OK" and
- * keeping what each one asked.
+ * A new browser context signed in as `subject`, answering every window.confirm, and every
+ * confirmation dialog of the shell that asks for no typing, with "yes", and keeping what each one
+ * asked. A spec that drives such a dialog itself passes `autoConfirm: false`.
  */
 export async function signedInPage(
   browser: Browser,
   subject: string,
   options: Parameters<Browser['newContext']>[0] = {},
+  { autoConfirm = true }: { autoConfirm?: boolean } = {},
 ) {
   const context = await browser.newContext(options);
   const page = await context.newPage();
   const confirmations: string[] = [];
+  // What the next confirmation is answered: true is "yes". A spec that wants to say no sets it.
+  const answer = { yes: true };
   page.on('dialog', (dialog) => {
     confirmations.push(dialog.message());
     void dialog.accept();
   });
+  if (autoConfirm) {
+    // The shell's confirmation dialogs that ask for no typing are answered in the page, the moment
+    // they appear, so a spec that reads `confirmations` right after its click finds the question.
+    await page.exposeFunction('__confirmAnswer', (text: string) => {
+      confirmations.push(text);
+
+      return answer.yes;
+    });
+    await page.addInitScript(() => {
+      const answered = new WeakSet<Element>();
+      const look = () => {
+        for (const dialog of document.querySelectorAll('dialog, [role="dialog"]')) {
+          const danger = dialog.querySelector<HTMLElement>('.btn-danger');
+
+          if (answered.has(dialog) || !danger || dialog.querySelector('input')) continue;
+
+          answered.add(dialog);
+          const buttons = dialog.querySelectorAll<HTMLElement>('button');
+          const text = (dialog as HTMLElement).innerText || dialog.textContent || '';
+
+          void (window as unknown as { __confirmAnswer(text: string): Promise<boolean> })
+            .__confirmAnswer(text)
+            .then((yes) => (yes ? danger : buttons[0])?.click());
+        }
+      };
+
+      new MutationObserver(look).observe(document, { childList: true, subtree: true });
+    });
+  }
   await signIn(page, context, subject);
-  return { context, page, confirmations };
+  return { context, page, confirmations, answer };
 }
 
 /** A person registered with the fake Authgear and provisioned in the API. */
@@ -75,7 +108,26 @@ export async function openLibrary(page: Page, library: { slug: string; name: str
   await expect(article.locator('h2[data-name]')).toHaveText(library.name);
   await expect(article.locator('[data-loading]')).toBeHidden();
 
+  // A library opens on its Overview (for an administrator); most specs are about its campaigns.
+  const campaigns = article.getByRole('tab', { name: 'Campaigns' });
+
+  if ((await campaigns.count()) > 0) await campaigns.click();
+
   return article;
+}
+
+/**
+ * A repository's page on the Shelf opens on "Use in a library" while there is something to do (copy
+ * it, check it for updates), else on its Overview: this opens the Overview, for a spec that reads
+ * what is inside, its entries or its look.
+ */
+export async function showOverview(page: Page) {
+  // The tabs appear once the page has been read, so wait for the page before looking for them.
+  await expect(page.locator('[data-detail-view]')).toBeVisible();
+
+  const overview = page.getByRole('tab', { name: 'Overview' });
+
+  if ((await overview.count()) > 0) await overview.click();
 }
 
 /** A campaign's card in an open library, found by its name. */
@@ -85,11 +137,12 @@ export function campaignCard(library: Locator, name: string) {
     .filter({ has: library.page().getByRole('heading', { name, exact: true }) });
 }
 
-/** A player's seat on /campaigns ("Where you play"), found by its campaign's name. */
+/** A player's seat in a campaign's card in the open library, found by the campaign's name. */
 export function seatFor(page: Page, campaignName: string) {
   return page
-    .locator('[data-seat]')
-    .filter({ has: page.getByRole('heading', { name: new RegExp(`^${campaignName}`) }) });
+    .locator('[data-campaign-list] > article')
+    .filter({ has: page.getByRole('heading', { name: campaignName, exact: true }) })
+    .locator('[data-seat]');
 }
 
 /** A repository, made through the API by an account holding the tenant-creator role. */

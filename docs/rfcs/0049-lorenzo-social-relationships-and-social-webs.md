@@ -1,7 +1,7 @@
 # 0049 - Lorenzo Social: relationships, standings and social webs
 
 Status: accepted, decided with the maintainer on 2026-11-05 for the structural choices below; the numbers
-marked *proposed default* are the author's and are settled in the ADR of the slice that needs them.
+marked *proposed default* are the author's and are settled in the ADR of the slice that needs them. Built: all sixteen slices (ADR 0399 to 0408 and 0425), as Lorenzo Social and `packages/graph-renderer`.
 Decisions: one ADR per choice, [0399](../adr/0399-relationships-the-kind-and-its-two-ends.md) to
 [0408](../adr/0408-lorenzo-social-the-app.md). This builds on [RFC 0048](0048-locations-maps-connections-and-optional-dates.md)
 without changing it, and uses [RFC 0028](0028-time-causality-and-calendars.md) only through the Event order that

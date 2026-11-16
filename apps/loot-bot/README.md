@@ -94,3 +94,7 @@ Each linked user's own unread Lorenzo notifications can be sent to them as Disco
 ## Deployment
 
 Google Cloud Run, same GCP project and CD pipeline as `apps/api` ([ADR 0011](../../docs/adr/0011-deploy-target-cloud-run-neon.md)). This needed a transport change first — a persistent Discord gateway connection doesn't fit Cloud Run's scale-to-zero model, so the bot receives interactions over Discord's HTTP Interactions Endpoint instead of the gateway; see [ADR 0053](../../docs/adr/0053-loot-bot-http-interactions-and-cloud-run-deploy.md) for why and how, and [`docs/operations/deployment-setup.md`](../../docs/operations/deployment-setup.md) for the one-time setup.
+
+## Legal notice and privacy policy
+
+`/help` links the legal notice and the privacy policy when `LEGAL_URL` is set to the address of [`apps/legal`](../legal/README.md), the same value the API has ([ADR 0439](../../docs/adr/0439-legal-notice-and-privacy-policy.md)). Unset, nothing is linked. It is read from the environment and not from the API so that `/help` keeps working when nothing else is up. What the bot stores about you (your Discord user id, and your sign-in tokens encrypted) is described in the privacy policy.

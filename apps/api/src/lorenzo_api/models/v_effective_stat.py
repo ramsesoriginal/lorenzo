@@ -37,6 +37,11 @@ class VEffectiveStat(Base):
     value_text: Mapped[str | None]
     value_float: Mapped[float | None]
     value_bool: Mapped[bool | None]
+    # A dice value as its parts (RFC 0056): all null unless the winner is a stored dice value.
+    dice_count: Mapped[int | None]
+    dice_sides: Mapped[int | None]
+    dice_drop_mode: Mapped[str | None]
+    dice_drop_count: Mapped[int | None]
     # Set when a formula won (ADR 0104): the ancestor entity holding the
     # computed_stat row. Every value_* column is then null - the value is
     # computed in Python (stat_evaluation.evaluate), never read from here.
@@ -70,3 +75,9 @@ class VEffectiveStat(Base):
         uselist=False,
         lazy="raise_on_sql",
     )
+
+    def system_slug(self) -> str | None:
+        """The slug of the game system of this stat's group, or None when the group is neutral
+        (ADR 0448). Needs the stat's definition, its group and that group's system loaded."""
+        system = self.stat_definition.stat_group.system
+        return None if system is None else system.slug

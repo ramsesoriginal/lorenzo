@@ -26,6 +26,8 @@ from lorenzo_api.models import (
     Entity,
     EntityPrototype,
     EntityStat,
+    Feature,
+    FeatureInstance,
     Information,
     Item,
     ItemInstance,
@@ -91,6 +93,10 @@ MATRIX: dict[tuple[str, ...], str | None] = {
     ("relationship",): None,
     # ADR 0406: a SocialWeb is its own kind in this slice and combines with none.
     ("social_web",): None,
+    # ADR 0454: a feature and what a holder has of one are each their own kind and combine with
+    # none.
+    ("feature",): None,
+    ("feature_instance",): None,
 }
 _ORDER = [
     "carrier",
@@ -114,6 +120,8 @@ _ORDER = [
     "connection",
     "relationship",
     "social_web",
+    "feature",
+    "feature_instance",
 ]
 
 MAP_SYSTEM = {"format": "lorenzo.map-system/1", "kind": "plane", "extent": [0, 0, 100, 100]}
@@ -476,7 +484,7 @@ async def _make(
         )
         assert response.status_code == 200, response.text
         return uuid.UUID(entity_id)
-    if set(kinds) <= {"item", "being", "fact", "event"}:
+    if set(kinds) <= {"item", "being", "fact", "event", "feature"}:
         response = await scene_author.post(
             f"/tenants/{repository}/entities",
             json={"name": name, "kinds": list(kinds), "parents": [str(p) for p in parents]},
@@ -489,6 +497,8 @@ async def _make(
         await session.flush()
         if "item_instance" in kinds:
             session.add(ItemInstance(entity_id=entity.id, tenant_id=repository))
+        if "feature_instance" in kinds:
+            session.add(FeatureInstance(entity_id=entity.id, tenant_id=repository))
         if "being" in kinds:
             session.add(Being(entity_id=entity.id, tenant_id=repository))
             await session.flush()
@@ -625,6 +635,8 @@ async def _marker_counts(tenant_id: uuid.UUID) -> dict[str, int]:
             for kind, model in (
                 ("item", Item),
                 ("item_instance", ItemInstance),
+                ("feature", Feature),
+                ("feature_instance", FeatureInstance),
                 ("being", Being),
                 ("character", Character),
             )
@@ -755,7 +767,7 @@ async def test_a_combination_of_kinds_survives_copy_update_and_purge(
         mine, theirs = await _marker_counts(scene.table), await _marker_counts(repository)
         silvered = 1 if bridge else 0
         assert mine["item"] == theirs["item"] + silvered
-        for kind in ("item_instance", "being", "character"):
+        for kind in ("item_instance", "feature", "feature_instance", "being", "character"):
             assert mine[kind] == theirs[kind], kind
         if bridge:
             # The copy the bridge attached to went with the purge, so its parent did too, and the

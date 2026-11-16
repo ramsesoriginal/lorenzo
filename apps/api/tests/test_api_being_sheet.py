@@ -182,6 +182,8 @@ async def test_an_unconfigured_library_gets_empty_sections_and_the_flags(
         "abilities_configured": False,
         "weapons": [],
         "abilities": [],
+        "template": None,
+        "templates": [],
     }
     await delete_tenant(tenant_id)
 

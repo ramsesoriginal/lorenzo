@@ -66,7 +66,7 @@ from lorenzo_api.models import (
     PayloadPicture,
 )
 from lorenzo_api.routers.entities import kinds_of
-from lorenzo_api.routers.locations import manages, require_manager, standing
+from lorenzo_api.routers.locations import manages, require_manager, standing, visible_entry
 from lorenzo_api.schemas.common import Slug
 from lorenzo_api.schemas.entities import EntityKind
 
@@ -373,6 +373,10 @@ async def list_maps(
     exclude_other: Annotated[
         bool, Query(description="Leave out the Maps tied only to other dates (with a date).")
     ] = False,
+    placed: Annotated[
+        uuid.UUID | None,
+        Query(description="Only the Maps this entry is placed on (an entry the reader may see)."),
+    ] = None,
 ) -> Page[MapListItem]:
     """The Maps the reader may see, by name then id. A hidden Map is absent from every row and
     page. Asked through a date (ADR 0372), each row says whether it is `tied` to it, tied to
@@ -389,6 +393,9 @@ async def list_maps(
         day=tied_day,
         exclude_other=exclude_other,
     )
+    if placed is not None:
+        # A hidden entry and a missing one answer alike, so the filter says nothing about either.
+        await visible_entry(session, user, tenant_id, placed)
     columns = [Entity.id, Entity.name, EntitySlug.slug]
     stmt: Select[Any] = (
         select(*columns, *([lens.label.label("tie")] if lens else []))
@@ -399,6 +406,16 @@ async def list_maps(
     )
     if q is not None:
         stmt = stmt.where(Entity.name.icontains(q, autoescape=True))
+    if placed is not None:
+        stmt = stmt.where(
+            select(MapPlacement.map_entity_id)
+            .where(
+                MapPlacement.map_entity_id == Entity.id,
+                MapPlacement.entry_entity_id == placed,
+                MapPlacement.tenant_id == tenant_id,
+            )
+            .exists()
+        )
     if lens is not None and exclude_other:
         stmt = stmt.where(~lens.other_only)
 

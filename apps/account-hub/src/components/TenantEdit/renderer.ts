@@ -181,6 +181,8 @@ export function renderTenantEdit(
 
       edit.disabled = false;
       edit.hidden = next.role !== 'owner' && next.role !== 'orga';
+      // The block is part of a tab, which is there only while it has something in it.
+      root.hidden = edit.hidden;
       say(status, '');
     },
   };

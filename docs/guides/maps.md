@@ -4,13 +4,15 @@ Lorenzo Maps keeps the places of your worlds, from a whole universe down to one 
 
 ## Choose a Library
 
-Log in and the **Libraries** page lists your Libraries. Choose one to reach its **Locations** and **Maps**. What you see in each depends on what you are allowed to see; an empty list can mean there is nothing or nothing for you. Maps is for a computer screen: there is no phone layout, and nothing is kept for offline use.
+Log in and the **Libraries** page lists your Libraries. Choose one to reach its **Locations** and **Maps**. What you see in each depends on what you are allowed to see; an empty list can mean there is nothing or nothing for you. Maps is built for a computer screen with a pointer. A phone reads everything and makes small changes (the name of a Map, whether it is open to the library, the x and y of a pin); drawing is left to a larger screen. Nothing is kept for offline use.
 
 ## Locations and the part-of tree
 
 A **Location** is an entry kind: a universe, a continent, a village and one floor of a building are all Locations. Each Location sits in at most one other, so Locations form a tree, and the tree can skip levels. A floor is a Location in the building above it, and a building need not be in a street.
 
 - The **Locations** page shows the tree. Open a Location to see what is **Inside** it and **Where things are**.
+- A row says **"1 Map"**, **"3 Maps"** when the Location is drawn on Maps you can see, and its page lists them under **On these Maps**. A Map you cannot see is not counted and not listed.
+- **Where is…** on a Location's page says, for each character you may ask for, how the Location is for them: here, close by, elsewhere or unknown.
 - The tree says only "in" or "within". It is not containment of things: it neither moves items nor decides who may reach what.
 - If a level in between is hidden from you, a Location appears directly under the nearest one you can see, and nothing marks the gap.
 
@@ -79,8 +81,13 @@ Authors, GMs, and Owners and Organizers who can see everything can add, rename, 
 
 ## What Maps does not do
 
-- It has no phone layout and no offline mode.
+- It has no drawing on a phone (reading and small changes only) and no offline mode.
+- Spline, Freehand, Height line, Height brush, Cave system and the two Fill generators are listed among the tools as planned, and do nothing yet.
 - It does not turn the part-of tree into containment, and the tree never decides who can reach what.
 - It does not work out distance from anything but the Map's own geometry and the connections you can see.
 - It does not infer dates: a Map or Location is tied to a date only where someone recorded it.
 - Frames and axes, a way to name which setting a place belongs to, are available to the API but have no screen in Maps yet.
+
+## Drawing with the keyboard
+
+While the tools are on, each tool has one key (shown on its button), a **command line** under the toolbox takes a tool's name, `PLACE name x,y`, `SELECT name`, `UNDO`, `REDO`, `FIT` and `HELP` (press `/` to reach it); while a tool is chosen, type `x,y` for its next point and `DONE` to finish a line or an area, the **Options** tab beside the Map holds what the tool needs, the **Places** tab lists the entries not yet on the Map to place with a button or to drag onto it, and **History** lists each step by name with a way back to any of them. **Shortcuts** changes a tool's key; your keys are yours alone and kept in this browser.
