@@ -102,7 +102,8 @@ SELECT e.id AS entity_id, e.tenant_id AS tenant_id,
     ownership.owner_character_id AS owner_entity_id, entity_slug.slug AS slug,
     description_info.id AS description_id, description_info.title AS title,
     {_REFERENCE_STAT_COLUMNS},
-    containment.parent_entity_id AS container_entity_id, containment.quantity AS quantity
+    containment.parent_entity_id AS container_entity_id, containment.quantity AS quantity,
+    st.active AS active
 FROM entity e
 JOIN item_instance st ON st.entity_id = e.id
 LEFT JOIN information description_info
@@ -141,9 +142,10 @@ async def _library(session: AsyncSession, entities: int, *, linked: bool) -> uui
     )
     await session.execute(
         text(
-            "INSERT INTO stat_definition (tenant_id, stat_group_id, name, value_type) "
+            "INSERT INTO stat_definition (tenant_id, stat_group_id, name, value_type, role) "
             "SELECT :tenant, (SELECT id FROM stat_group WHERE tenant_id = :tenant AND name = 'A'), "
-            "n, 'int' FROM unnest(CAST(:names AS text[])) n"
+            "n, 'int', CASE WHEN n IN ('weight', 'height', 'price', 'rarity', 'hp', 'armor') "
+            "THEN n END FROM unnest(CAST(:names AS text[])) n"
         ),
         {**parameters, "names": [*_INT_STATS, "dmg", "ac", "speed", "luck"]},
     )
@@ -194,11 +196,21 @@ async def _library(session: AsyncSession, entities: int, *, linked: bool) -> uui
     return tenant.id
 
 
-async def _only_in_first(session: AsyncSession, first: str, second: str, tenant: uuid.UUID) -> int:
+# What the reference view of `v_effective_stat` has: the columns of before the dice value (ADR 0462)
+# came last, and are compared by their own tests.
+_REFERENCE_COLUMNS = (
+    "entity_id, tenant_id, stat_definition_id, value_int, value_text, value_float, value_bool, "
+    "computed_entity_id, source_entity_id"
+)
+
+
+async def _only_in_first(
+    session: AsyncSession, first: str, second: str, tenant: uuid.UUID, columns: str = "*"
+) -> int:
     result = await session.execute(
         text(
-            f"SELECT count(*) FROM (SELECT * FROM {first} WHERE tenant_id = :tenant "
-            f"EXCEPT SELECT * FROM {second} WHERE tenant_id = :tenant) differing"
+            f"SELECT count(*) FROM (SELECT {columns} FROM {first} WHERE tenant_id = :tenant "
+            f"EXCEPT SELECT {columns} FROM {second} WHERE tenant_id = :tenant) differing"
         ),
         {"tenant": tenant},
     )
@@ -247,13 +259,13 @@ async def test_the_views_return_the_rows_they_returned_before() -> None:
             assert await _count(session, "v_item_instance", tenant_id) == 70
             assert await _count(session, "v_item", tenant_id, "weight IS NOT NULL") > 10
 
-            for new, old in (
-                ("v_effective_stat", "ref_effective_stat"),
-                ("v_item", "ref_item"),
-                ("v_item_instance", "ref_item_instance"),
+            for new, old, columns in (
+                ("v_effective_stat", "ref_effective_stat", _REFERENCE_COLUMNS),
+                ("v_item", "ref_item", "*"),
+                ("v_item_instance", "ref_item_instance", "*"),
             ):
-                assert await _only_in_first(session, new, old, tenant_id) == 0, new
-                assert await _only_in_first(session, old, new, tenant_id) == 0, old
+                assert await _only_in_first(session, new, old, tenant_id, columns) == 0, new
+                assert await _only_in_first(session, old, new, tenant_id, columns) == 0, old
         finally:
             await session.rollback()
 

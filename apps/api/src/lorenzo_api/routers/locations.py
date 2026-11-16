@@ -12,7 +12,7 @@ from fastapi import APIRouter, Depends, Query, Response
 from fastapi_pagination import Page, paginate
 from fastapi_pagination.ext.sqlalchemy import apaginate
 from pydantic import BaseModel, ConfigDict, Field
-from sqlalchemy import Select, delete, select
+from sqlalchemy import Select, delete, func, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from lorenzo_api.date_lens import lens_for_request
@@ -54,6 +54,7 @@ from lorenzo_api.models import (
     EntitySlug,
     Location,
     LocationPart,
+    MapPlacement,
 )
 from lorenzo_api.placement import whereabouts_of
 from lorenzo_api.routers.entities import authorize_entity_write, kinds_of
@@ -92,6 +93,9 @@ class LocationStub(BaseModel):
     slug: str | None = None
     kinds: list[EntityKind]
     level_ordinal: Decimal | None = None
+    # On the lists, a Location's parts and the Location itself: on how many Maps this reader sees
+    # it placed. A Map the reader may not see is not counted and is not a trace (ADR 0466).
+    map_count: int | None = None
 
 
 class LocationListItem(LocationStub):
@@ -149,9 +153,34 @@ async def _visible_location(
     return entity
 
 
-async def _page(session: SessionDep, stmt: Select[Any], params: ParamsDep) -> Page[LocationStub]:
+async def _map_counts(
+    session: SessionDep, vis: InformationVisibility, tenant: uuid.UUID, ids: Sequence[uuid.UUID]
+) -> dict[uuid.UUID, int]:
+    """On how many Maps this reader sees each entry placed: only Maps they may see are counted."""
+    if not ids:
+        return {}
+    found = await session.execute(
+        select(MapPlacement.entry_entity_id, func.count(MapPlacement.map_entity_id))
+        .where(
+            MapPlacement.tenant_id == tenant,
+            MapPlacement.entry_entity_id.in_(ids),
+            visible_entry_clause(vis, MapPlacement.map_entity_id),
+        )
+        .group_by(MapPlacement.entry_entity_id)
+    )
+    return {entry: count for entry, count in found.tuples().all()}
+
+
+async def _page(
+    session: SessionDep,
+    vis: InformationVisibility,
+    tenant: uuid.UUID,
+    stmt: Select[Any],
+    params: ParamsDep,
+) -> Page[LocationStub]:
     async def rows(found: Sequence[Any]) -> list[LocationStub]:
-        return await _stubs(session, [(r[0], r[1], r[2], r[3]) for r in found])
+        counts = await _map_counts(session, vis, tenant, [r[0] for r in found])
+        return await _stubs(session, [(r[0], r[1], r[2], r[3]) for r in found], counts)
 
     page: Page[LocationStub] = await apaginate(session, stmt, params, transformer=rows)
     return page
@@ -163,11 +192,21 @@ async def _commit(session: SessionDep, tenant: uuid.UUID) -> None:
 
 
 async def _stubs(
-    session: SessionDep, rows: list[tuple[uuid.UUID, str, str | None, Decimal | None]]
+    session: SessionDep,
+    rows: list[tuple[uuid.UUID, str, str | None, Decimal | None]],
+    counts: dict[uuid.UUID, int] | None = None,
 ) -> list[LocationStub]:
     kinds = await kinds_of(session, [identity for identity, *_ in rows])
     return [
-        LocationStub(id=i, name=n, slug=s, kinds=kinds[i], level_ordinal=o) for i, n, s, o in rows
+        LocationStub(
+            id=i,
+            name=n,
+            slug=s,
+            kinds=kinds[i],
+            level_ordinal=o,
+            **({} if counts is None else {"map_count": counts.get(i, 0)}),
+        )
+        for i, n, s, o in rows
     ]
 
 
@@ -196,7 +235,8 @@ async def _out(
         (within,) = await _stubs(
             session, [(ancestor_row[0], ancestor_row[1], ancestor_row[2], None)]
         )
-    (stub,) = await _stubs(session, [(entity.id, entity.name, slug, ordinal)])
+    counts = await _map_counts(session, vis, tenant, [entity.id])
+    (stub,) = await _stubs(session, [(entity.id, entity.name, slug, ordinal)], counts)
     manage = manages(vis)
     is_public = None
     if manage:
@@ -288,7 +328,8 @@ async def list_locations(
             stmt = stmt.where(~lens.other_only)
 
     async def rows(found: Sequence[Any]) -> list[LocationListItem]:
-        stubs = await _stubs(session, [(r[0], r[1], r[2], r[3]) for r in found])
+        counts = await _map_counts(session, vis, tenant_id, [r[0] for r in found])
+        stubs = await _stubs(session, [(r[0], r[1], r[2], r[3]) for r in found], counts)
         if lens is None:
             return [LocationListItem(**stub.model_dump()) for stub in stubs]
         return [
@@ -372,7 +413,7 @@ async def location_parts(
     await _visible_location(session, user, tenant_id, location_id)
     stmt = visible_parts(vis, tenant_id=tenant_id, parent_id=location_id)
 
-    return await _page(session, stmt, params)
+    return await _page(session, vis, tenant_id, stmt, params)
 
 
 @router.put("/locations/{location_id}/part-of")
@@ -430,6 +471,14 @@ class PlaceOut(BaseModel):
 
 
 class WhereaboutsOut(BaseModel):
+    state: Literal["with_you", "stashed", "elsewhere", "unknown"]
+    place: PlaceOut | None = None
+
+
+class CharacterWhereaboutsOut(BaseModel):
+    """One character's answer to "where is it?": the character, and what they would say."""
+
+    character: PlaceOut
     state: Literal["with_you", "stashed", "elsewhere", "unknown"]
     place: PlaceOut | None = None
 
@@ -527,6 +576,59 @@ async def get_whereabouts(
         if answer.place is None
         else PlaceOut(id=answer.place.id, name=answer.place.name, slug=answer.place.slug),
     )
+
+
+@router.get("/locations/{location_id}/whereabouts", response_model_exclude_none=True)
+async def location_whereabouts(
+    tenant_id: uuid.UUID,
+    location_id: uuid.UUID,
+    params: ParamsDep,
+    session: SessionDep,
+    user: CurrentUser,
+) -> Page[CharacterWhereaboutsOut]:
+    """Where this Location is, as each character the reader may ask for would say it (ADR 0334,
+    ADR 0466), by character name. A reader who reaches every character is asked for all of them;
+    any other reader for their own and the ones their campaigns' GMs reach. Nothing is stored."""
+    vis = await standing(session, user, tenant_id)
+    await _visible_location(session, user, tenant_id, location_id)
+    reach = await caller_reach(session, tenant_id=tenant_id, user=user, visibility=vis)
+    stmt = (
+        select(Entity.id, Entity.name, EntitySlug.slug)
+        .join(Character, Character.entity_id == Entity.id)
+        .outerjoin(EntitySlug, EntitySlug.entity_id == Entity.id)
+        .where(Entity.tenant_id == tenant_id, visible_entry_clause(vis, Entity.id))
+        .order_by(Entity.name, Entity.id)
+    )
+    if reach is not None:
+        stmt = stmt.where(Entity.id.in_(reach))
+
+    async def rows(found: Sequence[Any]) -> list[CharacterWhereaboutsOut]:
+        out: list[CharacterWhereaboutsOut] = []
+        for character_id, name, slug in found:
+            answer = (
+                await whereabouts_of(
+                    session,
+                    vis,
+                    tenant_id=tenant_id,
+                    entity_ids=[location_id],
+                    character_id=character_id,
+                )
+            )[location_id]
+            out.append(
+                CharacterWhereaboutsOut(
+                    character=PlaceOut(id=character_id, name=name, slug=slug),
+                    state=answer.state,
+                    place=None
+                    if answer.place is None
+                    else PlaceOut(
+                        id=answer.place.id, name=answer.place.name, slug=answer.place.slug
+                    ),
+                )
+            )
+        return out
+
+    page: Page[CharacterWhereaboutsOut] = await apaginate(session, stmt, params, transformer=rows)
+    return page
 
 
 class StepOut(BaseModel):

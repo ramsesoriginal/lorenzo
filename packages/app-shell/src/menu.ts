@@ -9,6 +9,8 @@ export type MenuItem =
       label: string;
       icon?: string;
       keys?: string;
+      /** A count at the right, "3" for unread notifications. */
+      badge?: string;
       danger?: boolean;
       /** A radio-style choice: shown as checked or not. */
       checked?: boolean;
@@ -22,8 +24,8 @@ export type MenuItem =
 export type MenuOptions = {
   label: string;
   sprite: string;
-  /** A line above the items: who is signed in. */
-  head?: string;
+  /** Who is signed in, above the items: a line, or a name over an address. */
+  head?: string | { title: string; text?: string };
   /** Whether to be a bottom sheet; the window's phone width unless said otherwise. */
   sheet?: boolean;
 };
@@ -93,7 +95,22 @@ export function openMenu(
     const head = document.createElement('div');
 
     head.className = 'menu-head';
-    head.textContent = options.head;
+    if (typeof options.head === 'string') head.textContent = options.head;
+    else {
+      const title = document.createElement('div');
+
+      title.className = 'menu-head-title';
+      title.textContent = options.head.title;
+      head.append(title);
+
+      if (options.head.text) {
+        const text = document.createElement('div');
+
+        text.className = 'menu-head-text';
+        text.textContent = options.head.text;
+        head.append(text);
+      }
+    }
     root.append(head);
   }
 
@@ -129,6 +146,13 @@ export function openMenu(
     label.className = 'grow';
     label.textContent = item.label;
     entry.append(label);
+    if (item.badge) {
+      const badge = document.createElement('span');
+
+      badge.className = 'menu-badge';
+      badge.textContent = item.badge;
+      entry.append(badge);
+    }
     if (item.keys) {
       const keys = document.createElement('kbd');
 

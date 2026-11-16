@@ -1,23 +1,51 @@
 ---
 import RepositoriesPanel from '../components/RepositoriesPanel/RepositoriesPanel.astro';
+import StudioPanel from '../components/StudioPanel/StudioPanel.astro';
 import Base from '../layouts/Base.astro';
 ---
 
 <Base title="Repositories — Lorenzo">
-  <h1 class="display">Repositories</h1>
-  <p class="lede">What your libraries have been invited to copy from, and what they have copied.</p>
+  <div class="page-heading">
+    <h1>Repositories</h1>
+    <p class="page-sub">
+      What you work on, and what your libraries have been invited to copy from.
+    </p>
+  </div>
+
   <p id="loading">Loading&hellip;</p>
   <p id="load-error" class="error-text" hidden></p>
 
+  <!-- One of the two stays: the workspace of a repository one works on, or what libraries use. -->
   <RepositoriesPanel />
+  <StudioPanel />
 
   <script>
     import { renderRepositoriesPanel } from '../components/RepositoriesPanel/renderer';
+    import { renderStudioPanel } from '../components/StudioPanel/renderer';
+    import { getMe } from '../lib/me';
     import { runPage } from '../lib/pageLoad';
+    import { repositoriesMode } from '../lib/studio';
     import { requiredIn } from '../lib/template';
 
-    const panel = requiredIn('Repositories')<HTMLElement>(document, '[data-repositories-panel]');
+    const required = requiredIn('Repositories');
+    const shelf = required<HTMLElement>(document, '[data-repositories-panel]');
+    const workspace = required<HTMLElement>(document, '[data-studio-panel]');
+    const mode = repositoriesMode(window.location.search);
 
-    await runPage(() => renderRepositoriesPanel(panel));
+    // The other half is taken out of the page, so what each one looks for is only ever its own.
+    (mode === 'workspace' ? shelf : workspace).remove();
+
+    // A step back or forward to the other half is a new page.
+    window.addEventListener('popstate', () => {
+      if (repositoriesMode(window.location.search) !== mode) window.location.reload();
+    });
+
+    await runPage(async () => {
+      if (mode === 'workspace') {
+        await renderStudioPanel(workspace, await getMe());
+      } else {
+        await renderRepositoriesPanel(shelf);
+      }
+    });
   </script>
 </Base>

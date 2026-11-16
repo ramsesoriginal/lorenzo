@@ -22,6 +22,7 @@ import {
   submit,
 } from './dom';
 import { canManage, libraryName, myLibraries } from './names';
+import { notes } from './notes';
 import { endPicker, typePicker } from './pickers';
 import { start } from './sign-in';
 
@@ -326,6 +327,7 @@ export async function mountRelationship() {
         stats.body.append(empty('It holds no standings.'));
       }
       view.append(stats.root);
+      view.append(notes(tenant, id));
 
       if (relationship.can_edit) view.append(manager(tenant, id, version, relationship, draw));
       host.replaceChildren(view);

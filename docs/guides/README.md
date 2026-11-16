@@ -13,3 +13,4 @@ Task-oriented how-tos.
 - [Lorenzo Sessions](sessions.md)
 - [Lorenzo Maps](maps.md)
 - [Lorenzo Social](social.md)
+- [Modelling a game system](modelling-a-game-system.md)

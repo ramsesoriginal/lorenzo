@@ -12,7 +12,7 @@ npm install --global corepack@latest && corepack enable && pnpm install --frozen
 
 `pnpm run build` builds `@lorenzo/brand`, copies its files into `public/branding/` (`scripts/copy-branding.mjs`) and then runs `astro build`.
 
-Build watch paths follow [the rule in the deployment setup](deployment-setup.md#build-watch-paths). For this app: `apps/social/**`, `apps/brand/**`, `packages/api-client/**`, `packages/app-shell/**`, `packages/brand/**`, `packages/graph-renderer/**`, `packages/read-cache/**` and `pnpm-lock.yaml`.
+Build watch paths follow [the rule in the deployment setup](deployment-setup.md#build-watch-paths). For this app: `apps/social/**`, `apps/brand/**`, `packages/api-client/**`, `packages/app-shell/**`, `packages/brand/**`, `packages/entry-preview/**`, `packages/graph-renderer/**`, `packages/information-editor/**`, `packages/lorenzoscript/**`, `packages/lorenzoscript-editor/**`, `packages/period-picker/**`, `packages/read-cache/**` and `pnpm-lock.yaml`.
 
 ## Authgear and public configuration
 

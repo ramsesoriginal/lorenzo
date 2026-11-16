@@ -58,6 +58,8 @@ class Created:
 class _Item:
     entity_id: uuid.UUID
     name: str
+    # Its instances start with the `active` switch off (ADR 0447).
+    starts_inactive: bool = False
 
 
 async def _owner_kind(
@@ -119,7 +121,7 @@ async def _items_by_slug(
     session: AsyncSession, *, tenant_id: uuid.UUID, slugs: set[str], public_only: bool = False
 ) -> dict[str, _Item]:
     stmt = (
-        select(EntitySlug.slug, Entity.id, Entity.name)
+        select(EntitySlug.slug, Entity.id, Entity.name, Item.starts_inactive)
         .join(Entity, Entity.id == EntitySlug.entity_id)
         .join(Item, Item.entity_id == Entity.id)
         .where(EntitySlug.tenant_id == tenant_id, EntitySlug.slug.in_(slugs))
@@ -127,7 +129,10 @@ async def _items_by_slug(
     if public_only:
         stmt = stmt.where(Item.in_public_catalog.is_(True))
     rows = await session.execute(stmt)
-    return {slug: _Item(entity_id, name) for slug, entity_id, name in rows}
+    return {
+        slug: _Item(entity_id, name, starts_inactive)
+        for slug, entity_id, name, starts_inactive in rows
+    }
 
 
 def _slugs(nodes: list[PackNode]) -> set[str]:
@@ -193,7 +198,11 @@ class _Builder:
         )
         session.add(entity)
         await session.flush()
-        session.add(ItemInstance(entity_id=entity.id, tenant_id=self.tenant_id))
+        session.add(
+            ItemInstance(
+                entity_id=entity.id, tenant_id=self.tenant_id, active=not item.starts_inactive
+            )
+        )
         session.add(
             EntityPrototype(
                 entity_id=entity.id, prototype_id=item.entity_id, tenant_id=self.tenant_id

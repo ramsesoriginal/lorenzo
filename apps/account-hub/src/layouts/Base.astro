@@ -1,28 +1,52 @@
 ---
-import SiteHead from '../components/SiteHead/SiteHead.astro';
-import SiteHeader from '../components/SiteHeader/SiteHeader.astro';
-import SiteFooter from '../components/SiteFooter/SiteFooter.astro';
+import AppPage from '@lorenzo/app-shell/AppPage.astro';
+import { BRANDING_CSS_URL, THEME_KEY } from '../lib/config';
+import '../styles/global.css';
 
 interface Props {
   title?: string;
 }
 
 const { title = 'Lorenzo - Account' } = Astro.props;
+// Every page of the hub has the one width, the shell's page container: it follows the width it is
+// given (a window, a pane, a phone) and the page's parts adapt to that, not to what is in them.
+const PAGE = 'list-detail';
 ---
 
-<!doctype html>
-<html lang="en">
-  <SiteHead title={title}>
-    <!-- What a page puts in `slot="head"` (the referrer policy of /join, ADR 0171) reaches <head>. -->
-    <slot name="head" slot="head" />
-  </SiteHead>
-  <body>
-    <SiteHeader />
-    <main>
-      <div class="wrap">
-        <slot />
-      </div>
-    </main>
-    <SiteFooter />
-  </body>
-</html>
+<AppPage
+  title={title}
+  product="Account"
+  brandingUrl={BRANDING_CSS_URL}
+  themeKey={THEME_KEY}
+  shell="web"
+  template={PAGE}
+  path="apps/account-hub"
+  icon="account"
+  nav={[
+    { label: 'Home', href: '/', icon: 'account' },
+    { label: 'Libraries', href: '/tenants/', requires: 'signed-in', icon: 'library' },
+    {
+      label: 'Repositories',
+      href: '/repositories/',
+      requires: 'repositories',
+      icon: 'kind-repository',
+    },
+    { label: 'Discover', href: '/discover/', requires: 'discover', icon: 'discover' },
+  ]}
+>
+  <!-- What a page puts in `slot="head"` (the referrer policy of /join, ADR 0171) reaches <head>. -->
+  <slot name="head" slot="head" />
+  <slot />
+</AppPage>
+
+<script>
+  import { bindLegalLinksFromApi } from '@lorenzo/app-shell/legal';
+  import { API_BASE_URL } from '../lib/config';
+  import { startShell } from '../lib/shell';
+
+  // The legal notice, the privacy policy and the support link in the shell's footer, when the
+  // deployment has them (ADR 0439).
+  void bindLegalLinksFromApi(API_BASE_URL);
+
+  await startShell();
+</script>

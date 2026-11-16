@@ -1,6 +1,9 @@
 // Connecting a device (ADR 0269): the code from the address (or typed), what is asking, a name and
 // an optional expiry, then Connect or Deny.
 
+import { pageState } from '@lorenzo/app-shell';
+import { isAuthenticated, login } from '../../lib/auth';
+import { BRANDING_CSS_URL } from '../../lib/config';
 import {
   CODE_NOT_FOUND,
   codeFromSearch,
@@ -9,8 +12,10 @@ import {
   suggestedTokenName,
   TOKEN_EXPIRY_PRESETS,
   tokenExpiryFor,
+  tokenNameProblem,
 } from '../../lib/personalTokens';
 import { approveDeviceCode, denyDeviceCode, previewDeviceCode } from '../../lib/personalTokensApi';
+import { relativeTime } from '../../lib/relativeTime';
 import { say, sayError } from '../../lib/statusLine';
 import { requiredIn } from '../../lib/template';
 
@@ -30,6 +35,11 @@ export async function renderDeviceConnect(root: HTMLElement, search: string): Pr
   const deny = required<HTMLButtonElement>(approveForm, '[data-deny]');
   const status = required<HTMLElement>(approveForm, '[data-status]');
   const result = required<HTMLElement>(root, '[data-result]');
+  const resultBlock = required<HTMLElement>(root, '[data-result-block]');
+  const connected = required<HTMLElement>(root, '[data-connected]');
+  const ends = required<HTMLElement>(approveForm, '[data-ends]');
+  const nameProblem = required<HTMLElement>(approveForm, '[data-name-problem]');
+  const signin = required<HTMLElement>(root, '[data-signin]');
 
   expiry.replaceChildren(
     ...TOKEN_EXPIRY_PRESETS.map(
@@ -44,6 +54,7 @@ export async function renderDeviceConnect(root: HTMLElement, search: string): Pr
 
       client.textContent = waiting.client_name ?? 'A device';
       shownCode.textContent = waiting.user_code;
+      ends.textContent = `It ends ${relativeTime(waiting.expires_at)}.`;
       name.value = suggestedTokenName(waiting.client_name);
       codeForm.hidden = true;
       approveForm.hidden = false;
@@ -59,10 +70,24 @@ export async function renderDeviceConnect(root: HTMLElement, search: string): Pr
     }
   }
 
-  function finish(text: string): void {
+  function finish(text: string, mascot = false): void {
     approveForm.hidden = true;
     codeForm.hidden = true;
-    say(result, text);
+    resultBlock.hidden = false;
+    // Connected: the mascot, and the words under it say what happens next.
+    if (mascot) {
+      connected.replaceChildren(
+        pageState(BRANDING_CSS_URL, {
+          art: 'device-connected',
+          alt: 'Catileo asleep on a closed laptop',
+          title: 'Connected',
+          level: 2,
+          text,
+        }),
+      );
+    } else {
+      say(result, text);
+    }
   }
 
   codeForm.addEventListener('submit', async (event) => {
@@ -85,6 +110,15 @@ export async function renderDeviceConnect(root: HTMLElement, search: string): Pr
     event.preventDefault();
 
     const code = approveForm.dataset.code ?? '';
+    const problem = tokenNameProblem(name.value);
+
+    // Refused here in words, before anything is sent.
+    say(nameProblem, problem ?? '', problem !== null);
+    if (problem) {
+      name.focus();
+
+      return;
+    }
 
     approve.disabled = true;
     deny.disabled = true;
@@ -97,7 +131,10 @@ export async function renderDeviceConnect(root: HTMLElement, search: string): Pr
         name: name.value.trim(),
         ...(expiresAt === null ? {} : { expires_at: expiresAt }),
       });
-      finish('Connected. You can go back to your device: it will pick the token up in a moment.');
+      finish(
+        'Connected. You can go back to your device: it will pick the token up in a moment.',
+        true,
+      );
     } catch (cause) {
       approve.disabled = false;
       deny.disabled = false;
@@ -122,10 +159,26 @@ export async function renderDeviceConnect(root: HTMLElement, search: string): Pr
     }
   });
 
+  // Not logged in: say so, and that the code is kept (the way back to this address is remembered).
+  if (!(await isAuthenticated())) {
+    signin.hidden = false;
+    required<HTMLButtonElement>(signin, '[data-signin-button]').addEventListener(
+      'click',
+      () => void login(),
+    );
+
+    return;
+  }
+
   const fromAddress = codeFromSearch(search);
 
   if (fromAddress !== null) {
-    if (await open(fromAddress, result)) return;
+    resultBlock.hidden = false;
+    if (await open(fromAddress, result)) {
+      resultBlock.hidden = true;
+
+      return;
+    }
   }
 
   codeForm.hidden = false;

@@ -26,6 +26,7 @@ function item(
     quantity,
     is_container: null,
     bound: false,
+    active: true,
     created_by: null,
     updated_by: null,
     updated_at: "2026-01-01T00:00:00Z",
