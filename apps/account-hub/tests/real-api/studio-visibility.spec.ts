@@ -23,7 +23,7 @@ const terms = (page: Page) =>
   dialog(page).getByRole('checkbox', { name: /^I have the right to publish this repository./ });
 
 async function overview(page: Page, slug: string) {
-  await page.goto(`/studio/?repository=${slug}`);
+  await page.goto(`/repositories/?repository=${slug}`);
   await expect(page.locator('[data-overview] [data-state]')).toBeVisible();
 }
 
@@ -260,16 +260,18 @@ test('a repository built on a private one is blocked, in words, with a way on', 
     'Before you can make it public',
   );
   await expect(dialog(page).locator('[data-vis-blocker-list]')).toContainText(
-    `${core.name} is not public.`,
+    `${core.name} is private.`,
   );
   await expect(dialog(page).locator('[data-vis-blocker-list]')).toContainText(
-    `${theirs.name} is not public. This repository is built on it, so it has to be public first: ask its Owner to make it public.`,
+    `${theirs.name} is private. This repository is built on it, so it has to be public or protected first: ask its Owner to make it one of them.`,
   );
 
   // A link to the Studio page of the one the Owner owns, and none for the other.
-  const link = dialog(page).getByRole('link', { name: `Open ${core.name} to make it public` });
+  const link = dialog(page).getByRole('link', {
+    name: `Open ${core.name} to make it public or protected`,
+  });
 
-  await expect(link).toHaveAttribute('href', `/studio/?repository=${core.id}`);
+  await expect(link).toHaveAttribute('href', `/repositories/?repository=${core.id}`);
   await expect(dialog(page).getByRole('link')).toHaveCount(1);
 
   // Nothing can be sent while anything stands in the way.
@@ -443,17 +445,17 @@ test('a repository that public ones are built on cannot be made private, and the
     'Before you can make it private',
   );
   await expect(dialog(page).locator('[data-vis-blocker-list]')).toContainText(
-    `${bridge.name} is public and built on this repository. Make it private first`,
+    `${bridge.name} is built on this repository and others can copy it. Make it private first`,
   );
   await expect(dialog(page).locator('[data-vis-blocker-list]')).toContainText(
-    `${theirs.name} is public and built on this repository. It has to be private first, so that what it is built on can still be copied: ask its Owner to make it private.`,
+    `${theirs.name} is built on this repository and others can copy it. It has to be private, or include this repository, first, so that what it is built on can still be copied: ask its Owner.`,
   );
 
   // A link to the Studio page of the one the Owner owns, and none for the other.
   await expect(dialog(page).getByRole('link')).toHaveCount(1);
   await expect(
     dialog(page).getByRole('link', { name: `Open ${bridge.name} to make it private` }),
-  ).toHaveAttribute('href', `/studio/?repository=${bridge.id}`);
+  ).toHaveAttribute('href', `/repositories/?repository=${bridge.id}`);
   await expect(
     dialog(page).getByRole('button', { name: 'Make private', exact: true }),
   ).toBeDisabled();

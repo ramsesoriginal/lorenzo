@@ -78,6 +78,7 @@ import { type IconName, icon, kindIcon, LAYOUT_ICONS, paneIcon } from './icons';
 import { focusing } from './linkPreview';
 import { newPackUi, type PackUi, renderPack } from './packPane';
 import { newPicturesUi, type PicturesUi, renderPictures } from './picturesPane';
+import { renderRelations } from './relationsPane';
 import { renderStats } from './statsPane';
 import { drawStatusBar } from './statusBar';
 import { PANE_IDS, PANES } from './stub';
@@ -817,6 +818,7 @@ export class Shell {
     if (id === 'props') return renderStats(bench, this.selected);
     if (id === 'links') return renderLinks(bench, this.selected, (x) => this.select(x));
     if (id === 'ancestry') return renderAncestry(bench, this.selected, (x) => this.select(x));
+    if (id === 'relations') return renderRelations(bench, this.selected, (x) => this.select(x));
     if (id === 'pack')
       return renderPack(bench, this.selected, this.packUi, {
         redraw: () => this.render(),

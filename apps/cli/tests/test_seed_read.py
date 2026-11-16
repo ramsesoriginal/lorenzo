@@ -44,6 +44,7 @@ def item(entity_id: uuid.UUID, title: str) -> dict[str, Any]:
         "updated_by": None,
         "updated_at": "2026-01-01T00:00:00Z",
         "in_public_catalog": False,
+        "starts_inactive": False,
     }
 
 

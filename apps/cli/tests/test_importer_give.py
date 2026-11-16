@@ -61,6 +61,7 @@ def instance(title: str, quantity: int | None) -> dict[str, Any]:
         "owner_entity_id": str(ALICE),
         "slug": None,
         "bound": False,
+        "active": True,
     }
 
 

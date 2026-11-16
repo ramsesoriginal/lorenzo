@@ -14,7 +14,7 @@ export type EntryChoice = { id: string; name: string; kinds: string[] };
 export const VISIBLE_LIMIT = 5000;
 
 /** The placements of a Map in pages until it is complete or the limit is reached. */
-export async function readPlacements(tenant: string, id: string) {
+export async function readPlacements(tenant: string, id: string, max = VISIBLE_LIMIT) {
   const rows: Row[] = [];
   let cursor: string | undefined;
   let more = false;
@@ -31,7 +31,7 @@ export async function readPlacements(tenant: string, id: string) {
     );
     rows.push(...page.items);
     cursor = page.next_cursor ?? undefined;
-    if (cursor && rows.length >= VISIBLE_LIMIT) {
+    if (cursor && rows.length >= max) {
       more = true;
       break;
     }
@@ -110,10 +110,14 @@ export async function readLinks(tenant: string, map: string): Promise<LinkRow[]>
 }
 
 /** Entries the person may see, found by name. */
-export async function findEntries(tenant: string, query: string): Promise<EntryChoice[]> {
+export async function findEntries(
+  tenant: string,
+  query: string,
+  size = 12,
+): Promise<EntryChoice[]> {
   const page = await unwrap(
     await client.GET('/tenants/{tenant_id}/entities', {
-      params: { path: { tenant_id: tenant }, query: { q: query, size: 12 } },
+      params: { path: { tenant_id: tenant }, query: { q: query, size } },
       cache: 'no-cache',
     }),
   );
@@ -121,10 +125,10 @@ export async function findEntries(tenant: string, query: string): Promise<EntryC
 }
 
 /** Locations the person may see, found by name. */
-export async function findLocations(tenant: string, query: string) {
+export async function findLocations(tenant: string, query: string, size = 12) {
   const page = await unwrap(
     await client.GET('/tenants/{tenant_id}/locations', {
-      params: { path: { tenant_id: tenant }, query: { q: query, size: 12 } },
+      params: { path: { tenant_id: tenant }, query: { q: query, size } },
       cache: 'no-cache',
     }),
   );

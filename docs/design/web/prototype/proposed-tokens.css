@@ -1,0 +1,37 @@
+/*
+ * Tokens this design proposes. They are NOT in apps/brand and this prototype does not change it.
+ * Each is a decision in ../README.md; the follow-up slice list in Phase 4 names the apps/brand change.
+ *
+ *   D6   --border-control            the edge of a field or a secondary button, 3:1 or better
+ *   D23  --space-2h                  a 12px step on the 4px grid; the type roles
+ *   D26  --dur-*, --ease             one set of transition durations
+ */
+:root {
+  /* D6: Ink 50% on Paper, about 3.5:1 on Paper */
+  --border-control: color-mix(in srgb, var(--brand-ink) 50%, var(--brand-paper));
+
+  /* D26: short enough to feel snappy, slow enough to feel smooth (identity 11.2: 150 to 220 ms small, 220 to 320 ms larger) */
+  --dur-fast: 150ms;
+  --dur-med: 220ms;
+  --dur-slow: 320ms;
+  --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+
+  /* D23: interface roles, fixed at every width (rem, so zoom and text-size settings scale them) */
+  --fs-heading: 1.125rem;   /* 18, Geist 600, 1.3 */
+  --fs-sub: 1rem;           /* 16, Geist 600, 1.35 */
+  --fs-body: 0.9375rem;     /* 15, Geist 400, 1.5 */
+  --fs-ui: 0.875rem;        /* 14, Geist 400 or 500, 1.4 */
+  --fs-meta: 0.8125rem;     /* 13, Geist 400, 1.4 */
+  --fs-micro: 0.75rem;      /* 12, Geist 500, 1.3 */
+  --fs-code: 0.8125rem;     /* 13, Geist Mono 400, 1.5 */
+
+  /* D23: editorial roles, fluid between a 430 and a 1440 wide container. The rem part keeps zoom working. */
+  --fs-display: clamp(2.125rem, 1.539rem + 2.178cqi, 3.5rem);   /* 34 to 56, Newsreader 400, 1.1 */
+  --fs-title: clamp(1.75rem, 1.43rem + 1.188cqi, 2.5rem);       /* 28 to 40, Newsreader 400, 1.15 */
+  --fs-reading: clamp(1.125rem, 1.072rem + 0.198cqi, 1.25rem);  /* 18 to 20, Newsreader 400, 1.6 */
+}
+
+[data-theme="dark"] {
+  /* D6: Paper 42% on Ink, about 3.6:1 on the dark surface */
+  --border-control: color-mix(in srgb, var(--brand-paper) 42%, var(--brand-ink));
+}

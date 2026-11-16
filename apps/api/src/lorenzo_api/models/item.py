@@ -28,6 +28,9 @@ class Item(Base):
     entity_id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
     tenant_id: Mapped[TenantFk]
     in_public_catalog: Mapped[bool] = mapped_column(server_default=false(), default=False)
+    # Whether its instances start with the `active` switch off, as an item that needs attunement
+    # does (ADR 0447).
+    starts_inactive: Mapped[bool] = mapped_column(server_default=false(), default=False)
 
     entity: Mapped[Entity] = relationship(
         foreign_keys="Item.entity_id", lazy="raise_on_sql", back_populates="item"

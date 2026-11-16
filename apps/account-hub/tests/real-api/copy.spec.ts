@@ -287,7 +287,7 @@ test('copying again: replace it, and what that would also remove is said first',
 
   // The repository's page offers it under "More", not as the main thing to do.
   await page.goto(`/repositories/?tenant=${library.slug}&repository=${repository.id}`);
-  await page.getByText('More', { exact: true }).click();
+  await page.locator('#content').getByText('More', { exact: true }).click();
   await page.getByRole('link', { name: /Copy again/ }).click();
   await expect(page).toHaveURL(/copy=again/);
   await expect(page.getByRole('heading', { name: `Copy ${repository.name} again` })).toBeVisible();
@@ -421,7 +421,7 @@ test('a repository the library has no invitation to is not copied from an addres
   const { page, context } = await signedInPage(browser, owner.subject);
 
   await page.goto(wizardAddress(stranger, repository));
-  await expect(page.getByRole('heading', { name: 'Repositories' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Repositories', exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Copy now' })).toHaveCount(0);
   await expect(page.locator('[data-copy-view]')).toBeHidden();
   await context.close();

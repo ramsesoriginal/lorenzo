@@ -31,6 +31,12 @@ Keyboard: on a focused tab, Alt+Left/Right reorders, Alt+Shift+arrows splits it 
 
 Layout rules live in `src/workspace/` as pure functions; `src/shell/` is the DOM over them.
 
+## The Relations pane
+
+*Open Relations* in the palette shows the relationships the selected entry is an end of, drawn around it with
+[`@lorenzo/graph-renderer`](../../packages/graph-renderer) and told in a sentence each; opening an end in the drawing
+selects it in the explorer. It reads only: relationships are written in [Lorenzo Social](../social) ([ADR 0407](../../docs/adr/0407-the-graph-renderer.md)).
+
 ## Facts and information bundles
 
 Facts are entries with an optional explicit About list and a separate audience for knowing the

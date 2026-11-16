@@ -80,6 +80,10 @@ class User(Base):
     last_seen_roles: Mapped[list[str]] = mapped_column(
         ARRAY(Text), default=list, server_default=text("'{}'::text[]")
     )
+    # ADR 0439 - when the one-time Gravatar question was answered (a picture kept, or none
+    # exists). Null for an account whose email has not been cached yet. The migration set it for
+    # every account that existed, so only an account created later is ever asked.
+    gravatar_checked_at: Mapped[datetime | None]
     created_at: Mapped[CreatedAt]
     updated_at: Mapped[UpdatedAt]
 

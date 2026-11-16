@@ -231,3 +231,28 @@ async def test_an_unchanged_order_does_not_move_the_version(
     assert before == same
     assert moved != before
     await delete_tenant(tenant_id)
+
+
+async def test_the_entity_read_lists_prototypes_in_parent_order_not_alphabetically(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    """ADR 0443: the list is in the order the stat tie-break uses, and follows a reorder."""
+    tenant_id = await make_tenant(test_user_id)
+    async with admin_session_factory() as session:
+        names = ["Charlie", "Alpha", "Bravo", "Delta"]
+        ids = {name: await _entry(session, tenant_id, name) for name in [*names, "Child"]}
+        await session.commit()
+    child = ids["Child"]
+    url = f"/tenants/{tenant_id}/entities/{child}"
+
+    await _put(client, tenant_id, child, [ids[n] for n in names])
+    first = [p["name"] for p in (await client.get(url)).json()["prototypes"]]
+    await _put(client, tenant_id, child, [ids[n] for n in reversed(names)])
+    reversed_ = [p["name"] for p in (await client.get(url)).json()["prototypes"]]
+    await _put(client, tenant_id, child, [ids["Bravo"], ids["Charlie"]])
+    shrunk = [p["name"] for p in (await client.get(url)).json()["prototypes"]]
+
+    assert first == names
+    assert reversed_ == list(reversed(names))
+    assert shrunk == ["Bravo", "Charlie"]
+    await delete_tenant(tenant_id)

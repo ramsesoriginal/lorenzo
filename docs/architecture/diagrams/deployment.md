@@ -86,7 +86,7 @@ C4Deployment
 
 ## Static apps on Cloudflare Pages
 
-`apps/account-hub`, `apps/inventory-web`, `apps/beings`, `apps/bench`, `apps/calendars`, `apps/sessions`, `apps/writing`, `apps/maps` and `apps/brand` deploy the same way: a static build served by Cloudflare Pages, wired to Cloudflare's own Git integration (no GitHub Actions job, no container, no database), rebuilt on a push to `main` that touches the app or a watched package. They call the API on Cloud Run from the browser (the API's `CORS_ALLOWED_ORIGINS` has to list each origin) and sign in through Authgear with a public client of their own.
+`apps/account-hub`, `apps/inventory-web`, `apps/beings`, `apps/bench`, `apps/calendars`, `apps/sessions`, `apps/writing`, `apps/maps`, `apps/social` and `apps/brand` deploy the same way: a static build served by Cloudflare Pages, wired to Cloudflare's own Git integration (no GitHub Actions job, no container, no database), rebuilt on a push to `main` that touches the app or a watched package. They call the API on Cloud Run from the browser (the API's `CORS_ALLOWED_ORIGINS` has to list each origin) and sign in through Authgear with a public client of their own.
 
 ```mermaid
 C4Deployment
@@ -105,6 +105,7 @@ C4Deployment
     Container(beings, "lorenzo-beings", "astro build, dist", "apps/beings")
     Container(writing, "lorenzo-writing", "astro build, dist", "apps/writing")
     Container(maps, "lorenzo-maps", "astro build, dist", "apps/maps")
+    Container(social, "lorenzo-social", "astro build, dist", "apps/social")
     Container(brand, "lorenzo-brand", "no build, static files", "apps/brand - tokens.css and the preview")
   }
 
@@ -116,6 +117,7 @@ C4Deployment
   Rel(repo, beings, "Cloudflare builds and publishes")
   Rel(repo, writing, "Cloudflare builds and publishes")
   Rel(repo, maps, "Cloudflare builds and publishes")
+  Rel(repo, social, "Cloudflare builds and publishes")
   Rel(repo, brand, "Cloudflare builds and publishes")
 ```
 

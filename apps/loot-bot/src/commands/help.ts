@@ -94,7 +94,17 @@ function commandLine(command: Command): string {
   return `\`/${command.definition.name}\` — ${command.definition.description}`;
 }
 
-function buildOverviewEmbed(commands: readonly Command[]): EmbedBuilder {
+/** The legal notice and the privacy policy (ADR 0439), when the deployment has set where they are. */
+export function legalField(legalUrl: string | undefined): { name: string; value: string } | null {
+  if (!legalUrl) return null;
+  const base = legalUrl.replace(/\/+$/, "");
+  return {
+    name: "Legal",
+    value: `[Legal notice (Impressum)](${base}/en/legal-notice/) · [Privacy policy](${base}/en/privacy-policy/)`,
+  };
+}
+
+function buildOverviewEmbed(commands: readonly Command[], legalUrl?: string): EmbedBuilder {
   const byName = new Map(commands.map((c) => [c.definition.name, c]));
   const grouped = new Set(HELP_GROUPS.flatMap((group) => group.commandNames));
 
@@ -123,6 +133,9 @@ function buildOverviewEmbed(commands: readonly Command[]): EmbedBuilder {
   if (ungrouped.length > 0) {
     embed.addFields({ name: "Other", value: ungrouped.map(commandLine).join("\n") });
   }
+
+  const legal = legalField(legalUrl);
+  if (legal) embed.addFields(legal);
 
   return embed;
 }
@@ -186,7 +199,10 @@ export const helpCommand: Command = {
 
     const chosenName = interaction.options.getString("command");
     if (!chosenName) {
-      await interaction.reply({ embeds: [buildOverviewEmbed(commands)], ephemeral: true });
+      await interaction.reply({
+        embeds: [buildOverviewEmbed(commands, ctx.config.legalUrl)],
+        ephemeral: true,
+      });
       return;
     }
 

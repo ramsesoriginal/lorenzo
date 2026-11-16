@@ -31,6 +31,8 @@ class CampaignCreate(BaseModel):
 
     name: str
     game_system: str
+    # ADR 0452: the library's game system this campaign plays, if it names one.
+    system_id: uuid.UUID | None = None
     slug: str
     description: str
     secret: bool = False
@@ -46,6 +48,8 @@ class CampaignUpdate(BaseModel):
 
     name: str | None = None
     game_system: str | None = None
+    # ADR 0452: set, change or clear (null) the game system the campaign plays.
+    system_id: uuid.UUID | None = None
     slug: str | None = None
     description: str | None = None
     secret: bool | None = None
@@ -74,6 +78,7 @@ class CampaignSummaryOut(BaseModel):
     slug: str
     name: str
     game_system: str
+    system_id: uuid.UUID | None
     secret: bool
     gm_title: str
     gm_title_plural: str
@@ -99,6 +104,7 @@ class CampaignOut(BaseModel):
     name: str
     description: str
     game_system: str
+    system_id: uuid.UUID | None
     secret: bool
     player_self_service: bool
     gm_title: str
