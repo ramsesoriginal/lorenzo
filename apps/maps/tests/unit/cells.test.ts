@@ -120,4 +120,33 @@ describe('a region of whole cells', () => {
     expect(toggleCell(full, [0, 1])).toHaveLength(MAX_CELLS_PER_PLACEMENT);
     expect(toggleCell(full, [0, 0])).toHaveLength(MAX_CELLS_PER_PLACEMENT - 1);
   });
+
+  it('keeps the value a cell already had when the region changes (ADR 0337)', () => {
+    const drawn = cellsGeometry(square, extent, [
+      [0, 0],
+      [1, 0],
+    ]);
+    const was: Geometry = {
+      format: drawn.format,
+      parts: [
+        { ...drawn.parts[0], value: 30, unit: 'ft' } as Geometry['parts'][number],
+        drawn.parts[1] as Geometry['parts'][number],
+      ],
+    };
+    const next = cellsGeometry(
+      square,
+      extent,
+      [
+        [0, 0],
+        [1, 0],
+        [2, 0],
+      ],
+      was,
+    );
+
+    expect(next.parts[0]).toMatchObject({ value: 30, unit: 'ft' });
+    expect(next.parts[1]).not.toHaveProperty('value');
+    expect(next.parts[2]).not.toHaveProperty('value');
+    expect(cellsOf(next, square, extent)).toHaveLength(3);
+  });
 });
