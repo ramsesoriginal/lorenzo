@@ -639,7 +639,11 @@ export function createEditor(context: EditorContext): Editor {
     const grid = gridNow();
     if (!grid) return;
     if (cells.length === 0) say('Choose at least one cell.', true);
-    else void finish(cellsGeometry(grid, context.extent, cells));
+    else {
+      // Drawing an entry's cells again keeps the value a cell already had.
+      const was = rowOf(target?.id ?? null)?.geometry as unknown as Geometry | undefined;
+      void finish(cellsGeometry(grid, context.extent, cells, was));
+    }
   };
 
   const selectTool: Tool = {
@@ -1192,10 +1196,11 @@ export function createEditor(context: EditorContext): Editor {
       }
       const at = (i: number): Pt => [values[i]?.[0] ?? 0, values[i]?.[1] ?? 0];
       let next: Editable;
-      if (shape.kind === 'point') next = { kind: 'point', at: at(0) };
+      // The shape itself is spread, so a value and its unit stay with it (ADR 0337).
+      if (shape.kind === 'point') next = { ...shape, at: at(0) };
       else if (shape.kind === 'circle')
-        next = { kind: 'circle', at: at(0), r: values[1]?.[0] ?? shape.r };
-      else next = { kind: shape.kind, pts: values.map((_, i) => at(i)) };
+        next = { ...shape, at: at(0), r: values[1]?.[0] ?? shape.r };
+      else next = { ...shape, pts: values.map((_, i) => at(i)) };
       void saveRow(row, { geometry: toGeometry(next) });
     };
     // One point is one group of its own: a legend and two short fields, so a screen reader says
@@ -1301,7 +1306,9 @@ export function createEditor(context: EditorContext): Editor {
     const box = el('div', '', 'stack-tight');
     box.append(groupTitle('h3', 'Cells'));
     const write = (next: Cell[]) =>
-      saveRow(row, { geometry: cellsGeometry(grid, context.extent, next) });
+      saveRow(row, {
+        geometry: cellsGeometry(grid, context.extent, next, row.geometry as unknown as Geometry),
+      });
     for (const cell of current) {
       const line = el('div', '', 'row-tight');
       line.append(el('span', cellWords(cell), 'grow'));

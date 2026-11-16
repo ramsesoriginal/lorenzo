@@ -277,6 +277,62 @@ test('the children of a place, the look, the legend and the settings', async ({ 
   }
 });
 
+test('editing a point keeps the height a line carries', async ({ browser }) => {
+  const w = await world();
+  const ridge = await w.place('Ridge');
+  await ok(
+    w.gm.PUT('/tenants/{tenant_id}/maps/{map_id}/placements/{entry_id}', {
+      params: { path: { ...w.path, map_id: w.chart.id, entry_id: ridge.id } },
+      body: {
+        geometry: {
+          format: 'lorenzo.geometry/1',
+          parts: [
+            {
+              shape: 'polyline',
+              pts: [
+                [200, 200],
+                [500, 260],
+                [700, 220],
+              ],
+              value: 250,
+              unit: 'm',
+            },
+          ],
+        },
+        role: 'isoline',
+        z: 0,
+      },
+    }),
+  );
+  const page = await signedIn(browser, w.subject);
+  try {
+    await page.goto(`/map/?tenant=${w.tenant.id}&id=${w.chart.id}`);
+    await expect(page.getByRole('heading', { name: 'Sword Coast', exact: true })).toBeVisible();
+    await page.getByRole('button', { name: 'Edit this map' }).click();
+    await openPanel(page, 'Places');
+    await page.locator('.map-places').getByRole('button', { name: /Ridge/ }).click();
+    await expect(page.getByRole('heading', { name: 'Change Ridge' })).toBeVisible();
+    const part = async () =>
+      geometryOf((await w.read()).find((r) => r.name === 'Ridge')).parts[0] as
+        | { pts?: number[][]; value?: number; unit?: string }
+        | undefined;
+    // A point by number, then a point taken away: the height stays with the line each time.
+    await page.getByRole('group', { name: 'Point 1' }).getByLabel('x').fill('240');
+    await page.getByRole('group', { name: 'Point 1' }).getByLabel('x').press('Tab');
+    await expect.poll(async () => (await part())?.pts?.[0]?.[0]).toBe(240);
+    expect(await part()).toMatchObject({ value: 250, unit: 'm' });
+    await page.getByRole('button', { name: 'Remove point 2' }).click();
+    await expect.poll(async () => (await part())?.pts?.length).toBe(2);
+    expect(await part()).toMatchObject({ value: 250, unit: 'm' });
+    // Undo writes back what it was, height and all.
+    await page.getByRole('button', { name: 'Undo' }).click();
+    await expect.poll(async () => (await part())?.pts?.length).toBe(3);
+    expect(await part()).toMatchObject({ value: 250, unit: 'm' });
+  } finally {
+    await page.context().close();
+  }
+});
+
 test('a refused drawing keeps the draft, and a player has no tools', async ({ browser }) => {
   const w = await world();
   await w.place('Marsh');

@@ -5,11 +5,16 @@ import type { Geometry } from '@lorenzo/map-renderer';
 
 export type Pt = readonly [number, number];
 
-export type Editable =
-  | { kind: 'point'; at: Pt }
-  | { kind: 'circle'; at: Pt; r: number }
-  | { kind: 'line'; pts: Pt[] }
-  | { kind: 'area'; pts: Pt[] };
+/** What a part may carry besides its shape (ADR 0337): a value and its unit, always together. */
+export type Valued = { value?: number; unit?: string };
+
+export type Editable = Valued &
+  (
+    | { kind: 'point'; at: Pt }
+    | { kind: 'circle'; at: Pt; r: number }
+    | { kind: 'line'; pts: Pt[] }
+    | { kind: 'area'; pts: Pt[] }
+  );
 
 export type Box = [number, number, number, number];
 
@@ -22,21 +27,32 @@ const roundPt = (p: readonly [number, number]): Pt => [round2(p[0]), round2(p[1]
 
 export const MIN_VERTICES = { line: 2, area: 3 } as const;
 
+/** The value and unit of a part or a shape, when it carries both; an edit never drops them. */
+export function valued(from: Valued): Valued {
+  return typeof from.value === 'number' && typeof from.unit === 'string'
+    ? { value: from.value, unit: from.unit }
+    : {};
+}
+
 export function toGeometry(shape: Editable): Geometry {
+  const carried = valued(shape);
   switch (shape.kind) {
     case 'point':
-      return { format: FORMAT, parts: [{ shape: 'point', at: roundPt(shape.at) }] };
+      return { format: FORMAT, parts: [{ shape: 'point', at: roundPt(shape.at), ...carried }] };
     case 'circle':
       return {
         format: FORMAT,
-        parts: [{ shape: 'circle', at: roundPt(shape.at), r: round2(shape.r) }],
+        parts: [{ shape: 'circle', at: roundPt(shape.at), r: round2(shape.r), ...carried }],
       };
     case 'line':
-      return { format: FORMAT, parts: [{ shape: 'polyline', pts: shape.pts.map(roundPt) }] };
+      return {
+        format: FORMAT,
+        parts: [{ shape: 'polyline', pts: shape.pts.map(roundPt), ...carried }],
+      };
     case 'area':
       return {
         format: FORMAT,
-        parts: [{ shape: 'polygon', rings: [shape.pts.map(roundPt)] }],
+        parts: [{ shape: 'polygon', rings: [shape.pts.map(roundPt)], ...carried }],
       };
   }
 }
@@ -52,16 +68,23 @@ export function editableOf(geometry: Geometry): Editable | null {
   if (geometry.parts.length !== 1) return null;
   const part = geometry.parts[0];
   if (!part) return null;
+  const carried = valued(part);
   switch (part.shape) {
     case 'point':
-      return isPt(part.at) ? { kind: 'point', at: [...part.at] as Pt } : null;
+      return isPt(part.at) ? { kind: 'point', at: [...part.at] as Pt, ...carried } : null;
     case 'circle':
-      return isPt(part.at) ? { kind: 'circle', at: [...part.at] as Pt, r: part.r } : null;
+      return isPt(part.at)
+        ? { kind: 'circle', at: [...part.at] as Pt, r: part.r, ...carried }
+        : null;
     case 'polyline':
-      return part.pts.every(isPt) ? { kind: 'line', pts: part.pts.map((p) => [...p] as Pt) } : null;
+      return part.pts.every(isPt)
+        ? { kind: 'line', pts: part.pts.map((p) => [...p] as Pt), ...carried }
+        : null;
     case 'polygon': {
       const ring = part.rings.length === 1 ? part.rings[0] : undefined;
-      return ring?.every(isPt) ? { kind: 'area', pts: ring.map((p) => [...p] as Pt) } : null;
+      return ring?.every(isPt)
+        ? { kind: 'area', pts: ring.map((p) => [...p] as Pt), ...carried }
+        : null;
     }
     default:
       return null;
@@ -90,7 +113,7 @@ export function moveHandle(shape: Editable, id: string, to: Pt): Editable {
   const at = roundPt(to);
   switch (shape.kind) {
     case 'point':
-      return id === 'p' ? { kind: 'point', at } : shape;
+      return id === 'p' ? { ...shape, at } : shape;
     case 'circle':
       if (id === 'c') return { ...shape, at };
       if (id === 'r')
