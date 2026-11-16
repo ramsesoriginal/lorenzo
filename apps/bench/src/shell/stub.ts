@@ -66,6 +66,7 @@ export const PANES: PaneDef[] = [
   { id: 'props', title: 'Properties', float: [324, 500] },
   { id: 'links', title: 'Links', float: [304, 380] },
   { id: 'ancestry', title: 'Ancestry', float: [420, 320] },
+  { id: 'relations', title: 'Relations', float: [440, 380] },
   { id: 'table', title: 'Table', float: [560, 320] },
   { id: 'grid', title: 'Compare', float: [760, 480] },
   { id: 'formula', title: 'Formulas', float: [420, 420] },

@@ -65,11 +65,18 @@ instead of their own bundled copy, for instant cross-app propagation of a
 branding change — see ADR 0098 for the tradeoff and why that's opt-in, not
 the default.
 
+## The web interface parts
+
+The web design ([docs/design/web](../../docs/design/web/README.md), [RFC 0050](../../docs/rfcs/0050-the-web-interface.md)) adds, to the files above: `--border-control`, the `--fs-*` type roles, `--dur-*`/`--ease` and `--space-2h` (tokens.css); `.shell-container` and `.shell-app` (container-width spacing and density), `.shell-page` widths (layout.css); the control edge on fields and buttons, `.segmented-control`, `.menu`, a dialog that is a bottom sheet on a phone, `.toast-card`, the shell's bars (`.shell-bar`, `.shell-apps`, `.shell-strip`, `.shell-status`, `.shell-tabbar`, `.shell-drawer`), `dialog.palette`, `.state-chip`, `.save-bar`, `.skeleton-row`, `.horizontal-mask`, and the graph and matrix grammar (`.standing`, `.graph-*`, `.lens-line`, `.graph-legend`, `.graph-matrix`, `.time-filter`). The preview pages Dialogs, Shell, Pages and Graph show them.
+
+- **Containers.** An app's root is a `.shell-container` with a `.shell-app` inside it; the shell's bars read that container's width (phone to 720px, desktop from 1100px, large from 1700px), so the same markup works in a pane. Dialogs, menus and toasts follow the window. A dialog closes at once by default; an app that wants the closing fade sets `data-closing`, waits for `animationend`, then calls `close()` (the Dialogs preview shows it).
+- **Class names.** `web-classes.json` lists the class names the web design added. `tests/class-clash.test.mjs` fails if another app's stylesheet defines one, and if a listed class is not defined here, so an app is never restyled without asking.
+- **Palette commands.** `palette-command.schema.json` is the shape of one command an app declares for the palette (ADR 0414); `tests/palette-command.test.mjs` checks the sample against it and against the icon atlas. How an app registers its commands at runtime is settled with the shell package.
+
 ## Local development
 
 Nothing to install. Just open `preview/index.html` in a browser.
 
-`mise run //apps/brand:lint` format-checks the CSS/HTML with Prettier; the
-`dev`/`test`/`build` tasks exist only to satisfy the CI contract every app
+`mise run //apps/brand:lint` format-checks the CSS/HTML with Prettier (CI runs the latest Prettier, so use `npx prettier@latest`); `mise run //apps/brand:test` runs two small `node --test` checks: the class-clash test (below) and the palette command contract. The browser checks of the web interface parts (Playwright against these previews: the shell at three widths, dialogs and sheets, toasts, the save bar, density, container steps, the graph grammar, contrast in both themes) live in [`packages/brand/tests/e2e`](../../packages/brand/tests/e2e) and run with `mise run //packages/brand:test-e2e`, because this directory has no `package.json` by design (ADR 0098). The `dev`/`build` tasks exist only to satisfy the CI contract every app
 under `apps/` shares (see [docs/guides/adding-an-app.md](../../docs/guides/adding-an-app.md)) —
-there's no dev server, no automated tests yet, and no build step.
+there's no dev server and no build step.

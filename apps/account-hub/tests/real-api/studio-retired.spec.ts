@@ -25,7 +25,7 @@ const notice = (page: Page) => page.locator('[data-retired]').first();
 const card = (page: Page) => page.locator('[data-retire]');
 
 async function overview(page: Page, slug: string) {
-  await page.goto(`/studio/?repository=${slug}`);
+  await page.goto(`/repositories/?repository=${slug}`);
   await expect(page.locator('[data-overview] [data-state]')).toBeVisible();
 }
 
@@ -241,7 +241,10 @@ test('a library that holds it reads it is retired, keeps its updates, and is off
 
   await held.page.goto(`/repositories/?tenant=${holderLibrary.slug}`);
 
-  const row = held.page.getByRole('listitem').filter({ hasText: repository.name });
+  const row = held.page
+    .locator('[data-list-view]')
+    .getByRole('listitem')
+    .filter({ hasText: repository.name });
 
   await expect(row).toContainText('Retired');
   await expect(row).toContainText(`Message from its Owner: ${MESSAGE}`);
@@ -278,6 +281,7 @@ test('a library that holds it reads it is retired, keeps its updates, and is off
 
   await invited.page.goto(`/repositories/?tenant=${invitee.slug}`);
   await invited.page
+    .locator('[data-list-view]')
     .getByRole('listitem')
     .filter({ hasText: repository.name })
     .getByRole('link', { name: repository.name })

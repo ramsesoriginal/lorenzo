@@ -77,6 +77,10 @@
       "release-type": "node",
       "component": "period-picker"
     },
+    "packages/time-filter": {
+      "release-type": "node",
+      "component": "time-filter"
+    },
     "packages/read-cache": {
       "release-type": "node",
       "component": "read-cache"
@@ -105,6 +109,14 @@
       "release-type": "node",
       "component": "maps"
     },
+    "apps/legal": {
+      "release-type": "node",
+      "component": "legal"
+    },
+    "apps/social": {
+      "release-type": "node",
+      "component": "social"
+    },
     "packages/map-engine": {
       "release-type": "python",
       "package-name": "lorenzo-map"
@@ -112,6 +124,10 @@
     "packages/map-renderer": {
       "release-type": "node",
       "component": "map-renderer"
+    },
+    "packages/graph-renderer": {
+      "release-type": "node",
+      "component": "graph-renderer"
     },
     "packages/entry-preview": {
       "release-type": "node",

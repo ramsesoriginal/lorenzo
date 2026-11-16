@@ -26,6 +26,8 @@ from lorenzo_api.models import (
     Entity,
     EntityPrototype,
     EntityStat,
+    Feature,
+    FeatureInstance,
     Information,
     Item,
     ItemInstance,
@@ -87,6 +89,14 @@ MATRIX: dict[tuple[str, ...], str | None] = {
     ("map", "scene"): None,
     # ADR 0363: a connection is its own kind and combines with none.
     ("connection",): None,
+    # ADR 0399: a relationship is its own kind and combines with none.
+    ("relationship",): None,
+    # ADR 0406: a SocialWeb is its own kind in this slice and combines with none.
+    ("social_web",): None,
+    # ADR 0454: a feature and what a holder has of one are each their own kind and combine with
+    # none.
+    ("feature",): None,
+    ("feature_instance",): None,
 }
 _ORDER = [
     "carrier",
@@ -108,6 +118,10 @@ _ORDER = [
     "location",
     "map",
     "connection",
+    "relationship",
+    "social_web",
+    "feature",
+    "feature_instance",
 ]
 
 MAP_SYSTEM = {"format": "lorenzo.map-system/1", "kind": "plane", "extent": [0, 0, 100, 100]}
@@ -277,6 +291,46 @@ async def _make(
         )
         assert response.status_code == 200, response.text
         return uuid.UUID(entity_id)
+    if kinds == ("social_web",):
+        response = await scene_author.post(
+            f"/tenants/{repository}/social-webs", json={"name": name, "is_public": True}
+        )
+        assert response.status_code == 201, response.text
+        entity_id = response.json()["id"]
+        response = await scene_author.put(
+            f"/tenants/{repository}/entities/{entity_id}/parents",
+            json={"parent_ids": [str(p) for p in parents]},
+        )
+        assert response.status_code == 200, response.text
+        return uuid.UUID(entity_id)
+    if kinds == ("relationship",):
+        # It ties two plain entries that every entry of the matrix shares (an end is never itself a
+        # relationship, so the parent cannot be one).
+        ends: list[uuid.UUID] = []
+        for end_name in ("Matrix tie end one", "Matrix tie end two"):
+            async with admin_session_factory() as session:
+                found = await session.scalar(
+                    select(Entity.id).where(Entity.tenant_id == repository, Entity.name == end_name)
+                )
+            if found is None:
+                made_end = await scene_author.post(
+                    f"/tenants/{repository}/entities", json={"name": end_name, "kinds": []}
+                )
+                assert made_end.status_code == 201, made_end.text
+                found = uuid.UUID(made_end.json()["id"])
+            ends.append(found)
+        response = await scene_author.post(
+            f"/tenants/{repository}/relationships",
+            json={"name": name, "is_public": True, "end_a": str(ends[0]), "end_b": str(ends[1])},
+        )
+        assert response.status_code == 201, response.text
+        entity_id = response.json()["id"]
+        response = await scene_author.put(
+            f"/tenants/{repository}/entities/{entity_id}/parents",
+            json={"parent_ids": [str(p) for p in parents]},
+        )
+        assert response.status_code == 200, response.text
+        return uuid.UUID(entity_id)
     if "map" in kinds:
         rest = tuple(k for k in kinds if k != "map")
         if rest:
@@ -430,7 +484,7 @@ async def _make(
         )
         assert response.status_code == 200, response.text
         return uuid.UUID(entity_id)
-    if set(kinds) <= {"item", "being", "fact", "event"}:
+    if set(kinds) <= {"item", "being", "fact", "event", "feature"}:
         response = await scene_author.post(
             f"/tenants/{repository}/entities",
             json={"name": name, "kinds": list(kinds), "parents": [str(p) for p in parents]},
@@ -443,6 +497,8 @@ async def _make(
         await session.flush()
         if "item_instance" in kinds:
             session.add(ItemInstance(entity_id=entity.id, tenant_id=repository))
+        if "feature_instance" in kinds:
+            session.add(FeatureInstance(entity_id=entity.id, tenant_id=repository))
         if "being" in kinds:
             session.add(Being(entity_id=entity.id, tenant_id=repository))
             await session.flush()
@@ -579,6 +635,8 @@ async def _marker_counts(tenant_id: uuid.UUID) -> dict[str, int]:
             for kind, model in (
                 ("item", Item),
                 ("item_instance", ItemInstance),
+                ("feature", Feature),
+                ("feature_instance", FeatureInstance),
                 ("being", Being),
                 ("character", Character),
             )
@@ -709,7 +767,7 @@ async def test_a_combination_of_kinds_survives_copy_update_and_purge(
         mine, theirs = await _marker_counts(scene.table), await _marker_counts(repository)
         silvered = 1 if bridge else 0
         assert mine["item"] == theirs["item"] + silvered
-        for kind in ("item_instance", "being", "character"):
+        for kind in ("item_instance", "feature", "feature_instance", "being", "character"):
             assert mine[kind] == theirs[kind], kind
         if bridge:
             # The copy the bridge attached to went with the purge, so its parent did too, and the

@@ -37,3 +37,15 @@ run = "echo 'packages/brand has nothing to format of its own - see apps/brand.'"
 [tasks.test]
 description = "No automated tests yet"
 run = "echo 'packages/brand has no automated tests yet.'"
+
+# Browser checks of the web interface parts that apps/brand holds (tests/e2e): Playwright against
+# the static previews there. Not part of `test`; CI runs it in its own `e2e (brand)` job.
+[tasks.install]
+description = "Install the browser checks' dependencies (frozen lockfile)"
+run = "pnpm install --frozen-lockfile"
+hide = true
+
+[tasks.test-e2e]
+description = "Playwright checks of the web interface parts (the shell, overlays, page parts and graph grammar)"
+depends = ["install"]
+run = "pnpm run test:e2e"

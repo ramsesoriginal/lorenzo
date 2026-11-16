@@ -44,7 +44,16 @@ from lorenzo_api.models import (
     ComputedStat,
     ComputedStatComparison,
     ComputedStatContents,
+    ComputedStatDice,
+    ComputedStatDiceValue,
+    ComputedStatExtremum,
+    ComputedStatExtremumInput,
     ComputedStatLinear,
+    ComputedStatProduct,
+    ComputedStatProductFactor,
+    ComputedStatRatio,
+    ComputedStatSelect,
+    ComputedStatSelectStep,
     ComputedStatSum,
     ComputedStatSumTerm,
     Connection,
@@ -69,7 +78,14 @@ from lorenzo_api.models import (
     EventRelationship,
     Fact,
     FactAbout,
+    Feature,
+    FeatureInstance,
+    FeaturePrerequisite,
     Frame,
+    GrantRecord,
+    GrantRule,
+    GrantRuleCondition,
+    GrantRuleOption,
     GroupMember,
     Information,
     Invite,
@@ -101,12 +117,16 @@ from lorenzo_api.models import (
     PayloadNumber,
     PayloadPicture,
     Player,
+    Relationship,
+    RelationshipThrough,
     ReleaseFanout,
     RepositoryCopy,
     RepositoryCopyLinkAttachment,
     RepositoryCopyLinkEntity,
     RepositoryCopyLinkStatDefinition,
     RepositoryCopyLinkStatGroup,
+    RepositoryCopyLinkSystem,
+    RepositoryCopyLinkTemplate,
     RepositoryProfile,
     RepositoryRelease,
     RepositoryReleaseBlob,
@@ -114,10 +134,18 @@ from lorenzo_api.models import (
     RepositoryReleasedRow,
     RepositoryShowcase,
     SceneTelling,
+    SocialWeb,
+    SocialWebEntry,
+    SocialWebType,
     StatDefinition,
     StatDefinitionEnumValue,
     StatGroup,
     StoryEvent,
+    System,
+    Template,
+    TemplateSlot,
+    TemplateSlotExclusion,
+    TemplateSlotStat,
     TenantAdminCampaignOptOut,
     TenantProfilePicture,
     WritingBiography,
@@ -152,7 +180,7 @@ from lorenzo_api.models.story_session import (
 #   none            not copied: what a repository publishes for its libraries to read, or what
 #                   belongs to a play tenant, a campaign or administration.
 Copy = Literal["rows", "link", "attachment_link", "none"]
-LinkOf = Literal["entity", "stat_group", "stat_definition"]
+LinkOf = Literal["entity", "stat_group", "stat_definition", "system", "template"]
 
 
 @dataclass(frozen=True)
@@ -190,10 +218,17 @@ def _link(model: type[Base], name: str, of: LinkOf) -> CopyableTable:
 
 # The order is the order a copy inserts its rows in: a table comes after every table it points to.
 REGISTRY: tuple[CopyableTable, ...] = (
+    _rows(Entity, "entity"),
+    # A system's root is an entry, and a stat group belongs to a system (ADR 0453): the entries come
+    # first, then the systems, the groups and stats they hold, and the templates that show them.
+    _rows(System, "system"),
     _rows(StatGroup, "stat_group"),
     _rows(StatDefinition, "stat_definition", counted_on_purge=True),
     _rows(StatDefinitionEnumValue, "stat_definition_enum_value", carried_by="stat_definition"),
-    _rows(Entity, "entity"),
+    _rows(Template, "template", counted_on_purge=True),
+    _rows(TemplateSlot, "template_slot", carried_by="template"),
+    _rows(TemplateSlotStat, "template_slot_stat", carried_by="template_slot"),
+    _rows(TemplateSlotExclusion, "template_slot_exclusion", carried_by="template_slot"),
     _rows(Fact, "fact", carried_by="entity"),
     _rows(Calendar, "calendar", carried_by="entity"),
     _rows(Clock, "clock", carried_by="entity"),
@@ -209,6 +244,15 @@ REGISTRY: tuple[CopyableTable, ...] = (
     _rows(Connection, "connection"),
     _rows(ClockRelationship, "clock_relationship", counted_on_purge=True),
     _rows(StoryEvent, "story_event", carried_by="entity"),
+    # A tie between two entries, so it comes after every entry, and after the Events that may
+    # bound it in time (ADR 0399, 0405).
+    _rows(Relationship, "relationship"),
+    # The relationships one holds through, so after every relationship (ADR 0402).
+    _rows(RelationshipThrough, "relationship_through", counted_on_purge=True),
+    # A saved view of relationships, after every entry and Event it may name (ADR 0406).
+    _rows(SocialWeb, "social_web"),
+    _rows(SocialWebEntry, "social_web_entry", counted_on_purge=True),
+    _rows(SocialWebType, "social_web_type", counted_on_purge=True),
     _rows(EventClockReading, "event_clock_reading", counted_on_purge=True),
     _rows(CalendarReckoning, "calendar_reckoning", counted_on_purge=True),
     _rows(CalendarPeriod, "calendar_period"),
@@ -220,11 +264,22 @@ REGISTRY: tuple[CopyableTable, ...] = (
     _rows(FactAbout, "fact_about", counted_on_purge=True),
     _rows(Item, "item", carried_by="entity"),
     _rows(ItemInstance, "item_instance", carried_by="entity"),
+    # A feature and what a holder has of one (ADR 0454): markers of an entry, like an item.
+    _rows(Feature, "feature", carried_by="entity"),
+    _rows(FeatureInstance, "feature_instance", carried_by="entity"),
     _rows(Being, "being", carried_by="entity"),
     _rows(EventParticipant, "event_participant", counted_on_purge=True),
     _rows(Character, "character", carried_by="entity"),
     _rows(EntitySlug, "entity_slug", carried_by="entity"),
     _rows(EntityPrototype, "entity_prototype", counted_on_purge=True),
+    # What a source entitles a holder to, and what a feature needs (ADR 0455): after the entries
+    # and stats they name.
+    _rows(GrantRule, "grant_rule", counted_on_purge=True),
+    _rows(GrantRuleCondition, "grant_rule_condition", carried_by="grant_rule"),
+    _rows(GrantRuleOption, "grant_rule_option", carried_by="grant_rule"),
+    _rows(FeaturePrerequisite, "feature_prerequisite", counted_on_purge=True),
+    # How a holder came to have a feature (ADR 0456): after the instance, the rule and the source.
+    _rows(GrantRecord, "grant_record"),
     _rows(EntityStatGroup, "entity_stat_group", counted_on_purge=True),
     _rows(EntityStat, "entity_stat", counted_on_purge=True),
     _rows(ComputedStat, "computed_stat", counted_on_purge=True),
@@ -233,6 +288,27 @@ REGISTRY: tuple[CopyableTable, ...] = (
     _rows(ComputedStatSum, "computed_stat_sum", carried_by="computed_stat"),
     _rows(ComputedStatSumTerm, "computed_stat_sum_term", carried_by="computed_stat_sum"),
     _rows(ComputedStatContents, "computed_stat_contents", carried_by="computed_stat"),
+    _rows(ComputedStatExtremum, "computed_stat_extremum", carried_by="computed_stat"),
+    _rows(
+        ComputedStatExtremumInput,
+        "computed_stat_extremum_input",
+        carried_by="computed_stat_extremum",
+    ),
+    _rows(ComputedStatProduct, "computed_stat_product", carried_by="computed_stat"),
+    _rows(
+        ComputedStatProductFactor,
+        "computed_stat_product_factor",
+        carried_by="computed_stat_product",
+    ),
+    _rows(ComputedStatRatio, "computed_stat_ratio", carried_by="computed_stat"),
+    _rows(ComputedStatDiceValue, "computed_stat_dice_value", carried_by="computed_stat"),
+    _rows(ComputedStatDice, "computed_stat_dice", carried_by="computed_stat"),
+    _rows(ComputedStatSelect, "computed_stat_select", carried_by="computed_stat"),
+    _rows(
+        ComputedStatSelectStep,
+        "computed_stat_select_step",
+        carried_by="computed_stat_select",
+    ),
     _rows(Containment, "containment", counted_on_purge=True),
     _rows(Ownership, "ownership", counted_on_purge=True),
     _rows(GroupMember, "group_member", counted_on_purge=True),
@@ -269,6 +345,8 @@ REGISTRY: tuple[CopyableTable, ...] = (
     _link(
         RepositoryCopyLinkStatDefinition, "repository_copy_link_stat_definition", "stat_definition"
     ),
+    _link(RepositoryCopyLinkSystem, "repository_copy_link_system", "system"),
+    _link(RepositoryCopyLinkTemplate, "repository_copy_link_template", "template"),
     # What a repository published (ADR 0207) and the hashes of it (ADR 0208): read by the
     # libraries it is granted to, never copied.
     CopyableTable("repository_release", RepositoryRelease, True, "none"),

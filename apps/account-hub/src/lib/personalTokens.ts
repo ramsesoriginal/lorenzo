@@ -2,6 +2,7 @@
 // the tokens a person has made. Pure and dependency-free like inviteLink.ts; the calls to apps/api
 // are in personalTokensApi.ts.
 import { ApiError } from './apiError';
+import { relativeTime } from './relativeTime';
 import type { PersonalTokenOut } from './types';
 
 // --- The code ---------------------------------------------------------------
@@ -63,6 +64,20 @@ export function suggestedTokenName(clientName: string | null | undefined): strin
   return name === '' ? 'My device' : name;
 }
 
+export const TOKEN_NAME_MAX = 80;
+
+// Why a token's name cannot be used, in words, or null when it can (ADR 0418, PT5).
+export function tokenNameProblem(name: string): string | null {
+  const trimmed = name.trim();
+
+  if (trimmed === '') return 'Give the token a name, so you can tell it from the others.';
+  if ([...trimmed].length > TOKEN_NAME_MAX) {
+    return `A name can be at most ${TOKEN_NAME_MAX} characters.`;
+  }
+
+  return null;
+}
+
 export function revokeTokenConfirmation(name: string): string {
   return `Revoke "${name}"? Whatever is using it stops working at once, and you can't undo this. You can connect it again with a new code.`;
 }
@@ -79,4 +94,74 @@ export function neverUsed(token: PersonalTokenOut): boolean {
 // A 404 on a code is the ordinary "no such request" (typed wrong, run out).
 export function isCodeNotFound(cause: unknown): boolean {
   return cause instanceof ApiError && cause.status === 404;
+}
+
+// --- What a row says ---------------------------------------------------------
+
+/** A token not used for this long is called out, since it may be forgotten (ADR 0418, PT4). */
+export const STALE_DAYS = 90;
+
+export type TokenTone = 'ok' | 'never' | 'stale' | 'expired';
+
+export type TokenDescription = {
+  /** When it was last used, in words: "Last used today", "Not used for 120 days", "Never used". */
+  used: string;
+  /** What else matters, in words: when it ends, that it ended, or what to do about a stale one. */
+  note: string;
+  tone: TokenTone;
+  /** An id in the brand's icons.svg without the `icon-` prefix, shown beside the words. */
+  icon: string;
+};
+
+/**
+ * The state of a token in words, an icon and a tone, never colour alone: tinted when it has not been
+ * used for a long time, struck through when it has ended (ADR 0418, PT4). Pure; `now` is a parameter.
+ */
+export function describeToken(token: PersonalTokenOut, now: Date): TokenDescription {
+  const day = 24 * 60 * 60 * 1000;
+  const never = neverUsed(token);
+  const usedAt = never ? null : new Date(token.last_used_at ?? '').getTime();
+  const daysSince = usedAt === null ? 0 : Math.floor((now.getTime() - usedAt) / day);
+  const expired = tokenState(token) === 'expired';
+  const stale = !never && daysSince >= STALE_DAYS;
+
+  let used: string;
+
+  if (never) used = 'Never used';
+  else if (stale) used = `Not used for ${daysSince} days`;
+  else if (now.getTime() - (usedAt ?? 0) < day) used = 'Last used today';
+  else used = `Last used ${relativeTime(token.last_used_at ?? '', now)}`;
+
+  const ends = token.expires_at ? relativeTime(token.expires_at, now) : null;
+
+  if (expired) {
+    return { used, note: `Expired ${ends ?? 'earlier'}`, tone: 'expired', icon: 'warning' };
+  }
+  if (stale) {
+    const keeps = 'It still works. Revoke it if you no longer need it.';
+
+    return {
+      used,
+      note: ends ? `Expires ${ends}. ${keeps}` : keeps,
+      tone: 'stale',
+      icon: 'kind-clock-unknown',
+    };
+  }
+  if (never) {
+    const made = `Made ${relativeTime(token.created_at, now)}`;
+
+    return {
+      used,
+      note: ends ? `${made}. Expires ${ends}` : made,
+      tone: 'never',
+      icon: 'kind-clock-unknown',
+    };
+  }
+
+  return {
+    used,
+    note: ends ? `Expires ${ends}` : 'Never expires',
+    tone: 'ok',
+    icon: 'select-item',
+  };
 }

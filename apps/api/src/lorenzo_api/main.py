@@ -46,7 +46,12 @@ from lorenzo_api.routers.entity_stats import router as entity_stats_router
 from lorenzo_api.routers.event_learning import router as event_learning_router
 from lorenzo_api.routers.event_order import router as event_order_router
 from lorenzo_api.routers.events import router as events_router
+from lorenzo_api.routers.features import entry_router as feature_entry_router
+from lorenzo_api.routers.features import router as features_router
 from lorenzo_api.routers.frames import router as frames_router
+from lorenzo_api.routers.grant_rules import prerequisites_router as prerequisites_router
+from lorenzo_api.routers.grant_rules import router as grant_rules_router
+from lorenzo_api.routers.grants import router as grants_router
 from lorenzo_api.routers.groups import router as groups_router
 from lorenzo_api.routers.information import router as information_router
 from lorenzo_api.routers.invites import router as invites_router
@@ -68,6 +73,10 @@ from lorenzo_api.routers.personal_tokens import router as personal_tokens_router
 from lorenzo_api.routers.pictures import router as pictures_router
 from lorenzo_api.routers.players import router as players_router
 from lorenzo_api.routers.public_repositories import router as public_repositories_router
+from lorenzo_api.routers.relationship_bulk import router as relationship_bulk_router
+from lorenzo_api.routers.relationship_through import router as relationship_through_router
+from lorenzo_api.routers.relationship_types import router as relationship_types_router
+from lorenzo_api.routers.relationships import router as relationships_router
 from lorenzo_api.routers.repositories import router as repositories_router
 from lorenzo_api.routers.repository_deprecation import router as repository_deprecation_router
 from lorenzo_api.routers.repository_flips import router as repository_flips_router
@@ -79,10 +88,15 @@ from lorenzo_api.routers.repository_preview import (
     visitor_router as repository_preview_visitor_router,
 )
 from lorenzo_api.routers.repository_profiles import router as repository_profiles_router
+from lorenzo_api.routers.social_webs import router as social_webs_router
 from lorenzo_api.routers.stats import router as stats_router
+from lorenzo_api.routers.systems import router as systems_router
+from lorenzo_api.routers.templates import entry_router as template_entry_router
+from lorenzo_api.routers.templates import router as templates_router
 from lorenzo_api.routers.tenant_invites import router as tenant_invites_router
 from lorenzo_api.routers.tenants import router as tenants_router
 from lorenzo_api.routers.users import router as users_router
+from lorenzo_api.routers.vocabulary_check import router as vocabulary_check_router
 from lorenzo_api.routers.writing import router as writing_router
 from lorenzo_api.routers.writing_reviews import router as writing_reviews_router
 
@@ -190,6 +204,11 @@ def create_app() -> FastAPI:
     app.include_router(locations_router)
     app.include_router(maps_router)
     app.include_router(connections_router)
+    app.include_router(relationship_bulk_router)
+    app.include_router(relationship_types_router)
+    app.include_router(relationship_through_router)
+    app.include_router(social_webs_router)
+    app.include_router(relationships_router)
     app.include_router(distance_router)
     app.include_router(frames_router)
     app.include_router(clock_relationships_router)
@@ -218,6 +237,15 @@ def create_app() -> FastAPI:
     app.include_router(item_instances_router)
     app.include_router(knowledge_router)
     app.include_router(stats_router)
+    app.include_router(systems_router)
+    app.include_router(templates_router)
+    app.include_router(vocabulary_check_router)
+    app.include_router(template_entry_router)
+    app.include_router(features_router)
+    app.include_router(prerequisites_router)
+    app.include_router(grant_rules_router)
+    app.include_router(grants_router)
+    app.include_router(feature_entry_router)
 
     Instrumentator().instrument(app).expose(app, endpoint="/metrics")
     # Stashed on app.state so tests can attach their own span processor

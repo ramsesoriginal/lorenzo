@@ -58,7 +58,7 @@ async function usingWorld() {
 }
 
 async function openTab(page: Page, repositorySlug: string, tab: string) {
-  await page.goto(`/studio/?repository=${repositorySlug}`);
+  await page.goto(`/repositories/?repository=${repositorySlug}`);
   await page.getByRole('tab', { name: tab }).click();
 }
 
@@ -129,9 +129,9 @@ test('stopping an invitation says what it does first, tells the library, and lea
   await openTab(page, repository.slug, 'Libraries using it');
   await row(page, copied.name).getByRole('button', { name: 'Stop inviting' }).click();
 
-  expect(confirmations[0]).toContain(`Stop inviting “${copied.name}”?`);
+  await expect.poll(() => confirmations[0]).toContain(`Stop inviting “${copied.name}”?`);
   expect(confirmations[0]).toContain('What it copied stays with it');
-  expect(confirmations[0].toLowerCase()).not.toContain('tenant');
+  expect(confirmations[0]?.toLowerCase()).not.toContain('tenant');
 
   // It is still listed, as one that keeps its copy.
   await expect(row(page, copied.name)).toContainText('Not invited any more');
@@ -207,11 +207,13 @@ test('Built on: what a repository copies from, with its updates waiting, and the
   );
 
   // And the repositories offered to it are Shelf's list for it.
-  await page.goto(`/studio/?repository=${bridge.slug}`);
+  await page.goto(`/repositories/?repository=${bridge.slug}`);
   await page.getByRole('tab', { name: 'Built on' }).click();
   await page.getByRole('link', { name: 'Repositories offered to this one' }).click();
   await expect(page).toHaveURL(new RegExp(`tenant=${bridge.slug}`));
-  await expect(page.getByRole('link', { name: core.name })).toBeVisible();
+  await expect(
+    page.locator('[data-list-view]').getByRole('link', { name: core.name }),
+  ).toBeVisible();
   await context.close();
 });
 

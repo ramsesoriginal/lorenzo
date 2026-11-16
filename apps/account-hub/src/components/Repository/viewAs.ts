@@ -1,6 +1,7 @@
 // "See it as a subscriber" on a repository's Overview (ADR 0261): makes, opens, resets and removes
 // the owner's Test library. The decisions are lib/subscriber.ts's; this binds them to the page.
 
+import { askFirst } from '../../lib/askFirst';
 import { describeError } from '../../lib/describeError';
 import { copyRepository, inviteLibrary, listSubscribers } from '../../lib/repositories';
 import { shelfHref } from '../../lib/shelf';
@@ -111,7 +112,7 @@ export function createViewAs(root: HTMLElement, mayCreate: boolean): ViewAs {
   reset.addEventListener('click', async () => {
     const repository = shown;
 
-    if (!repository || !window.confirm(RESET_CONFIRMATION)) return;
+    if (!repository || !(await askFirst(RESET_CONFIRMATION, { confirm: 'Reset the copy' }))) return;
 
     busy(true);
     say(status, 'Resetting…');
@@ -134,7 +135,8 @@ export function createViewAs(root: HTMLElement, mayCreate: boolean): ViewAs {
   remove.addEventListener('click', async () => {
     const repository = shown;
 
-    if (!repository || !window.confirm(REMOVE_CONFIRMATION)) return;
+    if (!repository || !(await askFirst(REMOVE_CONFIRMATION, { confirm: 'Remove the copy' })))
+      return;
 
     busy(true);
     say(status, 'Removing…');

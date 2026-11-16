@@ -219,3 +219,15 @@ test.describe('the Write layout is a focused page', () => {
     await expect(page.locator('.pane-entry .entry-extra')).toBeVisible();
   });
 });
+
+test('the Relations pane opens from the palette and says when there are none to draw', async ({
+  page,
+}) => {
+  await page.keyboard.press('Control+k');
+  await page.getByLabel('Command palette').fill('Open Relations');
+  await page.keyboard.press('Enter');
+  await expect(page.locator('.pane-relations')).toBeVisible();
+  await expect(page.locator('.pane-relations')).toContainText(
+    'This repository holds no relationships here.',
+  );
+});
