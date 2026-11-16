@@ -1400,10 +1400,8 @@ GET /tenants/{tenant_id}/repositories/{repository_id}/contributions added the ne
 GET /tenants/{tenant_id}/repositories/{repository_id}/copy-plan added the new `template` enum value to the `collisions/items/kind` response property for the response status `200`
 GET /tenants/{tenant_id}/repositories/{repository_id}/updates added the new `system` enum value to the `added/items/kind` response property for the response status `200`
 GET /tenants/{tenant_id}/repositories/{repository_id}/updates added the new `system` enum value to the `changed/items/kind` response property for the response status `200`
-GET /tenants/{tenant_id}/repositories/{repository_id}/updates added the new `system` enum value to the `deleted_locally/items/kind` response property for the response status `200`
-GET /tenants/{tenant_id}/repositories/{repository_id}/updates added the new `system` enum value to the `removed/items/kind` response property for the response status `200`
+GET /tenants/{tenant_id}/repositories/{repository_id}/updates added the new `system` enum value to the `deleted_locally/items/kind` response property for the response status `200` (shared schema: `RowRefOut`, also at `removed/items/kind`)
 GET /tenants/{tenant_id}/repositories/{repository_id}/updates added the new `template` enum value to the `added/items/collision/anyOf[subschema #1: CollisionOut]/kind` response property for the response status `200`
 GET /tenants/{tenant_id}/repositories/{repository_id}/updates added the new `template` enum value to the `added/items/kind` response property for the response status `200`
 GET /tenants/{tenant_id}/repositories/{repository_id}/updates added the new `template` enum value to the `changed/items/kind` response property for the response status `200`
-GET /tenants/{tenant_id}/repositories/{repository_id}/updates added the new `template` enum value to the `deleted_locally/items/kind` response property for the response status `200`
-GET /tenants/{tenant_id}/repositories/{repository_id}/updates added the new `template` enum value to the `removed/items/kind` response property for the response status `200`
+GET /tenants/{tenant_id}/repositories/{repository_id}/updates added the new `template` enum value to the `deleted_locally/items/kind` response property for the response status `200` (shared schema: `RowRefOut`, also at `removed/items/kind`)
