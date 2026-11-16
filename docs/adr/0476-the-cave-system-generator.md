@@ -18,6 +18,18 @@ Status: accepted, decided with the maintainer on 2026-11-16. Part of [RFC 0050](
 - **The history step** is "Drew a cave system, seed 4821: 6 caves in the whole sheet".
 - **The pure parts** are `cave.ts` and `marching-squares.ts` in `apps/maps/src/lib`; marching squares is written to be used again by the fill generator. Golden vectors are in `packages/map-engine/golden/caves.json`: the TypeScript tests reproduce each output, and the Python tests pass each through the validator.
 
+## Built
+
+As decided, with these details:
+
+- **Rock that never changes** is the edge of the field, a cell outside the region and a cell beside one, so an outline, which runs between the middles of two cells, stays inside the region.
+- **Measured** over 4,000 runs (sheets of 1000 by 800, 100 by 64, 10 by 8 and 5000 by 5000; Size 16, 32, 48, 64 and 96; 200 seeds each, the other options as first offered): no result was a shape the validator refuses. At Size 48 a result has about 300 to 600 points and two or three caves; at 96 about 1,300 to 2,200, which is over a placement's 2,000 on a large square sheet and is then refused with its sentence. A run takes under 10 milliseconds, so the preview is worked out as an option is typed.
+- **The editor's part of ADR 0475 comes with this tool:** the preview as filled areas of the overlay, Compare as a checkbox with a Divider slider in the panel, Apply (off until a result fits and an entry is chosen) and Discard, and the commands. The region is the placement selected when the tool is chosen.
+- **Options gain the `choice` type** for the role, written `ROLE water` or `ROLE none` on the command line.
+- **The renderer exports its seeded source,** which the generators draw from.
+
+Where it differs from the prototype: the prototype drags the divider on the Map itself; here it is a slider in the panel, which is the same control for pointer and keyboard. The prototype's roles ("cave") are not in the closed list, so none is chosen.
+
 ## Validation and delivery
 
 Unit tests: the golden vectors; the same seed and options twice; another seed differs; a region that is an area or a circle keeps every cave inside it; every result passes the mirrored validator across many seeds; Smallest cave and Passes do what they say; a result over a limit is refused with its sentence. Browser tests against the real API: the preview, a rolled and a typed seed, Compare, Discard writing nothing, Apply writing one placement the API accepts with its history step, undo; axe in light and dark with the preview on.
