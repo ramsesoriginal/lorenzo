@@ -18,6 +18,10 @@ from pydantic import (
 )
 
 
+class Accepted(BaseModel):
+    checkpoint_id: UUID = Field(..., title="Checkpoint Id")
+
+
 class Kind(StrEnum):
     entity = "entity"
     stat_group = "stat_group"
@@ -445,6 +449,15 @@ class CharacterSummaryOut(BaseModel):
 class CharacterUpdate(BaseModel):
     name: str | None = Field(None, title="Name")
     owner_player_id: UUID | None = Field(None, title="Owner Player Id")
+
+
+class Choices1(StrEnum):
+    local = "local"
+    upstream = "upstream"
+
+
+class Choices(BaseModel):
+    choices: dict[str, Choices1] = Field(..., min_length=1, title="Choices")
 
 
 class Kind3(StrEnum):
@@ -3084,6 +3097,33 @@ class ReviewNote(BaseModel):
     version: int = Field(..., title="Version")
 
 
+class FieldModel(StrEnum):
+    entry = "entry"
+    bundle = "bundle"
+    structure = "structure"
+
+
+class State6(StrEnum):
+    upstream = "upstream"
+    local = "local"
+    matching = "matching"
+    conflict = "conflict"
+    unknown = "unknown"
+    removed = "removed"
+
+
+class ReviewRow(BaseModel):
+    id: str = Field(..., title="Id")
+    name: str = Field(..., title="Name")
+    field: FieldModel = Field(..., title="Field")
+    baseline_known: bool = Field(..., title="Baseline Known")
+    base: dict[str, Any] | None = Field(..., title="Base")
+    local: dict[str, Any] | None = Field(..., title="Local")
+    upstream: dict[str, Any] | None = Field(..., title="Upstream")
+    state: State6 = Field(..., title="State")
+    selectable: bool | None = Field(True, title="Selectable")
+
+
 class Reviewer(BaseModel):
     user_id: UUID = Field(..., title="User Id")
     name: str = Field(..., title="Name")
@@ -3103,7 +3143,7 @@ class Kind38(StrEnum):
     stat_definition = "stat_definition"
 
 
-class State6(StrEnum):
+class State7(StrEnum):
     released = "released"
     edited = "edited"
 
@@ -3717,7 +3757,7 @@ class Week(BaseModel):
     weekday: conint(ge=0, le=99) | None = Field(0, title="Weekday")
 
 
-class State8(StrEnum):
+class State9(StrEnum):
     with_you = "with_you"
     stashed = "stashed"
     elsewhere = "elsewhere"
@@ -3725,7 +3765,7 @@ class State8(StrEnum):
 
 
 class WhereaboutsOut(BaseModel):
-    state: State8 = Field(..., title="State")
+    state: State9 = Field(..., title="State")
     place: PlaceOut | None = None
 
 
@@ -4019,6 +4059,13 @@ class ComparisonRequest(BaseModel):
         extra="forbid",
     )
     pairs: list[EventPair] = Field(..., max_length=100, min_length=1, title="Pairs")
+
+
+class CompositionReview(BaseModel):
+    version: str = Field(..., title="Version")
+    affected_entries: list[UUID] = Field(..., title="Affected Entries")
+    names: dict[str, str] = Field(..., title="Names")
+    rows: list[ReviewRow] = Field(..., title="Rows")
 
 
 class ComputedStatPreviewOut(BaseModel):
@@ -4760,7 +4807,7 @@ class RowChangeOut(BaseModel):
     local_id: UUID = Field(..., title="Local Id")
     name: str = Field(..., title="Name")
     fields: list[FieldChangeOut] = Field(..., title="Fields")
-    state: State6 | None = Field(..., title="State")
+    state: State7 | None = Field(..., title="State")
     breaking: list[BreakingNoteOut] = Field(..., title="Breaking")
 
 
@@ -4769,7 +4816,7 @@ class RowRefOut(BaseModel):
     source_id: UUID = Field(..., title="Source Id")
     local_id: UUID | None = Field(..., title="Local Id")
     name: str = Field(..., title="Name")
-    state: State6 | None = Field(..., title="State")
+    state: State7 | None = Field(..., title="State")
     breaking: list[BreakingNoteOut] = Field(..., title="Breaking")
 
 

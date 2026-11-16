@@ -62,6 +62,7 @@ from lorenzo_api.routers.manuscript_goals import router as manuscript_goals_rout
 from lorenzo_api.routers.manuscript_joins import router as manuscript_joins_router
 from lorenzo_api.routers.manuscript_moves import router as manuscript_moves_router
 from lorenzo_api.routers.manuscript_splits import router as manuscript_splits_router
+from lorenzo_api.routers.manuscript_updates import router as manuscript_updates_router
 from lorenzo_api.routers.maps import router as maps_router
 from lorenzo_api.routers.payloads import router as payloads_router
 from lorenzo_api.routers.personal_tokens import router as personal_tokens_router
@@ -181,6 +182,7 @@ def create_app() -> FastAPI:
     app.include_router(writing_router)
     app.include_router(carriers_router)
     app.include_router(manuscript_comparison_router)
+    app.include_router(manuscript_updates_router)
     app.include_router(manuscript_contents_router)
     app.include_router(manuscript_goals_router)
     app.include_router(chapter_numbering_router)

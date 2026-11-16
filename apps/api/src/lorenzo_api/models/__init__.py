@@ -83,6 +83,7 @@ __all__ = [
     "ManuscriptJoin",
     "ManuscriptRedirect",
     "ManuscriptMove",
+    "ManuscriptRepositoryUpdate",
     "ManuscriptSplit",
     "ManuscriptExtraction",
     "ManuscriptSceneExtraction",
@@ -230,6 +231,7 @@ from lorenzo_api.models.manuscript_move import (
 )
 from lorenzo_api.models.manuscript_revision import ManuscriptRevision
 from lorenzo_api.models.manuscript_split import ManuscriptSplit
+from lorenzo_api.models.manuscript_update import ManuscriptRepositoryUpdate
 from lorenzo_api.models.map import Map, MapLayer, MapPlacement
 from lorenzo_api.models.relationship import Relationship
 from lorenzo_api.models.relationship_through import RelationshipThrough

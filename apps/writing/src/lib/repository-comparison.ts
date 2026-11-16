@@ -20,7 +20,10 @@ function manuscript(value: { [key: string]: unknown } | null | undefined) {
   return pieces.join('\n\n');
 }
 
-export type ApplyRepositoryUpdate = (action: () => Promise<void>) => Promise<void>;
+export type ApplyRepositoryUpdate = (
+  action: () => Promise<void>,
+  options?: { composition: boolean },
+) => Promise<void>;
 
 export function repositoryComparison(tenant: string, id: string, apply?: ApplyRepositoryUpdate) {
   const panel = document.createElement('details');

@@ -1,5 +1,6 @@
 import { client, unwrap } from './api';
 import { outlineOf, writingAddress } from './composition';
+import { compositionReview } from './composition-review';
 import { type ApplyRepositoryUpdate, repositoryComparison } from './repository-comparison';
 import { suggestedBeings } from './suggested-beings';
 import { suggestedPeriods } from './suggested-periods';
@@ -23,7 +24,11 @@ export async function writingDetails(
   const current = await outlineOf(tenant, id);
   const status = node('p');
   status.setAttribute('role', 'status');
-  host.replaceChildren(status, repositoryComparison(tenant, id, applyRepositoryUpdate));
+  host.replaceChildren(
+    status,
+    repositoryComparison(tenant, id, applyRepositoryUpdate),
+    compositionReview(tenant, id, applyRepositoryUpdate),
+  );
   const action = (label: string, run: () => Promise<void>) => {
     const button = node('button', label);
     button.type = 'button';

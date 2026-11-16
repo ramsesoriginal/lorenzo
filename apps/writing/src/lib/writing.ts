@@ -756,7 +756,10 @@ async function manuscript(host: HTMLElement, account: string, tenant: string, en
     }
   }
 
-  async function applyRepositoryUpdate(action: () => Promise<void>) {
+  async function applyRepositoryUpdate(
+    action: () => Promise<void>,
+    options?: { composition: boolean },
+  ) {
     if (!alive || dirty || saving || blocked) {
       throw new Error('Save your draft and resolve any conflicts before accepting an update.');
     }
@@ -766,6 +769,11 @@ async function manuscript(host: HTMLElement, account: string, tenant: string, en
     try {
       await action();
       if (!alive) return;
+      if (options?.composition) {
+        blocked = true;
+        location.reload();
+        return;
+      }
       // The server may have accepted an update even if the following read fails.
       // Keep the mounted draft protected until its current versions can be read.
       blocked = true;

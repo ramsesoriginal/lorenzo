@@ -2191,3 +2191,143 @@ for (const variant of ['draft', 'placed', 'nested', 'parent']) {
     }
   });
 }
+
+test("composition updates preserve stable elements and protect another tab's draft", async ({
+  browser,
+}) => {
+  test.setTimeout(180000);
+  const { owner, api, tenant, page, context } = await world(browser);
+  try {
+    const repository = await ok(
+      owner.POST('/tenants', { body: { name: 'Collected stories', kind: 'repository' } }),
+    );
+    const chapter = await ok(
+      owner.POST('/tenants/{tenant_id}/writing/chapters', {
+        params: { path: { tenant_id: repository.id } },
+        body: { name: 'Collected passage' },
+      }),
+    );
+    const info = await ok(
+      owner.POST('/tenants/{tenant_id}/entities/{entity_id}/information', {
+        params: { path: { tenant_id: repository.id, entity_id: chapter.id } },
+        body: {
+          type: 'manuscript',
+          title: 'Writing',
+          content: 'A passage to extract.',
+          locale: 'en',
+          is_public: false,
+        },
+      }),
+    );
+    await ok(
+      owner.PUT('/tenants/{tenant_id}/subscribers/{subscriber_tenant_id}', {
+        params: { path: { tenant_id: repository.id, subscriber_tenant_id: tenant.id } },
+      }),
+    );
+    await ok(
+      owner.PUT('/tenants/{tenant_id}/published', {
+        params: { path: { tenant_id: repository.id } },
+      }),
+    );
+    await ok(
+      owner.POST('/tenants/{tenant_id}/repositories/{repository_id}/copy', {
+        params: { path: { tenant_id: tenant.id, repository_id: repository.id } },
+      }),
+    );
+    const entries = await ok(
+      api.GET('/tenants/{tenant_id}/entities', {
+        params: { path: { tenant_id: tenant.id }, query: { q: 'Collected passage' } },
+      }),
+    );
+    const local = entries.items[0].id;
+    const before = await ok(
+      api.GET('/tenants/{tenant_id}/writing/entries/{id}', {
+        params: { path: { tenant_id: tenant.id, id: local } },
+      }),
+    );
+    const originalElement = before.elements[0].id;
+    const outline = await ok(
+      owner.GET('/tenants/{tenant_id}/writing/entries/{id}', {
+        params: { path: { tenant_id: repository.id, id: chapter.id } },
+      }),
+    );
+    await ok(
+      owner.POST('/tenants/{tenant_id}/writing/entries/{id}/extractions/{operation_id}', {
+        params: {
+          path: { tenant_id: repository.id, id: chapter.id, operation_id: randomUUID() },
+          header: { 'if-match': outline.version },
+        },
+        body: {
+          chapter_id: randomUUID(),
+          name: 'Extracted passage',
+          elements: [info.payloads[0].id],
+        },
+      }),
+    );
+    await page.goto(`/?tenant=${tenant.id}&entry=${local}`);
+    const draft = page.getByRole('textbox', { name: 'Manuscript', exact: true });
+    await expect(draft).toHaveValue('A passage to extract.', { timeout: 15000 });
+    await page.route('**/payloads/*', (route) =>
+      route.request().method() === 'PATCH' ? route.abort() : route.continue(),
+    );
+    await draft.fill('An unsent local passage.');
+    await expect(page.getByRole('status', { name: 'Save status' })).toContainText(
+      'Use Save now to retry.',
+    );
+    const reviewPage = await context.newPage();
+    await reviewPage.goto(`/?tenant=${tenant.id}&entry=${local}&view=outline`);
+    await reviewPage.getByText('Composition updates', { exact: true }).click();
+    const compare = reviewPage.getByRole('button', { name: 'Review composition updates' });
+    await compare.click();
+    await expect(reviewPage.locator('.repo-review')).toContainText('Extracted passage', {
+      timeout: 15000,
+    });
+    for (const radio of await reviewPage.locator('.repo-review input[value="theirs"]').all())
+      await radio.check();
+    await reviewPage.getByRole('button', { name: 'Apply selected updates' }).click();
+    await expect(
+      reviewPage.getByText(
+        'There is unsaved writing in this composition. Save or recover it before accepting updates.',
+      ),
+    ).toBeVisible();
+    await expect(draft).toHaveValue('An unsent local passage.');
+    await page.unroute('**/payloads/*');
+    await page.getByRole('button', { name: 'Save now', exact: true }).click();
+    await expect(page.getByRole('status', { name: 'Save status' })).toHaveText('Saved');
+    await compare.click();
+    await expect(reviewPage.locator('.repo-review')).toContainText('An unsent local passage.');
+    for (const radio of await reviewPage.locator('.repo-review input[value="theirs"]').all())
+      await radio.check();
+    await reviewPage.setViewportSize({ width: 390, height: 844 });
+    expect(
+      await reviewPage.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
+    ).toBe(true);
+    expect((await new AxeBuilder({ page: reviewPage }).analyze()).violations).toEqual([]);
+    await reviewPage.screenshot({
+      path: test.info().outputPath('composition-review-phone.png'),
+      fullPage: true,
+    });
+    await reviewPage.getByRole('button', { name: 'Apply selected updates' }).click();
+    await expect(
+      reviewPage.getByRole('link', { name: 'Extracted passage', exact: true }),
+    ).toBeVisible({ timeout: 15000 });
+    const after = await ok(
+      api.GET('/tenants/{tenant_id}/writing/entries/{id}', {
+        params: { path: { tenant_id: tenant.id, id: local } },
+      }),
+    );
+    const extracted = await ok(
+      api.GET('/tenants/{tenant_id}/writing/entries/{id}', {
+        params: { path: { tenant_id: tenant.id, id: after.elements[0].id } },
+      }),
+    );
+    expect(extracted.elements[0].id).toBe(originalElement);
+    await reviewPage.goto(`/?tenant=${tenant.id}&entry=${extracted.id}`);
+    await expect(reviewPage.getByRole('textbox', { name: 'Manuscript', exact: true })).toHaveValue(
+      'A passage to extract.',
+      { timeout: 15000 },
+    );
+  } finally {
+    await context.close();
+  }
+});
