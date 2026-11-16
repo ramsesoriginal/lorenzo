@@ -135,7 +135,7 @@ export const STORAGE_KEYS: StorageEntry[] = [
     files: ['apps/inventory-web/src/lib/catalogCache.ts'],
   },
   {
-    key: 'lorenzo:<app>:theme, lorenzo:density, lorenzo:motion, bench:theme, bench:sans, lorenzo:single-keys, lorenzo:maps:look, lorenzo:maps:projection:*',
+    key: 'lorenzo:<app>:theme, lorenzo:density, lorenzo:motion, bench:theme, bench:sans, lorenzo:single-keys, lorenzo:maps:look, lorenzo:maps:projection:*, lorenzo:maps:keys',
     store: 'localStorage',
     purpose: bi(
       'Ihre Darstellungswahl (Hell/Dunkel, Dichte der Listen, Bewegung, Schrift, Tastenkürzel, Kartenansicht und Projektion einer Karte).',
@@ -146,6 +146,7 @@ export const STORAGE_KEYS: StorageEntry[] = [
       'apps/bench/src/pages/index.astro',
       'apps/bench/src/shell/appearance.ts',
       'apps/maps/src/lib/look.ts',
+      'apps/maps/src/lib/map-edit.ts',
       'apps/maps/src/lib/sphere-words.ts',
       'packages/app-shell/src/SiteHead.astro',
       'packages/app-shell/src/appearance.ts',
@@ -167,6 +168,26 @@ export const STORAGE_KEYS: StorageEntry[] = [
       'apps/bench/src/shell/shell.ts',
       'packages/app-shell/src/palette-ui.ts',
     ],
+  },
+  {
+    key: 'lorenzo:writing-timer:*',
+    store: 'sessionStorage',
+    purpose: bi(
+      'Merkt sich Dauer, Restzeit und Zustand Ihrer Schreibzeit-Uhr, getrennt nach Konto und Bibliothek.',
+      'Remembers the duration, remaining time and state of your writing timer, separately for each account and library.',
+    ),
+    lasts: bi('Bis der Tab geschlossen wird', 'Until the tab is closed'),
+    files: ['apps/writing/src/lib/writing-timer.ts'],
+  },
+  {
+    key: 'lorenzo:writing-session:*',
+    store: 'sessionStorage',
+    purpose: bi(
+      'Merkt sich Kennung, Wortziel, Netto-Wortzahl und Zustand Ihrer Schreibsitzung, getrennt nach Konto und Bibliothek. Enthält keinen Manuskripttext.',
+      'Remembers the identifier, word target, net word count and state of your writing session, separately for each account and library. Contains no manuscript text.',
+    ),
+    lasts: bi('Bis der Tab geschlossen wird', 'Until the tab is closed'),
+    files: ['apps/writing/src/lib/writing-session.ts'],
   },
   {
     key: 'lorenzo-writing-drafts',
