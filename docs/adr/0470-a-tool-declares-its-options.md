@@ -8,9 +8,9 @@ The design says a tool is a declaration that also names its options (MP6), and t
 
 ## Decision
 
-- **A tool lists its options.** An option has an id, a name in words, a type and a first value. The types are `toggle`, `number` (with a least, a most and a step), `text` (with a longest length), `choice` (a closed list) and `seed` ([ADR 0475](0475-the-generator-contract.md)). A type is built with the first tool that has one; this slice builds `toggle`.
+- **A tool lists its options.** An option has an id, a name in words, one word the command line calls it by, a type and a first value. The types are `toggle`, `number` (with a least, a most and a step), `text` (with a longest length), `choice` (a closed list) and `seed` ([ADR 0475](0475-the-generator-contract.md)). A type is built with the first tool that has one; this slice builds `toggle`.
 - **The Options tab draws them,** under the tool's name, each a named field that takes effect as it is typed, never on leaving it. A tool with no option shows none.
-- **The command line sets them:** the option's name, then the value (`SNAP OFF`, later `TENSION 0.4`, `SEED 4821`). A toggle takes `ON` and `OFF`. A value out of range is refused with the range, and a name the tool on does not have is refused with the names it has. The reading is pure (`command-line.ts`).
+- **The command line sets them:** the option's word, then the value (`SNAP OFF`, later `TENSION 0.4`, `SEED 4821`). A toggle takes `ON` and `OFF`. A value out of range is refused with the range, and a name the tool on does not have is refused with the names it has. The reading is pure (`command-line.ts`).
 - **Values live in the page's memory,** one per tool and option, and are gone when the page is left, unless the tool's own ADR says a value is remembered. An option marked shared has one value for every tool that lists it.
 - **An option may need a grid,** as a tool may: on a Map without one it is neither drawn nor accepted.
 - **The first option is *Snap to the grid*** ([ADR 0356](0356-authoring-on-a-grid.md)): shared, needing a grid, on at first, listed by Select, Pin, Circle, Line, Area and Cells. It moves from the toolbar to the Options tab and gains its command, `SNAP ON` and `SNAP OFF`. What snapping does is unchanged.
