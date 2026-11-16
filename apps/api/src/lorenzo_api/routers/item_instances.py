@@ -1712,6 +1712,10 @@ async def _set_down_pieces(
                 value_text=stat.value_text,
                 value_float=stat.value_float,
                 value_bool=stat.value_bool,
+                dice_count=stat.dice_count,
+                dice_sides=stat.dice_sides,
+                dice_drop_mode=stat.dice_drop_mode,
+                dice_drop_count=stat.dice_drop_count,
             )
             for stat in stats
         )

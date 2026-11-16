@@ -48,7 +48,7 @@ from lorenzo_api.repository_content import (
 )
 from lorenzo_api.roles import DEFINITION_ROLES, GROUP_ROLES
 
-FORMAT = 45
+FORMAT = 48
 _DEFINITION_ROLES = frozenset(DEFINITION_ROLES)
 _GROUP_ROLES = frozenset(GROUP_ROLES)
 
@@ -289,6 +289,11 @@ _STAT_VALUE = _dataclass(
         "value_text": _PLAIN,
         "value_float": _optional(_FLOAT),
         "value_bool": _PLAIN,
+        # A dice value as its parts (format 46, ADR 0462).
+        "dice_count": _PLAIN,
+        "dice_sides": _PLAIN,
+        "dice_drop_mode": _PLAIN,
+        "dice_drop_count": _PLAIN,
     },
 )
 
@@ -320,6 +325,13 @@ _FORMULA = _dataclass(
             )
         ),
         "otherwise": _optional(_SELECT_RESULT),
+        # What a `dice_value` reads of its dice stat (format 47, ADR 0463).
+        "read_as": _PLAIN,
+        # What a `dice` is built from (format 48, ADR 0464).
+        "count": _optional(_ID),
+        "count_constant": _PLAIN,
+        "sides": _optional(_ID),
+        "sides_constant": _PLAIN,
         "kind": _PLAIN,
         "source": _optional(_ID),
         "multiplier": _optional(_DECIMAL),
@@ -957,6 +969,37 @@ def _read_v44(document: Document, files: Mapping[str, bytes]) -> Content:
 
 
 def _read_v45(document: Document, files: Mapping[str, bytes]) -> Content:
+    # Before format 46 there were no dice values (ADR 0462): a stat holds none of the four parts.
+    nothing = {
+        "dice_count": None,
+        "dice_sides": None,
+        "dice_drop_mode": None,
+        "dice_drop_count": None,
+    }
+    stats = [[a, b, {**nothing, **value}] for a, b, value in document["stats"]]
+    return _read_v46({**document, "stats": stats}, files)
+
+
+def _read_v46(document: Document, files: Mapping[str, bytes]) -> Content:
+    # Before format 47 there was no `dice_value` formula (ADR 0463): none reads anything.
+    formulas = [
+        [entity, definition, {"read_as": None, **record}]
+        for entity, definition, record in document["formulas"]
+    ]
+    return _read_v47({**document, "formulas": formulas}, files)
+
+
+def _read_v47(document: Document, files: Mapping[str, bytes]) -> Content:
+    # Before format 48 there was no `dice` formula (ADR 0464): none is built from anything.
+    nothing = dict.fromkeys(("count", "count_constant", "sides", "sides_constant"))
+    formulas = [
+        [entity, definition, {**nothing, **record}]
+        for entity, definition, record in document["formulas"]
+    ]
+    return _read_v48({**document, "formulas": formulas}, files)
+
+
+def _read_v48(document: Document, files: Mapping[str, bytes]) -> Content:
     content: Content = _CONTENT.decode(document, dict(files))
     return content
 
@@ -1009,6 +1052,9 @@ READERS: dict[int, Callable[[Document, Mapping[str, bytes]], Content]] = {
     43: _read_v43,
     44: _read_v44,
     45: _read_v45,
+    46: _read_v46,
+    47: _read_v47,
+    48: _read_v48,
 }
 
 
