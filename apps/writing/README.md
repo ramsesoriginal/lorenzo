@@ -88,6 +88,27 @@ the generated list before their authored prose. Index and Glossary Chapters stay
 LorenzoScript. Reading and Book review links respect the reader's access. These lists do not
 combine headings inside separate texts, and do not generate indexes, glossaries or page numbers.
 
+**Link to an entity** ([ADR 0396](../../docs/adr/0396-reviewed-manuscript-links.md)) lets an author
+select one name in manuscript prose, find accessible entries and choose by link name. The
+label keeps the exact selected wording. Undo, autosave and saved backlinks use the ordinary
+LorenzoScript editing path.
+
+**Suggested Being references** ([ADR 0395](../../docs/adr/0395-reviewed-being-references.md))
+appear in Details when editing a Scene. Choose **Check names** to scan the current prose for
+accessible Beings. Choose a unique match to add a private Scene reference. The review flags
+names shared by several Beings and asks for a fresh scan when the draft or references change.
+
+**Writing session goals** ([ADR 0394](../../docs/adr/0394-personal-net-new-writing-session-goals.md))
+count net editing changes after Start, including unsaved work. Deletions subtract; structure
+changes, loaded revisions and other authors' versions add no credit. Progress follows this
+browser tab across entries and reload, separately for each account and library. Finish retains
+the result until you explicitly start a new session. This is drafting progress, not saved activity.
+
+**Writing timer** ([ADR 0393](../../docs/adr/0393-personal-writing-timer.md)) lives inside
+Word count in Write. Choose minutes, start, pause, resume or reset. It survives reload and
+entry navigation within this browser tab, separately for each account and library, and
+quietly shows when time has elapsed. Closing the tab ends its recovery lifetime.
+
 **Personal word targets** ([ADR 0383](../../docs/adr/0383-personal-manuscript-length-goals.md))
 are available inside Word count. Each Author keeps separate targets for direct draft prose and
 assembled reading, with live remaining-word progress. Targets belong to the account and are
