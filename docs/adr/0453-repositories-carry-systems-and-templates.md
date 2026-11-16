@@ -40,7 +40,7 @@ must not exclude another system a library already holds.
 
 **Updates.** The update engine tracks stat groups, stats and entries through copy links and snapshots (ADR 0121). A system or a
 template is not tracked: a copy joins and copies once, and a later release that changes a system, a template or a group's system
-is not offered as an update; a library that wants it copies afresh (`again`). Giving them links is a slice of its own.
+is not offered as an update; a library that wants it copies afresh (`again`). Giving them links was done later, in [ADR 0467](0467-updates-track-game-systems-and-templates.md).
 
 ## Design
 

@@ -7725,7 +7725,7 @@ export interface components {
              * Kind
              * @enum {string}
              */
-            kind: "entity" | "stat_group" | "stat_definition";
+            kind: "entity" | "stat_group" | "stat_definition" | "system" | "template";
             /**
              * Source Id
              * Format: uuid
@@ -9472,7 +9472,7 @@ export interface components {
              * Kind
              * @enum {string}
              */
-            kind: "stat_group" | "stat_definition" | "stat_role" | "slug";
+            kind: "stat_group" | "stat_definition" | "stat_role" | "slug" | "template";
             /**
              * Source Id
              * Format: uuid
@@ -9991,7 +9991,7 @@ export interface components {
              * Kind
              * @enum {string}
              */
-            kind: "entity" | "stat_group" | "stat_definition";
+            kind: "entity" | "stat_group" | "stat_definition" | "system" | "template";
             /** Local Id */
             local_id: string | null;
             /**
@@ -17160,7 +17160,7 @@ export interface components {
              * Kind
              * @enum {string}
              */
-            kind: "stat_group" | "stat_definition" | "stat_role" | "slug";
+            kind: "stat_group" | "stat_definition" | "stat_role" | "slug" | "template";
             /**
              * Source Id
              * Format: uuid
@@ -17310,7 +17310,7 @@ export interface components {
              * Kind
              * @enum {string}
              */
-            kind: "entity" | "stat_group" | "stat_definition";
+            kind: "entity" | "stat_group" | "stat_definition" | "system" | "template";
             /**
              * Source Id
              * Format: uuid
@@ -17360,7 +17360,7 @@ export interface components {
              * Kind
              * @enum {string}
              */
-            kind: "entity" | "stat_group" | "stat_definition";
+            kind: "entity" | "stat_group" | "stat_definition" | "system" | "template";
             /**
              * Source Id
              * Format: uuid
@@ -19306,7 +19306,7 @@ export interface components {
              * Kind
              * @enum {string}
              */
-            kind: "entity" | "stat_group" | "stat_definition";
+            kind: "entity" | "stat_group" | "stat_definition" | "system" | "template";
             /**
              * Source Id
              * Format: uuid
@@ -25156,7 +25156,7 @@ export interface operations {
     list_repository_contributions: {
         parameters: {
             query?: {
-                kind?: ("entity" | "stat_group" | "stat_definition") | null;
+                kind?: ("entity" | "stat_group" | "stat_definition" | "system" | "template") | null;
                 page?: number;
                 size?: number;
             };

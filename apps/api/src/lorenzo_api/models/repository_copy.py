@@ -158,3 +158,42 @@ class RepositoryCopyLinkAttachment(Base):
     child_source_id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
     parent_source_id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
     copied_at: Mapped[datetime] = mapped_column(server_default=text("now()"))
+
+
+class RepositoryCopyLinkSystem(_CopyLink, Base):
+    """As RepositoryCopyLinkStatGroup, for a game system (ADR 0467): `merged` when the library
+    already had a system of the slug and the copy joined it, which stays the library's own and is
+    never offered for update."""
+
+    __tablename__ = "repository_copy_link_system"
+    __table_args__ = (
+        Index("ix_repository_copy_link_system_source_tenant_id", "tenant_id", "source_tenant_id"),
+        same_tenant_fk(
+            "repository_copy_link_system_system_id_fkey",
+            ["system_id"],
+            "system",
+            ondelete="SET NULL",
+        ),
+        CheckConstraint("mode IN ('copied', 'merged')", name="repository_copy_link_system_mode"),
+    )
+
+    system_id: Mapped[uuid.UUID | None] = mapped_column(index=True)
+    mode: Mapped[str]
+
+
+class RepositoryCopyLinkTemplate(_CopyLink, Base):
+    """As RepositoryCopyLinkStatGroup, for a template (ADR 0467). A template is copied or left
+    out, never merged, so `mode` is always `copied`."""
+
+    __tablename__ = "repository_copy_link_template"
+    __table_args__ = (
+        Index("ix_repository_copy_link_template_source_tenant_id", "tenant_id", "source_tenant_id"),
+        same_tenant_fk(
+            "repository_copy_link_template_template_id_fkey",
+            ["template_id"],
+            "template",
+            ondelete="SET NULL",
+        ),
+    )
+
+    template_id: Mapped[uuid.UUID | None] = mapped_column(index=True)

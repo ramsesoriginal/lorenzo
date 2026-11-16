@@ -22,6 +22,8 @@ class Kind(StrEnum):
     entity = "entity"
     stat_group = "stat_group"
     stat_definition = "stat_definition"
+    system = "system"
+    template = "template"
 
 
 class State(StrEnum):
@@ -563,6 +565,7 @@ class Kind5(StrEnum):
     stat_definition = "stat_definition"
     stat_role = "stat_role"
     slug = "slug"
+    template = "template"
 
 
 class Choice(StrEnum):
@@ -851,6 +854,8 @@ class Kind8(StrEnum):
     entity = "entity"
     stat_group = "stat_group"
     stat_definition = "stat_definition"
+    system = "system"
+    template = "template"
 
 
 class Mode(StrEnum):
@@ -3367,6 +3372,7 @@ class Kind36(StrEnum):
     stat_definition = "stat_definition"
     stat_role = "stat_role"
     slug = "slug"
+    template = "template"
 
 
 class Action1(StrEnum):
@@ -3464,6 +3470,8 @@ class Kind39(StrEnum):
     entity = "entity"
     stat_group = "stat_group"
     stat_definition = "stat_definition"
+    system = "system"
+    template = "template"
 
 
 class State5(StrEnum):
@@ -3490,6 +3498,8 @@ class Kind41(StrEnum):
     entity = "entity"
     stat_group = "stat_group"
     stat_definition = "stat_definition"
+    system = "system"
+    template = "template"
 
 
 class RuleOptionOut(BaseModel):
@@ -4276,6 +4286,8 @@ class Kind49(StrEnum):
     entity = "entity"
     stat_group = "stat_group"
     stat_definition = "stat_definition"
+    system = "system"
+    template = "template"
 
 
 class Action2(StrEnum):

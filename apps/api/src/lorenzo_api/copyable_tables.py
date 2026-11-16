@@ -125,6 +125,8 @@ from lorenzo_api.models import (
     RepositoryCopyLinkEntity,
     RepositoryCopyLinkStatDefinition,
     RepositoryCopyLinkStatGroup,
+    RepositoryCopyLinkSystem,
+    RepositoryCopyLinkTemplate,
     RepositoryProfile,
     RepositoryRelease,
     RepositoryReleaseBlob,
@@ -178,7 +180,7 @@ from lorenzo_api.models.story_session import (
 #   none            not copied: what a repository publishes for its libraries to read, or what
 #                   belongs to a play tenant, a campaign or administration.
 Copy = Literal["rows", "link", "attachment_link", "none"]
-LinkOf = Literal["entity", "stat_group", "stat_definition"]
+LinkOf = Literal["entity", "stat_group", "stat_definition", "system", "template"]
 
 
 @dataclass(frozen=True)
@@ -343,6 +345,8 @@ REGISTRY: tuple[CopyableTable, ...] = (
     _link(
         RepositoryCopyLinkStatDefinition, "repository_copy_link_stat_definition", "stat_definition"
     ),
+    _link(RepositoryCopyLinkSystem, "repository_copy_link_system", "system"),
+    _link(RepositoryCopyLinkTemplate, "repository_copy_link_template", "template"),
     # What a repository published (ADR 0207) and the hashes of it (ADR 0208): read by the
     # libraries it is granted to, never copied.
     CopyableTable("repository_release", RepositoryRelease, True, "none"),

@@ -151,7 +151,7 @@ def live_rows(content: Content) -> dict[Key, Row]:
     rows: dict[Key, Row] = {}
     for group_id, group in content.groups.items():
         if content.own("stat_group", group_id):
-            snapshot = stat_group_snapshot(content, group_id)
+            snapshot = stat_group_snapshot(content, group_id, system=False)
             rows[("stat_group", group_id, None)] = Row(
                 "stat_group", group_id, None, hash_of(snapshot), group["name"]
             )
