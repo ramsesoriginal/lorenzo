@@ -405,7 +405,7 @@ export function createEditor(context: EditorContext): Editor {
   commandInput.type = 'text';
   commandInput.autocomplete = 'off';
   commandInput.spellcheck = false;
-  commandInput.placeholder = 'Type a tool or a command, HELP for the list';
+  commandInput.placeholder = 'Tool or command; HELP lists them';
   commandInput.setAttribute('aria-label', 'Command');
   const commandAnswer = el('p', '', 'status-text map-command-answer');
   commandAnswer.setAttribute('role', 'status');
@@ -1026,7 +1026,7 @@ export function createEditor(context: EditorContext): Editor {
     });
     toolbar.append(toggle);
     if (!editing) return;
-    const tools = el('div', '', 'row-tight');
+    const tools = el('div', '', 'row-tight map-tools');
     tools.setAttribute('role', 'group');
     tools.setAttribute('aria-label', 'Tool');
     // The tools of the registry (MP6), in their groups; the ones that are planned are in All tools.

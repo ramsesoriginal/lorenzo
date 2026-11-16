@@ -617,6 +617,14 @@
 
 /* The toolbox (MP4, MP6): tools in their groups, close together for a pointer that is fine; on a
    touch screen every control stays at the size it is pressed at. */
+/* The tools wrap inside the card, so none is cut off at its edge. */
+.map-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
 .map-tool-group {
   padding-inline-end: var(--space-2);
   border-inline-end: 1px solid var(--border-subtle);
@@ -672,7 +680,15 @@
 }
 
 .map-command {
+  display: flex;
   align-items: center;
+  inline-size: 100%;
+  max-inline-size: 22rem;
+}
+
+.map-command .text-input {
+  min-inline-size: 0;
+  inline-size: 100%;
 }
 .map-command-answer {
   flex-basis: 100%;
