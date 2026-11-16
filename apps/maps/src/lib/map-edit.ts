@@ -55,10 +55,15 @@ import {
   rowState,
 } from './map-api';
 import {
+  createOptionValues,
   TOOLS as DECLARED,
   GROUP_NAMES,
+  optionsOf,
+  SNAP,
   searchTools,
   type ToolDecl,
+  type ToolOption,
+  toolById,
   toolsOf,
   usable,
 } from './tools';
@@ -156,8 +161,8 @@ export function createEditor(context: EditorContext): Editor {
   let draft: Pt[] = [];
   // The cells chosen so far by the Cells tool, counted from 0.
   let cells: Cell[] = [];
-  // Snap to the grid while one is there (ADR 0356).
-  let snap = true;
+  // What the tools' options are set to (ADR 0470), Snap to the grid among them (ADR 0356).
+  const optionValues = createOptionValues();
   let rubber: Pt | null = null;
   let selectedId: string | null = null;
   // The selected shape while a handle or the shape is being dragged, drawn as an overlay.
@@ -171,9 +176,11 @@ export function createEditor(context: EditorContext): Editor {
     status.setAttribute('role', failed ? 'alert' : 'status');
   };
   const gridNow = () => context.grid();
+  /** The declaration of the tool that is on. */
+  const toolDecl = (): ToolDecl => toolById(toolName) as ToolDecl;
   const snapped = (kind: 'centre' | 'corner', p: Pt): Pt => {
     const grid = gridNow();
-    if (!snap || !grid) return p;
+    if (!grid || !optionValues.get(toolDecl(), SNAP)) return p;
     return kind === 'centre'
       ? snapCentre(grid, context.extent, p)
       : snapCorner(grid, context.extent, p);
@@ -441,7 +448,10 @@ export function createEditor(context: EditorContext): Editor {
   }
 
   async function runCommand(line: string) {
-    const command = parseCommand(line, DECLARED, here());
+    const command = parseCommand(line, DECLARED, {
+      ...here(),
+      tool: editing ? toolDecl() : undefined,
+    });
     if (!command) return;
     switch (command.kind) {
       case 'error':
@@ -449,6 +459,10 @@ export function createEditor(context: EditorContext): Editor {
         return;
       case 'help':
         answer(HELP);
+        return;
+      case 'option':
+        setOption(command.option, command.value);
+        answer(`${command.option.name} is ${command.value ? 'on' : 'off'}.`);
         return;
       case 'planned':
       case 'unavailable':
@@ -1060,14 +1074,6 @@ export function createEditor(context: EditorContext): Editor {
     redoButton.disabled = busy || !history.canRedo();
     redoButton.addEventListener('click', () => void redo());
     toolbar.append(tools);
-    if (gridNow()) {
-      const box = field('Snap to the grid', '', 'checkbox');
-      box.input.checked = snap;
-      box.input.addEventListener('change', () => {
-        snap = box.input.checked;
-      });
-      toolbar.append(box.label);
-    }
     toolbar.append(undoButton, redoButton, status);
   }
 
@@ -1411,10 +1417,36 @@ export function createEditor(context: EditorContext): Editor {
     return box;
   }
 
+  /** The options of the tool that is on, each a named field that takes effect as it is set (ADR 0470). */
+  function optionFields(): HTMLElement | null {
+    const decl = toolDecl();
+    const offered = optionsOf(decl, here());
+    if (offered.length === 0) return null;
+    const box = el('div', '', 'stack-tight map-tool-options');
+    box.setAttribute('role', 'group');
+    box.setAttribute('aria-label', `Options of ${decl.name}`);
+    for (const option of offered) {
+      const line = field(option.name, '', 'checkbox');
+      line.input.checked = optionValues.get(decl, option);
+      line.input.addEventListener('change', () => {
+        optionValues.set(decl, option, line.input.checked);
+      });
+      box.append(line.label);
+    }
+    return box;
+  }
+
+  function setOption(option: ToolOption, value: boolean) {
+    optionValues.set(toolDecl(), option, value);
+    render();
+  }
+
   function render() {
     panel.replaceChildren();
     panel.hidden = !editing;
     if (!editing) return;
+    const options = optionFields();
+    if (options) panel.append(options);
     if (toolName !== 'select') {
       panel.append(chooser());
       return;

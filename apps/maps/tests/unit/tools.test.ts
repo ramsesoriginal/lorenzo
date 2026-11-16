@@ -1,5 +1,17 @@
 import { expect, test } from 'vitest';
-import { GROUPS, searchTools, TOOLS, toolByKey, toolsOf, usable } from '../../src/lib/tools';
+import {
+  createOptionValues,
+  GROUPS,
+  optionsOf,
+  SNAP,
+  searchTools,
+  TOOLS,
+  type ToolDecl,
+  toolById,
+  toolByKey,
+  toolsOf,
+  usable,
+} from '../../src/lib/tools';
 
 test('every tool has its own key, a group and a reason when it is planned', () => {
   const keys = TOOLS.map((tool) => tool.key);
@@ -40,4 +52,34 @@ test('a planned tool is never usable, and a grid tool needs a grid and a circle 
   expect(usable(toolByKey('g') as never, { grid: true, sphere: false })).toBe(true);
   expect(usable(toolByKey('c') as never, { grid: false, sphere: true })).toBe(false);
   expect(usable(toolByKey('c') as never, plain)).toBe(true);
+});
+
+test('lists the options of a tool, and offers one that needs a grid only with a grid (ADR 0470)', () => {
+  const line = toolById('line') as ToolDecl;
+  const spline = toolById('spline') as ToolDecl;
+
+  expect(optionsOf(line, { grid: true })).toEqual([SNAP]);
+  expect(optionsOf(line, { grid: false })).toEqual([]);
+  expect(optionsOf(spline, { grid: true })).toEqual([]);
+
+  const words = TOOLS.flatMap((tool) => (tool.options ?? []).map((o) => `${tool.id} ${o.word}`));
+
+  expect(new Set(words).size).toBe(words.length);
+  for (const tool of TOOLS) {
+    for (const option of tool.options ?? []) expect(option.word).toMatch(/^[a-z]+$/);
+  }
+});
+
+test('keeps what an option is set to, one value for every tool when it is shared', () => {
+  const values = createOptionValues();
+  const line = toolById('line') as ToolDecl;
+  const area = toolById('area') as ToolDecl;
+  const own = { ...SNAP, id: 'own', shared: false };
+
+  expect(values.get(line, SNAP)).toBe(true);
+  values.set(line, SNAP, false);
+  expect(values.get(area, SNAP)).toBe(false);
+  values.set(line, own, false);
+  expect(values.get(line, own)).toBe(false);
+  expect(values.get(area, own)).toBe(true);
 });

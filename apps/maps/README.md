@@ -23,7 +23,9 @@ roads and names can be switched off, the drawing zooms and pans, and selecting a
 number field), role, line and drawing order, "place the children" of a Location drawn as an area,
 undo and redo, and *Settings* (name, sheet, the Location it shows, theme name, who sees it). A Map may be a grid of squares, rectangles or hexes (the
 hexes' orientation is always chosen), or have a grid drawn over it; a Grid switch, the cell under the
-pointer in words, *Snap to the grid* and a *Cells* tool for regions of whole cells come with it
+pointer in words, *Snap to the grid* (an option of the tools, in the Options tab and as `SNAP ON` or
+`SNAP OFF` on the command line, [ADR 0470](../../docs/adr/0470-a-tool-declares-its-options.md)) and a
+*Cells* tool for regions of whole cells come with it
 ([ADR 0354](../../docs/adr/0354-grid-systems-square-rectangular-and-hex.md) to
 [ADR 0356](../../docs/adr/0356-authoring-on-a-grid.md)). A Map may be a *sphere*, with places given by
 longitude and latitude and drawn flat, as Mercator or as a globe; a reader may choose how it is drawn
