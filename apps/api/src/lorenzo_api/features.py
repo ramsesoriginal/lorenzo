@@ -37,6 +37,7 @@ from lorenzo_api.models import (
     Ownership,
     StatDefinition,
     StatGroup,
+    Tenant,
     VEffectiveStat,
     formula_load_options,
 )
@@ -134,6 +135,31 @@ async def require_manager(
         raise FeatureManagementForbiddenError(
             detail=f"Not authorized to manage the features of {holder_id}"
         )
+
+
+async def require_awarder(
+    session: AsyncSession,
+    *,
+    tenant_id: uuid.UUID,
+    user_id: uuid.UUID,
+    holder_id: uuid.UUID,
+    kind: HolderKind,
+) -> None:
+    """An award is the holder's manager's; where the library allows it
+    (`controllers_award_features`, ADR 0465) it is also its controller's: anyone whose characters
+    or groups reach the holder (ADR 0124's rule for editing what one holds). `403` otherwise."""
+    if await manages_holder(
+        session, tenant_id=tenant_id, user_id=user_id, holder_id=holder_id, kind=kind
+    ):
+        return
+    allowed = await session.scalar(
+        select(Tenant.controllers_award_features).where(Tenant.id == tenant_id)
+    )
+    if allowed and await can_self_manage_entity(
+        session, entity_id=holder_id, user_id=user_id, tenant_id=tenant_id
+    ):
+        return
+    raise FeatureManagementForbiddenError(detail=f"Not authorized to award features to {holder_id}")
 
 
 async def may_flip(
