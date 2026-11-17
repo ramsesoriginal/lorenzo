@@ -1838,3 +1838,9 @@ class VocabularyCheckEntryRequiredError(UnprocessableProblem):
     per request (ADR 0460)."""
 
     title = "A tie is read for one entry"
+
+
+class ManuscriptExportError(UnprocessableProblem):
+    """A selected manuscript cannot form a bounded export snapshot (ADR 0478)."""
+
+    title = "This writing cannot be exported"
