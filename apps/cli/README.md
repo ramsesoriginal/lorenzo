@@ -1,6 +1,6 @@
 # apps/cli
 
-The `lorenzo` command-line tool: creates repositories and applies the starters to them, imports MPMB standard items, authors a library's stat vocabulary, reads items and beings, imports inventories and calendars, publishes and copies repositories, and makes any authenticated request for a script. The stack is recorded in [ADR 0137](../../docs/adr/0137-lorenzo-cli-app-python-client-and-auth.md); the importer began as [RFC 0025](../../docs/rfcs/0025-lorenzo-cli-mpmb-item-importer.md).
+The `lorenzo` command-line tool: sets up a library with a game system (D&D 5e and Wrath & Glory ship as starters, or write your own as one TOML document), with its stats, formulas, templates, features and grants; imports MPMB standard items, inventories and calendars; reads items and beings; publishes and copies repositories; and makes any authenticated request for a script. [A walkthrough](#a-walkthrough-a-table-that-plays-dd-5e) goes from an empty library to a character. The stack is recorded in [ADR 0137](../../docs/adr/0137-lorenzo-cli-app-python-client-and-auth.md), the game-system commands in [RFC 0057](../../docs/rfcs/0057-the-command-line-for-game-systems.md); the importer began as [RFC 0025](../../docs/rfcs/0025-lorenzo-cli-mpmb-item-importer.md).
 
 Python 3.14, installed for you by `uv`. Linux and macOS (WSL included) are supported; native Windows isn't.
 
@@ -114,6 +114,269 @@ Or pipe a token in with `--token-stdin`. A token from the stored login is used l
 | `lorenzo item show <item>`, `lorenzo item-instance show <instance>`, `lorenzo being show <being>` `--tenant <tenant> [--json]` | Reads an item, an instance or a being by id, link name or exact name: resolved stats, inheritance, containment and notes, and for a being its equipped weapons and abilities |
 | `lorenzo import calendar FILE --tenant <tenant> [--choices F] [--review-notes] [--accept-warnings] [--dry-run] [--plan-out F] [--apply-plan F] [--timeout S] [--yes] [--json]`, `lorenzo export calendar <source-key> --tenant <tenant> [-O FILE]` | Imports an authored calendar document and exports the current managed source. See [Calendar files](#calendar-files) |
 | `lorenzo api <METHOD> <path> [-d JSON] [-q K=V] [--paginate]` | One authenticated request to the API, for scripts. See [Scripting](#scripting) |
+
+## A walkthrough: a table that plays D&D 5e
+
+From an empty library to a character whose numbers the API works out, with the starters that ship with the CLI. `tests/e2e/test_walkthrough.py` runs these commands, in this order, against the real API.
+
+```bash
+lorenzo tenant create "Our table" --slug our-table --kind play
+lorenzo starter list                                       # neutral, dnd5e, wrath-and-glory
+lorenzo apply --starter neutral -t our-table --yes         # what is true of a thing in any game
+lorenzo apply --starter dnd5e -t our-table --yes           # D&D 5e as a system on top of it
+lorenzo system show dnd5e -t our-table                     # its groups, templates and campaigns
+lorenzo campaign create "Lost Mine" --slug lost-mine --system dnd5e -t our-table --yes
+```
+
+A character is an entry like any other, so it can come in a document too (`party.toml`):
+
+```toml
+format = 1
+name = "party"
+requires = ["dnd5e"]
+
+[[entry]]
+slug = "bruna"
+name = "Bruna"
+kinds = ["being"]
+parents = ["dnd5e-fighter"]
+stats = { dnd5e_strength = 16, dnd5e_dexterity = 14, dnd5e_level = 3 }
+```
+
+```bash
+lorenzo apply party.toml -t our-table --yes
+lorenzo formula preview dnd5e_armor_class --on bruna -t our-table   # 12: 10 and her Dexterity modifier
+lorenzo grants show bruna -t our-table                     # the Fighter's open choice: Fighting style
+lorenzo grants apply bruna -t our-table --pick "Fighting style=Defense" --yes
+lorenzo being show bruna -t our-table --campaign lost-mine # her sheet, through the campaign's template
+lorenzo check -t our-table                                 # what the stats get wrong without saying so
+lorenzo export dnd5e -t our-table -o my-dnd5e.toml         # the system as it is now, to change and apply again
+```
+
+Each step is in its own section below: [starters](#starters), [library documents](#game-systems-and-library-documents), [templates and campaigns](#templates-campaigns-and-beings), [features and grants](#features-and-grants), [formulas](#formulas) and [the check](#checking-a-library). To publish a system for other tables, put it in a repository instead ([Publishing a repository](#publishing-a-repository)).
+
+## Starters
+
+An import needs somewhere to put things: categories to descend from (weapon, container, martial...) and the stat definitions the values are written to. The CLI ships them as library documents, the **starters**, and nothing else seeds a library ([ADR 0491](../../docs/adr/0491-starters-replace-the-seed.md)):
+
+| Starter | Holds |
+| --- | --- |
+| `neutral` | What is true of a thing in any game: the stat groups `physical`, `sourcebook` and `tags`, the weights and flags (`own_weight`, `bundle_amount`, `is_container`, `is_magical`...), the weight formulas, and the forms and materials (weapon, armor, tool, the kinds of gear, blade, bow...) with bare slugs, with `physical-object` and `unsorted` (the placeholder for a player's own item) |
+| `dnd5e` | D&D 5e's rules as the system `dnd5e`: stats prefixed `dnd5e_` (abilities and their modifiers, level, proficiency bonus, armour class, price, damage as dice, range, the weapon properties), its categories under the root `dnd5e-system`, sheet templates, a class with a choice and the features group. Needs `neutral`; it attaches the Economic object, with a `dnd5e_price` of 0, to the neutral forms. Rules text from the SRD 5.1 (CC-BY-4.0) |
+| `wrath-and-glory` | Wrath & Glory as the system `wg`: attributes, skills, traits, dice pools, gear and a template. Numbers and names only, no rules text; the values are to be checked against the book |
+
+```bash
+lorenzo starter list                                     # what ships, with what each needs
+lorenzo starter show dnd5e > dnd5e.toml                  # read one, or start your own from it
+lorenzo plan  --starter neutral -t my-repository         # what applying it would do
+lorenzo apply --starter neutral -t my-repository --yes
+lorenzo apply --starter dnd5e   -t my-repository --yes
+```
+
+A starter is applied like any [library document](#game-systems-and-library-documents): what is there is left, what is missing is written, and a second run has nothing to do. Stat names and types can't be changed once a library has them, so read the starter before the first run against a library that matters. The MPMB importer writes to the stats and categories of `neutral` and `dnd5e`, and a library that lacks them is told to apply them first.
+
+## Game systems and library documents
+
+A game system is a row with a slug (`ds`, `wg`): the prefix of its stats, what a campaign plays, and the entry its content descends from ([ADR 0448](../../docs/adr/0448-a-game-system-as-a-row.md)).
+
+```bash
+lorenzo system create ds "Dust and Sun" -t my-library
+lorenzo system list -t my-library
+lorenzo system show ds -t my-library          # its groups, templates and campaigns
+lorenzo system edit ds -t my-library --root ds-root
+```
+
+A whole system, or the neutral vocabulary, is one TOML document ([ADR 0484](../../docs/adr/0484-the-library-document.md)): the system, its stat groups and stats (with roles, bounds and dice), entries with parents, values, tags and a description, and parents added to entries another document owns. Everything is named by name or slug, never by id, so one document applies to any library and a second apply finds what the first made.
+
+```toml
+format = 1
+name = "ds"
+requires = ["neutral"]
+
+[system]
+slug = "ds"
+name = "Dust and Sun"
+root = "ds-root"
+
+[[group]]
+name = "ds_vitals"
+system = true
+
+[[stat]]
+name = "ds_stamina"
+group = "ds_vitals"
+type = "int"
+min = 0
+max = 20
+
+[[stat]]
+name = "ds_bite"
+group = "ds_vitals"
+type = "dice"
+
+[[entry]]
+slug = "ds-root"
+name = "Dust and Sun"
+description = "Everything of Dust and Sun descends from this."
+
+[[entry]]
+slug = "ds-hunter"
+name = "Hunter"
+parents = ["ds-root"]
+stats = { ds_stamina = 12, ds_bite = "1d6" }
+```
+
+```bash
+lorenzo plan ds.toml -t my-library            # what it would do; exit 0 nothing, 2 changes, 1 refused
+lorenzo apply ds.toml -t my-library --yes     # write it, four requests at a time, in dependency order
+lorenzo export ds -t my-library -o ds.toml    # a system back as a document (export neutral for the rest)
+lorenzo schema document > lorenzo-document.schema.json   # for an editor to check the file
+```
+
+`apply` sets what the document names and leaves what it does not; it never deletes. `--prune` also removes what the document's system no longer names, shown first: its stat groups and stats, and the entries under its root that are features or that others inherit from (a leaf item imported under the root is content and stays). It is refused for a document without a `[system]`. A description is created when an entry has none; one that differs is reported, not rewritten. `lorenzo starter list|show` names and prints the documents that ship with the CLI, and `--starter NAME` on `plan` and `apply` stands for one. `lorenzo schema output COMMAND` prints the shape of a command's `--json` output.
+
+### Templates, campaigns and beings
+
+A template says what an entry of a kind, under an ancestor, is shown as: its slots, in order (stats of a group or named stats, information of a type, what it holds, its tags, its features; [ADR 0451](../../docs/adr/0451-templates-a-sheet-as-data.md)). A campaign plays a system, and its beings' sheets are read through that system's template ([ADR 0452](../../docs/adr/0452-a-campaign-names-a-system-and-the-sheet-reads-a-template.md)).
+
+```toml
+[[template]]
+name = "Datacard"
+system = true          # the document's system; a slug for another; false for none
+kind = "being"
+ancestor = "kt-operative"
+
+[[template.slot]]
+kind = "stats"
+label = "Profile"
+group = "kt_profile"   # or stats = ["kt_move", { stat = "kt_wounds", label = "W" }]
+```
+
+```bash
+lorenzo template create --from card.toml -t lib       # or replace the one of that name
+lorenzo template list -t lib --system kt
+lorenzo template matching hale -t lib                  # what an entry matches
+lorenzo template view hale Datacard -t lib             # the entry read through it
+lorenzo campaign create League --slug league --system kt -t lib
+lorenzo campaign set-system league --none -t lib
+lorenzo being create Hale --parent kt-gunner --slug hale -t lib
+lorenzo being show hale -t lib --campaign league       # the sheet as the campaign shows it
+```
+
+`item show`, `item-instance show` and `being show` take `--system SLUG` to read an entry as one system shows it.
+
+### Features and grants
+
+A feature is an entry of kind `feature`; an entry holds one when it is awarded, granted by a rule on something it inherits from or holds, or picked from a rule's choice ([ADR 0488](../../docs/adr/0488-features-and-grants-from-the-command-line.md)). In a document a feature has `prerequisites`, and a `[[grant_rule]]` sits `on` an entry with a `label`, a `mode` (`all`, or `choose` with `min` and `max`), its `options` (or an `option_category`) and its `conditions`:
+
+```toml
+[[grant_rule]]
+on = "ft-fighter"
+label = "Fighting style"
+mode = "choose"
+min = 1
+max = 1
+options = ["ft-archery", "ft-defence"]
+```
+
+```bash
+lorenzo grants show hero -t lib                                   # held, due, open choices, orphaned
+lorenzo grants apply hero -t lib                                  # a dry run first; asks each choice at a terminal
+lorenzo grants apply hero -t lib --pick "Fighting style=Archery" --yes   # a script answers with --pick
+lorenzo feature award ft-defence --to hero -t lib
+lorenzo feature deactivate ft-defence --on hero -t lib
+lorenzo feature remove ft-defence --from hero -t lib
+lorenzo grant-rule list --on ft-fighter -t lib
+lorenzo grant-rule create --from rule.toml -t lib
+```
+
+`grants apply` exits 2 when a choice is left open or nothing was applied, and a GM's `--override` passes prerequisites and counts by, said in a warning.
+
+### Checking a library
+
+`lorenzo check` is the vocabulary check of RFC 0055: what a library's stats get wrong without saying so. It reads; nothing is refused or written ([ADR 0489](../../docs/adr/0489-lorenzo-check.md)).
+
+```bash
+lorenzo check -t lib                                    # grouped by entry, with a count at the end
+lorenzo check -t lib --code unset-input --parent weapon
+lorenzo check -t lib --severity warning --json
+lorenzo check -t lib --fail-on warning                  # exit 1 on a warning, for a script or CI
+```
+
+The codes are `unset-input`, `own-value-shadows-formula` and `tie` (warnings), and `computed-outside-scale`, `above-hint` and `formula-chain-depth` (notes; `tie` needs `--entry`). Without `--fail-on` it exits 0 whatever it finds. `apply`, `import mpmb apply` and `repo copy` do not run it; they end with a line that names it.
+
+### Formulas
+
+A formula is one of the API's curated kinds with its fields, never an expression ([ADR 0486](../../docs/adr/0486-formulas-from-the-command-line.md), RFC 0016): `linear`, `comparison`, `sum`, `contents`, `min`, `max`, `product`, `ratio`, `select`, `dice_value` and `dice`. In a document it is a `[[formula]]` with `on` (the entry), `stat`, `kind` and the kind's fields, a stat named by its name (`source`, `left`, `right`, `numerator`, `denominator`, `count`, `sides`, `where`, a term's or input's `stat`, `factors`) and `round` for the rounding:
+
+```toml
+[[formula]]
+on = "tt-character"
+stat = "tt_proficiency"
+kind = "select"
+source = "tt_level"
+mode = "threshold"
+steps = [{ from = 1, result = { number = 2 } }, { from = 5, result = { number = 3 } }]
+```
+
+```bash
+lorenzo formula set tt_strength_mod --on tt-character -t lib --kind linear --source tt_strength --multiplier 0.5 --offset -5 --round floor
+lorenzo formula set tt_armour --on tt-fighter -t lib --kind min --input tt_dex_mod --input 2
+lorenzo formula set tt_proficiency --on tt-character -t lib --from proficiency.toml   # a select, with its steps
+lorenzo formula show tt_strength_mod --on tt-fighter -t lib      # its own, or the one it inherits
+lorenzo formula preview tt_damage --on tt-fighter -t lib         # the value and each input; dice as 3d6
+lorenzo formula tree tt_damage --on tt-fighter -t lib            # the chain down, and what reads it
+lorenzo formula delete tt_armour --on tt-fighter -t lib
+```
+
+The limits of a kind are checked before anything is sent (two to five inputs or factors, one to twenty terms, one to sixty-four steps, a dice count of 1 to 100 and sides of 2 to 1000), and `preview` with `--kind` or `--from` evaluates a formula before it is saved. `--warnings` on `set` asks the vocabulary check about what it wrote.
+
+## Authoring the stat vocabulary and reading entries
+
+These commands use the existing API and its permissions ([ADR 0295](../../docs/adr/0295-cli-vocabulary-sheet-settings-and-reads.md)). `--tenant` accepts a library's or repository's id or slug, and can come from `LORENZO_TENANT`. Stat and group references accept an id or an exact name, ignoring case; ambiguous names are refused with candidate ids.
+
+```bash
+lorenzo stat-group list -t my-library
+lorenzo stat-group create Vitals -t my-library --priority 10 --position 0
+lorenzo stat-group edit Vitals -t my-library --name Health --mandatory
+lorenzo stat-definition create maximum -t my-library --group Health --type int
+lorenzo stat-definition create stress -t my-library --group Health --type int --max-hint maximum --adjustable-in-play --pin
+lorenzo stat-definition edit stress -t my-library --unit points --no-pin --position 1
+lorenzo stat-definition list -t my-library --json
+```
+
+A new definition takes `--type int|float|text|bool|enum|dice`, a required `--group`, and, for an enum, repeated `--enum-value` options. Its optional display fields are `--unit` (not for dice), `--adjustable-in-play`, `--pin`, `--signed` and `--position`. Hints are `--max-hint`, `--min-hint` and `--resolved-hint`, naming another definition of the same tenant. A maximum or minimum hint must be numeric; hints are clues, not limits on values. `--min` and `--max` are bounds an int or a float holds to ([ADR 0403](../../docs/adr/0403-stat-scales.md)), and `--role` says what the API reads it for (`weight`, `price`, `armor`...; [ADR 0449](../../docs/adr/0449-roles-the-api-reads-a-stat-by-what-it-is-for.md)).
+
+A group takes `--system SLUG` to belong to a game system; every stat in it is then named `<slug>_something` (`wg_strength`), and the CLI says so before it asks ([ADR 0448](../../docs/adr/0448-a-game-system-as-a-row.md)). A role (`--role physical|economic|destroyable|damaging|tags` for a group) is held by one row of no system per library. Lists are tables with each row's system, role and bounds; `--system SLUG` keeps that system's rows and the neutral ones, `--neutral` only the neutral ones, and `stat-definition list --group G` one group's. `show` reads one row, `delete` removes one nothing uses (the API refuses otherwise).
+
+`edit` changes only the options you name. Boolean flags have negative forms (`--no-pin`, `--no-signed`, `--no-adjustable-in-play`, and a group's `--no-mandatory`). Use `--clear-unit`, `--clear-max-hint`, `--clear-min-hint`, `--clear-resolved-hint`, `--clear-role`, `--clear-min` or `--clear-max` to clear a nullable field, and a group's `--no-system` to make it neutral; setting and clearing it together is refused. A definition's name, type and group cannot be edited by the API. Groups can edit their name, priority, mandatory flag, position, system and role. Priority decides inheritance ties; position decides display order. Vocabulary writes require the API's administrator permissions.
+
+### Sheet settings and reading entries
+
+The library's being stat group, weapon stat group and ability information type use one command. With no setting options it reads them; with options it changes only those named. The ability type is free text, not a separately created vocabulary row.
+
+```bash
+lorenzo tenant sheet-settings my-library
+lorenzo tenant sheet-settings my-library --being-stat-group Vitals
+lorenzo tenant sheet-settings my-library --weapon-stat-group Weapons --ability-information-type ability
+lorenzo tenant sheet-settings my-library --clear-weapon-stat-group --clear-ability-information-type
+```
+
+The being stat group is an optional tenant selection ([ADR 0296](../../docs/adr/0296-being-stat-group.md)); `--clear-being-stat-group` unsets it, and omitted options preserve it. The API accepts and validates a campaign on the sheet read but does not override this setting. Beings uses the setting to choose the stats its sheet shows ([ADR 0297](../../docs/adr/0297-beings-stat-selection.md)).
+
+Read an item, an instance or a being by id, link name or exact name/title:
+
+```bash
+lorenzo item show sword -t my-library
+lorenzo item-instance show <instance-id> -t my-library
+lorenzo being show 'Ashfang' -t my-library
+```
+
+The terminal shows resolved stats in vocabulary order with units, hints and where they came from, inheritance, containment and the notes you can read, with their authors. Items include inherited descriptions; instances also show their owner and binding. A being adds its equipped weapons and abilities from the library's settings. The API decides what you may see. `--json` on any new command prints one unrendered document; a `show` document has `entry` and `item`, `item_instance` or `sheet`.
+
+Descriptions and notes are drawn as LorenzoScript, using the same parser as the web apps. Headings, emphasis, nested lists, quotes, tables, code, tasks, footnotes, dates, entity links and `{stat-name}` work in the terminal. Links resolve as your signed-in account, including `my/` in the entry's context; unresolved references stay readable as text. Pictures use their alternate text without downloading media, math is shown as its source, world-calendar dates stay as written, and CSS classes have no terminal appearance. Code stays literal. Authored terminal control characters are stripped. There is no terminal play editor.
+
+The parser is bundled in the wheel, so installing and running the CLI does not require Node. After changing `packages/lorenzoscript/src`, regenerate it with `mise run //apps/cli:bundle-lorenzoscript` (the repository's JavaScript dependencies must be installed). A source-digest test catches a stale bundle, and CI tracks the CLI's dependency on LorenzoScript.
 
 ## Importing MPMB items
 
@@ -298,280 +561,6 @@ A table that takes the rules first gets the prototypes and lets each attachment 
 
 For a table's own use, or for trying things, one library can hold both starters: `apply --starter neutral`, `apply --starter dnd5e`, then `import mpmb apply` without `--part` writes each item with both halves on it.
 
-## Scripting
-
-- **Writing.** Every command that writes shows what it will do, then asks once at a terminal; `--yes` skips the question, and `--dry-run`, where a command has it, never writes. With no terminal and no `--yes` it writes nothing and exits 2 ([ADR 0482](../../docs/adr/0482-one-write-contract-for-every-cli-command.md)). `lorenzo api` asks too, for anything but `GET`.
-- **Exit codes.** 0 is done or nothing to do, 2 is something to do or to decide that was not done, and 1 is refused or failed. Each command's `--help` says what 0 and 2 mean for it.
-- **`--json`** (on every command that prints a result) prints exactly one JSON object on stdout, with `"format": 1` beside what it reports; a list is under a key (`{"format": 1, "tenants": [...]}`). A failure under `--json` is one object too, `{"format": 1, "error": {"status", "code", "message", "details"}}`, with exit 1. It never asks a question, so a command that writes needs `--yes` with it. A file a command writes (a calendar, a ledger) and `lorenzo api`'s answer keep their own shape ([ADR 0481](../../docs/adr/0481-the-clis-output-and-machine-contract.md)).
-- **Feedback.** Whatever is for a person goes to stderr: notices, warnings (`⚠`), errors (`✗`), questions, and progress: a spinner while the API takes a moment, a bar with a count for a batch. Nothing animates when stderr is not a terminal, with `NO_COLOR`, with `--json`, or with `--no-progress` before the command (a wait is then one plain line); `--quiet` before the command drops notices and progress and keeps the result, warnings and errors.
-- **`lorenzo api`** is for everything else, with the login you already have, so no token is pasted into a shell:
-
-```bash
-lorenzo api GET /tenants --paginate | jq '.[].slug'
-lorenzo api POST /tenants -d '{"name": "Table One", "kind": "play"}'
-lorenzo api PATCH "/tenants/$T/items/$I" -d @rename.json --if-match '"etag-from-an-earlier-read"'
-```
-
-It takes a path, never a full address, so the token only goes to the API you named. The body goes to stdout (indented; `--raw` leaves it as it came, `--include` adds the status line and headers, where an `ETag` shows). The exit code is 0 for a 2xx answer and 1 for anything else, and a refusal is still printed as the API sent it, with its status on stderr ([ADR 0161](../../docs/adr/0161-lorenzo-api-passthrough.md)).
-
-## Starters
-
-An import needs somewhere to put things: categories to descend from (weapon, container, martial...) and the stat definitions the values are written to. The CLI ships them as library documents, the **starters**, and nothing else seeds a library ([ADR 0491](../../docs/adr/0491-starters-replace-the-seed.md)):
-
-| Starter | Holds |
-| --- | --- |
-| `neutral` | What is true of a thing in any game: the stat groups `physical`, `sourcebook` and `tags`, the weights and flags (`own_weight`, `bundle_amount`, `is_container`, `is_magical`...), the weight formulas, and the forms and materials (weapon, armor, tool, the kinds of gear, blade, bow...) with bare slugs, with `physical-object` and `unsorted` (the placeholder for a player's own item) |
-| `dnd5e` | D&D 5e's rules as the system `dnd5e`: stats prefixed `dnd5e_` (abilities and their modifiers, level, proficiency bonus, armour class, price, damage as dice, range, the weapon properties), its categories under the root `dnd5e-system`, sheet templates, a class with a choice and the features group. Needs `neutral`; it attaches the Economic object, with a `dnd5e_price` of 0, to the neutral forms. Rules text from the SRD 5.1 (CC-BY-4.0) |
-| `wrath-and-glory` | Wrath & Glory as the system `wg`: attributes, skills, traits, dice pools, gear and a template. Numbers and names only, no rules text; the values are to be checked against the book |
-
-```bash
-lorenzo starter list                                     # what ships, with what each needs
-lorenzo starter show dnd5e > dnd5e.toml                  # read one, or start your own from it
-lorenzo plan  --starter neutral -t my-repository         # what applying it would do
-lorenzo apply --starter neutral -t my-repository --yes
-lorenzo apply --starter dnd5e   -t my-repository --yes
-```
-
-A starter is applied like any [library document](#game-systems-and-library-documents): what is there is left, what is missing is written, and a second run has nothing to do. Stat names and types can't be changed once a library has them, so read the starter before the first run against a library that matters. The MPMB importer writes to the stats and categories of `neutral` and `dnd5e`, and a library that lacks them is told to apply them first.
-
-## Reading MPMB files
-
-MPMB's additional-content files are executable JavaScript, so they are evaluated, not parsed ([ADR 0138](../../docs/adr/0138-lorenzo-cli-js-host.md)). `lorenzo_cli.evalworker` runs an embedded V8 (`mini-racer`) in a subprocess that is given no credentials and is killed on a timeout, and returns plain JSON in which a `RegExp` is `{"$re": [source, flags]}` and a function is `{"$fn": text}` (never called).
-
-Homebrew is written against lists that already hold the sheet's SRD data, and some files patch it, so pass the sheet's own files first as `--base`:
-
-```bash
-git clone https://github.com/morepurplemorebetter/MPMBs-Character-Record-Sheet /tmp/mpmb
-uv run lorenzo import mpmb inspect \
-  --base /tmp/mpmb/_variables/ListsSources.js --base /tmp/mpmb/_variables/Lists.js \
-  --base /tmp/mpmb/_variables/ListsGear.js my-homebrew.js
-```
-
-Leave `my-homebrew.js` out to see only what the sheet ships, as `plan` and `apply` also allow.
-
-The sheet's data is GPL-3.0 and is not shipped with Lorenzo. `tests/corpus/` holds the golden fixtures every engine must reproduce; `LORENZO_UPSTREAM_CORPUS=/tmp/mpmb uv run pytest tests/test_evalworker_upstream.py` runs the worker against the real thing.
-
-## The API client
-
-`src/lorenzo_cli/client/models.py` is generated from `apps/api`'s OpenAPI document and committed. After changing `apps/api`'s routes or schemas:
-
-```bash
-mise run //apps/cli:generate-schema
-```
-
-CI's `client-drift` job runs `check-schema`, which fails on any difference. `src/lorenzo_cli/client/ops.py` lists the operations the CLI calls; a test checks each against the dumped schema.
-
-## The Authgear client
-
-`login` uses the authorization code flow with PKCE against a public Authgear client (a Single Page Application, no secret) on a fixed loopback port: 8766, with 8767 and 8768 as fallbacks. The official one is registered and built in as the default ([deployment-setup](../../docs/operations/deployment-setup.md#appsclis-own-authgear-application-adr-0137-0157)); for another Authgear project, register a client the same way and give its issuer and client id to `login` once. Tokens through `LORENZO_TOKEN` or `--token-stdin` work regardless.
-
-Environment: `LORENZO_API_URL` (the API base URL), `LORENZO_TOKEN`, `LORENZO_TENANT`, `LORENZO_AUTHGEAR_ISSUER`, `LORENZO_AUTHGEAR_CLIENT_ID`.
-
-## Tests
-
-`mise run test` runs the unit tests, with coverage. `mise run test-e2e` runs `tests/e2e/`, which starts the real `apps/api` on a fresh database behind a fake Authgear and runs the CLI against it; it takes minutes, needs Postgres (`docker compose -f infra/docker-compose.yml up -d`, or CI's service), and skips without it. It runs on `E2E_WORKERS` parallel workers, four by default and `E2E_WORKERS=0` for one process (a single test, a debugger), each with its own API process and a database of its own, cloned from a migrated template and dropped at the end, so the Postgres user needs to be able to create databases, as the compose one can. The tests of what the importer does start from a copy of one repository holding the `neutral` and `dnd5e` starters that the run builds once per worker; the tests of the starters apply them. `LORENZO_REQUIRE_E2E=1` makes a missing stack a failure instead, as CI does, and `TEST_SHARD=2/3` runs one third of the test files (CI splits them over three runners, ADR 0148). `mise run check` does not include `test-e2e`, like inventory-web's.
-
-## Authoring the stat vocabulary and reading entries
-
-These commands use the existing API and its permissions ([ADR 0295](../../docs/adr/0295-cli-vocabulary-sheet-settings-and-reads.md)). `--tenant` accepts a library's or repository's id or slug, and can come from `LORENZO_TENANT`. Stat and group references accept an id or an exact name, ignoring case; ambiguous names are refused with candidate ids.
-
-```bash
-lorenzo stat-group list -t my-library
-lorenzo stat-group create Vitals -t my-library --priority 10 --position 0
-lorenzo stat-group edit Vitals -t my-library --name Health --mandatory
-lorenzo stat-definition create maximum -t my-library --group Health --type int
-lorenzo stat-definition create stress -t my-library --group Health --type int --max-hint maximum --adjustable-in-play --pin
-lorenzo stat-definition edit stress -t my-library --unit points --no-pin --position 1
-lorenzo stat-definition list -t my-library --json
-```
-
-A new definition takes `--type int|float|text|bool|enum|dice`, a required `--group`, and, for an enum, repeated `--enum-value` options. Its optional display fields are `--unit` (not for dice), `--adjustable-in-play`, `--pin`, `--signed` and `--position`. Hints are `--max-hint`, `--min-hint` and `--resolved-hint`, naming another definition of the same tenant. A maximum or minimum hint must be numeric; hints are clues, not limits on values. `--min` and `--max` are bounds an int or a float holds to ([ADR 0403](../../docs/adr/0403-stat-scales.md)), and `--role` says what the API reads it for (`weight`, `price`, `armor`...; [ADR 0449](../../docs/adr/0449-roles-the-api-reads-a-stat-by-what-it-is-for.md)).
-
-A group takes `--system SLUG` to belong to a game system; every stat in it is then named `<slug>_something` (`wg_strength`), and the CLI says so before it asks ([ADR 0448](../../docs/adr/0448-a-game-system-as-a-row.md)). A role (`--role physical|economic|destroyable|damaging|tags` for a group) is held by one row of no system per library. Lists are tables with each row's system, role and bounds; `--system SLUG` keeps that system's rows and the neutral ones, `--neutral` only the neutral ones, and `stat-definition list --group G` one group's. `show` reads one row, `delete` removes one nothing uses (the API refuses otherwise).
-
-`edit` changes only the options you name. Boolean flags have negative forms (`--no-pin`, `--no-signed`, `--no-adjustable-in-play`, and a group's `--no-mandatory`). Use `--clear-unit`, `--clear-max-hint`, `--clear-min-hint`, `--clear-resolved-hint`, `--clear-role`, `--clear-min` or `--clear-max` to clear a nullable field, and a group's `--no-system` to make it neutral; setting and clearing it together is refused. A definition's name, type and group cannot be edited by the API. Groups can edit their name, priority, mandatory flag, position, system and role. Priority decides inheritance ties; position decides display order. Vocabulary writes require the API's administrator permissions.
-
-## Game systems and library documents
-
-A game system is a row with a slug (`ds`, `wg`): the prefix of its stats, what a campaign plays, and the entry its content descends from ([ADR 0448](../../docs/adr/0448-a-game-system-as-a-row.md)).
-
-```bash
-lorenzo system create ds "Dust and Sun" -t my-library
-lorenzo system list -t my-library
-lorenzo system show ds -t my-library          # its groups, templates and campaigns
-lorenzo system edit ds -t my-library --root ds-root
-```
-
-A whole system, or the neutral vocabulary, is one TOML document ([ADR 0484](../../docs/adr/0484-the-library-document.md)): the system, its stat groups and stats (with roles, bounds and dice), entries with parents, values, tags and a description, and parents added to entries another document owns. Everything is named by name or slug, never by id, so one document applies to any library and a second apply finds what the first made.
-
-```toml
-format = 1
-name = "ds"
-requires = ["neutral"]
-
-[system]
-slug = "ds"
-name = "Dust and Sun"
-root = "ds-root"
-
-[[group]]
-name = "ds_vitals"
-system = true
-
-[[stat]]
-name = "ds_stamina"
-group = "ds_vitals"
-type = "int"
-min = 0
-max = 20
-
-[[stat]]
-name = "ds_bite"
-group = "ds_vitals"
-type = "dice"
-
-[[entry]]
-slug = "ds-root"
-name = "Dust and Sun"
-description = "Everything of Dust and Sun descends from this."
-
-[[entry]]
-slug = "ds-hunter"
-name = "Hunter"
-parents = ["ds-root"]
-stats = { ds_stamina = 12, ds_bite = "1d6" }
-```
-
-```bash
-lorenzo plan ds.toml -t my-library            # what it would do; exit 0 nothing, 2 changes, 1 refused
-lorenzo apply ds.toml -t my-library --yes     # write it, four requests at a time, in dependency order
-lorenzo export ds -t my-library -o ds.toml    # a system back as a document (export neutral for the rest)
-lorenzo schema document > lorenzo-document.schema.json   # for an editor to check the file
-```
-
-`apply` sets what the document names and leaves what it does not; it never deletes. `--prune` also removes what the document's system no longer names, shown first: its stat groups and stats, and the entries under its root that are features or that others inherit from (a leaf item imported under the root is content and stays). It is refused for a document without a `[system]`. A description is created when an entry has none; one that differs is reported, not rewritten. `lorenzo starter list|show` names and prints the documents that ship with the CLI, and `--starter NAME` on `plan` and `apply` stands for one. `lorenzo schema output COMMAND` prints the shape of a command's `--json` output.
-
-### Templates, campaigns and beings
-
-A template says what an entry of a kind, under an ancestor, is shown as: its slots, in order (stats of a group or named stats, information of a type, what it holds, its tags, its features; [ADR 0451](../../docs/adr/0451-templates-a-sheet-as-data.md)). A campaign plays a system, and its beings' sheets are read through that system's template ([ADR 0452](../../docs/adr/0452-a-campaign-names-a-system-and-the-sheet-reads-a-template.md)).
-
-```toml
-[[template]]
-name = "Datacard"
-system = true          # the document's system; a slug for another; false for none
-kind = "being"
-ancestor = "kt-operative"
-
-[[template.slot]]
-kind = "stats"
-label = "Profile"
-group = "kt_profile"   # or stats = ["kt_move", { stat = "kt_wounds", label = "W" }]
-```
-
-```bash
-lorenzo template create --from card.toml -t lib       # or replace the one of that name
-lorenzo template list -t lib --system kt
-lorenzo template matching hale -t lib                  # what an entry matches
-lorenzo template view hale Datacard -t lib             # the entry read through it
-lorenzo campaign create League --slug league --system kt -t lib
-lorenzo campaign set-system league --none -t lib
-lorenzo being create Hale --parent kt-gunner --slug hale -t lib
-lorenzo being show hale -t lib --campaign league       # the sheet as the campaign shows it
-```
-
-`item show`, `item-instance show` and `being show` take `--system SLUG` to read an entry as one system shows it.
-
-### Features and grants
-
-A feature is an entry of kind `feature`; an entry holds one when it is awarded, granted by a rule on something it inherits from or holds, or picked from a rule's choice ([ADR 0488](../../docs/adr/0488-features-and-grants-from-the-command-line.md)). In a document a feature has `prerequisites`, and a `[[grant_rule]]` sits `on` an entry with a `label`, a `mode` (`all`, or `choose` with `min` and `max`), its `options` (or an `option_category`) and its `conditions`:
-
-```toml
-[[grant_rule]]
-on = "ft-fighter"
-label = "Fighting style"
-mode = "choose"
-min = 1
-max = 1
-options = ["ft-archery", "ft-defence"]
-```
-
-```bash
-lorenzo grants show hero -t lib                                   # held, due, open choices, orphaned
-lorenzo grants apply hero -t lib                                  # a dry run first; asks each choice at a terminal
-lorenzo grants apply hero -t lib --pick "Fighting style=Archery" --yes   # a script answers with --pick
-lorenzo feature award ft-defence --to hero -t lib
-lorenzo feature deactivate ft-defence --on hero -t lib
-lorenzo feature remove ft-defence --from hero -t lib
-lorenzo grant-rule list --on ft-fighter -t lib
-lorenzo grant-rule create --from rule.toml -t lib
-```
-
-`grants apply` exits 2 when a choice is left open or nothing was applied, and a GM's `--override` passes prerequisites and counts by, said in a warning.
-
-### Checking a library
-
-`lorenzo check` is the vocabulary check of RFC 0055: what a library's stats get wrong without saying so. It reads; nothing is refused or written ([ADR 0489](../../docs/adr/0489-lorenzo-check.md)).
-
-```bash
-lorenzo check -t lib                                    # grouped by entry, with a count at the end
-lorenzo check -t lib --code unset-input --parent weapon
-lorenzo check -t lib --severity warning --json
-lorenzo check -t lib --fail-on warning                  # exit 1 on a warning, for a script or CI
-```
-
-The codes are `unset-input`, `own-value-shadows-formula` and `tie` (warnings), and `computed-outside-scale`, `above-hint` and `formula-chain-depth` (notes; `tie` needs `--entry`). Without `--fail-on` it exits 0 whatever it finds. `apply`, `import mpmb apply` and `repo copy` do not run it; they end with a line that names it.
-
-### Formulas
-
-A formula is one of the API's curated kinds with its fields, never an expression ([ADR 0486](../../docs/adr/0486-formulas-from-the-command-line.md), RFC 0016): `linear`, `comparison`, `sum`, `contents`, `min`, `max`, `product`, `ratio`, `select`, `dice_value` and `dice`. In a document it is a `[[formula]]` with `on` (the entry), `stat`, `kind` and the kind's fields, a stat named by its name (`source`, `left`, `right`, `numerator`, `denominator`, `count`, `sides`, `where`, a term's or input's `stat`, `factors`) and `round` for the rounding:
-
-```toml
-[[formula]]
-on = "tt-character"
-stat = "tt_proficiency"
-kind = "select"
-source = "tt_level"
-mode = "threshold"
-steps = [{ from = 1, result = { number = 2 } }, { from = 5, result = { number = 3 } }]
-```
-
-```bash
-lorenzo formula set tt_strength_mod --on tt-character -t lib --kind linear --source tt_strength --multiplier 0.5 --offset -5 --round floor
-lorenzo formula set tt_armour --on tt-fighter -t lib --kind min --input tt_dex_mod --input 2
-lorenzo formula set tt_proficiency --on tt-character -t lib --from proficiency.toml   # a select, with its steps
-lorenzo formula show tt_strength_mod --on tt-fighter -t lib      # its own, or the one it inherits
-lorenzo formula preview tt_damage --on tt-fighter -t lib         # the value and each input; dice as 3d6
-lorenzo formula tree tt_damage --on tt-fighter -t lib            # the chain down, and what reads it
-lorenzo formula delete tt_armour --on tt-fighter -t lib
-```
-
-The limits of a kind are checked before anything is sent (two to five inputs or factors, one to twenty terms, one to sixty-four steps, a dice count of 1 to 100 and sides of 2 to 1000), and `preview` with `--kind` or `--from` evaluates a formula before it is saved. `--warnings` on `set` asks the vocabulary check about what it wrote.
-
-The library's being stat group, weapon stat group and ability information type use one command. With no setting options it reads them; with options it changes only those named. The ability type is free text, not a separately created vocabulary row.
-
-```bash
-lorenzo tenant sheet-settings my-library
-lorenzo tenant sheet-settings my-library --being-stat-group Vitals
-lorenzo tenant sheet-settings my-library --weapon-stat-group Weapons --ability-information-type ability
-lorenzo tenant sheet-settings my-library --clear-weapon-stat-group --clear-ability-information-type
-```
-
-The being stat group is an optional tenant selection ([ADR 0296](../../docs/adr/0296-being-stat-group.md)); `--clear-being-stat-group` unsets it, and omitted options preserve it. The API accepts and validates a campaign on the sheet read but does not override this setting. Beings uses the setting to choose the stats its sheet shows ([ADR 0297](../../docs/adr/0297-beings-stat-selection.md)).
-
-Read an item, an instance or a being by id, link name or exact name/title:
-
-```bash
-lorenzo item show sword -t my-library
-lorenzo item-instance show <instance-id> -t my-library
-lorenzo being show 'Ashfang' -t my-library
-```
-
-The terminal shows resolved stats in vocabulary order with units, hints and where they came from, inheritance, containment and the notes you can read, with their authors. Items include inherited descriptions; instances also show their owner and binding. A being adds its equipped weapons and abilities from the library's settings. The API decides what you may see. `--json` on any new command prints one unrendered document; a `show` document has `entry` and `item`, `item_instance` or `sheet`.
-
-Descriptions and notes are drawn as LorenzoScript, using the same parser as the web apps. Headings, emphasis, nested lists, quotes, tables, code, tasks, footnotes, dates, entity links and `{stat-name}` work in the terminal. Links resolve as your signed-in account, including `my/` in the entry's context; unresolved references stay readable as text. Pictures use their alternate text without downloading media, math is shown as its source, world-calendar dates stay as written, and CSS classes have no terminal appearance. Code stays literal. Authored terminal control characters are stripped. There is no terminal play editor.
-
-The parser is bundled in the wheel, so installing and running the CLI does not require Node. After changing `packages/lorenzoscript/src`, regenerate it with `mise run //apps/cli:bundle-lorenzoscript` (the repository's JavaScript dependencies must be installed). A source-digest test catches a stale bundle, and CI tracks the CLI's dependency on LorenzoScript.
-
 ## Calendar files
 
 Convert saved donjon exports offline with `lorenzo-convert donjon`, or author a
@@ -637,6 +626,59 @@ Do not delete the calendar. Preview again with the same source key, file and not
 using `--dry-run`; unchanged units are already imported. Reimports do not duplicate them.
 Notes are attached to their dates; look in the source year and month rather than the
 calendar entry's own Information. Imported audiences remain restricted unless explicitly chosen.
+
+## Scripting
+
+- **Writing.** Every command that writes shows what it will do, then asks once at a terminal; `--yes` skips the question, and `--dry-run`, where a command has it, never writes. With no terminal and no `--yes` it writes nothing and exits 2 ([ADR 0482](../../docs/adr/0482-one-write-contract-for-every-cli-command.md)). `lorenzo api` asks too, for anything but `GET`.
+- **Exit codes.** 0 is done or nothing to do, 2 is something to do or to decide that was not done, and 1 is refused or failed. Each command's `--help` says what 0 and 2 mean for it.
+- **`--json`** (on every command that prints a result) prints exactly one JSON object on stdout, with `"format": 1` beside what it reports; a list is under a key (`{"format": 1, "tenants": [...]}`). A failure under `--json` is one object too, `{"format": 1, "error": {"status", "code", "message", "details"}}`, with exit 1. It never asks a question, so a command that writes needs `--yes` with it. A file a command writes (a calendar, a ledger) and `lorenzo api`'s answer keep their own shape ([ADR 0481](../../docs/adr/0481-the-clis-output-and-machine-contract.md)).
+- **Feedback.** Whatever is for a person goes to stderr: notices, warnings (`⚠`), errors (`✗`), questions, and progress: a spinner while the API takes a moment, a bar with a count for a batch. Nothing animates when stderr is not a terminal, with `NO_COLOR`, with `--json`, or with `--no-progress` before the command (a wait is then one plain line); `--quiet` before the command drops notices and progress and keeps the result, warnings and errors.
+- **`lorenzo api`** is for everything else, with the login you already have, so no token is pasted into a shell:
+
+```bash
+lorenzo api GET /tenants --paginate | jq '.[].slug'
+lorenzo api POST /tenants -d '{"name": "Table One", "kind": "play"}'
+lorenzo api PATCH "/tenants/$T/items/$I" -d @rename.json --if-match '"etag-from-an-earlier-read"'
+```
+
+It takes a path, never a full address, so the token only goes to the API you named. The body goes to stdout (indented; `--raw` leaves it as it came, `--include` adds the status line and headers, where an `ETag` shows). The exit code is 0 for a 2xx answer and 1 for anything else, and a refusal is still printed as the API sent it, with its status on stderr ([ADR 0161](../../docs/adr/0161-lorenzo-api-passthrough.md)).
+
+## Reading MPMB files
+
+MPMB's additional-content files are executable JavaScript, so they are evaluated, not parsed ([ADR 0138](../../docs/adr/0138-lorenzo-cli-js-host.md)). `lorenzo_cli.evalworker` runs an embedded V8 (`mini-racer`) in a subprocess that is given no credentials and is killed on a timeout, and returns plain JSON in which a `RegExp` is `{"$re": [source, flags]}` and a function is `{"$fn": text}` (never called).
+
+Homebrew is written against lists that already hold the sheet's SRD data, and some files patch it, so pass the sheet's own files first as `--base`:
+
+```bash
+git clone https://github.com/morepurplemorebetter/MPMBs-Character-Record-Sheet /tmp/mpmb
+uv run lorenzo import mpmb inspect \
+  --base /tmp/mpmb/_variables/ListsSources.js --base /tmp/mpmb/_variables/Lists.js \
+  --base /tmp/mpmb/_variables/ListsGear.js my-homebrew.js
+```
+
+Leave `my-homebrew.js` out to see only what the sheet ships, as `plan` and `apply` also allow.
+
+The sheet's data is GPL-3.0 and is not shipped with Lorenzo. `tests/corpus/` holds the golden fixtures every engine must reproduce; `LORENZO_UPSTREAM_CORPUS=/tmp/mpmb uv run pytest tests/test_evalworker_upstream.py` runs the worker against the real thing.
+
+## The API client
+
+`src/lorenzo_cli/client/models.py` is generated from `apps/api`'s OpenAPI document and committed. After changing `apps/api`'s routes or schemas:
+
+```bash
+mise run //apps/cli:generate-schema
+```
+
+CI's `client-drift` job runs `check-schema`, which fails on any difference. `src/lorenzo_cli/client/ops.py` lists the operations the CLI calls; a test checks each against the dumped schema.
+
+## The Authgear client
+
+`login` uses the authorization code flow with PKCE against a public Authgear client (a Single Page Application, no secret) on a fixed loopback port: 8766, with 8767 and 8768 as fallbacks. The official one is registered and built in as the default ([deployment-setup](../../docs/operations/deployment-setup.md#appsclis-own-authgear-application-adr-0137-0157)); for another Authgear project, register a client the same way and give its issuer and client id to `login` once. Tokens through `LORENZO_TOKEN` or `--token-stdin` work regardless.
+
+Environment: `LORENZO_API_URL` (the API base URL), `LORENZO_TOKEN`, `LORENZO_TENANT`, `LORENZO_AUTHGEAR_ISSUER`, `LORENZO_AUTHGEAR_CLIENT_ID`.
+
+## Tests
+
+`mise run test` runs the unit tests, with coverage. `mise run test-e2e` runs `tests/e2e/`, which starts the real `apps/api` on a fresh database behind a fake Authgear and runs the CLI against it; it takes minutes, needs Postgres (`docker compose -f infra/docker-compose.yml up -d`, or CI's service), and skips without it. It runs on `E2E_WORKERS` parallel workers, four by default and `E2E_WORKERS=0` for one process (a single test, a debugger), each with its own API process and a database of its own, cloned from a migrated template and dropped at the end, so the Postgres user needs to be able to create databases, as the compose one can. The tests of what the importer does start from a copy of one repository holding the `neutral` and `dnd5e` starters that the run builds once per worker; the tests of the starters apply them. `LORENZO_REQUIRE_E2E=1` makes a missing stack a failure instead, as CI does, and `TEST_SHARD=2/3` runs one third of the test files (CI splits them over three runners, ADR 0148). `mise run check` does not include `test-e2e`, like inventory-web's.
 
 ## Legal notice and privacy policy
 
