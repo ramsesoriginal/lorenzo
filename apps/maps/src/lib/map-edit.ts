@@ -2,6 +2,7 @@
 // panel for what is being drawn or what is selected, and every write. The renderer draws; this
 // decides what a click means and asks the API. Nothing here is shown to those who may not write.
 import {
+  bezierPoints,
   type Cell,
   cellPolygon,
   type Geometry,
@@ -84,6 +85,7 @@ import {
   batchPlacements,
   type EntryChoice,
   findEntries,
+  isPublicLocation,
   makeLocation,
   partsOf,
   putPlacement,
@@ -107,6 +109,7 @@ import {
   withParts,
 } from './parts-edit';
 import { SPLINE_MAX_POINTS, splineCurve } from './spline';
+import { splitPieces } from './split-entries';
 import {
   BRUSH_ROLE,
   BRUSH_STEP,
@@ -135,6 +138,7 @@ import {
   UNIT,
   usable,
 } from './tools';
+import { moved, TRANSFORM_WORDS, type Transform } from './transform';
 
 export type EditorContext = {
   tenant: string;
@@ -170,6 +174,14 @@ export type Editor = {
   /** The page's selection changed. */
   selected(id: string | null): void;
   destroy(): void;
+};
+
+/** What the Cells tool says to change when a region is over a drawing's limits (ADR 0481). */
+const CELL_HINTS: Hints = {
+  vertices: 'Draw fewer cells, or the rest for another entry.',
+  parts: 'Draw fewer cells, or the rest for another entry.',
+  bytes: 'Draw fewer cells, or the rest for another entry.',
+  shape: 'Draw the region again.',
 };
 
 /** What the Height brush says to change when its lines are over a limit (ADR 0480). */
@@ -370,7 +382,11 @@ export function createEditor(context: EditorContext): Editor {
     write(shape: Editable): Geometry;
   } {
     const geometry = row.geometry as unknown as Geometry;
-    if (isCellsRow(row)) return { shape: null, part: null, write: () => geometry };
+    // A drawing of cells of several parts is changed by its cells; one area along the grid's
+    // lines, which reads as cells too (ADR 0481), keeps its points.
+    if (isCellsRow(row) && hasParts(geometry)) {
+      return { shape: null, part: null, write: () => geometry };
+    }
     if (!hasParts(geometry)) return { shape: editableOf(geometry), part: null, write: toGeometry };
     const ref = selectedPart;
     return {
@@ -496,7 +512,14 @@ export function createEditor(context: EditorContext): Editor {
             ? example
             : null;
       if (!source) return waiting(exampleProblem ?? 'Reading the example Map.');
-      const drawn = drawnCells(source.rows, source.grid, source.extent);
+      // The area the fill works in is its frame, never one of its tiles.
+      const drawn = drawnCells(
+        chosen === '' && region.kind !== 'sheet'
+          ? source.rows.filter((row) => row.id !== from?.id)
+          : source.rows,
+        source.grid,
+        source.extent,
+      );
       const here =
         chosen === '' ? [] : context.rows().map((row) => [row.id, row.geometry] as const);
       const key = JSON.stringify([
@@ -603,12 +626,8 @@ export function createEditor(context: EditorContext): Editor {
     const before = row ? (row.geometry as unknown as Geometry) : null;
     const parts = [
       ...result.keep.map((part) => before?.parts[part]).filter((part) => part !== undefined),
-      ...result.add.map((line) => ({
-        shape: 'polyline' as const,
-        pts: line.pts,
-        value: line.value,
-        unit,
-      })),
+      // Each line a smooth curve through its points (ADR 0491).
+      ...result.add.map((line) => ({ ...line.curve, value: line.value, unit })),
     ];
     if (parts.length === 0) {
       return refused(
@@ -697,7 +716,7 @@ export function createEditor(context: EditorContext): Editor {
           });
       }
       (now?.brush?.add ?? []).forEach((line, i) => {
-        out.push({ id: `new${i}`, kind: 'line', pts: line.pts, clipped: true });
+        out.push({ id: `new${i}`, kind: 'line', pts: bezierPoints(line.curve), clipped: true });
       });
       if (brushStroke && brushStroke.pts.length > 1) {
         out.push({ id: 'stroke', kind: 'line', pts: brushStroke.pts, preview: true });
@@ -761,9 +780,16 @@ export function createEditor(context: EditorContext): Editor {
       : [...rows, row];
   };
 
+  // The write on its way, so a command typed meanwhile waits for it rather than being dropped.
+  let writing: Promise<void> = Promise.resolve();
+
   async function guarded(action: () => Promise<void>) {
     if (busy) return;
     busy = true;
+    let done: () => void = () => {};
+    writing = new Promise((resolve) => {
+      done = resolve;
+    });
     // While a write is on its way the panel takes no press: one made then would be dropped, and
     // would have been made against a drawing that is about to change.
     panel.inert = true;
@@ -774,6 +800,7 @@ export function createEditor(context: EditorContext): Editor {
       say(asText(error), true);
     } finally {
       busy = false;
+      done();
       panel.inert = false;
       panel.removeAttribute('aria-busy');
       renderToolbar();
@@ -979,6 +1006,8 @@ export function createEditor(context: EditorContext): Editor {
   }
 
   async function runCommand(line: string) {
+    // A command typed while a change is being written is carried out once it is written.
+    await writing;
     const command = parseCommand(line, DECLARED, {
       ...here(),
       tool: editing ? toolDecl() : undefined,
@@ -1042,6 +1071,39 @@ export function createEditor(context: EditorContext): Editor {
           answer(await applyGenerator());
         }
         return;
+      case 'transform':
+      case 'copy': {
+        const row = editing ? rowOf(selectedId) : undefined;
+        if (!row) {
+          answer('Select a drawing first.', true);
+          return;
+        }
+        if (context.sphere) {
+          answer('A drawing on a sphere is not mirrored, turned or copied here.', true);
+          return;
+        }
+        if (command.kind === 'transform') {
+          const said = await moveRow(row, command.how);
+          answer(said, status.classList.contains('error-text'));
+          return;
+        }
+        // A name one entry has exactly is that entry; any other is a new Location.
+        const found = (await findEntries(context.tenant, command.name)).filter(
+          (entry) => entry.name.toLowerCase() === command.name.toLowerCase(),
+        );
+        if (found.length > 1) {
+          answer(`Several entries are called ${command.name}; choose one in the panel.`, true);
+          return;
+        }
+        const one = found[0];
+        const said = await copyRow(
+          row,
+          command.how,
+          one ? { id: one.id, name: one.name } : { name: command.name },
+        );
+        answer(said, status.classList.contains('error-text'));
+        return;
+      }
       case 'brush':
         if (!editing || !brushing()) {
           answer('RAISE and LOWER are commands of the Height brush, and it is not the tool.', true);
@@ -1279,7 +1341,11 @@ export function createEditor(context: EditorContext): Editor {
     else {
       // Drawing an entry's cells again keeps the value a cell already had.
       const was = rowOf(target?.id ?? null)?.geometry as unknown as Geometry | undefined;
-      void finish(cellsGeometry(grid, context.extent, cells, was));
+      const geometry = cellsGeometry(grid, context.extent, cells, was);
+      // The cells are written as outlines (ADR 0481); what is over a drawing's limits is said.
+      const fit = fits(geometry, CELL_HINTS);
+      if (!fit.ok) say(fit.why, true);
+      else void finish(geometry);
     }
   };
 
@@ -1424,7 +1490,7 @@ export function createEditor(context: EditorContext): Editor {
           next.length === cells.length &&
           !cells.some((c) => c[0] === cell[0] && c[1] === cell[1])
         ) {
-          say(`A region has at most ${MAX_CELLS_PER_PLACEMENT} cells.`, true);
+          say(`The Cells tool takes at most ${MAX_CELLS_PER_PLACEMENT} cells at once.`, true);
         }
         cells = next;
         refresh();
@@ -2482,7 +2548,84 @@ export function createEditor(context: EditorContext): Editor {
       list.append(item);
     }
     box.append(list);
+    if (row.kinds.includes('location') && geometry.parts.length >= 2) {
+      box.append(splitControl(row, geometry));
+    }
     return box;
+  }
+
+  /** Split into entries (ADR 0482): a base name, and the action. */
+  function splitControl(row: Row, geometry: Geometry): HTMLElement {
+    const box = el('div', '', 'stack-tight map-split');
+    const base = field('Name the new places from', row.name);
+    base.input.maxLength = 180;
+    box.append(
+      el(
+        'p',
+        `Each of the ${geometry.parts.length} parts becomes a place of its own inside ${row.name}, drawn here as that part.`,
+        'status-text',
+      ),
+      base.label,
+      button('Split into entries', () => splitInto(row, geometry, base.input.value), {
+        variant: 'secondary',
+      }),
+    );
+    return box;
+  }
+
+  /**
+   * Makes a new Location of each part, inside the original, and places them on this Map in its
+   * stead as one batch and one history step (ADR 0482).
+   */
+  async function splitInto(row: Row, geometry: Geometry, base: string) {
+    const plan = splitPieces(geometry, base);
+    if (!plan.ok) {
+      say(plan.why, true);
+      return;
+    }
+    const pieces = plan.pieces;
+    await guarded(async () => {
+      const isPublic = await isPublicLocation(context.tenant, row.id);
+      const made: { id: string; name: string }[] = [];
+      try {
+        for (const piece of pieces) {
+          made.push(await makeLocation(context.tenant, piece.name, isPublic, row.id));
+        }
+      } catch (error) {
+        say(
+          `${made.length} of ${pieces.length} new places were made, and stay in the library; nothing was placed. ${asText(error)}`,
+          true,
+        );
+        return;
+      }
+      const how = rowState(row);
+      const put = made.map((location, i) => ({
+        entry_id: location.id,
+        geometry: (pieces[i] as (typeof pieces)[number]).geometry as unknown as Record<
+          string,
+          unknown
+        >,
+        role: how.role,
+        style: how.style,
+        z: how.z,
+      }));
+      await batchPlacements(context.tenant, context.mapId, { put, remove: [row.id] });
+      await reload();
+      history.record(
+        [
+          { entry: row.id, before: how, after: null },
+          ...made.map((location, i) => ({
+            entry: location.id,
+            before: null,
+            after: { ...how, geometry: put[i]?.geometry ?? how.geometry },
+          })),
+        ],
+        `Split ${row.name} into ${made.length} entries`,
+      );
+      selectedPart = null;
+      context.select(null);
+      say(`${row.name} is now ${made.length} places, each on the map and inside ${row.name}.`);
+    });
   }
 
   function childrenControl(row: Row, shape: Editable): HTMLElement | null {
@@ -2609,9 +2752,15 @@ export function createEditor(context: EditorContext): Editor {
       ? cellsOf(row.geometry as unknown as Geometry, grid, context.extent)
       : null;
     const geometry = row.geometry as unknown as Geometry;
-    const shape = regionCells ? null : editableOf(geometry);
+    const shape = regionCells && hasParts(geometry) ? null : editableOf(geometry);
     if (regionCells && grid) {
       box.append(cellsPanel(row, grid, regionCells));
+      // One area along the grid's lines is cells and an area both (ADR 0481): its points stay.
+      if (shape) {
+        box.append(pointFields(row, shape));
+        const children = childrenControl(row, shape);
+        if (children) box.append(children);
+      }
     } else if (hasParts(geometry)) {
       box.append(partsList(row, geometry));
       const focus = focusOf(row);
@@ -2650,7 +2799,157 @@ export function createEditor(context: EditorContext): Editor {
         ),
       );
     }
+    const moves = moveControls(row);
+    if (moves) box.append(moves);
     box.append(button('Remove from this map', () => removeRow(row), { variant: 'danger' }));
+    return box;
+  }
+
+  /** The words of a drawing moved in place: "Mirrored Ruin across", "Turned Ruin 180°". */
+  const movedName = (name: string, how: Transform) =>
+    how === 'turn' ? `Turned ${name} 180°` : `Mirrored ${name} ${how}`;
+
+  /** Mirrors or turns a drawing about the sheet's middle, in place, as one step (ADR 0490). */
+  async function moveRow(row: Row, how: Transform): Promise<string> {
+    const result = moved(how, context.extent, row.geometry as unknown as Geometry, gridNow());
+    if (!result.ok) {
+      say(result.why, true);
+      return result.why;
+    }
+    await guarded(async () => {
+      const before = rowState(row);
+      const saved = await putPlacement(context.tenant, context.mapId, row.id, {
+        ...before,
+        geometry: result.geometry as unknown as Record<string, unknown>,
+      });
+      history.record([{ entry: row.id, before, after: rowState(saved) }], movedName(row.name, how));
+      context.setRows(upsert(saved));
+      say(`${movedName(row.name, how)}.`);
+      render();
+      refresh();
+    });
+    return status.textContent ?? '';
+  }
+
+  /**
+   * Copies a drawing, as it is or moved, to an entry not on this Map or to a new Location, with the
+   * original's role, line and drawing order, as one step (ADR 0490).
+   */
+  async function copyRow(
+    row: Row,
+    how: Transform | null,
+    to: { id?: string; name: string },
+  ): Promise<string> {
+    if (to.id && rowOf(to.id)) {
+      const why = `${to.name} is already on this Map, and a Map holds one drawing for an entry. Choose another, or a new Location.`;
+      say(why, true);
+      return why;
+    }
+    const geometry = row.geometry as unknown as Geometry;
+    const result = how
+      ? moved(how, context.extent, geometry, gridNow())
+      : { ok: true as const, geometry };
+    if (!result.ok) {
+      say(result.why, true);
+      return result.why;
+    }
+    await guarded(async () => {
+      const id = to.id ?? (await makeLocation(context.tenant, to.name, context.mapIsPublic)).id;
+      const saved = await putPlacement(context.tenant, context.mapId, id, {
+        ...rowState(row),
+        geometry: result.geometry as unknown as Record<string, unknown>,
+      });
+      const name = `Copied ${row.name} to ${saved.name}${how ? `, ${TRANSFORM_WORDS[how]}` : ''}`;
+      history.record([{ entry: id, before: null, after: rowState(saved) }], name);
+      context.setRows(upsert(saved));
+      say(`${name}.`);
+      render();
+      refresh();
+    });
+    return status.textContent ?? '';
+  }
+
+  /** Mirror, turn and copy for the selected drawing (ADR 0490); not on a sphere. */
+  function moveControls(row: Row): HTMLElement | null {
+    if (context.sphere) return null;
+    const box = el('div', '', 'stack-tight map-move');
+    box.setAttribute('role', 'group');
+    box.setAttribute('aria-label', 'Mirror and copy');
+    box.append(groupTitle('h3', 'Mirror and copy'));
+    const actions = el('div', '', 'row-tight');
+    actions.append(
+      button(
+        'Mirror across',
+        async () => {
+          await moveRow(row, 'across');
+        },
+        { variant: 'secondary' },
+      ),
+      button(
+        'Mirror down',
+        async () => {
+          await moveRow(row, 'down');
+        },
+        { variant: 'secondary' },
+      ),
+      button(
+        'Turn 180°',
+        async () => {
+          await moveRow(row, 'turn');
+        },
+        { variant: 'secondary' },
+      ),
+    );
+    const how = select('Copy it', [
+      ['', 'As it is'],
+      ['across', 'Mirrored across'],
+      ['down', 'Mirrored down'],
+      ['turn', 'Turned 180°'],
+    ]);
+    const to = field('Copy to, by name');
+    to.input.autocomplete = 'off';
+    const results = el('ul', '', 'list map-copy-results');
+    const chosenHow = () => (how.input.value || null) as Transform | null;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let sequence = 0;
+    to.input.addEventListener('input', () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        const mine = ++sequence;
+        const query = to.input.value.trim();
+        if (!query) {
+          results.replaceChildren();
+          return;
+        }
+        void findEntries(context.tenant, query).then((found) => {
+          if (mine !== sequence) return;
+          const offers = found
+            .filter((entry) => entry.id !== row.id)
+            .map((entry) => {
+              const item = el('li');
+              item.append(
+                button(
+                  `Copy to ${entry.name}`,
+                  async () =>
+                    void (await copyRow(row, chosenHow(), { id: entry.id, name: entry.name })),
+                  { variant: 'secondary' },
+                ),
+              );
+              return item;
+            });
+          const fresh = el('li');
+          fresh.append(
+            button(
+              `Copy to a new Location named ${query}`,
+              async () => void (await copyRow(row, chosenHow(), { name: query })),
+              { variant: 'secondary' },
+            ),
+          );
+          results.replaceChildren(...offers, fresh);
+        });
+      }, 200);
+    });
+    box.append(actions, how.label, to.label, results);
     return box;
   }
 

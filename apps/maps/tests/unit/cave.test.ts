@@ -250,12 +250,23 @@ describe('the Cave system generator (ADR 0476)', () => {
 
     expect(usual?.count).toMatch(/^\d+ caves?$/);
     expect(fits(usual?.geometry ?? null, def?.hints as never)).toEqual({ ok: true });
-    // The finest field on a large square sheet has more points than a drawing holds.
+    // Even the finest field fits a drawing since ADR 0481; one over the limit is still named.
     const fine = def?.run(regionOf(null, [0, 0, 5000, 5000]), 3, number({ size: 96, passes: 0 }));
 
-    expect(fits(fine?.geometry ?? null, def?.hints as never)).toEqual({
+    expect(fits(fine?.geometry ?? null, def?.hints as never)).toEqual({ ok: true });
+    expect(
+      fits(
+        {
+          format: 'lorenzo.geometry/1',
+          parts: [
+            { shape: 'polyline', pts: Array.from({ length: 8001 }, (_, i) => [i, i % 2] as const) },
+          ],
+        } as never,
+        def?.hints as never,
+      ),
+    ).toEqual({
       ok: false,
-      why: 'This has more than the 2000 points a drawing holds. Lower Size, or raise Passes.',
+      why: 'This has more than the 8000 points a drawing holds. Lower Size, or raise Passes.',
     });
     // With no room for a cave there is nothing to apply.
     const none = def?.run(whole, 1, number({ density: 0.6, passes: 8, smallest: 60, size: 16 }));

@@ -12,6 +12,7 @@ import {
   strokeOf,
   withStroke,
 } from '../../src/lib/height-field.ts';
+import { transformed } from '../../src/lib/transform.ts';
 import { apiAs, ok, refreshTokenFor } from './support/api.ts';
 import { REFRESH_TOKEN_KEY, SITE_URL } from './support/env.ts';
 import { openControl, openPanel, stageBox } from './support/map-ui.ts';
@@ -1265,12 +1266,8 @@ for (const theme of ['light', 'dark'] as const) {
         format: 'lorenzo.geometry/1',
         parts: [
           drawnFirst.parts[0],
-          ...expected.add.map((line) => ({
-            shape: 'polyline',
-            pts: line.pts,
-            value: line.value,
-            unit: 'm',
-          })),
+          // Each a smooth curve through its points (ADR 0491).
+          ...expected.add.map((line) => ({ ...line.curve, value: line.value, unit: 'm' })),
         ],
       });
       expect(rows[0]?.role).toBe('isoline');
@@ -1372,12 +1369,231 @@ test('the height brush asks for what it needs, refuses other drawings, and raise
     const mound = (await w.read()).find((row) => row.name === 'Mound');
     expect(mound?.role).toBe('isoline');
     expect(
-      ((mound?.geometry ?? { parts: [] }) as Parts).parts.every((part) => part.unit === 'm'),
+      ((mound?.geometry ?? { parts: [] }) as Parts).parts.every(
+        (part) => part.unit === 'm' && part.shape === 'bezier',
+      ),
     ).toBe(true);
   } finally {
     await page.context().close();
   }
 });
+
+const box = (x: number, y: number) => ({
+  shape: 'polygon',
+  rings: [
+    [
+      [x, y],
+      [x + 80, y],
+      [x + 80, y + 60],
+      [x, y + 60],
+    ],
+  ],
+});
+
+for (const theme of ['light', 'dark'] as const) {
+  test(`a drawing of several parts is split into places inside its Location (ADR 0482), in ${theme}`, async ({
+    browser,
+  }) => {
+    const w = await world();
+    const fields = await w.place('Fields');
+    const parts = [box(100, 100), box(300, 100), box(500, 100)];
+    await ok(
+      w.gm.PUT('/tenants/{tenant_id}/maps/{map_id}/placements/{entry_id}', {
+        params: { path: { ...w.path, map_id: w.chart.id, entry_id: fields.id } },
+        body: {
+          geometry: { format: 'lorenzo.geometry/1', parts },
+          role: 'vegetation',
+          z: 4,
+        } as never,
+      }),
+    );
+    const page = await signedIn(browser, w.subject, theme);
+    try {
+      await page.goto(`/map/?tenant=${w.tenant.id}&id=${w.chart.id}`);
+      await expect(page.getByRole('heading', { name: 'Sword Coast', exact: true })).toBeVisible();
+      await page.getByRole('button', { name: 'Edit this map' }).click();
+      await openPanel(page, 'Places');
+      await page
+        .locator('.map-places')
+        .getByRole('button', { name: /Fields/ })
+        .click();
+      const panel = page.locator('.map-edit-panel');
+      await expect(panel.getByRole('heading', { name: 'Parts' })).toBeVisible();
+      const base = panel.getByLabel('Name the new places from');
+      await expect(base).toHaveValue('Fields');
+      const result = await new AxeBuilder({ page }).exclude('.shell-bottom').analyze();
+      expect(result.violations.map((v) => `${v.id}: ${v.nodes[0]?.html}`)).toEqual([]);
+
+      await base.fill('Field');
+      await panel.getByRole('button', { name: 'Split into entries' }).click();
+      await expect
+        .poll(async () => (await w.read()).map((r) => r.name).sort())
+        .toEqual(['Field 1', 'Field 2', 'Field 3']);
+      const rows = await w.read();
+      for (const [i, part] of parts.entries()) {
+        const row = rows.find((r) => r.name === `Field ${i + 1}`);
+        expect(row?.geometry).toEqual({ format: 'lorenzo.geometry/1', parts: [part] });
+        expect(row?.role).toBe('vegetation');
+        expect(row?.z).toBe(4);
+      }
+      // The new places are inside the original, which stays in the library.
+      const inside = await ok(
+        w.gm.GET('/tenants/{tenant_id}/locations/{location_id}/parts', {
+          params: { path: { ...w.path, location_id: fields.id }, query: { page: 1, size: 100 } },
+        }),
+      );
+      expect(inside.items.map((item) => item.name).sort()).toEqual([
+        'Field 1',
+        'Field 2',
+        'Field 3',
+      ]);
+      await openPanel(page, 'History');
+      await expect(page.locator('.map-slideover')).toContainText('Split Fields into 3 entries');
+      // Undo puts the original's drawing back and takes the new ones off this Map, in one step.
+      await page.getByRole('button', { name: 'Undo' }).click();
+      await expect.poll(async () => (await w.read()).map((r) => r.name)).toEqual(['Fields']);
+      expect(geometryOf((await w.read())[0]).parts).toHaveLength(3);
+      await page.getByRole('button', { name: 'Redo' }).click();
+      await expect.poll(async () => (await w.read()).length).toBe(3);
+    } finally {
+      await page.context().close();
+    }
+  });
+}
+
+test('a split of more parts than one batch writes is refused before anything is made', async ({
+  browser,
+}) => {
+  const w = await world();
+  const plots = await w.place('Plots');
+  const parts = Array.from({ length: 101 }, (_, i) => ({
+    shape: 'polygon',
+    rings: [
+      [
+        [(i % 20) * 40, Math.floor(i / 20) * 40],
+        [(i % 20) * 40 + 20, Math.floor(i / 20) * 40],
+        [(i % 20) * 40 + 20, Math.floor(i / 20) * 40 + 20],
+      ],
+    ],
+  }));
+  await ok(
+    w.gm.PUT('/tenants/{tenant_id}/maps/{map_id}/placements/{entry_id}', {
+      params: { path: { ...w.path, map_id: w.chart.id, entry_id: plots.id } },
+      body: { geometry: { format: 'lorenzo.geometry/1', parts }, z: 0 } as never,
+    }),
+  );
+  const page = await signedIn(browser, w.subject);
+  try {
+    await page.goto(`/map/?tenant=${w.tenant.id}&id=${w.chart.id}`);
+    await expect(page.getByRole('heading', { name: 'Sword Coast', exact: true })).toBeVisible();
+    await page.getByRole('button', { name: 'Edit this map' }).click();
+    await openPanel(page, 'Places');
+    await page.locator('.map-places').getByRole('button', { name: /Plots/ }).click();
+    await page
+      .locator('.map-edit-panel')
+      .getByRole('button', { name: 'Split into entries' })
+      .click();
+    await expect(
+      page.getByText(
+        'This drawing has 101 parts, and one split makes at most 100 entries. Remove some parts first.',
+      ),
+    ).toBeVisible();
+    const inside = await ok(
+      w.gm.GET('/tenants/{tenant_id}/locations/{location_id}/parts', {
+        params: { path: { ...w.path, location_id: plots.id }, query: { page: 1, size: 100 } },
+      }),
+    );
+    expect(inside.items).toHaveLength(0);
+    expect((await w.read()).map((r) => r.name)).toEqual(['Plots']);
+  } finally {
+    await page.context().close();
+  }
+});
+
+for (const theme of ['light', 'dark'] as const) {
+  test(`a drawing is mirrored and turned in place, and copied to another entry (ADR 0490), in ${theme}`, async ({
+    browser,
+  }) => {
+    const w = await world();
+    const ruin = await w.place('Ruin');
+    const tower = await w.place('Tower');
+    const sheet = [0, 0, 1000, 800] as const;
+    const first = {
+      format: 'lorenzo.geometry/1',
+      parts: [
+        {
+          shape: 'polygon',
+          rings: [
+            [
+              [100, 100],
+              [250, 100],
+              [250, 180],
+              [100, 220],
+            ],
+          ],
+        },
+      ],
+    };
+    await ok(
+      w.gm.PUT('/tenants/{tenant_id}/maps/{map_id}/placements/{entry_id}', {
+        params: { path: { ...w.path, map_id: w.chart.id, entry_id: ruin.id } },
+        body: { geometry: first, role: 'built-up', z: 2 } as never,
+      }),
+    );
+    const rowOf = async (name: string) => (await w.read()).find((r) => r.name === name);
+    const page = await signedIn(browser, w.subject, theme);
+    try {
+      await page.goto(`/map/?tenant=${w.tenant.id}&id=${w.chart.id}`);
+      await expect(page.getByRole('heading', { name: 'Sword Coast', exact: true })).toBeVisible();
+      await page.getByRole('button', { name: 'Edit this map' }).click();
+      await openPanel(page, 'Places');
+      await page.locator('.map-places').getByRole('button', { name: /Ruin/ }).click();
+      const moves = page.getByRole('group', { name: 'Mirror and copy' });
+      await expect(moves).toBeVisible();
+      const result = await new AxeBuilder({ page }).exclude('.shell-bottom').analyze();
+      expect(result.violations.map((v) => `${v.id}: ${v.nodes[0]?.html}`)).toEqual([]);
+
+      // In place: mirrored across about the sheet's middle, as one step that undo takes back.
+      await moves.getByRole('button', { name: 'Mirror across' }).click();
+      await expect
+        .poll(async () => (await rowOf('Ruin'))?.geometry)
+        .toEqual(transformed('across', sheet, first as never));
+      await openPanel(page, 'History');
+      await expect(page.locator('.map-slideover')).toContainText('Mirrored Ruin across');
+      await page.getByRole('button', { name: 'Undo' }).click();
+      await expect.poll(async () => (await rowOf('Ruin'))?.geometry).toEqual(first);
+
+      // From the command line: turned 180°, then copied mirrored to an entry not yet on the Map.
+      const command = page.getByLabel('Command', { exact: true });
+      await command.fill('TURN');
+      await command.press('Enter');
+      const turned = transformed('turn', sheet, first as never);
+      await expect.poll(async () => (await rowOf('Ruin'))?.geometry).toEqual(turned);
+      await command.fill('COPY ACROSS TO Tower');
+      await command.press('Enter');
+      await expect
+        .poll(async () => (await rowOf('Tower'))?.geometry)
+        .toEqual(transformed('across', sheet, turned));
+      expect((await rowOf('Tower'))?.role).toBe('built-up');
+      expect((await rowOf('Tower'))?.z).toBe(2);
+      // Again: Tower is on the Map now, and a Map holds one drawing for an entry.
+      await command.fill('COPY TO Tower');
+      await command.press('Enter');
+      await expect(page.locator('.map-command-answer')).toHaveText(
+        'Tower is already on this Map, and a Map holds one drawing for an entry. Choose another, or a new Location.',
+      );
+
+      // From the panel: a copy as it is, to a new Location. Ruin is still the one selected.
+      await openPanel(page, 'Options');
+      await moves.getByLabel('Copy to, by name').fill('Ruin (east)');
+      await moves.getByRole('button', { name: 'Copy to a new Location named Ruin (east)' }).click();
+      await expect.poll(async () => (await rowOf('Ruin (east)'))?.geometry).toEqual(turned);
+      expect(tower.id).toBeTruthy();
+    } finally {
+      await page.context().close();
+    }
+  });
+}
 
 test('a cave system is previewed, compared, rolled, discarded and applied as one step', async ({
   browser,

@@ -196,7 +196,7 @@ describe('what the generators share (ADR 0475)', () => {
   it('names the limit a result is over and what to change', () => {
     const many: Geometry = {
       format: FORMAT,
-      parts: Array.from({ length: 300 }, (_, i) => ({
+      parts: Array.from({ length: 1100 }, (_, i) => ({
         shape: 'point' as const,
         at: [i, 0] as const,
       })),
@@ -204,19 +204,19 @@ describe('what the generators share (ADR 0475)', () => {
 
     expect(fits(many, hints)).toEqual({
       ok: false,
-      why: 'This is 300 pieces, and a drawing holds 256. Raise Minimum area.',
+      why: 'This is 1100 pieces, and a drawing holds 1024. Raise Minimum area.',
     });
 
     const long: Geometry = {
       format: FORMAT,
       parts: [
-        { shape: 'polyline', pts: Array.from({ length: 2001 }, (_, i) => [i, i % 2] as const) },
+        { shape: 'polyline', pts: Array.from({ length: 8001 }, (_, i) => [i, i % 2] as const) },
       ],
     };
 
     expect(fits(long, hints)).toEqual({
       ok: false,
-      why: 'This has more than the 2000 points a drawing holds. Raise Smoothing.',
+      why: 'This has more than the 8000 points a drawing holds. Raise Smoothing.',
     });
 
     const heavy: Geometry = {
@@ -225,8 +225,8 @@ describe('what the generators share (ADR 0475)', () => {
         {
           shape: 'polyline',
           pts: Array.from(
-            { length: 1990 },
-            (_, i) => [1234567.123456 + i, -7654321.654321 - i] as const,
+            { length: 7990 },
+            (_, i) => [-9999999.123456 + i, -9999999.654321 + i] as const,
           ),
         },
       ],

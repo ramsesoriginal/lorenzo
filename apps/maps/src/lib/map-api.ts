@@ -135,13 +135,35 @@ export async function findLocations(tenant: string, query: string, size = 12) {
   return page.items;
 }
 
-export async function makeLocation(tenant: string, name: string, isPublic: boolean) {
+/** A new Location, inside another when `parentId` is given. */
+export async function makeLocation(
+  tenant: string,
+  name: string,
+  isPublic: boolean,
+  parentId?: string,
+) {
   return unwrap(
     await client.POST('/tenants/{tenant_id}/locations', {
       params: { path: { tenant_id: tenant } },
-      body: { id: crypto.randomUUID(), name, is_public: isPublic },
+      body: {
+        id: crypto.randomUUID(),
+        name,
+        is_public: isPublic,
+        ...(parentId ? { parent_id: parentId } : {}),
+      },
     }),
   );
+}
+
+/** Whether a Location is open to the whole library; false when the reader is not told. */
+export async function isPublicLocation(tenant: string, id: string): Promise<boolean> {
+  const location = await unwrap(
+    await client.GET('/tenants/{tenant_id}/locations/{location_id}', {
+      params: { path: { tenant_id: tenant, location_id: id } },
+      cache: 'no-cache',
+    }),
+  );
+  return location.is_public === true;
 }
 
 /** The Locations the person sees directly inside one. */

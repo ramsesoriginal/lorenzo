@@ -1,11 +1,31 @@
 // The Height brush (ADR 0480): a field of heights over the sheet, built from an entry's height
 // lines; strokes that raise and lower it; and which lines to keep and which to draw from it. The
 // lines are the truth, and the field lives in the page only. Pure.
-import { bezierPoints, type Geometry } from '@lorenzo/map-renderer';
-import type { Field } from './field';
+import { bezierPoints, type Geometry, type Part } from '@lorenzo/map-renderer';
+import { decimalsFor, type Field } from './field';
 import { heightLines } from './fill';
 import { simplify } from './freehand';
 import { isHeightLines } from './parts-edit';
+import { closedSplinePart, splinePart } from './spline';
+
+/** The tension of the curve a line is written as: the Spline tool's (ADR 0471, ADR 0491). */
+export const LINE_TENSION = 0.5;
+
+type Curve = Extract<Part, { shape: 'bezier' }>;
+
+/**
+ * A traced line as a smooth curve through its points (ADR 0491): one that closes on itself closes
+ * smoothly, its first point also its last.
+ */
+export function smoothLine(pts: readonly Pt[], round: (n: number) => number): Curve {
+  const first = pts[0] as Pt;
+  const last = pts[pts.length - 1] as Pt;
+  const closed = pts.length > 3 && first[0] === last[0] && first[1] === last[1];
+
+  return closed
+    ? closedSplinePart(pts.slice(0, -1), LINE_TENSION, round)
+    : splinePart(pts, LINE_TENSION, round);
+}
 
 type Pt = readonly [number, number];
 type Extent = readonly [number, number, number, number];
@@ -337,8 +357,8 @@ export type Redraw =
       keep: number[];
       /** The parts dropped: redrawn, or gone. */
       drop: number[];
-      /** The lines to add, each with its height. */
-      add: { pts: Pt[]; value: number }[];
+      /** The lines to add, each with its height: its traced points and the curve written. */
+      add: { pts: Pt[]; curve: Curve; value: number }[];
       redrawn: number;
       fresh: number;
       gone: number;
@@ -431,7 +451,11 @@ export function redraw(
   ];
 
   const drop = new Set<number>();
-  const add: { pts: Pt[]; value: number }[] = [];
+  const add: { pts: Pt[]; curve: Curve; value: number }[] = [];
+  // The curve is kept to the decimals the traced points are kept to.
+  let scale = 1;
+  for (let d = 0; d < decimalsFor(tracing, 16); d += 1) scale *= 10;
+  const round = (n: number) => Math.round(n * scale) / scale || 0;
   let redrawn = 0;
   let fresh = 0;
   let gone = 0;
@@ -461,7 +485,7 @@ export function redraw(
       for (const { line } of replaces) drop.add(line.part);
       const pts = simplify(path, cell / 4);
       if (pts.length < 2) continue;
-      add.push({ pts, value: level });
+      add.push({ pts, curve: smoothLine(pts, round), value: level });
       if (replaces.length > 0) redrawn += 1;
       else fresh += 1;
     }

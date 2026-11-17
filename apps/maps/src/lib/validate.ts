@@ -3,11 +3,11 @@
 // with it on every document of `packages/map-engine/golden/geometry.json`, and exists so that a
 // generator never offers a result the API would refuse. Pure: nothing here touches the page.
 
-/** The limits of ADR 0337, as `packages/map-engine/src/lorenzo_map/limits.py` has them. */
+/** The limits of ADR 0337 and ADR 0481, as `packages/map-engine/src/lorenzo_map/limits.py` has them. */
 export const LIMITS = {
-  placementBytes: 64 * 1024,
-  vertices: 2000,
-  parts: 256,
+  placementBytes: 256 * 1024,
+  vertices: 8000,
+  parts: 1024,
   coordinate: 10_000_000,
   value: 1_000_000_000_000,
   unitLength: 32,
