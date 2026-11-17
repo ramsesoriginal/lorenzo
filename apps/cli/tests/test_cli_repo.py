@@ -316,7 +316,7 @@ def test_copy_plan_that_needs_choices_exits_two_and_lists_them_with_ids(tmp_path
 
     assert result.exit_code == 2, result.output
     text = said(result)
-    assert "stat_group “Physical”" in text
+    assert "stat group “Physical”" in text
     assert str(GROUP_ID) in text
     assert "choose rename, merge, skip" in text
     assert "choose rename, skip" in text  # a slug can't be merged
@@ -915,7 +915,7 @@ def test_a_plan_counts_a_steps_attachments_and_lists_the_ones_it_leaves_out(
 
     text = said(result)
     assert "7 pieces of information, 3 attachments (granted, published)." in text
-    assert f"leaves out attachment {uuid.UUID(int=600)}: the item it attaches to isn't here" in text
+    assert "leaves out 1 × attachment: the item it attaches to isn't here" in text
 
 
 def test_a_step_with_one_attachment_says_so_and_one_with_none_says_nothing(
@@ -951,7 +951,7 @@ def test_a_copy_says_how_many_attachments_it_wrote_and_what_it_left_out(tmp_path
         "Copied Sunken Vale: 12 entities" in text
         and "7 pieces of information, 2 attachments." in text
     )
-    assert f"left out attachment {uuid.UUID(int=601)}: it would make a prototype loop here" in text
+    assert "left out 1 × attachment: it would make a prototype loop here" in text
 
 
 def test_updates_lists_the_attachments_added_gone_and_removed_here(tmp_path: Path) -> None:

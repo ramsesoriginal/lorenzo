@@ -271,3 +271,70 @@ def test_a_slug_that_is_not_one_of_the_tenants_repositories_is_named(
 
     assert result.exit_code == 1
     assert "no repository “no-such-repository”" in " ".join(result.output.split())
+
+
+def test_contents_says_the_systems_templates_roles_and_stats_by_system(
+    stack: Stack, tmp_path: Path
+) -> None:
+    world = World(stack, tmp_path)
+
+    code, contents = world.json("repo", "contents", "--tenant", world.repository)
+    said = " ".join(world.cli("repo", "contents", "--tenant", world.repository).output.split())
+
+    assert code == 0, contents
+    assert contents["systems"] == [{"slug": "dnd5e", "name": "D&D 5e", "root": "dnd5e-system"}]
+    assert {t["system"] for t in contents["templates"]} == {"dnd5e"}
+    assert set(contents["by_system"]) == {"dnd5e", "neutral"}
+    assert contents["by_system"]["dnd5e"]["stat_definitions"] > 20
+    assert {"role": "weight", "holder": "stat", "name": "weight", "system": "neutral"} in contents[
+        "roles"
+    ]
+    holds = contents["holds"]
+    assert holds["features"] >= 1 and holds["grant_rules"] >= 1
+    assert holds["entries"] >= holds["items"] > 20
+    assert "System dnd5e (D&D 5e), root dnd5e-system." in said
+    assert "Roles: " in said and "Templates: " in said
+
+
+def test_a_merged_stat_whose_unit_differs_is_a_warning_and_strict_units_makes_it_a_choice(
+    stack: Stack, tmp_path: Path
+) -> None:
+    world = World(stack, tmp_path)
+    _, target_id = world.ids()
+    with world.api() as api:
+        group = api.post(
+            f"/tenants/{target_id}/stat-groups", json={"name": "physical", "priority": 0}
+        ).json()
+        made = api.post(
+            f"/tenants/{target_id}/stat-definitions",
+            json={
+                "name": "height",
+                "stat_group_id": group["id"],
+                "value_type": "float",
+                "unit": "cm",
+            },
+        )
+        assert made.status_code == 201, made.text
+    assert world.cli("repo", "grant", world.target, "--tenant", world.repository).exit_code == 0
+
+    merging = (
+        "repo",
+        "copy",
+        world.repository,
+        "--tenant",
+        world.target,
+        "--on-collision",
+        "merge",
+    )
+    _, dry = world.json(*merging, "--dry-run")
+    said = " ".join(world.cli(*merging, "--dry-run").output.split())
+    _, strict = world.json(
+        "repo", "copy-plan", world.repository, "--tenant", world.target, "--strict-units"
+    )
+
+    # A warning comes with the merge that keeps the library's unit, so a dry run says it.
+    assert [w["name"] for w in dry["warnings"]] == ["height"]
+    assert "`height`: here in cm, incoming with no unit; merged, yours kept" in said
+    height = next(c for c in strict["collisions"] if c["name"] == "height")
+    assert "merge" not in height["choices"]
+    assert strict["warnings"] == []

@@ -21,7 +21,7 @@ from lorenzo_cli.client.ops import (
     REVOKE_REPOSITORY,
     UNPUBLISH_REPOSITORY,
 )
-from lorenzo_cli.client.transport import LorenzoClient
+from lorenzo_cli.client.transport import LorenzoClient, QueryValue
 from lorenzo_cli.importer.tenant_view import resolve_slugs
 from lorenzo_cli.repo_contents import read_contents
 from lorenzo_cli.runtime import (
@@ -93,6 +93,14 @@ ChoicesOption = Annotated[
         "the collisions.",
     ),
 ]
+StrictUnitsOption = Annotated[
+    bool,
+    typer.Option(
+        "--strict-units",
+        help="Don't merge a stat whose unit or bounds differ from the one here: list it as a name "
+        "to answer instead.",
+    ),
+]
 
 
 def _may_write(
@@ -105,6 +113,10 @@ def _may_write(
 
 def _echo_json(value: dict[str, object]) -> None:
     console.emit(value)
+
+
+def _strict(strict_units: bool) -> dict[str, QueryValue] | None:
+    return {"strict_units": True} if strict_units else None
 
 
 @repo_app.command("publish")
@@ -373,9 +385,9 @@ def repo_libraries(
 def repo_contents(
     ctx: typer.Context, tenant: RepositoryTenant, as_json: JsonOption = False
 ) -> None:
-    """Show what a repository holds: whether it is published and who it is granted to, which
-    repositories it is built on, and how many stat groups, stat definitions, items and
-    attachments it holds."""
+    """Show what a repository holds: whether it is published and who it is granted to, what it is
+    built on, its systems, templates and roles, its stats by system, and how many entries, items,
+    features, grant rules and attachments it holds."""
     runtime: Runtime = ctx.obj
     with _reporting_errors(), _client(runtime) as client:
         repository = resolve_tenant(client, tenant)
@@ -405,6 +417,7 @@ def repo_copy_plan(
     ctx: typer.Context,
     repository: RepositoryArgument,
     tenant: DrawingTenant,
+    strict_units: StrictUnitsOption = False,
     as_json: JsonOption = False,
 ) -> None:
     """Say what copying a repository into a tenant would do, and write nothing.
@@ -417,7 +430,9 @@ def repo_copy_plan(
         drawing = resolve_tenant(client, tenant)
         repository_id = repos.resolve_repository(client, drawing, repository)
         plan = client.call(
-            PLAN_REPOSITORY_COPY, path={"tenant_id": drawing.id, "repository_id": repository_id}
+            PLAN_REPOSITORY_COPY,
+            path={"tenant_id": drawing.id, "repository_id": repository_id},
+            query=_strict(strict_units),
         ).value
     code = repos.copy_plan_exit_code(plan, repository_id)
     if as_json:
@@ -441,6 +456,7 @@ def repo_copy(
     tenant: DrawingTenant,
     on_collision: OnCollisionOption = None,
     choices: ChoicesOption = None,
+    strict_units: StrictUnitsOption = False,
     dry_run: Annotated[
         bool, typer.Option("--dry-run", help="Do every check and say what would be copied.")
     ] = False,
@@ -471,6 +487,7 @@ def repo_copy(
                 plan = client.call(
                     PLAN_REPOSITORY_COPY,
                     path={"tenant_id": drawing.id, "repository_id": repository_id},
+                    query=_strict(strict_units),
                 ).value
                 repo_report.print_copy_plan(_out, plan)
             prompt = f"Copy {name} into {drawing.slug}?"
@@ -488,6 +505,7 @@ def repo_copy(
             on_collision=on_collision.value if on_collision else None,
             dry_run=dry_run,
             again=again.value if again else None,
+            strict_units=strict_units,
         )
     if isinstance(outcome, repos.NeedsChoices):
         if as_json:
@@ -650,6 +668,7 @@ def repo_offer(
     tenant: RepositoryTenant,
     on_collision: OnCollisionOption = None,
     choices: ChoicesOption = None,
+    strict_units: StrictUnitsOption = False,
     apply_updates: Annotated[
         bool,
         typer.Option(
@@ -679,7 +698,13 @@ def repo_offer(
         receiving = resolve_tenant(client, subscriber)
         state = repos.read_offer_state(client, repository, receiving)
         if dry_run:
-            _offer_dry_run(client, state, apply_updates=apply_updates, as_json=as_json)
+            _offer_dry_run(
+                client,
+                state,
+                apply_updates=apply_updates,
+                as_json=as_json,
+                strict_units=strict_units,
+            )
             return
         if not as_json:
             repo_report.print_offer_state(_out, state)
@@ -696,6 +721,7 @@ def repo_offer(
             explicit=explicit,
             on_collision=on_collision.value if on_collision else None,
             apply_clean_updates=apply_updates,
+            strict_units=strict_units,
         )
     if as_json:
         _echo_json(
@@ -723,7 +749,12 @@ def repo_offer(
 
 
 def _offer_dry_run(
-    client: LorenzoClient, state: repos.OfferState, *, apply_updates: bool, as_json: bool
+    client: LorenzoClient,
+    state: repos.OfferState,
+    *,
+    apply_updates: bool,
+    as_json: bool,
+    strict_units: bool,
 ) -> None:
     """What an offer would do, read without writing, grant included (ADR 0160)."""
     plan = None
@@ -732,6 +763,7 @@ def _offer_dry_run(
         plan = client.call(
             PLAN_REPOSITORY_COPY,
             path={"tenant_id": state.subscriber.id, "repository_id": state.repository.id},
+            query=_strict(strict_units),
         ).value
     if state.copied and apply_updates:
         updates = client.call(

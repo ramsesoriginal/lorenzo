@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections import Counter
 from collections.abc import Sequence
 from datetime import datetime
 from typing import Any
@@ -15,6 +16,9 @@ from lorenzo_cli.client.models import (
     CopyOut,
     CopyPlanOut,
     CopyStepOut,
+    CopyWarningOut,
+    DroppedOut,
+    ScaleOut,
     SubscriberOut,
     SubscriptionOut,
     UpdatesOut,
@@ -104,7 +108,7 @@ def print_collisions(console: Console, collisions: Sequence[CollisionOut]) -> No
         choices = ", ".join(c.value for c in collision.choices)
         taken = f" (taken here by {collision.local_id})" if collision.local_id else " (taken here)"
         console.print(
-            f"  {collision.kind.value} “{collision.name}”{taken}: choose {choices}. "
+            f"  {_kind(collision.kind)} “{collision.name}”{taken}: choose {choices}. "
             f"Source id {collision.source_id}",
             highlight=False,
         )
@@ -115,6 +119,13 @@ def _step_line(step: CopyStepOut, *, verb: str | None = None) -> str:
         f"{step.entities} entities, {step.stat_groups} stat groups, "
         f"{step.stat_definitions} stat definitions, {step.information} pieces of information"
     )
+    for count, one, many in (
+        (step.systems or 0, "system", "systems"),
+        (step.templates or 0, "template", "templates"),
+    ):
+        if count:
+            # Said only when there are, like attachments (ADR 0492).
+            counts += f", {count} {one if count == 1 else many}"
     if step.attachments:
         # The parents it adds to items copied from elsewhere (ADR 0172): said only when there are.
         counts += f", {step.attachments} attachment{'' if step.attachments == 1 else 's'}"
@@ -129,14 +140,44 @@ def _step_line(step: CopyStepOut, *, verb: str | None = None) -> str:
     return f"{step.name}: {counts} ({', '.join(flags)})."
 
 
+def _kind(kind: Any) -> str:
+    """A row's kind in words: `stat_role` is a role, `grant_rule` a grant rule."""
+    value = str(getattr(kind, "value", kind))
+    return {"stat_role": "role", "stat_definition": "stat"}.get(value, value.replace("_", " "))
+
+
+def print_dropped(console: Console, dropped: Sequence[DroppedOut], *, verb: str) -> None:
+    """What a step leaves out, counted by kind and reason (ADR 0492); `--json` has every id."""
+    counted = Counter((_kind(row.kind), row.reason) for row in dropped)
+    for (kind, reason), count in sorted(counted.items()):
+        console.print(f"  {verb} {count} × {kind}: {reason}", highlight=False)
+
+
+def _scale(scale: ScaleOut) -> str:
+    unit = f"in {scale.unit}" if scale.unit else "with no unit"
+    if scale.min_value is None and scale.max_value is None:
+        return unit
+    low = "…" if scale.min_value is None else f"{scale.min_value:g}"
+    high = "…" if scale.max_value is None else f"{scale.max_value:g}"
+    return f"{unit}, {low} to {high}"
+
+
+def print_warnings(console: Console, warnings: Sequence[CopyWarningOut] | None) -> None:
+    """A stat merged into one here whose unit or bounds differ: the library's own is kept."""
+    for warning in warnings or []:
+        console.print(
+            f"[yellow]⚠ `{warning.name}`: here {_scale(warning.library)}, incoming "
+            f"{_scale(warning.incoming)}; merged, yours kept[/yellow] (--strict-units makes it "
+            "a name to answer)",
+            highlight=False,
+        )
+
+
 def print_copy_plan(console: Console, plan: CopyPlanOut) -> None:
     for step in plan.steps:
         console.print(_step_line(step), highlight=False)
-        for dropped in step.dropped:
-            console.print(
-                f"  leaves out {dropped.kind} {dropped.source_id}: {dropped.reason}",
-                highlight=False,
-            )
+        print_dropped(console, step.dropped, verb="leaves out")
+    print_warnings(console, plan.warnings)
     if plan.collisions:
         console.print("These names are already in use here, and each needs a choice:")
         print_collisions(console, plan.collisions)
@@ -146,11 +187,8 @@ def print_copy_result(console: Console, out: CopyOut) -> None:
     verb = "Would copy" if out.dry_run else "Copied"
     for step in out.steps:
         console.print(_step_line(step, verb=verb), highlight=False)
-        for dropped in step.dropped:
-            console.print(
-                f"  left out {dropped.kind} {dropped.source_id}: {dropped.reason}",
-                highlight=False,
-            )
+        print_dropped(console, step.dropped, verb="left out")
+    print_warnings(console, out.warnings)
     if out.previous is not None:
         previous = out.previous
         kept = "kept as the tenant's own rows" if previous.mode.value == "keep" else "removed"
@@ -195,7 +233,7 @@ def print_updates(console: Console, name: str, updates: UpdatesOut) -> None:
         console.print(f"{name} has changed since this tenant copied or last synced it:")
     for row in updates.changed:
         console.print(
-            f"  changed {row.kind.value} “{row.name}”{_marks(row, updates)}", highlight=False
+            f"  changed {_kind(row.kind)} “{row.name}”{_marks(row, updates)}", highlight=False
         )
         for field in row.fields:
             detail = field.state.value.replace("_", " ")
@@ -209,12 +247,12 @@ def print_updates(console: Console, name: str, updates: UpdatesOut) -> None:
             else ""
         )
         console.print(
-            f"  added {added.kind.value} “{added.name}”{note}{_marks(added, updates)}",
+            f"  added {_kind(added.kind)} “{added.name}”{note}{_marks(added, updates)}",
             highlight=False,
         )
     for removed in updates.removed:
         console.print(
-            f"  gone upstream: {removed.kind.value} “{removed.name}”{_marks(removed, updates)}",
+            f"  gone upstream: {_kind(removed.kind)} “{removed.name}”{_marks(removed, updates)}",
             highlight=False,
         )
     for attachment in updates.attachments_added:
@@ -245,24 +283,24 @@ def print_left_for_a_decision(console: Console, chosen: CleanUpdates) -> None:
     for row in chosen.conflicts:
         fields = ", ".join(f.label or f.field for f in row.fields if f.state.value == "conflict")
         console.print(
-            f"  {row.kind.value} “{row.name}” conflicts with your own edit of {fields}",
+            f"  {_kind(row.kind)} “{row.name}” conflicts with your own edit of {fields}",
             highlight=False,
         )
     for added in chosen.collisions:
         console.print(
-            f"  {added.kind.value} “{added.name}” would collide with a name already here",
+            f"  {_kind(added.kind)} “{added.name}” would collide with a name already here",
             highlight=False,
         )
     for row in chosen.breaking:
         notes = "; ".join(f"{n.detail} (release {n.release.label})" for n in row.breaking)
         console.print(
-            f"  {row.kind.value} “{row.name}” is marked breaking: {notes}. "
+            f"  {_kind(row.kind)} “{row.name}” is marked breaking: {notes}. "
             'Name it in a file with "confirm": true to take it',
             highlight=False,
         )
     for edited in chosen.edited:
         console.print(
-            f"  {edited.kind.value} “{edited.name}” was edited after the release, "
+            f"  {_kind(edited.kind)} “{edited.name}” was edited after the release, "
             "so it is not taken with the rest",
             highlight=False,
         )
@@ -291,7 +329,7 @@ def print_applied(console: Console, out: ApplyUpdatesOut) -> None:
         what = (
             f"an attachment on {item.source_id}"
             if item.kind == "attachment"
-            else f"{item.field} of {item.kind} {item.source_id}"
+            else f"{item.field} of {_kind(item.kind)} {item.source_id}"
         )
         console.print(
             f"[yellow]⚠ Couldn't apply {what}: {item.reason}. It stays on offer.[/yellow]",
@@ -375,13 +413,42 @@ def contents_json(contents: Contents) -> dict[str, object]:
             }
             for row in contents.built_on
         ],
+        "systems": [{"slug": s.slug, "name": s.name, "root": s.root} for s in contents.systems],
+        "templates": [
+            {
+                "name": t.name,
+                "system": t.system,
+                "kind": t.required_kind.value if t.required_kind else None,
+            }
+            for t in contents.templates
+        ],
+        "roles": [
+            {"role": r.role, "holder": r.holder, "name": r.name, "system": r.system}
+            for r in contents.roles
+        ],
+        "by_system": {
+            system: {
+                "stat_groups": contents.stat_groups_by_system.get(system, 0),
+                "stat_definitions": contents.stat_definitions_by_system.get(system, 0),
+            }
+            for system in _systems_counted(contents)
+        },
         "holds": {
+            "systems": len(contents.systems),
+            "templates": len(contents.templates),
             "stat_groups": contents.stat_groups,
             "stat_definitions": contents.stat_definitions,
+            "entries": contents.entries,
             "items": contents.items,
+            "features": contents.features,
+            "grant_rules": contents.grant_rules,
             "attachments": contents.attachments,
         },
     }
+
+
+def _systems_counted(contents: Contents) -> list[str]:
+    return sorted(set(contents.stat_groups_by_system) | set(contents.stat_definitions_by_system))
 
 
 def print_contents(console: Console, contents: Contents) -> None:
@@ -404,9 +471,27 @@ def print_contents(console: Console, contents: Contents) -> None:
             )
     else:
         console.print("Built on nothing: it has copied no repository.")
+    for held in contents.systems:
+        root = f", root {held.root}" if held.root else ", no root"
+        console.print(f"System {held.slug} ({held.name}){root}.", highlight=False)
+    for system in _systems_counted(contents):
+        console.print(
+            f"  {system}: {contents.stat_groups_by_system.get(system, 0)} stat groups, "
+            f"{contents.stat_definitions_by_system.get(system, 0)} stats",
+            highlight=False,
+        )
+    if contents.roles:
+        said = ", ".join(
+            f"{r.role} ({r.name}{'' if r.system == 'neutral' else ', ' + r.system})"
+            for r in contents.roles
+        )
+        console.print(f"Roles: {said}.", highlight=False)
+    if contents.templates:
+        said = ", ".join(f"{t.name} ({t.system or 'no system'})" for t in contents.templates)
+        console.print(f"Templates: {said}.", highlight=False)
     console.print(
-        f"Holds {contents.stat_groups} stat groups, {contents.stat_definitions} stat definitions "
-        f"and {contents.items} items (categories included).",
+        f"Holds {contents.entries} entries, {contents.items} of them items (categories "
+        f"included) and {contents.features} features, and {contents.grant_rules} grant rules.",
         highlight=False,
     )
     if contents.attachments:
