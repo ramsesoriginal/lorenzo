@@ -3108,6 +3108,127 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/tenants/{tenant_id}/writing/entries/{id}/repository-comparison": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Compare Manuscript */
+        get: operations["compare_manuscript"];
+        put?: never;
+        /** Accept Manuscript Update */
+        post: operations["accept_manuscript_update"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/writing/entries/{id}/repository-updates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Compare Manuscript Composition */
+        get: operations["compare_manuscript_composition"];
+        put?: never;
+        /** Accept Manuscript Composition */
+        post: operations["accept_manuscript_composition"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/writing/entries/{id}/repository-updates/checkpoints/{checkpoint_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Manuscript Update Checkpoint */
+        get: operations["manuscript_update_checkpoint"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/writing/entries/{id}/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Export Preview */
+        get: operations["export_preview"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/writing/reviews/{id}/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Review Export Preview */
+        get: operations["review_export_preview"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/writing/entries/{id}/export/source": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Export Source */
+        get: operations["export_source"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/writing/reviews/{id}/export/source": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Review Export Source */
+        get: operations["review_export_source"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/tenants/{tenant_id}/writing/entries/{id}/contents": {
         parameters: {
             query?: never;
@@ -7737,6 +7858,14 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** Accepted */
+        Accepted: {
+            /**
+             * Checkpoint Id
+             * Format: uuid
+             */
+            checkpoint_id: string;
+        };
         /**
          * AddedOut
          * @description A row the repository added since, with the collision copying it
@@ -9267,6 +9396,13 @@ export interface components {
             state: "with_you" | "stashed" | "elsewhere" | "unknown";
             place?: components["schemas"]["PlaceOut"] | null;
         };
+        /** Choices */
+        Choices: {
+            /** Choices */
+            choices: {
+                [key: string]: "local" | "upstream";
+            };
+        };
         /**
          * ChosenStepExplanationOut
          * @description The step a select took (ADR 0446): its position and key (a `from` or a value), or that none
@@ -9631,6 +9767,19 @@ export interface components {
         Composition: {
             /** Elements */
             elements: string[];
+        };
+        /** CompositionReview */
+        CompositionReview: {
+            /** Version */
+            version: string;
+            /** Affected Entries */
+            affected_entries: string[];
+            /** Names */
+            names: {
+                [key: string]: string;
+            };
+            /** Rows */
+            rows: components["schemas"]["ReviewRow"][];
         };
         /**
          * ComputedStatDependentOut
@@ -11326,6 +11475,100 @@ export interface components {
             dates?: string[];
             /** Participants */
             participants?: string[] | null;
+        };
+        /** ExportEntry */
+        ExportEntry: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Kind */
+            kind: string;
+            /** Elements */
+            elements: components["schemas"]["Element"][];
+            /** Scene Id */
+            scene_id?: string | null;
+            /** Viewpoint Id */
+            viewpoint_id?: string | null;
+            /**
+             * Uses Scene Manuscript
+             * @default false
+             */
+            uses_scene_manuscript: boolean;
+            /**
+             * Joined
+             * @default false
+             */
+            joined: boolean;
+            joined_destination?: components["schemas"]["JoinedDestination"] | null;
+            /** Number */
+            number?: string | null;
+            /** Numbering */
+            numbering?: {
+                [key: string]: unknown;
+            } | null;
+            /** Contents Settings */
+            contents_settings?: {
+                [key: string]: unknown;
+            } | null;
+            /** Contents */
+            contents?: {
+                [key: string]: unknown;
+            }[] | null;
+        };
+        /** ExportPayload */
+        ExportPayload: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "text" | "picture";
+            /**
+             * Information Id
+             * Format: uuid
+             */
+            information_id: string;
+            /** Locale */
+            locale?: string | null;
+            /** Content */
+            content?: string | null;
+            /** Media Type */
+            media_type?: string | null;
+            /** Data */
+            data?: string | null;
+            /** Sha256 */
+            sha256: string;
+        };
+        /** ExportSnapshot */
+        ExportSnapshot: {
+            /**
+             * Format
+             * @default lorenzo-writing/1
+             * @constant
+             */
+            format: "lorenzo-writing/1";
+            /**
+             * Root Id
+             * Format: uuid
+             */
+            root_id: string;
+            /**
+             * Version
+             * @default
+             */
+            version: string;
+            /** Entries */
+            entries: components["schemas"]["ExportEntry"][];
+            /** Payloads */
+            payloads?: components["schemas"]["ExportPayload"][];
         };
         /** ExtractChapter */
         ExtractChapter: {
@@ -13422,6 +13665,37 @@ export interface components {
             /** Campaigns */
             campaigns: components["schemas"]["ManagedCampaignOut"][];
         };
+        /** ManuscriptComparison */
+        ManuscriptComparison: {
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "not_copied" | "no_baseline" | "local_unavailable" | "unchanged" | "local" | "upstream" | "matching" | "conflict";
+            /** Version */
+            version?: string | null;
+            /**
+             * Update Allowed
+             * @default false
+             */
+            update_allowed: boolean;
+            /** Update Reason */
+            update_reason?: string | null;
+            /** Repository Name */
+            repository_name?: string | null;
+            /** Base */
+            base?: {
+                [key: string]: unknown;
+            } | null;
+            /** Local */
+            local?: {
+                [key: string]: unknown;
+            } | null;
+            /** Upstream */
+            upstream?: {
+                [key: string]: unknown;
+            } | null;
+        };
         /** ManuscriptContentsOut */
         ManuscriptContentsOut: {
             settings: components["schemas"]["ContentsSettings"];
@@ -13480,6 +13754,14 @@ export interface components {
             id: string;
             /** Name */
             name: string;
+        };
+        /** ManuscriptUpdateChoice */
+        ManuscriptUpdateChoice: {
+            /**
+             * Choice
+             * @enum {string}
+             */
+            choice: "local" | "upstream";
         };
         /** MapCreate */
         MapCreate: {
@@ -17316,6 +17598,42 @@ export interface components {
             content: string;
             /** Version */
             version: number;
+        };
+        /** ReviewRow */
+        ReviewRow: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /**
+             * Field
+             * @enum {string}
+             */
+            field: "entry" | "bundle" | "structure";
+            /** Baseline Known */
+            baseline_known: boolean;
+            /** Base */
+            base: {
+                [key: string]: unknown;
+            } | null;
+            /** Local */
+            local: {
+                [key: string]: unknown;
+            } | null;
+            /** Upstream */
+            upstream: {
+                [key: string]: unknown;
+            } | null;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "upstream" | "local" | "matching" | "conflict" | "unknown" | "removed";
+            /**
+             * Selectable
+             * @default true
+             */
+            selectable: boolean;
         };
         /** Reviewer */
         Reviewer: {
@@ -31247,6 +31565,621 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["WritingEntry"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    compare_manuscript: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ManuscriptComparison"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    accept_manuscript_update: {
+        parameters: {
+            query?: never;
+            header?: {
+                "if-match"?: string | null;
+            };
+            path: {
+                tenant_id: string;
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ManuscriptUpdateChoice"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    compare_manuscript_composition: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CompositionReview"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    accept_manuscript_composition: {
+        parameters: {
+            query?: never;
+            header?: {
+                "if-match"?: string | null;
+            };
+            path: {
+                tenant_id: string;
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Choices"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Accepted"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    manuscript_update_checkpoint: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+                id: string;
+                checkpoint_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    export_preview: {
+        parameters: {
+            query?: never;
+            header?: {
+                "if-match"?: string | null;
+            };
+            path: {
+                tenant_id: string;
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExportSnapshot"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    review_export_preview: {
+        parameters: {
+            query?: never;
+            header?: {
+                "if-match"?: string | null;
+            };
+            path: {
+                tenant_id: string;
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExportSnapshot"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    export_source: {
+        parameters: {
+            query?: never;
+            header?: {
+                "if-match"?: string | null;
+            };
+            path: {
+                tenant_id: string;
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/zip": string;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    review_export_source: {
+        parameters: {
+            query?: never;
+            header?: {
+                "if-match"?: string | null;
+            };
+            path: {
+                tenant_id: string;
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/zip": string;
                 };
             };
             /** @description Validation Error */
