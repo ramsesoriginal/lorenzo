@@ -226,8 +226,8 @@ def proposed_map(plan: ImportPlan) -> str:
         row = _unmapped_suggestion(list_name, attribute)
         sections[header].append(row)
     lines = [
-        "# Proposed map rows (lorenzo import mpmb plan). Read them, choose, and paste what you want",
-        "# into your map file. Nothing here has been applied.",
+        "# Proposed map rows (lorenzo import mpmb plan). Read them, choose, and paste what you",
+        "# want into your map file. Nothing here has been applied.",
         "",
     ]
     for header, blocks in sorted(sections.items()):
