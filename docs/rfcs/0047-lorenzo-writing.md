@@ -1,6 +1,6 @@
 # RFC 0047: Lorenzo Writing, manuscripts, editions and carriers
 
-Status: accepted with the maintainer on 2026-10-23. Decision: [ADR 0327](../adr/0327-lorenzo-writing.md). Delivery: built so far: W1 to W5, W6a and W7 (ADR 0327 to 0329, 0341 to 0348, 0374, 0378 to 0382); W8a is decided (ADR 0383) and not built.
+Status: accepted with the maintainer on 2026-10-23. Decision: [ADR 0327](../adr/0327-lorenzo-writing.md). Delivery: W1–W9 are built; W10 source/PDF export follows [ADR 0478](../adr/0478-manuscript-export-snapshots.md). Live execution is tracked in [milestone 84](https://github.com/ramsesoriginal/lorenzo/milestone/84), not this historical summary.
 Implementation is authorized as tested vertical slices in stacked PRs; no PR is merged autonomously.
 
 ## Purpose
