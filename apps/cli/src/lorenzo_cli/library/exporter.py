@@ -12,6 +12,7 @@ from typing import Any
 from uuid import UUID
 
 from lorenzo_cli.client.models import StatDefinitionOut, StatGroupOut
+from lorenzo_cli.library import templates
 from lorenzo_cli.library.document import (
     Document,
     EntryRow,
@@ -188,6 +189,19 @@ def export(state: LibraryState, system_slug: str | None) -> Document:
     # What the document refers to and does not hold comes from another document.
     named_stats = {s.name for s in stats}
     named_entries = {e.slug for e in doc_entries}
+    groups_by_id = {g.id: g.name for g in state.groups.values()}
+    doc_system = system_row.slug if system_row else None
+    doc_templates = [
+        templates.from_out(
+            held,
+            doc_system=doc_system,
+            group_name=lambda i: groups_by_id.get(i, str(i)),
+            stat_name=lambda i: names.get(i, str(i)),
+            entry_slug=lambda i: state.slug_of(i) or str(i),
+        )
+        for _, held in sorted(state.templates.items())
+        if held.system == doc_system
+    ]
     read = [n for f in doc_formulas for n in (f.stat, *stats_named(f.fields()))]
     outside = (
         any(n not in named_stats for e in doc_entries for n in (*e.stats, *e.tags))
@@ -205,6 +219,7 @@ def export(state: LibraryState, system_slug: str | None) -> Document:
         stat=[_stat_row(s, by_group[s.stat_group_id], state) for s in stats],
         entry=doc_entries,
         formula=doc_formulas,
+        template=doc_templates,
     )
 
 

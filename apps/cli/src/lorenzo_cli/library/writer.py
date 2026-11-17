@@ -28,7 +28,7 @@ from lorenzo_cli.client.models import (
     SystemUpdate,
 )
 from lorenzo_cli.client.transport import LorenzoClient
-from lorenzo_cli.library import formulas
+from lorenzo_cli.library import formulas, templates
 from lorenzo_cli.library.document import Document
 from lorenzo_cli.library.planner import Action, Plan
 from lorenzo_cli.library.state import LibraryState
@@ -59,6 +59,7 @@ class _Ids:
         self.groups = {name: g.id for name, g in state.groups.items()}
         self.stats = {name: s.id for name, s in state.stats.items()}
         self.entries = {e.slug: e.id for e in state.entries.values() if e.slug}
+        self.templates = {name: t.id for name, t in state.templates.items()}
 
     def put(self, table: str, key: str, value: UUID) -> None:
         with self._lock:
@@ -281,6 +282,38 @@ class _Writer:
                 "entity_id": self.ids.entries[slug],
                 "stat_definition_id": self.ids.stats[stat],
             },
+        )
+
+    # --- templates ---------------------------------------------------------------------------
+
+    def _template_body(self, name: str) -> Any:
+        row = next(t for t in self.doc.template if t.name == name)
+        return templates.to_body(
+            row,
+            doc_system=self.doc.system.slug if self.doc.system else None,
+            system_id=lambda slug: self.ids.systems[slug],
+            group_id=lambda group: self.ids.groups[group],
+            stat_id=lambda stat: self.ids.stats[stat],
+            entry_id=lambda slug: self.ids.entries[slug],
+        )
+
+    def _create_template(self, action: Action, _: dict[str, Any]) -> None:
+        made = self.client.call(
+            ops.CREATE_TEMPLATE, path=self.path, body=self._template_body(action.key)
+        ).value
+        self.ids.put("templates", action.key, made.id)
+
+    def _change_template(self, action: Action, _: dict[str, Any]) -> None:
+        self.client.call(
+            ops.REPLACE_TEMPLATE,
+            path={**self.path, "template_id": self.ids.templates[action.key]},
+            body=self._template_body(action.key),
+        )
+
+    def _remove_template(self, action: Action, _: dict[str, Any]) -> None:
+        self.client.call(
+            ops.DELETE_TEMPLATE,
+            path={**self.path, "template_id": self.ids.templates[action.key]},
         )
 
     # --- pruning ---------------------------------------------------------------------------

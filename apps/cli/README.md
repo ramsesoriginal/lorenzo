@@ -107,6 +107,8 @@ Or pipe a token in with `--token-stdin`. A token from the stored login is used l
 | `lorenzo stat-group list\|show\|create\|edit\|delete`, `lorenzo stat-definition list\|show\|create\|edit\|delete` | A library's stat vocabulary: its groups and definitions, with systems, roles, bounds, display fields and hints ([ADR 0295](../../docs/adr/0295-cli-vocabulary-sheet-settings-and-reads.md), [ADR 0485](../../docs/adr/0485-system-and-vocabulary-commands.md)). See [Authoring the stat vocabulary and reading entries](#authoring-the-stat-vocabulary-and-reading-entries) |
 | `lorenzo system list\|show\|create\|edit\|delete` | A library's game systems. See [Game systems and library documents](#game-systems-and-library-documents) |
 | `lorenzo plan\|apply FILE\|--starter NAME -t LIBRARY [--prune]`, `lorenzo export SLUG\|neutral -t LIBRARY` | A system or the neutral vocabulary as one document: what applying it would do, applying it, and writing it back ([ADR 0484](../../docs/adr/0484-the-library-document.md)) |
+| `lorenzo formula set|show|preview|tree|delete` | Formulas of every kind, one at a time ([ADR 0486](../../docs/adr/0486-formulas-from-the-command-line.md)) |
+| `lorenzo template list|show|create|delete|matching|view`, `lorenzo campaign list|create|set-system`, `lorenzo being create|show` | Templates, the system a campaign plays, and beings ([ADR 0487](../../docs/adr/0487-templates-campaigns-and-beings-from-the-command-line.md)) |
 | `lorenzo starter list\|show`, `lorenzo schema document\|output COMMAND` | The documents that ship with the CLI, and the JSON Schemas of the document and of each command's `--json` output. Need no login |
 | `lorenzo tenant sheet-settings <tenant> [--being-stat-group G] [--weapon-stat-group G] [--ability-information-type T] [--clear-...] [--json]` | Reads a library's sheet settings, or changes only the ones named; each `--clear-...` unsets one |
 | `lorenzo item show <item>`, `lorenzo item-instance show <instance>`, `lorenzo being show <being>` `--tenant <tenant> [--json]` | Reads an item, an instance or a being by id, link name or exact name: resolved stats, inheritance, containment and notes, and for a being its equipped weapons and abilities |
@@ -474,6 +476,36 @@ lorenzo schema document > lorenzo-document.schema.json   # for an editor to chec
 ```
 
 `apply` sets what the document names and leaves what it does not; it never deletes. `--prune` also removes what the document's system no longer names, shown first: its stat groups and stats, and the entries under its root that are features or that others inherit from (a leaf item imported under the root is content and stays). It is refused for a document without a `[system]`. A description is created when an entry has none; one that differs is reported, not rewritten. `lorenzo starter list|show` names and prints the documents that ship with the CLI, and `--starter NAME` on `plan` and `apply` stands for one. `lorenzo schema output COMMAND` prints the shape of a command's `--json` output.
+
+### Templates, campaigns and beings
+
+A template says what an entry of a kind, under an ancestor, is shown as: its slots, in order (stats of a group or named stats, information of a type, what it holds, its tags, its features; [ADR 0451](../../docs/adr/0451-templates-a-sheet-as-data.md)). A campaign plays a system, and its beings' sheets are read through that system's template ([ADR 0452](../../docs/adr/0452-a-campaign-names-a-system-and-the-sheet-reads-a-template.md)).
+
+```toml
+[[template]]
+name = "Datacard"
+system = true          # the document's system; a slug for another; false for none
+kind = "being"
+ancestor = "kt-operative"
+
+[[template.slot]]
+kind = "stats"
+label = "Profile"
+group = "kt_profile"   # or stats = ["kt_move", { stat = "kt_wounds", label = "W" }]
+```
+
+```bash
+lorenzo template create --from card.toml -t lib       # or replace the one of that name
+lorenzo template list -t lib --system kt
+lorenzo template matching hale -t lib                  # what an entry matches
+lorenzo template view hale Datacard -t lib             # the entry read through it
+lorenzo campaign create League --slug league --system kt -t lib
+lorenzo campaign set-system league --none -t lib
+lorenzo being create Hale --parent kt-gunner --slug hale -t lib
+lorenzo being show hale -t lib --campaign league       # the sheet as the campaign shows it
+```
+
+`item show`, `item-instance show` and `being show` take `--system SLUG` to read an entry as one system shows it.
 
 ### Formulas
 

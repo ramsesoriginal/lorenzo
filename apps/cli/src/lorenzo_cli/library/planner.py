@@ -14,7 +14,15 @@ from typing import Any, Literal
 from uuid import UUID
 
 from lorenzo_cli.client.models import TenantOut
-from lorenzo_cli.library.document import Document, EntryRow, FormulaRow, GroupRow, StatRow
+from lorenzo_cli.library import templates
+from lorenzo_cli.library.document import (
+    Document,
+    EntryRow,
+    FormulaRow,
+    GroupRow,
+    StatRow,
+    TemplateRow,
+)
 from lorenzo_cli.library.formulas import canonical, from_api, stats_named
 from lorenzo_cli.library.state import EntryState, LibraryState, description_text
 
@@ -387,6 +395,46 @@ class _Planner:
             if (entry.slug, names.get(stat_id)) not in named:
                 self.add("remove", "formula", f"{entry.slug}: {names.get(stat_id)}", REMOVE)
 
+    def template(self, row: TemplateRow) -> None:
+        where = f"template {row.name}"
+        slug = templates.system_slug(row, self.doc.system.slug if self.doc.system else None)
+        if (
+            slug is not None
+            and slug not in self.state.systems
+            and (self.doc.system is None or self.doc.system.slug != slug)
+        ):
+            self.missing("system", slug, where)
+        if row.ancestor is not None and not self.has_entry(row.ancestor):
+            self.missing("entry", row.ancestor, f"{where}'s ancestor")
+        for slot in row.slot:
+            if slot.group is not None and not self.has_group(slot.group):
+                self.missing("stat group", slot.group, where)
+        for name in templates.stats_named(row):
+            if not self.has_stat(name):
+                self.missing("stat", name, where)
+        existing = self.state.templates.get(row.name)
+        if existing is None:
+            self.add("create", "template", row.name, AFTER_ENTRIES, f"{len(row.slot)} slots")
+            return
+        names = {s.id: s.name for s in self.state.stats.values()}
+        groups = {g.id: g.name for g in self.state.groups.values()}
+        doc_system = self.doc.system.slug if self.doc.system else None
+        current = templates.from_out(
+            existing,
+            doc_system=doc_system,
+            group_name=lambda i: groups.get(i, str(i)),
+            stat_name=lambda i: names.get(i, str(i)),
+            entry_slug=lambda i: self.state.slug_of(i) or str(i),
+        )
+        if not templates.same(current, row, doc_system):
+            self.add("change", "template", row.name, AFTER_ENTRIES, f"{len(row.slot)} slots")
+
+    def prune_templates(self, system_slug: str) -> None:
+        named = {t.name for t in self.doc.template}
+        for name, held in sorted(self.state.templates.items()):
+            if held.system == system_slug and name not in named:
+                self.add("remove", "template", name, REMOVE)
+
     def attach(self) -> None:
         for row in self.doc.attach:
             where = f"attach {row.entry} to {row.parent}"
@@ -412,6 +460,7 @@ class _Planner:
         system = self.state.systems.get(row.slug)
         if system is None:
             return
+        self.prune_templates(row.slug)
         groups = [g for g in self.state.groups.values() if g.system_id == system.id]
         named_groups = set(self.doc_groups)
         named_stats = set(self.doc_stats)
@@ -476,6 +525,8 @@ def make_plan(doc: Document, state: LibraryState, *, prune: bool = False) -> Pla
     planner.entries()
     for formula in doc.formula:
         planner.formula(formula)
+    for template in doc.template:
+        planner.template(template)
     planner.attach()
     if prune:
         planner.prune()

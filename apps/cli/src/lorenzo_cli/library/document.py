@@ -124,6 +124,44 @@ class FormulaRow(BaseModel):
         return dict(self.model_extra or {})
 
 
+SlotKind = Literal["stats", "information", "held", "tags", "features"]
+TemplateKind = Literal[
+    "item", "item_instance", "being", "character", "fact", "feature", "feature_instance", "event"
+]
+
+
+class SlotStat(_Row):
+    stat: str
+    label: str | None = Field(None, min_length=1, max_length=200)
+
+
+class SlotRow(_Row):
+    """One slot of a template (ADR 0451): what a sheet shows, in order."""
+
+    kind: SlotKind
+    label: str | None = Field(None, min_length=1, max_length=200)
+    group: str | None = Field(None, description="A stats slot's stat group, by name.")
+    stats: list[str | SlotStat] | None = Field(None, description="Or the stats, by name, in order.")
+    exclude: list[str] | None = Field(None, description="Stats of the group left out.")
+    information_type: str | None = Field(None, min_length=1, max_length=200)
+    held_order: Literal["name", "prototype"] | None = None
+
+    def stat_rows(self) -> list[SlotStat]:
+        return [s if isinstance(s, SlotStat) else SlotStat(stat=s) for s in self.stats or []]
+
+
+class TemplateRow(_Row):
+    """A template (ADR 0451, ADR 0452): what an entry of a kind, under an ancestor, is shown as."""
+
+    name: str = Field(min_length=1, max_length=200)
+    system: bool | str = Field(
+        False, description="True: the document's system; a slug: that system; false: none."
+    )
+    kind: TemplateKind | None = Field(None, description="Only entries of this kind match.")
+    ancestor: str | None = Field(None, description="Only entries under this entry match (a slug).")
+    slot: list[SlotRow] = Field(default_factory=list, max_length=50)
+
+
 class AttachRow(_Row):
     """A parent added to an entry another document owns (ADR 0172)."""
 
@@ -140,6 +178,7 @@ class Document(_Row):
     stat: list[StatRow] = Field(default_factory=list)
     entry: list[EntryRow] = Field(default_factory=list)
     formula: list[FormulaRow] = Field(default_factory=list)
+    template: list[TemplateRow] = Field(default_factory=list)
     attach: list[AttachRow] = Field(default_factory=list)
 
     @model_validator(mode="after")
@@ -149,6 +188,7 @@ class Document(_Row):
             ("stat", [s.name for s in self.stat]),
             ("entry", [e.slug for e in self.entry]),
             ("formula", [f"{f.stat} on {f.on}" for f in self.formula]),
+            ("template", [t.name for t in self.template]),
         ):
             twice = sorted(k for k, n in Counter(keys).items() if n > 1)
             if twice:
@@ -156,6 +196,8 @@ class Document(_Row):
         groups = {g.name: g for g in self.group}
         if self.system is None and any(g.system for g in self.group):
             raise ValueError("a group says `system = true`, but the document has no [system]")
+        if self.system is None and any(t.system is True for t in self.template):
+            raise ValueError("a template says `system = true`, but the document has no [system]")
         for group in self.group:
             if group.system and group.role is not None:
                 raise ValueError(

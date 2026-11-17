@@ -15,6 +15,8 @@ from lorenzo_cli.client.models import (
     StatDefinitionOut,
     StatGroupOut,
     SystemOut,
+    TemplateOut,
+    TemplateSummaryOut,
     TenantOut,
 )
 from lorenzo_cli.client.paging import all_items
@@ -48,6 +50,7 @@ class LibraryState:
     # Formulas by (entry, stat), as the API writes them; read only for the entries asked for.
     formulas: dict[tuple[UUID, UUID], dict[str, Any]] = field(default_factory=dict)
     formulas_read: set[UUID] = field(default_factory=set)
+    templates: dict[str, TemplateOut] = field(default_factory=dict)
 
     def system_of(self, group: StatGroupOut) -> SystemOut | None:
         return next((s for s in self.systems.values() if s.id == group.system_id), None)
@@ -94,6 +97,10 @@ def read(client: LorenzoClient, tenant: TenantOut) -> LibraryState:
         state.groups[group.name] = group
     for stat in all_items(client, ops.LIST_STAT_DEFINITIONS, path=path, of=StatDefinitionOut):
         state.stats[stat.name] = stat
+    for summary in all_items(client, ops.LIST_TEMPLATES, path=path, of=TemplateSummaryOut):
+        state.templates[summary.name] = client.call(
+            ops.GET_TEMPLATE, path={**path, "template_id": summary.id}
+        ).value
     cursor: str | None = None
     while True:
         page: EntityExportPage = client.call(

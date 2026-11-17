@@ -33,7 +33,9 @@ COMMANDS: dict[str, Entry] = {
     ),
     "item": Entry(f"{_C}catalog", "item_app", "Find the items you may add, add one, or read one."),
     "item-instance": Entry("lorenzo_cli.entry_commands", "instance_app", "Read item instances."),
-    "being": Entry("lorenzo_cli.entry_commands", "being_app", "Read beings and their sheets."),
+    "being": Entry(
+        "lorenzo_cli.entry_commands", "being_app", "Read beings and their sheets, or make one."
+    ),
     "character": Entry(f"{_C}catalog", "character_app", "List characters."),
     "pack": Entry(f"{_C}pack", "app", "Hand out an imported pack."),
     "seed": Entry(f"{_C}seeding", "app", "Create the item taxonomy and stats in a tenant.", "seed"),
@@ -45,6 +47,8 @@ COMMANDS: dict[str, Entry] = {
     "starter": Entry(f"{_C}library", "starter_app", "The documents that ship with the CLI."),
     "system": Entry(f"{_C}systems", "app", "List, read, create, edit or delete a game system."),
     "formula": Entry(f"{_C}formulas", "app", "Set, show, preview, trace or delete a formula."),
+    "template": Entry(f"{_C}templates", "app", "Templates, and an entry read through one."),
+    "campaign": Entry(f"{_C}campaigns", "app", "List or create campaigns, and set their system."),
     "import": Entry(
         f"{_C}transfer", "import_app", "Import MPMB items, an inventory or a calendar."
     ),
