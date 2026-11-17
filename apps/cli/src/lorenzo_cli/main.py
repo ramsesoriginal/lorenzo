@@ -66,6 +66,9 @@ COMMANDS: dict[str, Entry] = {
     ),
     "repo": Entry(f"{_C}repo", "app", "Publish, grant, copy and update repositories."),
     "api": Entry(f"{_C}api", "app", "Make one authenticated request to the API.", "api"),
+    "check": Entry(
+        f"{_C}check", "app", "Check a library's stats for what they get wrong.", "check"
+    ),
     "schema": Entry(f"{_C}schema", "app", "JSON Schemas: the library document, and --json output."),
 }
 

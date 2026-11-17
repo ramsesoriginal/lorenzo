@@ -399,6 +399,8 @@ def apply(
         _err.print(f"[red]✗ {failure}[/red]")
     if not report.failures:
         _save_taught(runtime, taught, map_file, proposed_map_file)
+    if not as_json:
+        console.notice(f"Check what it wrote: lorenzo check -t {tenant}")
     raise typer.Exit(1 if failed else 0)
 
 

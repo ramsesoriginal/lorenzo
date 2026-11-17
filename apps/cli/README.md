@@ -110,6 +110,7 @@ Or pipe a token in with `--token-stdin`. A token from the stored login is used l
 | `lorenzo formula set\|show\|preview\|tree\|delete` | Formulas of every kind, one at a time ([ADR 0486](../../docs/adr/0486-formulas-from-the-command-line.md)) |
 | `lorenzo template list\|show\|create\|delete\|matching\|view`, `lorenzo campaign list\|create\|set-system`, `lorenzo being create\|show` | Templates, the system a campaign plays, and beings ([ADR 0487](../../docs/adr/0487-templates-campaigns-and-beings-from-the-command-line.md)) |
 | `lorenzo feature list\|show\|award\|activate\|deactivate\|remove`, `lorenzo grant-rule list\|show\|create\|delete`, `lorenzo grants show\|apply` | Features, the rules that grant them, and applying them with choices ([ADR 0488](../../docs/adr/0488-features-and-grants-from-the-command-line.md)) |
+| `lorenzo check -t LIBRARY [--code C] [--entry E] [--parent P] [--severity S] [--fail-on warning\|info]` | What a library's stats get wrong without saying so; exit 1 only with `--fail-on` ([ADR 0489](../../docs/adr/0489-lorenzo-check.md)) |
 | `lorenzo starter list\|show`, `lorenzo schema document\|output COMMAND` | The documents that ship with the CLI, and the JSON Schemas of the document and of each command's `--json` output. Need no login |
 | `lorenzo tenant sheet-settings <tenant> [--being-stat-group G] [--weapon-stat-group G] [--ability-information-type T] [--clear-...] [--json]` | Reads a library's sheet settings, or changes only the ones named; each `--clear-...` unsets one |
 | `lorenzo item show <item>`, `lorenzo item-instance show <instance>`, `lorenzo being show <being>` `--tenant <tenant> [--json]` | Reads an item, an instance or a being by id, link name or exact name: resolved stats, inheritance, containment and notes, and for a being its equipped weapons and abilities |
@@ -534,6 +535,19 @@ lorenzo grant-rule create --from rule.toml -t lib
 ```
 
 `grants apply` exits 2 when a choice is left open or nothing was applied, and a GM's `--override` passes prerequisites and counts by, said in a warning.
+
+### Checking a library
+
+`lorenzo check` is the vocabulary check of RFC 0055: what a library's stats get wrong without saying so. It reads; nothing is refused or written ([ADR 0489](../../docs/adr/0489-lorenzo-check.md)).
+
+```bash
+lorenzo check -t lib                                    # grouped by entry, with a count at the end
+lorenzo check -t lib --code unset-input --parent weapon
+lorenzo check -t lib --severity warning --json
+lorenzo check -t lib --fail-on warning                  # exit 1 on a warning, for a script or CI
+```
+
+The codes are `unset-input`, `own-value-shadows-formula` and `tie` (warnings), and `computed-outside-scale`, `above-hint` and `formula-chain-depth` (notes; `tie` needs `--entry`). Without `--fail-on` it exits 0 whatever it finds. `apply`, `import mpmb apply` and `repo copy` do not run it; they end with a line that names it.
 
 ### Formulas
 

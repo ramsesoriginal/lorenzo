@@ -27,3 +27,9 @@ totals count entries, not findings. Writes answer with findings when asked (`?wa
 
 - A library's author can run the check after any change, and CI can gate a repository on it, without the API refusing anything.
 - A fresh library is not met with a page of findings it did not ask for.
+
+## As built (slice C9)
+
+`--warnings` is on `formula set`. The CLI has no command that writes one stat value or tag on its own (a document's values go
+through `apply`), so the rest of the decision's `--warnings` waits for one; `lorenzo check` after the write reads the same findings.
+`apply`, `import mpmb apply` and `repo copy` end with the line that names `lorenzo check -t LIBRARY` when they wrote something.

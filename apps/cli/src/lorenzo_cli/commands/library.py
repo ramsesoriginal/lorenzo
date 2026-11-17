@@ -149,6 +149,8 @@ def apply_command(
         console.emit(plan_json(plan, result))
     else:
         print_result(result)
+        if result.done:
+            console.notice(f"Check what it wrote: lorenzo check -t {plan.tenant.slug}")
     raise typer.Exit(1 if result.failed else 0)
 
 

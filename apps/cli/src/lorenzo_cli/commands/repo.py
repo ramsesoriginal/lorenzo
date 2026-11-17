@@ -509,6 +509,8 @@ def repo_copy(
         console.emit(outcome.model_dump(mode="json"))
         return
     repo_report.print_copy_result(_out, outcome)
+    if not dry_run:
+        console.notice(f"Check what the copy brought: lorenzo check -t {tenant}")
 
 
 @repo_app.command("updates")
