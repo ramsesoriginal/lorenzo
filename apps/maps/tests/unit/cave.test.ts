@@ -137,7 +137,7 @@ describe('the Cave system generator (ADR 0476)', () => {
 
   it('draws what the API will take on a very small sheet and on a very large or far one', () => {
     // A sheet half a unit wide needs more than two decimals to keep its points apart; one that
-    // reaches past a million units is drawn in whole units, where decimals are not always taken.
+    // reaches past a million units is drawn in two decimals like any other (#1255).
     const sheets: Sheet[] = [
       [0, 0, 0.5, 0.4],
       [0, 0, 9_000_000, 7_000_000],

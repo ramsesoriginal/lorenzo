@@ -73,29 +73,12 @@ export function fieldOver(region: Region, cols: number): Field | null {
 }
 
 /**
- * Beyond this size a coordinate with decimals is not always one the validator takes: it checks a
- * number to a ten-thousandth of a millionth, and from 1,048,576 on there are numbers of two
- * decimals that cannot be held that exactly. A field that reaches out there is drawn in whole
- * units, which are far finer than its cells.
- */
-const WHOLE_BEYOND = 1_000_000;
-
-/**
  * How many decimals a field's outlines are kept to on the sheet: two, as the editor keeps
- * (ADR 0353); none for a field so far out that decimals are not safe; and, with `steps`, more than
+ * (ADR 0353), however far out the field lies (#1255); and, with `steps`, more than
  * two for a field so fine that points a step of a cell apart would merge, up to the six the
  * format holds (ADR 0337).
  */
 export function decimalsFor(field: Field, steps?: number): number {
-  const far = Math.max(
-    Math.abs(field.x0),
-    Math.abs(field.y0),
-    Math.abs(field.x0 + field.cols * field.cell),
-    Math.abs(field.y0 + field.rows * field.cell),
-  );
-
-  if (far > WHOLE_BEYOND) return 0;
-
   let decimals = 2;
   let unit = 0.01;
 

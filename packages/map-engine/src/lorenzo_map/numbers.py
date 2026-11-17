@@ -10,6 +10,10 @@ from lorenzo_map.errors import MapDocumentError
 from lorenzo_map.limits import MAX_DECIMALS, MAX_UNIT_LENGTH
 
 SCALE = 1_000_000  # millionths: MAX_DECIMALS decimals
+# How far a number may lie from its nearest six decimals and still be them: a few units of a
+# float's last place (2**-50 of its size), and never less than a millionth of a millionth.
+PRECISION = 2**-50
+TINY = 1e-12
 
 
 def quantise(value: Any, *, bound: float, what: str) -> int:
@@ -21,9 +25,11 @@ def quantise(value: Any, *, bound: float, what: str) -> int:
         raise MapDocumentError(f"{what} must be a finite number")
     if abs(value) > bound:
         raise MapDocumentError(f"{what} is too large")
-    scaled = value * SCALE
-    whole = round(scaled)
-    if abs(scaled - whole) > 1e-4:
+    whole = round(value * SCALE)
+    # The nearest number of six decimals, compared in the number's own scale: a float holds a
+    # number only to a few units of its last place, and a million times it no better, so a fixed
+    # tolerance on the scaled number refused good numbers beyond about a million (#1255).
+    if abs(value - whole / SCALE) > max(TINY, abs(value) * PRECISION):
         raise MapDocumentError(f"{what} has more than {MAX_DECIMALS} decimals")
     return int(whole)
 

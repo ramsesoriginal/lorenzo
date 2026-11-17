@@ -355,7 +355,7 @@ describe('a field over a region, and its decimals (ADR 0476, ADR 0477)', () => {
     expect(fieldOver(regionOf(null, [0, 0, 1000, 10]), 10)?.rows).toBe(4);
   });
 
-  it('keeps two decimals, more for a fine field, and none far out', () => {
+  it('keeps two decimals, and more for a fine field, however far out it lies', () => {
     const over = (bounds: Sheet) => fieldOver(regionOf(null, bounds), FILL_COLS) as never;
 
     expect(decimalsFor(over(sheet))).toBe(2);
@@ -365,8 +365,9 @@ describe('a field over a region, and its decimals (ADR 0476, ADR 0477)', () => {
     expect(decimalsFor(over([0, 0, 0.000001, 0.000001]), 16)).toBe(6);
     // Without steps to keep apart, two decimals whatever the cell.
     expect(decimalsFor(over([0, 0, 0.5, 0.4]))).toBe(2);
-    expect(decimalsFor(over([0, 0, 9_000_000, 7_000_000]), 16)).toBe(0);
-    expect(decimalsFor(over([-2_000_000, 0, -1_999_000, 800]), 16)).toBe(0);
+    // Far out as near: the validator takes two decimals there too (#1255).
+    expect(decimalsFor(over([0, 0, 9_000_000, 7_000_000]), 16)).toBe(2);
+    expect(decimalsFor(over([-2_000_000, 0, -1_999_000, 800]), 16)).toBe(2);
     expect(decimalsFor(over([999_000, 0, 1_000_000, 800]), 16)).toBe(2);
   });
 
