@@ -30,6 +30,13 @@ The prototype fills a grid from built-in tile sets ("coast", "caves"). Nothing i
 - The prototype fills the whole grid; here the fill is held to a region, to 256 cells for an entry and to 10,000 cells in all.
 - A placement of a single cell that is selected is an area like any other, so the fill then covers that one cell.
 
+## Built
+
+- **Example is an option of a sixth type, `map`** ([ADR 0470](0470-a-tool-declares-its-options.md)): its value is a Map's id, empty for this Map. The Maps it offers are read once, when the tool is first chosen: the library's Maps a page at a time, and each one's header for its grid. A Map that cannot be read is left out, and until the list is read the panel says so and offers this Map alone.
+- **The example Map is read when it is chosen**, its header and its placements, and is read again when it is chosen again; a Map of another kind named on the command line is refused as "No Map of the library with a grid of this kind is called …". `EXAMPLE THIS` goes back to this Map.
+- **An example with no cells** on another Map says so by name: "Old caves has no entries drawn as cells, and the fill learns from them. Choose another example."
+- **A region of more than 10,000 cells** is refused as said under Decision. This guard was added while building; the decisions on the limits named only the 256 cells of a placement and the 100 writes of one batch.
+
 ## Validation and delivery
 
 In two slices: the tool with this Map as its example, then the Example option for another Map.
