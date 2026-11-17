@@ -1,4 +1,4 @@
-// Fill by wave function collapse (ADR 0478): the rules of which tile may lie beside which are
+// Fill by wave function collapse (ADR 0479): the rules of which tile may lie beside which are
 // learned from cells already drawn, and a region of cells is filled by them from a seed. A pure
 // function of the example, the region and the seed (ADR 0475): no `Math.random`, no clock.
 import { type Cell, type GridSpec, seeded } from '@lorenzo/map-renderer';

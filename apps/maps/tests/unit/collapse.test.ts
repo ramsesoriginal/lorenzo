@@ -35,7 +35,7 @@ const block = (c0: number, r0: number, c1: number, r1: number): Cell[] => {
   return cells;
 };
 
-describe('the cells beside a cell (ADR 0354, ADR 0478)', () => {
+describe('the cells beside a cell (ADR 0354, ADR 0479)', () => {
   for (const [name, grid] of grids) {
     it(`on ${name}: each a cell away, all different, and each way matched by its opposite`, () => {
       const directions = directionsOf(grid);
@@ -84,7 +84,7 @@ describe('the cells beside a cell (ADR 0354, ADR 0478)', () => {
   }
 });
 
-describe('learning the rules from an example (ADR 0478)', () => {
+describe('learning the rules from an example (ADR 0479)', () => {
   it('counts each tile, nothing included, inside the box around the example', () => {
     // A row of wall over a row of floor, three wide, with one cell of the floor's row left empty.
     const wall = block(0, 0, 2, 0);
@@ -123,7 +123,7 @@ describe('learning the rules from an example (ADR 0478)', () => {
   });
 });
 
-describe('filling a region by the rules (ADR 0478)', () => {
+describe('filling a region by the rules (ADR 0479)', () => {
   // Stripes: a row of one tile, then a row of the other, three rows of each, four wide.
   const stripes = [
     [...block(0, 0, 3, 0), ...block(0, 2, 3, 2), ...block(0, 4, 3, 4)],
@@ -235,7 +235,7 @@ describe('filling a region by the rules (ADR 0478)', () => {
   });
 });
 
-describe('what a fill does to a Map (ADR 0478)', () => {
+describe('what a fill does to a Map (ADR 0479)', () => {
   const FORMAT = 'lorenzo.geometry/1';
   const whole = regionOf(null, [0, 0, 1000, 800]);
   const yard = regionOf(

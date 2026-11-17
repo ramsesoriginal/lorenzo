@@ -29,7 +29,7 @@ from a seed, and applies it as one step ([ADR 0475](../../docs/adr/0475-the-gene
 the first ([ADR 0476](../../docs/adr/0476-the-cave-system-generator.md)), Fill by marching squares the second
 ([ADR 0477](../../docs/adr/0477-the-fill-by-marching-squares-generator.md)) and Fill by wave function collapse the
 third, which fills the cells of a grid in the manner of the cells already drawn
-([ADR 0478](../../docs/adr/0478-the-fill-by-wave-function-collapse-generator.md)) (a handle is dragged; every point is also a
+([ADR 0479](../../docs/adr/0479-the-fill-by-wave-function-collapse-generator.md)) (a handle is dragged; every point is also a
 number field), role, line and drawing order, "place the children" of a Location drawn as an area,
 undo and redo, and *Settings* (name, sheet, the Location it shows, theme name, who sees it). A Map may be a grid of squares, rectangles or hexes (the
 hexes' orientation is always chosen), or have a grid drawn over it; a Grid switch, the cell under the

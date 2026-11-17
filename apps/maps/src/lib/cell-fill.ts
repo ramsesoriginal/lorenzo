@@ -1,4 +1,4 @@
-// What a fill by wave function collapse does to a Map (ADR 0478): the cells of the region it works
+// What a fill by wave function collapse does to a Map (ADR 0479): the cells of the region it works
 // on, the tiles of the example, and for each tile entry the cells it has afterwards, with what
 // stops the result from being applied. Pure: nothing here touches the page.
 import {

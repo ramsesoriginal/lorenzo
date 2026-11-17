@@ -706,7 +706,7 @@
   background: var(--fill-soft);
 }
 
-/* The tiles of a fill of cells (ADR 0478): each named beside the tone the preview draws it in. */
+/* The tiles of a fill of cells (ADR 0479): each named beside the tone the preview draws it in. */
 .map-generator-tiles {
   margin: 0;
   padding: 0;

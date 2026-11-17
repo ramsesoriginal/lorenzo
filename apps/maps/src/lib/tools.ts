@@ -300,7 +300,7 @@ export type ToolDecl = {
   generator?: boolean;
   /**
    * A generator that writes cells for the entries of an example, not one entry's drawing
-   * (ADR 0478): it has no entry to choose.
+   * (ADR 0479): it has no entry to choose.
    */
   cells?: boolean;
   /** What a person can set for it (ADR 0470). */

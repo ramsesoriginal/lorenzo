@@ -142,7 +142,7 @@ def test_a_stored_grid_is_a_fixed_point_and_measures_nothing_unsaid():
 
 @pytest.mark.parametrize("case", COLLAPSE["cases"], ids=lambda c: c["name"])
 def test_what_the_wave_function_collapse_generator_fills_are_cells_of_the_grid(case):
-    """The generator runs in the browser (ADR 0475, 0478); the cells it gives each entry are held
+    """The generator runs in the browser (ADR 0475, 0479); the cells it gives each entry are held
     to this grid here, on the vectors its own tests reproduce."""
     grid, extent = case["grid"], COLLAPSE["extent"]
     gained = [tuple(cell) for tile in case["tiles"] for cell in tile["gained"]]

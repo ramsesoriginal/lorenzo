@@ -1,4 +1,4 @@
-// The cells beside a cell (ADR 0354, ADR 0478): four on squares and rectangles, six on hexes, in a
+// The cells beside a cell (ADR 0354, ADR 0479): four on squares and rectangles, six on hexes, in a
 // fixed order of directions, so that "the cell to the east" means the same from any cell. A hex
 // grid's rows or columns are staggered, so which address lies in a direction depends on whether
 // the cell's row (pointed-top) or column (flat-topped) is odd. Pure.

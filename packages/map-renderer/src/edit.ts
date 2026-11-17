@@ -27,7 +27,7 @@ export type OverlayShape =
       rings: readonly (readonly Point[])[];
       clipped?: boolean;
       /**
-       * One of six strengths of the overlay's colour, 0 the lightest (ADR 0478): how a preview
+       * One of six strengths of the overlay's colour, 0 the lightest (ADR 0479): how a preview
        * tells kinds of thing apart. A tone is never the only way they are told; the page names
        * them too.
        */

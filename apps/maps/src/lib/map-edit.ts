@@ -248,7 +248,7 @@ export function createEditor(context: EditorContext): Editor {
     geometry: Geometry | null;
     count: string;
     fit: Fit;
-    /** For a fill of cells (ADR 0478): what each tile entry gains and has afterwards. */
+    /** For a fill of cells (ADR 0479): what each tile entry gains and has afterwards. */
     cells?: CellFill;
   } | null = null;
   let syncGenerator: () => void = () => {};
@@ -317,7 +317,7 @@ export function createEditor(context: EditorContext): Editor {
 
   /** Whether the tool previews and applies (ADR 0475). */
   const generating = () => toolDecl().generator === true;
-  /** Whether it is the one that writes cells for the entries of an example (ADR 0478). */
+  /** Whether it is the one that writes cells for the entries of an example (ADR 0479). */
   const fillsCells = () => toolDecl().cells === true;
 
   /** The generator that is the tool, when the tool is one. */
@@ -1312,7 +1312,7 @@ export function createEditor(context: EditorContext): Editor {
   }
 
   /**
-   * Writes a fill of cells (ADR 0478): one placement of cells for each tile entry that changes, in
+   * Writes a fill of cells (ADR 0479): one placement of cells for each tile entry that changes, in
    * one batch and one history step. An entry left with no cell is taken off the Map.
    */
   async function applyCells(): Promise<string> {
@@ -1373,7 +1373,7 @@ export function createEditor(context: EditorContext): Editor {
     split.input.addEventListener('change', () => setCompare(split.input.checked));
     box.append(line);
     // A fill of cells names its tiles, each with its tone and what it would get: the tone is
-    // never the only way to tell them apart (ADR 0478).
+    // never the only way to tell them apart (ADR 0479).
     const tiles = el('ul', '', 'list map-generator-tiles');
     tiles.setAttribute('aria-label', 'Tiles, the lightest tone first');
     if (fillsCells()) {
