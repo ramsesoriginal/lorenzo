@@ -13,7 +13,7 @@ import typer
 from rich.table import Table
 from rich.text import Text
 
-from lorenzo_cli import console
+from lorenzo_cli import completers, console
 from lorenzo_cli.client import ops
 from lorenzo_cli.client.models import (
     StatDefinitionOut,
@@ -40,9 +40,16 @@ app = typer.Typer(
 
 Json = Annotated[bool, typer.Option("--json", help="Print one JSON document.")]
 SystemOption = Annotated[
-    str | None, typer.Option("--system", help="Only this system's templates and the neutral ones.")
+    str | None,
+    typer.Option(
+        "--system",
+        help="Only this system's templates and the neutral ones.",
+        autocompletion=completers.system,
+    ),
 ]
-NameArgument = Annotated[str, typer.Argument(help="The template's name or id.")]
+NameArgument = Annotated[
+    str, typer.Argument(help="The template's name or id.", autocompletion=completers.template)
+]
 
 
 class _Library:

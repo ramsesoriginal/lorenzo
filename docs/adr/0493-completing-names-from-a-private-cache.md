@@ -22,3 +22,15 @@ the API on every Tab press waits for the network and a token; completion today a
 
 - Tab completes what a person has seen, at once and offline; a row made elsewhere completes once something has listed it.
 - The names of a library's private entries are stored on the user's machine, as readable as the token beside them.
+
+## As built (slice C12)
+
+- The client tells an observer of every answered operation; `completion.Recorder` keeps the names of the lists, reads, creates,
+  updates and deletes it knows (`list_systems`, `create_template`, `delete_stat_definition`...), and writes the file once, when
+  the client closes, and only if something changed. A complete first page replaces a category; a filtered or partial one adds to it.
+- Features are the entries of the kind `feature` among the entries a command reads (the library document's export, an entry read).
+- The account is a JWT's issuer and subject, read without verifying it, or a digest of any other token; a token piped in with
+  `--token-stdin` is not cached.
+- Completing a name loads the command's group, since its parameter is where the completer sits: about 280 ms against about 100 ms
+  for the root (`tests/test_startup.py` prints both). It reads the cache file only, and makes no request. Completing without
+  loading the group would need stand-in parameters in the lazy registry, which is not built.

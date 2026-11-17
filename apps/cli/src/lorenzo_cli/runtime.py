@@ -26,6 +26,7 @@ if TYPE_CHECKING:
     import httpx
 
     from lorenzo_cli.client.transport import LorenzoClient
+    from lorenzo_cli.completion import Recorder
     from lorenzo_cli.evalworker import Engine, EvalRequest, EvalResult
 
 # The two consoles every command prints through (ADR 0481); the names stay for the modules that
@@ -213,8 +214,35 @@ def _client(runtime: Runtime, *, writes: bool = False) -> Iterator[LorenzoClient
             _err.print(
                 f"Using the official Lorenzo at {base_url}.", highlight=False, soft_wrap=True
             )
+        recorder = names_recorder(runtime, base_url)
         with (
             console.busy("Waiting for the API"),
             LorenzoClient(base_url, tokens, transport=runtime.transport) as client,
         ):
-            yield client
+            if recorder is not None:
+                client.observer = recorder.saw
+            try:
+                yield client
+            finally:
+                if recorder is not None:
+                    recorder.flush()
+
+
+def names_cache_path(runtime: Runtime, base_url: str) -> Path | None:
+    """The completion cache for this API and account (ADR 0493); None when the account can't be
+    known without asking, as with a token piped in."""
+    from lorenzo_cli import completion
+
+    if runtime.token_stdin:
+        return None
+    account = completion.account_of(completion.stored_token(runtime.env, runtime.store.path))
+    if account is None:
+        return None
+    return completion.cache_path(runtime.env, base_url, account)
+
+
+def names_recorder(runtime: Runtime, base_url: str) -> Recorder | None:
+    from lorenzo_cli.completion import Recorder
+
+    path = names_cache_path(runtime, base_url)
+    return Recorder(path) if path is not None else None

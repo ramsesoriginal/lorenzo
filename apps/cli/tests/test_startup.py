@@ -103,3 +103,19 @@ def test_importing_a_calendar_loads_nothing_of_the_mpmb_importer() -> None:
         "lorenzo_cli.importer.apply",
     )
     assert not any(m.startswith(mpmb) for m in modules)
+
+
+def test_completing_a_name_loads_its_group_and_the_cache_and_nothing_else() -> None:
+    # A name is completed by the command's own parameter, so its group loads (as for its --help);
+    # the names come from the cache file, and no request is made (tests/test_completion.py).
+    modules, elapsed = loaded(
+        [],
+        {
+            "_LORENZO_COMPLETE": "complete_bash",
+            "COMP_WORDS": "lorenzo system show ",
+            "COMP_CWORD": "3",
+        },
+    )
+    print(f"lorenzo system show <TAB>: {elapsed * 1000:.0f} ms, {len(modules)} modules")
+    assert "lorenzo_cli.completion" in modules
+    assert not any(m.startswith(("lorenzo_cli.commands.repo", "py_mini_racer")) for m in modules)

@@ -15,7 +15,7 @@ lorenzo --help
 
 That installs the `lorenzo` command from this repository's `main` branch, into its own environment. It isn't on PyPI: it only works against a Lorenzo `apps/api`, and its client is generated from that API's schema, so the two move together. Put `@<tag>` (or `@<commit>`) before the `#` to pin a version, and update with `uv tool upgrade lorenzo-cli`. To run it from a checkout of the repository instead, see below.
 
-`lorenzo --version` says which one is installed. To complete commands and options with Tab, run `lorenzo --install-completion` once (it adds a line to your shell's startup file; `lorenzo --show-completion` prints the script instead, if you'd rather place it yourself). Tenant slugs aren't completed.
+`lorenzo --version` says which one is installed. To complete commands and options with Tab, run `lorenzo --install-completion` once (it adds a line to your shell's startup file; `lorenzo --show-completion` prints the script instead, if you'd rather place it yourself). Library slugs, and a library's systems, stat groups, stats, templates, features and campaigns, complete from what earlier commands read or wrote: Tab never asks the API. They are kept in a file of their own per API and account under `$XDG_CACHE_HOME/lorenzo/` (`~/.cache/lorenzo/`), readable only by you like the login, and `lorenzo logout` deletes it. A name made elsewhere completes once a command has listed it (`lorenzo system list`, `stat-definition list`...; [ADR 0493](../../docs/adr/0493-completing-names-from-a-private-cache.md)).
 
 ## Before you start
 

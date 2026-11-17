@@ -12,7 +12,7 @@ import typer
 from rich.table import Table
 from rich.text import Text
 
-from lorenzo_cli import console
+from lorenzo_cli import completers, console
 from lorenzo_cli.client import ops
 from lorenzo_cli.client.models import (
     ApplyIn,
@@ -50,7 +50,9 @@ grants_app = typer.Typer(
 Json = Annotated[bool, typer.Option("--json", help="Print one JSON document.")]
 Yes = Annotated[bool, typer.Option("--yes", help="Don't ask before writing.")]
 EntryArgument = Annotated[str, typer.Argument(help="The entry: its slug or id.")]
-FeatureArgument = Annotated[str, typer.Argument(help="The feature: its slug or id.")]
+FeatureArgument = Annotated[
+    str, typer.Argument(help="The feature: its slug or id.", autocompletion=completers.feature)
+]
 
 
 class _Library:
@@ -97,7 +99,10 @@ def feature_list(
     ctx: typer.Context,
     tenant: TenantOption,
     system: Annotated[
-        str | None, typer.Option("--system", help="Only those under its root.")
+        str | None,
+        typer.Option(
+            "--system", help="Only those under its root.", autocompletion=completers.system
+        ),
     ] = None,
     as_json: Json = False,
 ) -> None:

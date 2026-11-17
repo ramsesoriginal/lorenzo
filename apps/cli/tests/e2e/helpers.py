@@ -93,6 +93,7 @@ def run_cli(
             "LORENZO_API_URL": stack.api_url,
             "LORENZO_TOKEN": token,
             "XDG_STATE_HOME": str(tmp_path / "state"),
+            "XDG_CACHE_HOME": str(tmp_path / "cache"),
             **env,
         },
         stdin=io.StringIO(),

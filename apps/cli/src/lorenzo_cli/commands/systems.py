@@ -11,7 +11,7 @@ import typer
 from rich.table import Table
 from rich.text import Text
 
-from lorenzo_cli import console
+from lorenzo_cli import completers, console
 from lorenzo_cli.client import ops
 from lorenzo_cli.client.models import (
     CampaignSummaryOut,
@@ -37,7 +37,9 @@ app = typer.Typer(help="List, read, create, edit or delete a game system.", no_a
 
 Json = Annotated[bool, typer.Option("--json", help="Print one JSON document.")]
 Yes = Annotated[bool, typer.Option("--yes", help="Don't ask before writing (ADR 0482).")]
-SystemArgument = Annotated[str, typer.Argument(help="The system: its slug or id.")]
+SystemArgument = Annotated[
+    str, typer.Argument(help="The system: its slug or id.", autocompletion=completers.system)
+]
 
 
 def _systems(client: LorenzoClient, tid: UUID) -> list[SystemOut]:

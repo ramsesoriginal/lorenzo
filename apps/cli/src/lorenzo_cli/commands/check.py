@@ -13,7 +13,7 @@ from uuid import UUID
 import typer
 from rich.text import Text
 
-from lorenzo_cli import console
+from lorenzo_cli import completers, console
 from lorenzo_cli.client import ops
 from lorenzo_cli.client.models import FindingOut, StatDefinitionOut
 from lorenzo_cli.client.paging import all_items
@@ -55,7 +55,10 @@ def check(
     ] = False,
     kind: Annotated[str | None, typer.Option("--kind", help="Only entries of this kind.")] = None,
     stat: Annotated[
-        str | None, typer.Option("--stat", help="Only findings about this stat.")
+        str | None,
+        typer.Option(
+            "--stat", help="Only findings about this stat.", autocompletion=completers.stat
+        ),
     ] = None,
     severity: Annotated[
         Literal["warning", "info"] | None,

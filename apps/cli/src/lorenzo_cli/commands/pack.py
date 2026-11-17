@@ -6,7 +6,7 @@ from typing import Annotated
 
 import typer
 
-from lorenzo_cli import console
+from lorenzo_cli import completers, console
 from lorenzo_cli.importer.give import (
     count_instances,
     give_pack,
@@ -37,6 +37,7 @@ def pack_give(
             "--tenant",
             "-t",
             envvar="LORENZO_TENANT",
+            autocompletion=completers.library,
             help="The tenant's id or slug: one with the pack in it, and the owner.",
         ),
     ],

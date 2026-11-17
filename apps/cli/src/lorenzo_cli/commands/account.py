@@ -9,7 +9,7 @@ import httpx
 import typer
 from rich.table import Table
 
-from lorenzo_cli import console
+from lorenzo_cli import completion, console
 from lorenzo_cli.auth.device import run_device_login
 from lorenzo_cli.auth.login import run_login
 from lorenzo_cli.client.errors import (
@@ -246,10 +246,16 @@ def whoami(
 
 @app.command()
 def logout(ctx: typer.Context) -> None:
-    """Forget the stored login (the API URL, issuer and client id it remembered stay)."""
+    """Forget the stored login and the names it cached for completion (the API URL, issuer and
+    client id it remembered stay)."""
     runtime: Runtime = ctx.obj
     stored = runtime.store.load()
+    api_url = runtime.settings.api_url
+    account = completion.account_of(stored.access_token) if stored is not None else None
+    cached = completion.cache_path(runtime.env, api_url, account) if api_url and account else None
     removed = runtime.store.delete()
+    if cached is not None:
+        completion.forget(cached)  # ADR 0493: the names go with the login
     _out.print("Signed out." if removed else "There was no stored login.")
     if stored is not None and stored.token_name is not None:
         _out.print(

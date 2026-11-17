@@ -13,7 +13,7 @@ from pydantic import BaseModel, ValidationError
 from rich.table import Table
 from rich.text import Text
 
-from lorenzo_cli import console
+from lorenzo_cli import completers, console
 from lorenzo_cli.client import ops
 from lorenzo_cli.client.models import (
     StatDefinitionCreate,
@@ -33,7 +33,14 @@ from lorenzo_cli.tenants import resolve_tenant
 from lorenzo_cli.terminal_script import ScriptError, safe
 
 Tenant = Annotated[
-    str, typer.Option("--tenant", "-t", envvar="LORENZO_TENANT", help="Library id or slug.")
+    str,
+    typer.Option(
+        "--tenant",
+        "-t",
+        envvar="LORENZO_TENANT",
+        autocompletion=completers.library,
+        help="Library id or slug.",
+    ),
 ]
 Json = Annotated[bool, typer.Option("--json", help="Print one JSON document.")]
 Yes = Annotated[bool, typer.Option("--yes", help="Don't ask before writing (ADR 0482).")]
@@ -96,7 +103,11 @@ StatRoleOption = Annotated[
 ]
 SystemOption = Annotated[
     str | None,
-    typer.Option("--system", help="A system's slug: only its rows and the neutral ones."),
+    typer.Option(
+        "--system",
+        help="A system's slug: only its rows and the neutral ones.",
+        autocompletion=completers.system,
+    ),
 ]
 NeutralOption = Annotated[bool, typer.Option("--neutral", help="Only the rows of no system.")]
 
@@ -231,7 +242,12 @@ def stat_list(
     tenant: Tenant,
     system: SystemOption = None,
     neutral: NeutralOption = False,
-    group: Annotated[str | None, typer.Option("--group", help="Only this group's stats.")] = None,
+    group: Annotated[
+        str | None,
+        typer.Option(
+            "--group", help="Only this group's stats.", autocompletion=completers.stat_group
+        ),
+    ] = None,
     as_json: Json = False,
 ) -> None:
     """The stats: name, group, system, type, unit, role and bounds."""
@@ -300,7 +316,10 @@ def group_create(
     mandatory: bool = False,
     position: int | None = None,
     system: Annotated[
-        str | None, typer.Option("--system", help="The system it belongs to, by slug.")
+        str | None,
+        typer.Option(
+            "--system", help="The system it belongs to, by slug.", autocompletion=completers.system
+        ),
     ] = None,
     role: GroupRoleOption = None,
     yes: Yes = False,
@@ -338,7 +357,11 @@ def group_edit(
     position: int | None = None,
     system: Annotated[
         str | None,
-        typer.Option("--system", help="Move it into a system: its stats must have the prefix."),
+        typer.Option(
+            "--system",
+            help="Move it into a system: its stats must have the prefix.",
+            autocompletion=completers.system,
+        ),
     ] = None,
     no_system: Annotated[bool, typer.Option("--no-system", help="Make it neutral.")] = False,
     role: GroupRoleOption = None,
@@ -391,7 +414,12 @@ def stat_create(
     ctx: typer.Context,
     name: str,
     tenant: Tenant,
-    group: Annotated[str, typer.Option("--group", help="Stat group id or exact name.")],
+    group: Annotated[
+        str,
+        typer.Option(
+            "--group", help="Stat group id or exact name.", autocompletion=completers.stat_group
+        ),
+    ],
     value_type: Annotated[StatValueType, typer.Option("--type")],
     enum_value: Annotated[list[str] | None, typer.Option("--enum-value")] = None,
     unit: str | None = None,

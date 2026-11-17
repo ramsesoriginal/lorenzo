@@ -9,7 +9,7 @@ from uuid import UUID
 
 import typer
 
-from lorenzo_cli import console, repo_report, repos, vocabulary_commands
+from lorenzo_cli import completers, console, repo_report, repos, vocabulary_commands
 from lorenzo_cli.client.models import (
     PublishRequest,
 )
@@ -58,7 +58,13 @@ class Again(StrEnum):
 
 RepositoryTenant = Annotated[
     str,
-    typer.Option("--tenant", "-t", envvar="LORENZO_TENANT", help="The repository: its id or slug."),
+    typer.Option(
+        "--tenant",
+        "-t",
+        envvar="LORENZO_TENANT",
+        autocompletion=completers.library,
+        help="The repository: its id or slug.",
+    ),
 ]
 DrawingTenant = Annotated[
     str,
@@ -66,12 +72,16 @@ DrawingTenant = Annotated[
         "--tenant",
         "-t",
         envvar="LORENZO_TENANT",
+        autocompletion=completers.library,
         help="The tenant that draws on the repository, and copies it: its id or slug.",
     ),
 ]
 RepositoryArgument = Annotated[
     str,
-    typer.Argument(help="The repository: its id, or its slug among those granted to or copied."),
+    typer.Argument(
+        help="The repository: its id, or its slug among those granted to or copied.",
+        autocompletion=completers.library,
+    ),
 ]
 JsonOption = Annotated[bool, typer.Option("--json", help="Print the answer as JSON.")]
 YesOption = Annotated[bool, typer.Option("--yes", help="Don't ask before writing.")]
@@ -337,7 +347,12 @@ def repo_libraries(
         str | None, typer.Option("--entry", help="An entry of the repository: its id or link name.")
     ] = None,
     stat: Annotated[
-        str | None, typer.Option("--stat", help="A stat of the repository: its id or name.")
+        str | None,
+        typer.Option(
+            "--stat",
+            help="A stat of the repository: its id or name.",
+            autocompletion=completers.stat,
+        ),
     ] = None,
     stat_group: Annotated[
         str | None, typer.Option("--stat-group", help="A stat group: its id or name.")

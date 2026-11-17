@@ -16,7 +16,7 @@ from rich.table import Table
 from rich.text import Text
 from rich.tree import Tree
 
-from lorenzo_cli import console
+from lorenzo_cli import completers, console
 from lorenzo_cli.client import ops
 from lorenzo_cli.client.models import ComputedStatPreviewIn, EntityDetailOut, StatDefinitionOut
 from lorenzo_cli.client.paging import all_items
@@ -39,7 +39,10 @@ app = typer.Typer(
     help="Set, show, preview, trace or delete a formula on an entry.", no_args_is_help=True
 )
 
-StatArgument = Annotated[str, typer.Argument(help="The stat the formula computes, by name.")]
+StatArgument = Annotated[
+    str,
+    typer.Argument(help="The stat the formula computes, by name.", autocompletion=completers.stat),
+]
 OnOption = Annotated[str, typer.Option("--on", help="The entry it is on: its slug or id.")]
 Json = Annotated[bool, typer.Option("--json", help="Print one JSON document.")]
 Opt = typer.Option

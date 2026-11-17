@@ -9,7 +9,7 @@ import typer
 from rich.table import Column, Table
 from rich.text import Text
 
-from lorenzo_cli import console
+from lorenzo_cli import completers, console
 from lorenzo_cli.client import ops
 from lorenzo_cli.client.models import DescriptionOut, ItemInstanceOut, ItemOut, SheetOut
 from lorenzo_cli.client.paging import all_items
@@ -336,11 +336,18 @@ def being_show(
     campaign: Annotated[
         str | None,
         typer.Option(
-            "--campaign", help="Its sheet as this campaign shows it (its system's template)."
+            "--campaign",
+            help="Its sheet as this campaign shows it (its system's template).",
+            autocompletion=completers.campaign,
         ),
     ] = None,
     template: Annotated[
-        str | None, typer.Option("--template", help="Its sheet through this template.")
+        str | None,
+        typer.Option(
+            "--template",
+            help="Its sheet through this template.",
+            autocompletion=completers.template,
+        ),
     ] = None,
     as_json: Json = False,
 ) -> None:

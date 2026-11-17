@@ -10,7 +10,7 @@ import typer
 from rich.table import Table
 from rich.text import Text
 
-from lorenzo_cli import console
+from lorenzo_cli import completers, console
 from lorenzo_cli.client import ops
 from lorenzo_cli.client.models import (
     CampaignCreate,
@@ -93,7 +93,10 @@ def campaign_create(
     name: Annotated[str, typer.Argument(help="What it is called.")],
     tenant: TenantOption,
     slug: Annotated[str, typer.Option("--slug", help="Its address.")],
-    system: Annotated[str | None, typer.Option("--system", help="The system it plays.")] = None,
+    system: Annotated[
+        str | None,
+        typer.Option("--system", help="The system it plays.", autocompletion=completers.system),
+    ] = None,
     description: Annotated[str, typer.Option("--description")] = "",
     secret: Annotated[
         bool, typer.Option("--secret", help="Hidden from the library's players.")
@@ -129,9 +132,16 @@ def campaign_create(
 @app.command("set-system")
 def campaign_set_system(
     ctx: typer.Context,
-    campaign: Annotated[str, typer.Argument(help="The campaign: its slug, name or id.")],
+    campaign: Annotated[
+        str,
+        typer.Argument(
+            help="The campaign: its slug, name or id.", autocompletion=completers.campaign
+        ),
+    ],
     tenant: TenantOption,
-    system: Annotated[str | None, typer.Argument(help="The system's slug.")] = None,
+    system: Annotated[
+        str | None, typer.Argument(help="The system's slug.", autocompletion=completers.system)
+    ] = None,
     none: Annotated[bool, typer.Option("--none", help="Play no system.")] = False,
     yes: Yes = False,
     as_json: Json = False,

@@ -6,13 +6,25 @@ from typing import Annotated
 
 import typer
 
+from lorenzo_cli import completers
+
 TenantOption = Annotated[
     str,
     typer.Option(
-        "--tenant", "-t", envvar="LORENZO_TENANT", help="The repository tenant's id or slug."
+        "--tenant",
+        "-t",
+        envvar="LORENZO_TENANT",
+        autocompletion=completers.library,
+        help="The repository tenant's id or slug.",
     ),
 ]
 ItemTenant = Annotated[
     str,
-    typer.Option("--tenant", "-t", envvar="LORENZO_TENANT", help="The library: its id or slug."),
+    typer.Option(
+        "--tenant",
+        "-t",
+        envvar="LORENZO_TENANT",
+        autocompletion=completers.library,
+        help="The library: its id or slug.",
+    ),
 ]

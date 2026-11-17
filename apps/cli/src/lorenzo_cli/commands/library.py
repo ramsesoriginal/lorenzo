@@ -9,7 +9,7 @@ from typing import Annotated, Any
 import typer
 from rich.text import Text
 
-from lorenzo_cli import console, starters
+from lorenzo_cli import completers, console, starters
 from lorenzo_cli.client.transport import LorenzoClient
 from lorenzo_cli.commands.common import TenantOption
 from lorenzo_cli.library import document as documents
@@ -182,7 +182,9 @@ OutputOption = Annotated[
 @export_app.command("system")
 def export_system(
     ctx: typer.Context,
-    system: Annotated[str, typer.Argument(help="The system's slug.")],
+    system: Annotated[
+        str, typer.Argument(help="The system's slug.", autocompletion=completers.system)
+    ],
     tenant: TenantOption,
     output: OutputOption = None,
 ) -> None:
@@ -230,7 +232,11 @@ def starter_list(
 
 
 @starter_app.command("show")
-def starter_show(name: Annotated[str, typer.Argument(help="The starter's name.")]) -> None:
+def starter_show(
+    name: Annotated[
+        str, typer.Argument(help="The starter's name.", autocompletion=completers.starter)
+    ],
+) -> None:
     """Print a starter as it ships, to read or to save and change. Needs no login."""
     try:
         console.out.file.write(starters.text(name))
