@@ -88,6 +88,8 @@ class RepositoryCopyLinkEntity(_CopyLink, Base):
     )
 
     entity_id: Mapped[uuid.UUID | None] = mapped_column(index=True)
+    # Historical manuscript content and copied identities, independent of ordinary updates.
+    manuscript_baseline: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
     # Whether the library hides this entry (ADR 0437): true while every repository the library
     # holds that brings the row's repository hides it. Derived by `repository_hiding`, never set
     # by a request; read by the gate every read of an entry applies, for everyone.
