@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { type BBox, type Cell, cellCentre, type GridSpec } from '@lorenzo/map-renderer';
 import { describe, expect, it } from 'vitest';
 import {
@@ -365,5 +366,72 @@ describe('what a fill does to a Map (ADR 0478)', () => {
       ok: false,
       why: 'No tiling fits these rules here. Roll another seed.',
     });
+  });
+});
+
+interface GoldenCase {
+  name: string;
+  grid: GridSpec;
+  example: Tile[];
+  region:
+    | { kind: 'sheet' }
+    | { kind: 'area'; ring: [number, number][] }
+    | { kind: 'circle'; at: [number, number]; r: number };
+  seed: number;
+  ok: boolean;
+  count?: string;
+  why?: string;
+  tiles: { id: string; tone: number; gained: Cell[]; cells: Cell[]; changed: boolean }[];
+}
+
+const golden = JSON.parse(
+  readFileSync(
+    new URL('../../../../packages/map-engine/golden/collapse.json', import.meta.url),
+    'utf8',
+  ),
+) as { extent: BBox; cases: GoldenCase[] };
+
+describe('the golden vectors', () => {
+  it.each(golden.cases.map((item) => [item.name, item] as const))('%s', (_name, item) => {
+    const FORMAT = 'lorenzo.geometry/1';
+    const selected =
+      item.region.kind === 'area'
+        ? {
+            name: 'It',
+            geometry: {
+              format: FORMAT,
+              parts: [{ shape: 'polygon' as const, rings: [item.region.ring] }],
+            },
+          }
+        : item.region.kind === 'circle'
+          ? {
+              name: 'It',
+              geometry: {
+                format: FORMAT,
+                parts: [{ shape: 'circle' as const, at: item.region.at, r: item.region.r }],
+              },
+            }
+          : null;
+    const made = cellFill(
+      item.grid,
+      golden.extent,
+      item.example,
+      new Map(item.example.map((tile) => [tile.id, tile.cells])),
+      regionOf(selected, golden.extent),
+      item.seed,
+    );
+
+    expect(made.ok).toBe(item.ok);
+    if (made.ok) expect(made.count).toBe(item.count);
+    else expect(made.why).toBe(item.why);
+    expect(
+      made.tiles.map((tile) => ({
+        id: tile.id,
+        tone: tile.tone,
+        gained: tile.gained,
+        cells: tile.cells,
+        changed: tile.changed,
+      })),
+    ).toEqual(item.tiles);
   });
 });

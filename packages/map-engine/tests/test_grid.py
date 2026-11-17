@@ -19,6 +19,7 @@ from lorenzo_map import (
 )
 
 GOLDEN = json.loads((Path(__file__).parents[1] / "golden" / "cells.json").read_text("utf-8"))
+COLLAPSE = json.loads((Path(__file__).parents[1] / "golden" / "collapse.json").read_text("utf-8"))
 F = "lorenzo.map-system/1"
 
 
@@ -137,3 +138,22 @@ def test_a_stored_grid_is_a_fixed_point_and_measures_nothing_unsaid():
 
     assert "measure" not in stored and stored["cell"] == {"size": 10}
     assert validate_system(stored) == stored
+
+
+@pytest.mark.parametrize("case", COLLAPSE["cases"], ids=lambda c: c["name"])
+def test_what_the_wave_function_collapse_generator_fills_are_cells_of_the_grid(case):
+    """The generator runs in the browser (ADR 0475, 0478); the cells it gives each entry are held
+    to this grid here, on the vectors its own tests reproduce."""
+    grid, extent = case["grid"], COLLAPSE["extent"]
+    gained = [tuple(cell) for tile in case["tiles"] for cell in tile["gained"]]
+
+    assert all(in_grid(grid, extent, cell) for cell in gained)
+    for tile in case["tiles"]:
+        cells = [tuple(cell) for cell in tile["cells"]]
+        assert len(set(cells)) == len(cells)
+        assert all(in_grid(grid, extent, cell) for cell in cells)
+    if case["ok"]:
+        # No cell of the region goes to two entries, and no entry is left with nothing to draw
+        # beyond what a drawing holds.
+        assert len(set(gained)) == len(gained)
+        assert all(len(tile["cells"]) <= 256 for tile in case["tiles"])
