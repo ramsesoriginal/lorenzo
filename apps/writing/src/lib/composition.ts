@@ -1,7 +1,9 @@
 import { parse, render } from '@lorenzo/lorenzoscript';
 import { client, LorenzoApiError, loadFile, unwrap } from './api';
 import { carrierOutline } from './carriers';
+import { compositionReview } from './composition-review';
 import { type Contents, contentsControls, contentsNavigation, contentsOf } from './contents';
+import { exportControls } from './manuscript-export';
 import { extractionControls } from './manuscript-extraction';
 import { joinControls } from './manuscript-join';
 import { moveControls } from './manuscript-move';
@@ -76,7 +78,13 @@ export async function compositionScreen(
   const report = (error: unknown) => {
     status.textContent = error instanceof Error ? error.message : 'This could not be completed.';
   };
-  host.replaceChildren(heading, nav, status);
+  host.replaceChildren(
+    heading,
+    nav,
+    status,
+    compositionReview(tenant, id),
+    exportControls(tenant, id),
+  );
   if (current.joined) {
     nav.replaceChildren(link('All drafts', `/?${new URLSearchParams({ tenant })}`));
     status.textContent = 'This Chapter was joined. Its notes remain here.';
