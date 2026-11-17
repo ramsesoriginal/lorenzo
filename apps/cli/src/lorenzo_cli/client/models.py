@@ -613,57 +613,55 @@ class Comparator(StrEnum):
 
 
 class ComparisonFormulaBodyInput(BaseModel):
-    model_config = ConfigDict(
-        regex_engine="python-re",
-    )
     kind: Literal["comparison"] = Field("comparison", title="Kind")
     left_stat_definition_id: UUID = Field(..., title="Left Stat Definition Id")
     comparator: Comparator
     right_stat_definition_id: UUID | None = Field(None, title="Right Stat Definition Id")
-    right_constant: float | constr(pattern=r"^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$") | None = Field(
-        None, title="Right Constant"
-    )
+    right_constant: (
+        float
+        | constr(pattern=r"^[+-]?(?:(?:[0-9]+\.?[0-9]*|\.[0-9]+)(?:[eE][+-]?[0-9]+)?)$")
+        | None
+    ) = Field(None, title="Right Constant")
     true_value: str | None = Field(None, title="True Value")
     false_value: str | None = Field(None, title="False Value")
 
 
 class ComparisonFormulaBodyOutput(BaseModel):
-    model_config = ConfigDict(
-        regex_engine="python-re",
-    )
     kind: Literal["comparison"] = Field("comparison", title="Kind")
     left_stat_definition_id: UUID = Field(..., title="Left Stat Definition Id")
     comparator: Comparator
     right_stat_definition_id: UUID | None = Field(None, title="Right Stat Definition Id")
-    right_constant: constr(pattern=r"^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$") | None = Field(
-        None, title="Right Constant"
-    )
+    right_constant: (
+        constr(
+            pattern=r"^-?(?:(?:0|[1-9][0-9]*)(?:\.[0-9]+)?|0E[+-][1-9][0-9]*|[1-9](?:\.[0-9]+)?E\+[1-9][0-9]*|[1-9](?:\.[0-9]+)?E-[1-9][0-9]*)$"
+        )
+        | None
+    ) = Field(None, title="Right Constant")
     true_value: str | None = Field(None, title="True Value")
     false_value: str | None = Field(None, title="False Value")
 
 
 class ComparisonIn(BaseModel):
-    model_config = ConfigDict(
-        regex_engine="python-re",
-    )
     stat_definition_id: UUID = Field(..., title="Stat Definition Id")
     comparator: Comparator = Field(..., title="Comparator")
-    right_constant: float | constr(pattern=r"^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$") | None = Field(
-        None, title="Right Constant"
-    )
+    right_constant: (
+        float
+        | constr(pattern=r"^[+-]?(?:(?:[0-9]+\.?[0-9]*|\.[0-9]+)(?:[eE][+-]?[0-9]+)?)$")
+        | None
+    ) = Field(None, title="Right Constant")
     right_stat_definition_id: UUID | None = Field(None, title="Right Stat Definition Id")
 
 
 class ComparisonOut(BaseModel):
-    model_config = ConfigDict(
-        regex_engine="python-re",
-    )
     stat_definition_id: UUID = Field(..., title="Stat Definition Id")
     stat_name: str = Field(..., title="Stat Name")
     comparator: Comparator = Field(..., title="Comparator")
-    right_constant: constr(pattern=r"^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$") | None = Field(
-        ..., title="Right Constant"
-    )
+    right_constant: (
+        constr(
+            pattern=r"^-?(?:(?:0|[1-9][0-9]*)(?:\.[0-9]+)?|0E[+-][1-9][0-9]*|[1-9](?:\.[0-9]+)?E\+[1-9][0-9]*|[1-9](?:\.[0-9]+)?E-[1-9][0-9]*)$"
+        )
+        | None
+    ) = Field(..., title="Right Constant")
     right_stat_definition_id: UUID | None = Field(..., title="Right Stat Definition Id")
     right_stat_name: str | None = Field(..., title="Right Stat Name")
 
@@ -704,28 +702,27 @@ class Subject(StrEnum):
 
 
 class ConditionIn(BaseModel):
-    model_config = ConfigDict(
-        regex_engine="python-re",
-    )
     stat_definition_id: UUID = Field(..., title="Stat Definition Id")
     comparator: Comparator = Field(..., title="Comparator")
-    right_constant: float | constr(pattern=r"^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$") | None = Field(
-        None, title="Right Constant"
-    )
+    right_constant: (
+        float
+        | constr(pattern=r"^[+-]?(?:(?:[0-9]+\.?[0-9]*|\.[0-9]+)(?:[eE][+-]?[0-9]+)?)$")
+        | None
+    ) = Field(None, title="Right Constant")
     right_stat_definition_id: UUID | None = Field(None, title="Right Stat Definition Id")
     subject: Subject | None = Field("holder", title="Subject")
 
 
 class ConditionOut(BaseModel):
-    model_config = ConfigDict(
-        regex_engine="python-re",
-    )
     stat_definition_id: UUID = Field(..., title="Stat Definition Id")
     stat_name: str = Field(..., title="Stat Name")
     comparator: Comparator = Field(..., title="Comparator")
-    right_constant: constr(pattern=r"^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$") | None = Field(
-        ..., title="Right Constant"
-    )
+    right_constant: (
+        constr(
+            pattern=r"^-?(?:(?:0|[1-9][0-9]*)(?:\.[0-9]+)?|0E[+-][1-9][0-9]*|[1-9](?:\.[0-9]+)?E\+[1-9][0-9]*|[1-9](?:\.[0-9]+)?E-[1-9][0-9]*)$"
+        )
+        | None
+    ) = Field(..., title="Right Constant")
     right_stat_definition_id: UUID | None = Field(..., title="Right Stat Definition Id")
     right_stat_name: str | None = Field(..., title="Right Stat Name")
     subject: Subject = Field(..., title="Subject")
@@ -803,31 +800,32 @@ class OnlyKind(StrEnum):
 
 
 class ContentsFormulaBodyInput(BaseModel):
-    model_config = ConfigDict(
-        regex_engine="python-re",
-    )
     kind: Literal["contents"] = Field("contents", title="Kind")
     source_stat_definition_id: UUID | None = Field(None, title="Source Stat Definition Id")
     aggregate: Aggregate | None = Field("sum", title="Aggregate")
     only_active: bool | None = Field(False, title="Only Active")
     only_kind: OnlyKind | None = Field(None, title="Only Kind")
     where_stat_definition_id: UUID | None = Field(None, title="Where Stat Definition Id")
-    if_none: float | constr(pattern=r"^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$") | None = Field(
-        None, title="If None"
-    )
+    if_none: (
+        float
+        | constr(pattern=r"^[+-]?(?:(?:[0-9]+\.?[0-9]*|\.[0-9]+)(?:[eE][+-]?[0-9]+)?)$")
+        | None
+    ) = Field(None, title="If None")
 
 
 class ContentsFormulaBodyOutput(BaseModel):
-    model_config = ConfigDict(
-        regex_engine="python-re",
-    )
     kind: Literal["contents"] = Field("contents", title="Kind")
     source_stat_definition_id: UUID | None = Field(None, title="Source Stat Definition Id")
     aggregate: Aggregate | None = Field("sum", title="Aggregate")
     only_active: bool | None = Field(False, title="Only Active")
     only_kind: OnlyKind | None = Field(None, title="Only Kind")
     where_stat_definition_id: UUID | None = Field(None, title="Where Stat Definition Id")
-    if_none: constr(pattern=r"^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$") | None = Field(None, title="If None")
+    if_none: (
+        constr(
+            pattern=r"^-?(?:(?:0|[1-9][0-9]*)(?:\.[0-9]+)?|0E[+-][1-9][0-9]*|[1-9](?:\.[0-9]+)?E\+[1-9][0-9]*|[1-9](?:\.[0-9]+)?E-[1-9][0-9]*)$"
+        )
+        | None
+    ) = Field(None, title="If None")
 
 
 class Status7(StrEnum):
@@ -1367,23 +1365,22 @@ class ExtractionCheckpoint(BaseModel):
 
 
 class ExtremumInputBodyInput(BaseModel):
-    model_config = ConfigDict(
-        regex_engine="python-re",
-    )
     stat_definition_id: UUID | None = Field(None, title="Stat Definition Id")
-    constant: float | constr(pattern=r"^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$") | None = Field(
-        None, title="Constant"
-    )
+    constant: (
+        float
+        | constr(pattern=r"^[+-]?(?:(?:[0-9]+\.?[0-9]*|\.[0-9]+)(?:[eE][+-]?[0-9]+)?)$")
+        | None
+    ) = Field(None, title="Constant")
 
 
 class ExtremumInputBodyOutput(BaseModel):
-    model_config = ConfigDict(
-        regex_engine="python-re",
-    )
     stat_definition_id: UUID | None = Field(None, title="Stat Definition Id")
-    constant: constr(pattern=r"^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$") | None = Field(
-        None, title="Constant"
-    )
+    constant: (
+        constr(
+            pattern=r"^-?(?:(?:0|[1-9][0-9]*)(?:\.[0-9]+)?|0E[+-][1-9][0-9]*|[1-9](?:\.[0-9]+)?E\+[1-9][0-9]*|[1-9](?:\.[0-9]+)?E-[1-9][0-9]*)$"
+        )
+        | None
+    ) = Field(None, title="Constant")
 
 
 class FactUpdate(BaseModel):
@@ -1959,7 +1956,6 @@ class LivedParticipation(BaseModel):
 class LocationCreate(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
-        regex_engine="python-re",
     )
     id: UUID | None = Field(None, title="Id")
     name: constr(min_length=1, max_length=200) = Field(..., title="Name")
@@ -1968,9 +1964,11 @@ class LocationCreate(BaseModel):
     )
     is_public: bool | None = Field(False, title="Is Public")
     parent_id: UUID | None = Field(None, title="Parent Id")
-    level_ordinal: float | constr(pattern=r"^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$") | None = Field(
-        None, title="Level Ordinal"
-    )
+    level_ordinal: (
+        float
+        | constr(pattern=r"^[+-]?(?:(?:[0-9]+\.?[0-9]*|\.[0-9]+)(?:[eE][+-]?[0-9]+)?)$")
+        | None
+    ) = Field(None, title="Level Ordinal")
 
 
 class Tie(StrEnum):
@@ -1980,31 +1978,31 @@ class Tie(StrEnum):
 
 
 class LocationListItem(BaseModel):
-    model_config = ConfigDict(
-        regex_engine="python-re",
-    )
     id: UUID = Field(..., title="Id")
     name: str = Field(..., title="Name")
     slug: str | None = Field(None, title="Slug")
     kinds: list[Kind21] = Field(..., title="Kinds")
-    level_ordinal: constr(pattern=r"^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$") | None = Field(
-        None, title="Level Ordinal"
-    )
+    level_ordinal: (
+        constr(
+            pattern=r"^-?(?:(?:0|[1-9][0-9]*)(?:\.[0-9]+)?|0E[+-][1-9][0-9]*|[1-9](?:\.[0-9]+)?E\+[1-9][0-9]*|[1-9](?:\.[0-9]+)?E-[1-9][0-9]*)$"
+        )
+        | None
+    ) = Field(None, title="Level Ordinal")
     map_count: int | None = Field(None, title="Map Count")
     tie: Tie | None = Field(None, title="Tie")
 
 
 class LocationStub(BaseModel):
-    model_config = ConfigDict(
-        regex_engine="python-re",
-    )
     id: UUID = Field(..., title="Id")
     name: str = Field(..., title="Name")
     slug: str | None = Field(None, title="Slug")
     kinds: list[Kind21] = Field(..., title="Kinds")
-    level_ordinal: constr(pattern=r"^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$") | None = Field(
-        None, title="Level Ordinal"
-    )
+    level_ordinal: (
+        constr(
+            pattern=r"^-?(?:(?:0|[1-9][0-9]*)(?:\.[0-9]+)?|0E[+-][1-9][0-9]*|[1-9](?:\.[0-9]+)?E\+[1-9][0-9]*|[1-9](?:\.[0-9]+)?E-[1-9][0-9]*)$"
+        )
+        | None
+    ) = Field(None, title="Level Ordinal")
     map_count: int | None = Field(None, title="Map Count")
 
 
@@ -2201,18 +2199,17 @@ class MergeItemInstanceRequest(BaseModel):
 class MoonInput(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
-        regex_engine="python-re",
     )
     key: constr(pattern=r"^[a-z][a-z0-9-]{0,63}$") = Field(..., title="Key")
     name: constr(min_length=1, max_length=200) = Field(..., title="Name")
     period: confloat(le=1000000.0, gt=0.0) | constr(
-        pattern=r"^(?!^[-+.]*$)[+-]?0*(?:\d{0,10}|(?=[\d.]{1,21}0*$)\d{0,10}\.\d{0,10}0*$)"
+        pattern=r"^[+-]?(?:0*[0-9]{1,10}(?:\.[0-9]{0,10}0*)?|0*[0-9]{0,10}\.[0-9]{1,10}0*|(?:[0-9]+\.?[0-9]*|\.[0-9]+)[eE][+-]?[0-9]+)$"
     ) = Field(..., title="Period")
     reference: CalendarDate
     offset: (
         float
         | constr(
-            pattern=r"^(?!^[-+.]*$)[+-]?0*(?:\d{0,10}|(?=[\d.]{1,21}0*$)\d{0,10}\.\d{0,10}0*$)"
+            pattern=r"^[+-]?(?:0*[0-9]{1,10}(?:\.[0-9]{0,10}0*)?|0*[0-9]{0,10}\.[0-9]{1,10}0*|(?:[0-9]+\.?[0-9]*|\.[0-9]+)[eE][+-]?[0-9]+)$"
         )
         | None
     ) = Field("0", title="Offset")
@@ -2221,16 +2218,17 @@ class MoonInput(BaseModel):
 class MoonOutput(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
-        regex_engine="python-re",
     )
     key: constr(pattern=r"^[a-z][a-z0-9-]{0,63}$") = Field(..., title="Key")
     name: constr(min_length=1, max_length=200) = Field(..., title="Name")
     period: constr(
-        pattern=r"^(?!^[-+.]*$)[+-]?0*(?:\d{0,10}|(?=[\d.]{1,21}0*$)\d{0,10}\.\d{0,10}0*$)"
+        pattern=r"^-?(?:(?:0|[1-9][0-9]{0,9})(?:\.[0-9]{1,10}0*)?|0E[+-][1-9][0-9]*|[1-9](?:\.[0-9]+)?E\+[1-9]|[1-9](?:\.[0-9]{1,3}0*)?E-7|[1-9](?:\.[0-9]{1,2}0*)?E-8|[1-9](?:\.[0-9]0*)?E-9|[1-9](?:\.0+)?E-10)$"
     ) = Field(..., title="Period")
     reference: CalendarDate
     offset: (
-        constr(pattern=r"^(?!^[-+.]*$)[+-]?0*(?:\d{0,10}|(?=[\d.]{1,21}0*$)\d{0,10}\.\d{0,10}0*$)")
+        constr(
+            pattern=r"^-?(?:(?:0|[1-9][0-9]{0,9})(?:\.[0-9]{1,10}0*)?|0E[+-][1-9][0-9]*|[1-9](?:\.[0-9]+)?E\+[1-9]|[1-9](?:\.[0-9]{1,3}0*)?E-7|[1-9](?:\.[0-9]{1,2}0*)?E-8|[1-9](?:\.[0-9]0*)?E-9|[1-9](?:\.0+)?E-10)$"
+        )
         | None
     ) = Field("0", title="Offset")
 
@@ -2604,12 +2602,13 @@ class PageOccurrenceOut(BaseModel):
 class PartOfIn(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
-        regex_engine="python-re",
     )
     parent_entity_id: UUID = Field(..., title="Parent Entity Id")
-    level_ordinal: float | constr(pattern=r"^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$") | None = Field(
-        None, title="Level Ordinal"
-    )
+    level_ordinal: (
+        float
+        | constr(pattern=r"^[+-]?(?:(?:[0-9]+\.?[0-9]*|\.[0-9]+)(?:[eE][+-]?[0-9]+)?)$")
+        | None
+    ) = Field(None, title="Level Ordinal")
 
 
 class ParticipantGroupCreate(BaseModel):
@@ -2648,14 +2647,13 @@ class PayloadDocumentOut(BaseModel):
 
 
 class PayloadNumberOut(BaseModel):
-    model_config = ConfigDict(
-        regex_engine="python-re",
-    )
     id: UUID = Field(..., title="Id")
     order: int = Field(..., title="Order")
     updated_at: AwareDatetime = Field(..., title="Updated At")
     kind: Literal["number"] = Field("number", title="Kind")
-    value: constr(pattern=r"^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$") = Field(..., title="Value")
+    value: constr(
+        pattern=r"^-?(?:(?:0|[1-9][0-9]*)(?:\.[0-9]+)?|0E[+-][1-9][0-9]*|[1-9](?:\.[0-9]+)?E\+[1-9][0-9]*|[1-9](?:\.[0-9]+)?E-[1-9][0-9]*)$"
+    ) = Field(..., title="Value")
 
 
 class PayloadOrderRequest(BaseModel):
@@ -3688,45 +3686,45 @@ class Mode8(StrEnum):
 
 
 class SelectResultBodyInput(BaseModel):
-    model_config = ConfigDict(
-        regex_engine="python-re",
-    )
-    number: float | constr(pattern=r"^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$") | None = Field(
-        None, title="Number"
-    )
+    number: (
+        float
+        | constr(pattern=r"^[+-]?(?:(?:[0-9]+\.?[0-9]*|\.[0-9]+)(?:[eE][+-]?[0-9]+)?)$")
+        | None
+    ) = Field(None, title="Number")
     text: str | None = Field(None, title="Text")
     flag: bool | None = Field(None, title="Flag")
     stat_definition_id: UUID | None = Field(None, title="Stat Definition Id")
 
 
 class SelectResultBodyOutput(BaseModel):
-    model_config = ConfigDict(
-        regex_engine="python-re",
-    )
-    number: constr(pattern=r"^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$") | None = Field(None, title="Number")
+    number: (
+        constr(
+            pattern=r"^-?(?:(?:0|[1-9][0-9]*)(?:\.[0-9]+)?|0E[+-][1-9][0-9]*|[1-9](?:\.[0-9]+)?E\+[1-9][0-9]*|[1-9](?:\.[0-9]+)?E-[1-9][0-9]*)$"
+        )
+        | None
+    ) = Field(None, title="Number")
     text: str | None = Field(None, title="Text")
     flag: bool | None = Field(None, title="Flag")
     stat_definition_id: UUID | None = Field(None, title="Stat Definition Id")
 
 
 class SelectStepBodyInput(BaseModel):
-    model_config = ConfigDict(
-        regex_engine="python-re",
-    )
-    from_: float | constr(pattern=r"^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$") | None = Field(
-        None, alias="from", title="From"
-    )
+    from_: (
+        float
+        | constr(pattern=r"^[+-]?(?:(?:[0-9]+\.?[0-9]*|\.[0-9]+)(?:[eE][+-]?[0-9]+)?)$")
+        | None
+    ) = Field(None, alias="from", title="From")
     value: str | None = Field(None, title="Value")
     result: SelectResultBodyInput
 
 
 class SelectStepBodyOutput(BaseModel):
-    model_config = ConfigDict(
-        regex_engine="python-re",
-    )
-    from_: constr(pattern=r"^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$") | None = Field(
-        None, alias="from", title="From"
-    )
+    from_: (
+        constr(
+            pattern=r"^-?(?:(?:0|[1-9][0-9]*)(?:\.[0-9]+)?|0E[+-][1-9][0-9]*|[1-9](?:\.[0-9]+)?E\+[1-9][0-9]*|[1-9](?:\.[0-9]+)?E-[1-9][0-9]*)$"
+        )
+        | None
+    ) = Field(None, alias="from", title="From")
     value: str | None = Field(None, title="Value")
     result: SelectResultBodyOutput
 
@@ -4135,23 +4133,22 @@ class SubscriptionOut(BaseModel):
 
 
 class SumTermBodyInput(BaseModel):
-    model_config = ConfigDict(
-        regex_engine="python-re",
-    )
     stat_definition_id: UUID = Field(..., title="Stat Definition Id")
-    coefficient: float | constr(pattern=r"^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$") | None = Field(
-        "1", title="Coefficient"
-    )
+    coefficient: (
+        float
+        | constr(pattern=r"^[+-]?(?:(?:[0-9]+\.?[0-9]*|\.[0-9]+)(?:[eE][+-]?[0-9]+)?)$")
+        | None
+    ) = Field("1", title="Coefficient")
 
 
 class SumTermBodyOutput(BaseModel):
-    model_config = ConfigDict(
-        regex_engine="python-re",
-    )
     stat_definition_id: UUID = Field(..., title="Stat Definition Id")
-    coefficient: constr(pattern=r"^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$") | None = Field(
-        "1", title="Coefficient"
-    )
+    coefficient: (
+        constr(
+            pattern=r"^-?(?:(?:0|[1-9][0-9]*)(?:\.[0-9]+)?|0E[+-][1-9][0-9]*|[1-9](?:\.[0-9]+)?E\+[1-9][0-9]*|[1-9](?:\.[0-9]+)?E-[1-9][0-9]*)$"
+        )
+        | None
+    ) = Field("1", title="Coefficient")
 
 
 class SuspendUserRequest(BaseModel):
@@ -5195,28 +5192,31 @@ class ItemOut(BaseModel):
 
 
 class LinearFormulaBodyInput(BaseModel):
-    model_config = ConfigDict(
-        regex_engine="python-re",
-    )
     kind: Literal["linear"] = Field("linear", title="Kind")
     source_stat_definition_id: UUID = Field(..., title="Source Stat Definition Id")
     multiplier: float | constr(
-        pattern=r"^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$"
+        pattern=r"^[+-]?(?:(?:[0-9]+\.?[0-9]*|\.[0-9]+)(?:[eE][+-]?[0-9]+)?)$"
     ) = Field(..., title="Multiplier")
-    offset: float | constr(pattern=r"^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$") | None = Field(
-        "0", title="Offset"
-    )
+    offset: (
+        float
+        | constr(pattern=r"^[+-]?(?:(?:[0-9]+\.?[0-9]*|\.[0-9]+)(?:[eE][+-]?[0-9]+)?)$")
+        | None
+    ) = Field("0", title="Offset")
     round_mode: RoundMode | None = "none"
 
 
 class LinearFormulaBodyOutput(BaseModel):
-    model_config = ConfigDict(
-        regex_engine="python-re",
-    )
     kind: Literal["linear"] = Field("linear", title="Kind")
     source_stat_definition_id: UUID = Field(..., title="Source Stat Definition Id")
-    multiplier: constr(pattern=r"^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$") = Field(..., title="Multiplier")
-    offset: constr(pattern=r"^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$") | None = Field("0", title="Offset")
+    multiplier: constr(
+        pattern=r"^-?(?:(?:0|[1-9][0-9]*)(?:\.[0-9]+)?|0E[+-][1-9][0-9]*|[1-9](?:\.[0-9]+)?E\+[1-9][0-9]*|[1-9](?:\.[0-9]+)?E-[1-9][0-9]*)$"
+    ) = Field(..., title="Multiplier")
+    offset: (
+        constr(
+            pattern=r"^-?(?:(?:0|[1-9][0-9]*)(?:\.[0-9]+)?|0E[+-][1-9][0-9]*|[1-9](?:\.[0-9]+)?E\+[1-9][0-9]*|[1-9](?:\.[0-9]+)?E-[1-9][0-9]*)$"
+        )
+        | None
+    ) = Field("0", title="Offset")
     round_mode: RoundMode | None = "none"
 
 
@@ -5240,16 +5240,16 @@ class LivedOrderOut(BaseModel):
 
 
 class LocationOut(BaseModel):
-    model_config = ConfigDict(
-        regex_engine="python-re",
-    )
     id: UUID = Field(..., title="Id")
     name: str = Field(..., title="Name")
     slug: str | None = Field(None, title="Slug")
     kinds: list[Kind21] = Field(..., title="Kinds")
-    level_ordinal: constr(pattern=r"^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$") | None = Field(
-        None, title="Level Ordinal"
-    )
+    level_ordinal: (
+        constr(
+            pattern=r"^-?(?:(?:0|[1-9][0-9]*)(?:\.[0-9]+)?|0E[+-][1-9][0-9]*|[1-9](?:\.[0-9]+)?E\+[1-9][0-9]*|[1-9](?:\.[0-9]+)?E-[1-9][0-9]*)$"
+        )
+        | None
+    ) = Field(None, title="Level Ordinal")
     map_count: int | None = Field(None, title="Map Count")
     within: LocationStub | None = None
     updated_at: AwareDatetime = Field(..., title="Updated At")
@@ -5623,70 +5623,87 @@ class PreviewInformationOut(BaseModel):
 
 
 class ProductFormulaBodyInput(BaseModel):
-    model_config = ConfigDict(
-        regex_engine="python-re",
-    )
     kind: Literal["product"] = Field("product", title="Kind")
     factors: list[UUID] = Field(..., max_length=5, min_length=2, title="Factors")
-    multiplier: float | constr(pattern=r"^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$") | None = Field(
-        "1", title="Multiplier"
-    )
-    offset: float | constr(pattern=r"^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$") | None = Field(
-        "0", title="Offset"
-    )
+    multiplier: (
+        float
+        | constr(pattern=r"^[+-]?(?:(?:[0-9]+\.?[0-9]*|\.[0-9]+)(?:[eE][+-]?[0-9]+)?)$")
+        | None
+    ) = Field("1", title="Multiplier")
+    offset: (
+        float
+        | constr(pattern=r"^[+-]?(?:(?:[0-9]+\.?[0-9]*|\.[0-9]+)(?:[eE][+-]?[0-9]+)?)$")
+        | None
+    ) = Field("0", title="Offset")
     round_mode: RoundMode | None = "none"
 
 
 class ProductFormulaBodyOutput(BaseModel):
-    model_config = ConfigDict(
-        regex_engine="python-re",
-    )
     kind: Literal["product"] = Field("product", title="Kind")
     factors: list[UUID] = Field(..., max_length=5, min_length=2, title="Factors")
-    multiplier: constr(pattern=r"^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$") | None = Field(
-        "1", title="Multiplier"
-    )
-    offset: constr(pattern=r"^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$") | None = Field("0", title="Offset")
+    multiplier: (
+        constr(
+            pattern=r"^-?(?:(?:0|[1-9][0-9]*)(?:\.[0-9]+)?|0E[+-][1-9][0-9]*|[1-9](?:\.[0-9]+)?E\+[1-9][0-9]*|[1-9](?:\.[0-9]+)?E-[1-9][0-9]*)$"
+        )
+        | None
+    ) = Field("1", title="Multiplier")
+    offset: (
+        constr(
+            pattern=r"^-?(?:(?:0|[1-9][0-9]*)(?:\.[0-9]+)?|0E[+-][1-9][0-9]*|[1-9](?:\.[0-9]+)?E\+[1-9][0-9]*|[1-9](?:\.[0-9]+)?E-[1-9][0-9]*)$"
+        )
+        | None
+    ) = Field("0", title="Offset")
     round_mode: RoundMode | None = "none"
 
 
 class RatioFormulaBodyInput(BaseModel):
-    model_config = ConfigDict(
-        regex_engine="python-re",
-    )
     kind: Literal["ratio"] = Field("ratio", title="Kind")
     numerator_stat_definition_id: UUID = Field(..., title="Numerator Stat Definition Id")
     denominator_stat_definition_id: UUID | None = Field(
         None, title="Denominator Stat Definition Id"
     )
-    denominator_constant: float | constr(pattern=r"^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$") | None = Field(
-        None, title="Denominator Constant"
-    )
-    multiplier: float | constr(pattern=r"^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$") | None = Field(
-        "1", title="Multiplier"
-    )
-    offset: float | constr(pattern=r"^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$") | None = Field(
-        "0", title="Offset"
-    )
+    denominator_constant: (
+        float
+        | constr(pattern=r"^[+-]?(?:(?:[0-9]+\.?[0-9]*|\.[0-9]+)(?:[eE][+-]?[0-9]+)?)$")
+        | None
+    ) = Field(None, title="Denominator Constant")
+    multiplier: (
+        float
+        | constr(pattern=r"^[+-]?(?:(?:[0-9]+\.?[0-9]*|\.[0-9]+)(?:[eE][+-]?[0-9]+)?)$")
+        | None
+    ) = Field("1", title="Multiplier")
+    offset: (
+        float
+        | constr(pattern=r"^[+-]?(?:(?:[0-9]+\.?[0-9]*|\.[0-9]+)(?:[eE][+-]?[0-9]+)?)$")
+        | None
+    ) = Field("0", title="Offset")
     round_mode: RoundMode | None = "none"
 
 
 class RatioFormulaBodyOutput(BaseModel):
-    model_config = ConfigDict(
-        regex_engine="python-re",
-    )
     kind: Literal["ratio"] = Field("ratio", title="Kind")
     numerator_stat_definition_id: UUID = Field(..., title="Numerator Stat Definition Id")
     denominator_stat_definition_id: UUID | None = Field(
         None, title="Denominator Stat Definition Id"
     )
-    denominator_constant: constr(pattern=r"^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$") | None = Field(
-        None, title="Denominator Constant"
-    )
-    multiplier: constr(pattern=r"^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$") | None = Field(
-        "1", title="Multiplier"
-    )
-    offset: constr(pattern=r"^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$") | None = Field("0", title="Offset")
+    denominator_constant: (
+        constr(
+            pattern=r"^-?(?:(?:0|[1-9][0-9]*)(?:\.[0-9]+)?|0E[+-][1-9][0-9]*|[1-9](?:\.[0-9]+)?E\+[1-9][0-9]*|[1-9](?:\.[0-9]+)?E-[1-9][0-9]*)$"
+        )
+        | None
+    ) = Field(None, title="Denominator Constant")
+    multiplier: (
+        constr(
+            pattern=r"^-?(?:(?:0|[1-9][0-9]*)(?:\.[0-9]+)?|0E[+-][1-9][0-9]*|[1-9](?:\.[0-9]+)?E\+[1-9][0-9]*|[1-9](?:\.[0-9]+)?E-[1-9][0-9]*)$"
+        )
+        | None
+    ) = Field("1", title="Multiplier")
+    offset: (
+        constr(
+            pattern=r"^-?(?:(?:0|[1-9][0-9]*)(?:\.[0-9]+)?|0E[+-][1-9][0-9]*|[1-9](?:\.[0-9]+)?E\+[1-9][0-9]*|[1-9](?:\.[0-9]+)?E-[1-9][0-9]*)$"
+        )
+        | None
+    ) = Field("0", title="Offset")
     round_mode: RoundMode | None = "none"
 
 
@@ -5965,24 +5982,25 @@ class StorefrontOut(BaseModel):
 
 
 class SumFormulaBodyInput(BaseModel):
-    model_config = ConfigDict(
-        regex_engine="python-re",
-    )
     kind: Literal["sum"] = Field("sum", title="Kind")
     terms: list[SumTermBodyInput] = Field(..., max_length=20, min_length=1, title="Terms")
-    offset: float | constr(pattern=r"^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$") | None = Field(
-        "0", title="Offset"
-    )
+    offset: (
+        float
+        | constr(pattern=r"^[+-]?(?:(?:[0-9]+\.?[0-9]*|\.[0-9]+)(?:[eE][+-]?[0-9]+)?)$")
+        | None
+    ) = Field("0", title="Offset")
     round_mode: RoundMode | None = "none"
 
 
 class SumFormulaBodyOutput(BaseModel):
-    model_config = ConfigDict(
-        regex_engine="python-re",
-    )
     kind: Literal["sum"] = Field("sum", title="Kind")
     terms: list[SumTermBodyOutput] = Field(..., max_length=20, min_length=1, title="Terms")
-    offset: constr(pattern=r"^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$") | None = Field("0", title="Offset")
+    offset: (
+        constr(
+            pattern=r"^-?(?:(?:0|[1-9][0-9]*)(?:\.[0-9]+)?|0E[+-][1-9][0-9]*|[1-9](?:\.[0-9]+)?E\+[1-9][0-9]*|[1-9](?:\.[0-9]+)?E-[1-9][0-9]*)$"
+        )
+        | None
+    ) = Field("0", title="Offset")
     round_mode: RoundMode | None = "none"
 
 
