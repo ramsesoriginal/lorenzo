@@ -1,4 +1,4 @@
-"""Showing what the JavaScript host read from a set of files (`lorenzo inspect`)."""
+"""Showing what the JavaScript host read from a set of files (`lorenzo import mpmb inspect`)."""
 
 from __future__ import annotations
 

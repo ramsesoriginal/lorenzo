@@ -4,32 +4,15 @@ them (ADR 0483)."""
 
 from __future__ import annotations
 
-import importlib
 import importlib.metadata
-from collections.abc import Iterator
-from contextlib import contextmanager
-from dataclasses import dataclass
-from typing import Annotated, Any
+from typing import Annotated
 
 import typer
 from typer import _click as click  # typer vendors its own click; its classes are these
-from typer.core import TyperCommand, TyperGroup
 
 from lorenzo_cli import console
+from lorenzo_cli.lazy import Entry, LazyGroup
 from lorenzo_cli.runtime import Runtime, default_runtime
-
-
-@dataclass(frozen=True)
-class Entry:
-    """Where a command lives: a module and the Typer app in it, and the command's short help,
-    which the root's help and completion show without importing the module. `command` names
-    one command of that app; None means the app is the group."""
-
-    module: str
-    app: str
-    help: str
-    command: str | None = None
-
 
 _C = "lorenzo_cli.commands."
 COMMANDS: dict[str, Entry] = {
@@ -52,50 +35,22 @@ COMMANDS: dict[str, Entry] = {
     "item-instance": Entry("lorenzo_cli.entry_commands", "instance_app", "Read item instances."),
     "being": Entry("lorenzo_cli.entry_commands", "being_app", "Read beings and their sheets."),
     "character": Entry(f"{_C}catalog", "character_app", "List characters."),
-    "inventory": Entry(
-        f"{_C}inventory", "app", "Import a character's inventory from a ledger, or export it."
-    ),
     "pack": Entry(f"{_C}pack", "app", "Hand out an imported pack."),
     "seed": Entry(f"{_C}seeding", "app", "Create the item taxonomy and stats in a tenant.", "seed"),
     "unseed": Entry(f"{_C}seeding", "app", "Take a layer of the seed out of a tenant.", "unseed"),
-    "inspect": Entry(
-        f"{_C}mpmb", "app", "Show what the JavaScript host reads from MPMB files.", "inspect"
+    "import": Entry(
+        f"{_C}transfer", "import_app", "Import MPMB items, an inventory or a calendar."
     ),
-    "plan": Entry(f"{_C}mpmb", "app", "Work out what importing MPMB files would do.", "plan"),
-    "apply": Entry(f"{_C}mpmb", "app", "Import MPMB files.", "apply"),
+    "export": Entry(f"{_C}transfer", "export_app", "Export an inventory or a calendar."),
     "repo": Entry(f"{_C}repo", "app", "Publish, grant, copy and update repositories."),
-    "calendar": Entry(
-        "lorenzo_cli.calendar_commands", "app", "Import and export authored calendar documents."
-    ),
     "api": Entry(f"{_C}api", "app", "Make one authenticated request to the API.", "api"),
 }
 
 
-class LazyGroup(TyperGroup):
-    """The root group. Lists its commands from `COMMANDS` and imports one only to run it or to
-    show its own help: while the root's help or a completion lists them, each is a stand-in
-    that carries the short help and nothing else."""
+class RootGroup(LazyGroup):
+    """`lorenzo` itself: a lazy group that also sets the console up for each run."""
 
-    _listing = False
-
-    def list_commands(self, ctx: click.Context) -> list[str]:
-        return list(COMMANDS)
-
-    def get_command(self, ctx: click.Context, cmd_name: str) -> click.Command | None:
-        entry = COMMANDS.get(cmd_name)
-        if entry is None:
-            return None
-        if self._listing:
-            return TyperCommand(cmd_name, help=entry.help, short_help=entry.help)
-        return load(cmd_name, entry)
-
-    @contextmanager
-    def _only_listing(self) -> Iterator[None]:
-        self._listing = True
-        try:
-            yield
-        finally:
-            self._listing = False
+    registry = COMMANDS
 
     def parse_args(self, ctx: click.Context, args: list[str]) -> list[str]:
         # Every run starts from the console's defaults; `--json` anywhere on the line makes this a
@@ -104,30 +59,10 @@ class LazyGroup(TyperGroup):
         console.configure(json="--json" in args)
         return super().parse_args(ctx, args)
 
-    def format_help(self, ctx: click.Context, formatter: click.HelpFormatter) -> None:
-        with self._only_listing():
-            super().format_help(ctx, formatter)
-
-    def shell_complete(self, ctx: click.Context, incomplete: str) -> list[Any]:
-        with self._only_listing():
-            return super().shell_complete(ctx, incomplete)
-
-
-def load(name: str, entry: Entry) -> click.Command:
-    """The real command or group of an entry, with its module imported."""
-    found = getattr(importlib.import_module(entry.module), entry.app)
-    group = typer.main.get_group(found)
-    if entry.command is None:
-        group.name = name
-        return group
-    command = group.commands[entry.command]
-    command.name = name
-    return command
-
 
 app = typer.Typer(
     name="lorenzo",
-    cls=LazyGroup,
+    cls=RootGroup,
     help="The Lorenzo command line.",
     epilog="The legal notice and the privacy policy of the Lorenzo you use: `lorenzo legal`.",
     no_args_is_help=True,

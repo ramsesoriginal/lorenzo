@@ -1,4 +1,4 @@
-"""The MPMB importer: `inspect`, `plan` and `apply` (RFC 0025, ADR 0144, 0182)."""
+"""The MPMB importer: `lorenzo import mpmb inspect|plan|apply` (RFC 0025, ADR 0144, 0182)."""
 
 from __future__ import annotations
 
@@ -41,7 +41,7 @@ from lorenzo_cli.runtime import (
     may_write,
 )
 
-app = typer.Typer()
+app = typer.Typer(help="Plan, apply or inspect MPMB item files.", no_args_is_help=True)
 
 
 @app.command("inspect")

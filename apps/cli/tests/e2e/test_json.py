@@ -14,7 +14,7 @@ def test_apply_json_is_one_document_and_never_asks(stack: Stack, tmp_path: Path)
     token = stack.creator_token()
     tenant = copy_of_seeded(stack, token, tmp_path)
     apply = [
-        "apply", "--tenant", tenant, str(FIXTURES / "gear.js"),
+        "import", "mpmb", "apply", "--tenant", tenant, str(FIXTURES / "gear.js"),
         "--review-queue", str(tmp_path / "review-queue.json"),
         "--proposed-map", str(tmp_path / "proposed.map.toml"),
         "--json",

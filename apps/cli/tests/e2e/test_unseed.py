@@ -169,7 +169,15 @@ def test_unseed_refuses_while_imported_items_are_under_the_layer(
         stack,
         token,
         tmp_path,
-        *["apply", "--tenant", tenant, "--review-queue", str(tmp_path / "rq.json")],
+        *[
+            "import",
+            "mpmb",
+            "apply",
+            "--tenant",
+            tenant,
+            "--review-queue",
+            str(tmp_path / "rq.json"),
+        ],
         *["--proposed-map", str(tmp_path / "pm.toml"), str(FIXTURES / "weapons.js"), "--yes"],
     )
     assert imported.exit_code == 1, imported.output  # the moon whip is held for review

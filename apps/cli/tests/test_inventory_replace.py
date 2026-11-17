@@ -166,7 +166,7 @@ def run(world: Table, tmp_path: Path, *args: str, tty: bool = False):  # type: i
         transport=httpx.MockTransport(world.handler),
         interactive_override=tty,
     )
-    return runner.invoke(app, ["inventory", "import", *args], obj=runtime)
+    return runner.invoke(app, ["import", "inventory", *args], obj=runtime)
 
 
 # --- any being, for a GM ------------------------------------------------------------------------
@@ -335,7 +335,7 @@ def test_replace_asks_with_both_counts_and_declining_changes_nothing(tmp_path: P
 
     done = runner.invoke(
         app,
-        ["inventory", "import", str(path), "-t", "table-one", "--owner", "Brisk", "--replace"],
+        ["import", "inventory", str(path), "-t", "table-one", "--owner", "Brisk", "--replace"],
         obj=runtime,
         input="n\n",
     )

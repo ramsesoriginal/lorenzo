@@ -68,7 +68,7 @@ class Setup:
 
     def neutral(self, files: list[str]) -> None:
         self.ok(
-            "apply", "--tenant", self.equipment, "--part", "neutral", "--public-catalog", *files,
+            "import", "mpmb", "apply", "--tenant", self.equipment, "--part", "neutral", "--public-catalog", *files,
             "--review-queue", str(self.work / "review-queue.json"),
             "--proposed-map", str(self.work / "proposed.map.toml"),
             "--yes",
@@ -76,7 +76,7 @@ class Setup:
 
     def system(self, files: list[str]) -> None:
         self.ok(
-            "apply", "--tenant", self.bridge, "--part", "system", *files,
+            "import", "mpmb", "apply", "--tenant", self.bridge, "--part", "system", *files,
             "--review-queue", str(self.work / "review-queue.json"),
             "--proposed-map", str(self.work / "proposed.map.toml"),
             "--yes",

@@ -64,7 +64,7 @@ class Parted:
 
     def importing(self, tenant: str, part: str, *flags: str) -> tuple[str, ...]:
         return (
-            "apply", "--tenant", tenant, "--part", part, *flags, *MAP,
+            "import", "mpmb", "apply", "--tenant", tenant, "--part", part, *flags, *MAP,
             "--review-queue", str(self.work / "review-queue.json"),
             "--proposed-map", str(self.work / "proposed.map.toml"),
             *FILES,
@@ -73,7 +73,7 @@ class Parted:
     def planning(self, tenant: str, part: str | None, *flags: str) -> tuple[str, ...]:
         chosen = ("--part", part) if part else ()
         return (
-            "plan", "--tenant", tenant, *chosen, *flags, *MAP,
+            "import", "mpmb", "plan", "--tenant", tenant, *chosen, *flags, *MAP,
             "--review-queue", str(self.work / "review-queue.json"),
             "--proposed-map", str(self.work / "proposed.map.toml"),
             *FILES,
@@ -262,7 +262,7 @@ def test_the_system_pass_before_the_neutral_one_holds_every_item_and_writes_noth
     assert {issue["kind"] for i in held for issue in i["issues"]} == {"neutral-item"}
     assert refused.exit_code == 1
     queue = json.loads((parted.work / "review-queue.json").read_text())
-    assert any("lorenzo apply --part neutral" in entry["suggestion"] for entry in queue)
+    assert any("lorenzo import mpmb apply --part neutral" in entry["suggestion"] for entry in queue)
     assert not parted.has(bridge, "srd5e-weapons-purple-sword")
 
 
@@ -283,7 +283,7 @@ def test_without_a_part_one_tenant_gets_the_one_item_with_both_halves_as_before(
 
     code, document = parted.json(*parted.planning(tenant, None))
     parted.ok(
-        "apply", "--tenant", tenant, *MAP, "--review-queue", str(parted.work / "rq.json"),
+        "import", "mpmb", "apply", "--tenant", tenant, *MAP, "--review-queue", str(parted.work / "rq.json"),
         "--proposed-map", str(parted.work / "pm.toml"), *FILES, "--yes",
     )  # fmt: skip
 

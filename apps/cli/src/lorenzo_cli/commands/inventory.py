@@ -1,4 +1,4 @@
-"""`lorenzo inventory import` and `export` (ADR 0193, 0226, 0232)."""
+"""`lorenzo import inventory` and `lorenzo export inventory` (ADR 0193, 0226, 0232)."""
 
 from __future__ import annotations
 

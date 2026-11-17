@@ -48,7 +48,7 @@ class Split:
         self.ok("repo", "offer", self.bridge, "--tenant", self.rules, "--yes")
         self.ok("seed", "--tenant", self.bridge, "--layer", "dnd5e-equipment", "--yes")
         self.ok(
-            "apply", "--tenant", self.bridge, str(FIXTURES / "weapons.js"),
+            "import", "mpmb", "apply", "--tenant", self.bridge, str(FIXTURES / "weapons.js"),
             "--map", str(FIXTURES / "legendary-form.map.toml"),
             "--review-queue", str(tmp_path / "review-queue.json"),
             "--proposed-map", str(tmp_path / "proposed.map.toml"),

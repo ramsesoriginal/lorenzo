@@ -86,3 +86,21 @@ def test_a_group_loads_only_itself() -> None:
         m.startswith(("lorenzo_cli.commands.inventory", "lorenzo_calendar")) for m in modules
     )
     assert "py_mini_racer" not in modules
+
+
+def test_import_and_export_list_their_commands_without_loading_them() -> None:
+    modules, _ = loaded(["import", "--help"])
+    assert leaked(modules) == ["lorenzo_cli.commands", "lorenzo_cli.commands.transfer"]
+
+
+def test_importing_a_calendar_loads_nothing_of_the_mpmb_importer() -> None:
+    modules, _ = loaded(["import", "calendar", "--help"])
+    assert "lorenzo_cli.calendar_commands" in modules
+    mpmb = (
+        "lorenzo_cli.commands.mpmb",
+        "lorenzo_cli.evalworker",
+        "lorenzo_cli.importer.mapping",
+        "lorenzo_cli.importer.plan",
+        "lorenzo_cli.importer.apply",
+    )
+    assert not any(m.startswith(mpmb) for m in modules)

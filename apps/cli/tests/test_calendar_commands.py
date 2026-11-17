@@ -91,8 +91,8 @@ def test_dry_run_choices_and_saved_plan_are_reviewable_json(tmp_path):
     result = RUNNER.invoke(
         app,
         [
-            "calendar",
             "import",
+            "calendar",
             str(file),
             "--tenant",
             TENANT_ID,
@@ -119,8 +119,8 @@ def test_apply_uses_the_exact_saved_plan_and_stale_errors_are_clean(tmp_path):
     first = RUNNER.invoke(
         app,
         [
-            "calendar",
             "import",
+            "calendar",
             str(file),
             "--tenant",
             TENANT_ID,
@@ -135,8 +135,8 @@ def test_apply_uses_the_exact_saved_plan_and_stale_errors_are_clean(tmp_path):
     applied = RUNNER.invoke(
         app,
         [
-            "calendar",
             "import",
+            "calendar",
             str(file),
             "--tenant",
             TENANT_ID,
@@ -154,8 +154,8 @@ def test_apply_uses_the_exact_saved_plan_and_stale_errors_are_clean(tmp_path):
     stale = RUNNER.invoke(
         app,
         [
-            "calendar",
             "import",
+            "calendar",
             str(file),
             "--tenant",
             TENANT_ID,
@@ -175,13 +175,13 @@ def test_invalid_calendar_fails_before_login_or_network_and_export_is_json(tmp_p
     file.write_text('{"format":"unknown"}', encoding="utf-8")
     invalid = RUNNER.invoke(
         app,
-        ["calendar", "import", str(file), "--tenant", TENANT_ID, "--yes"],
+        ["import", "calendar", str(file), "--tenant", TENANT_ID, "--yes"],
         obj=runtime(tmp_path, seen),
     )
     assert invalid.exit_code == 1
     assert seen == []
     exported = RUNNER.invoke(
-        app, ["calendar", "export", "isles", "--tenant", TENANT_ID], obj=runtime(tmp_path, seen)
+        app, ["export", "calendar", "isles", "--tenant", TENANT_ID], obj=runtime(tmp_path, seen)
     )
     assert exported.exit_code == 0, exported.output
     assert CalendarDocument.model_validate_json(exported.stdout) == DOCUMENT
@@ -192,8 +192,8 @@ def test_import_activity_is_stderr_and_bulk_wait_does_not_change_other_requests(
     result = RUNNER.invoke(
         app,
         [
-            "calendar",
             "import",
+            "calendar",
             str(native_file(tmp_path)),
             "--tenant",
             TENANT_ID,
@@ -219,7 +219,7 @@ def test_unconfirmed_apply_is_not_retried_and_explains_recovery(tmp_path):
     seen = []
     result = RUNNER.invoke(
         app,
-        ["calendar", "import", str(native_file(tmp_path)), "--tenant", TENANT_ID, "--yes"],
+        ["import", "calendar", str(native_file(tmp_path)), "--tenant", TENANT_ID, "--yes"],
         obj=runtime(tmp_path, seen, timed_out=True),
     )
     assert result.exit_code == 1
@@ -236,7 +236,7 @@ def test_calendar_wait_must_be_positive(tmp_path):
     seen = []
     result = RUNNER.invoke(
         app,
-        ["calendar", "import", str(native_file(tmp_path)), "--tenant", TENANT_ID, "--timeout", "0"],
+        ["import", "calendar", str(native_file(tmp_path)), "--tenant", TENANT_ID, "--timeout", "0"],
         obj=runtime(tmp_path, seen),
     )
     assert result.exit_code == 2
@@ -252,7 +252,7 @@ def test_terminal_import_renders_activity_and_keeps_receipt_readable(tmp_path, m
     monkeypatch.setattr(main, "err", Console(file=terminal, force_terminal=True, width=120))
     result = RUNNER.invoke(
         app,
-        ["calendar", "import", str(native_file(tmp_path)), "--tenant", TENANT_ID, "--yes"],
+        ["import", "calendar", str(native_file(tmp_path)), "--tenant", TENANT_ID, "--yes"],
         obj=runtime(tmp_path, []),
     )
     assert result.exit_code == 0, result.output

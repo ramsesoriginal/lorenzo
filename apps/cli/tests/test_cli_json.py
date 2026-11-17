@@ -76,7 +76,7 @@ def patched(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, applying: Applying)
     monkeypatch.setattr(main_module, "apply_import", applying.apply)
 
 
-ARGS = ["apply", "--tenant", "repo", "--base", "x.js", "--json"]
+ARGS = ["import", "mpmb", "apply", "--tenant", "repo", "--base", "x.js", "--json"]
 
 
 @pytest.fixture(autouse=True)
@@ -215,7 +215,9 @@ def test_without_json_apply_still_says_it_in_words(
     patched(monkeypatch, tmp_path, Applying(make_plan(item("a", "create"))))
 
     result = runner.invoke(
-        app, ["apply", "--tenant", "repo", "--base", "x.js", "--yes"], obj=runtime(tmp_path)
+        app,
+        ["import", "mpmb", "apply", "--tenant", "repo", "--base", "x.js", "--yes"],
+        obj=runtime(tmp_path),
     )
 
     assert result.exit_code == 0, result.output

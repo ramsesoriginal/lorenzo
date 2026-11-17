@@ -265,8 +265,8 @@ def _system_items(
                     "",
                     item.neutral_slug,
                     f"its neutral item {item.neutral_slug} isn't in this tenant",
-                    "run `lorenzo apply --part neutral` in the equipment repository, and take "
-                    "it here with `lorenzo repo copy` or `lorenzo repo updates`",
+                    "run `lorenzo import mpmb apply --part neutral` in the equipment repository, "
+                    "and take it here with `lorenzo repo copy` or `lorenzo repo updates`",
                 )
             )
         else:

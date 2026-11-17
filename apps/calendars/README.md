@@ -18,7 +18,7 @@ Readers can open **Order and causes** on an Event they can see ([ADR 0315](../..
 
 Authors, GMs and full-visibility Owners/Organizers can also add/remove assertions and use **Share relationship** or **Make relationship private** on each relationship. Existing and newly created assertions start private. Sharing does not open either Event or its Information. Happened before and Caused on the same pair have independent sharing choices. Conflicting edits retain the selection and require refreshing saved relationships before retrying. Ordering edits remain unavailable to players and administrators using an opt-out.
 
-Import is through `lorenzo calendar import`; this app has no import UI. Event creation and date association are two API writes. A failed association keeps the form and identifies the created entry so it can be completed without deliberately making another event. Calendar placement/inheritance, today, full historical knowledge and time travel are not built.
+Import is through `lorenzo import calendar`; this app has no import UI. Event creation and date association are two API writes. A failed association keeps the form and identifies the created entry so it can be completed without deliberately making another event. Calendar placement/inheritance, today, full historical knowledge and time travel are not built.
 
 The **Events** page creates undated Events, searches their names, and offers Authors/GM participant filters, and all readers permitted causal filters and story order ([ADR 0313](../../docs/adr/0313-event-participation-browsing-and-calendar-addresses.md)).
 Causal filters follow causes in either direction from one Event; branches remain independent.

@@ -543,7 +543,7 @@ def test_the_system_pass_holds_an_item_whose_neutral_one_is_not_in_the_tenant() 
     assert item.status == "held" and plan.held == [item]
     [issue] = item.draft.issues
     assert issue.kind == "neutral-item" and "basic-weapons-longsword" in issue.reason
-    assert "lorenzo apply --part neutral" in issue.suggestion
+    assert "lorenzo import mpmb apply --part neutral" in issue.suggestion
 
 
 def test_the_system_pass_skips_what_has_nothing_of_the_systems() -> None:

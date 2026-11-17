@@ -88,17 +88,17 @@ Or pipe a token in with `--token-stdin`. A token from the stored login is used l
 | `lorenzo tenant delete <tenant> [--yes] [--json]` | Deletes a tenant and everything in it. **It can't be undone.** Needs the tenant-creator role and being one of the tenant's owners; asks you to type the slug (`--yes` skips that, `--json` needs it). A repository other tenants still hold a grant on is refused, with how to go on ([ADR 0184](../../docs/adr/0184-deleting-a-tenant.md)) |
 | `lorenzo login --token` | Connects with a personal access token ([ADR 0269](../../docs/adr/0269-personal-access-tokens-hub-and-cli.md)): prints a code and the address of the account hub's *Connect a device* page, waits until you approve it there (naming the token and, if you like, an expiry), and stores it like any login. `whoami` then names it; `logout` forgets it here, and it works until you revoke it under your profile in the hub |
 | `lorenzo [--api-url U] login [--issuer I] [--client-id C] [--no-browser]` / `lorenzo logout` | Stores or forgets a login, and remembers what you named for it (the official Lorenzo is the default, so a plain `lorenzo login` is enough, see [Before you start](#before-you-start)) |
-| `lorenzo inspect [--base FILE...] [FILE...]` | Shows what the JavaScript host reads from MPMB files (files, per-list counts and which file each entry came from, stubbed sheet names), without touching a tenant. Needs no login. Name files, `--base` files, or both: `--base` alone shows what the sheet ships |
+| `lorenzo import mpmb inspect [--base FILE...] [FILE...]` | Shows what the JavaScript host reads from MPMB files (files, per-list counts and which file each entry came from, stubbed sheet names), without touching a tenant. Needs no login. Name files, `--base` files, or both: `--base` alone shows what the sheet ships |
 | `lorenzo seed --tenant <tenant>` / `--list` | Creates the item taxonomy, stat groups and definitions, and the weight recipe an import needs, in a repository tenant. Safe to run again; `--dry-run` first. The seed has four layers, `core`, `equipment`, `dnd5e` and `dnd5e-equipment`, chosen with `--layer` ([ADR 0181](../../docs/adr/0181-the-seeds-four-layers-and-a-system-root.md)). A tenant that holds one layer and not another needs `--layer` ([ADR 0166](../../docs/adr/0166-a-bare-seed-refuses-to-add-a-layer-to-a-tenant-that-holds-another.md)). `--list` prints what the seed makes, per layer, and needs no login or tenant ([ADR 0169](../../docs/adr/0169-seed-list-and-repo-contents.md)) |
 | `lorenzo unseed --tenant <tenant> --layer <layer>` | Takes a layer of the seed out again: its attachments, then categories, stat definitions and stat groups. Asks first; `--dry-run` shows what it would remove. See [Taking a layer out](#taking-a-layer-out) |
-| `lorenzo plan --tenant <tenant> FILES...` | Works out what importing these MPMB files would do and changes nothing. Deterministic JSON with `--json`; exit 0 nothing to do, 2 changes pending, 1 something unresolved |
-| `lorenzo apply --tenant <tenant> FILES... --yes [--json]` | Imports them: what is resolved, and none of what needs a decision. Safe to run again, and unattended. `--json` prints one document: the plan, what was written, what failed |
+| `lorenzo import mpmb plan --tenant <tenant> FILES...` | Works out what importing these MPMB files would do and changes nothing. Deterministic JSON with `--json`; exit 0 nothing to do, 2 changes pending, 1 something unresolved |
+| `lorenzo import mpmb apply --tenant <tenant> FILES... --yes [--json]` | Imports them: what is resolved, and none of what needs a decision. Safe to run again, and unattended. `--json` prints one document: the plan, what was written, what failed |
 | `lorenzo pack give <pack> --tenant <tenant> --owner <being-or-group>` | Hands an imported pack out: the API makes its containers and what is inside them, with quantities, in one go or not at all. A being takes the top of it into its hands; a group owns it with nothing in a container. `--dry-run` says what would be made; `--override` is a GM's, past what the owner can carry; `--json` prints what the API made |
 | `lorenzo item list --tenant <tenant> [-q QUERY]` | The items you may add: for a player the public catalog, for a library member all of it. Title and id ([ADR 0190](../../docs/adr/0190-lorenzo-item-and-character-commands.md)) |
 | `lorenzo character list --tenant <tenant> [--all]` | Your characters in a library, or with `--all` everyone's |
 | `lorenzo item add <item> --tenant <tenant> [--owner CHARACTER] [--name N] [-n QUANTITY --into CONTAINER]` | Makes your own item, as on the web: one instance of the item (its id, slug or exact title) for the character (your only one, unless you name one), not carried, or a stack inside a container you hold. Prints the new id; `--json` prints the instance. The API says why when it isn't allowed (not public, switched off) |
-| `lorenzo inventory import FILE --tenant <tenant> [--owner CHARACTER] [--add\|--replace] [--backup FILE] [--dry-run] [--yes] [--preprocess TABLE]` | Makes the things a [ledger](../../docs/guides/inventory-file-format.md) ([ADR 0226](../../docs/adr/0226-lorenzoledger.md)) lists, for a character ([ADR 0193](../../docs/adr/0193-lorenzo-inventory-import-and-export.md)). Each line is matched to an item by id, slug, exact title or a known other spelling; what matches nothing becomes an *Unsorted item* with the player's own name and notes, for the GM to sort. Nothing is made if a line can't be made as written. A character who already has things needs `--add`, which also moves what the file names by id. `--dry-run` says what would be made. Coming from D&D Beyond? [`lorenzo-beyond`](https://github.com/ramsesoriginal/lorenzo-beyond) writes the file. A GM or administrator can name any being they may list, by exact name ([ADR 0232](../../docs/adr/0232-inventory-import-any-being-replace-and-progress.md)). `--replace` starts a being's inventory over: what it owns and you can see is deleted (deepest first), then the file's things are made. Run it as the campaign's GM or an organizer, since a library owner who is neither sees none of a player's things. Whatever is tied up with someone else's is left alone, and the plan names it: a thing of the being's in another's container, a container holding another's thing, and the containers around those. The whole file is checked before the first delete, and `--backup FILE` first writes what is there as a ledger. `--dry-run` prints what would be made as a tree, and a progress bar shows the writing The table of other spellings is edited in `packages/inventory-names` and copied here with `mise run sync-names` ([ADR 0242](../../docs/adr/0242-inventory-names-the-spelling-table-shared.md)) |
-| `lorenzo inventory export --tenant <tenant> [--owner CHARACTER] [--json] [-o FILE]` | Writes a character's inventory as a file: what they own, where it is, and what was noted, with each item's id so `import --add` reads it back as moves |
+| `lorenzo import inventory FILE --tenant <tenant> [--owner CHARACTER] [--add\|--replace] [--backup FILE] [--dry-run] [--yes] [--preprocess TABLE]` | Makes the things a [ledger](../../docs/guides/inventory-file-format.md) ([ADR 0226](../../docs/adr/0226-lorenzoledger.md)) lists, for a character ([ADR 0193](../../docs/adr/0193-lorenzo-inventory-import-and-export.md)). Each line is matched to an item by id, slug, exact title or a known other spelling; what matches nothing becomes an *Unsorted item* with the player's own name and notes, for the GM to sort. Nothing is made if a line can't be made as written. A character who already has things needs `--add`, which also moves what the file names by id. `--dry-run` says what would be made. Coming from D&D Beyond? [`lorenzo-beyond`](https://github.com/ramsesoriginal/lorenzo-beyond) writes the file. A GM or administrator can name any being they may list, by exact name ([ADR 0232](../../docs/adr/0232-inventory-import-any-being-replace-and-progress.md)). `--replace` starts a being's inventory over: what it owns and you can see is deleted (deepest first), then the file's things are made. Run it as the campaign's GM or an organizer, since a library owner who is neither sees none of a player's things. Whatever is tied up with someone else's is left alone, and the plan names it: a thing of the being's in another's container, a container holding another's thing, and the containers around those. The whole file is checked before the first delete, and `--backup FILE` first writes what is there as a ledger. `--dry-run` prints what would be made as a tree, and a progress bar shows the writing The table of other spellings is edited in `packages/inventory-names` and copied here with `mise run sync-names` ([ADR 0242](../../docs/adr/0242-inventory-names-the-spelling-table-shared.md)) |
+| `lorenzo export inventory --tenant <tenant> [--owner CHARACTER] [--json] [-o FILE]` | Writes a character's inventory as a file: what they own, where it is, and what was noted, with each item's id so `import --add` reads it back as moves |
 | `lorenzo repo publish\|unpublish\|grant\|revoke\|subscribers --tenant <repository>` | The repository's own side: publish it as a release (`--label`, `--notes`, `--breaking`; again, to make the next one, [ADR 0207](../../docs/adr/0207-the-release-ledger.md); a release that removes or changes what libraries hold is refused until `--acknowledge-breaking`, [ADR 0208](../../docs/adr/0208-the-release-digest-and-the-breaking-change-detector.md)), withdraw it, give a tenant access, take it back, list who has it. Owners only |
 | `lorenzo repo list\|copy-plan\|copy\|updates --tenant <tenant>` | A tenant's side: which repositories it holds, what copying one would do, copying it, and taking what it changed since. `copy --again keep` or `purge` copies afresh a repository the tenant already copied. See [Publishing a repository](#publishing-a-repository) |
 | `lorenzo repo contents --tenant <repository>` | What a repository holds: published or a draft and who it is granted to, what it is built on, how many stat groups, stat definitions and items, how much of each seed layer it has, and what is beyond the seed ([ADR 0169](../../docs/adr/0169-seed-list-and-repo-contents.md)) |
@@ -107,7 +107,7 @@ Or pipe a token in with `--token-stdin`. A token from the stored login is used l
 | `lorenzo stat-group list\|create\|edit`, `lorenzo stat-definition list\|create\|edit` | A library's stat vocabulary: its groups and definitions, with display fields and hints ([ADR 0295](../../docs/adr/0295-cli-vocabulary-sheet-settings-and-reads.md)). See [Authoring the stat vocabulary and reading entries](#authoring-the-stat-vocabulary-and-reading-entries) |
 | `lorenzo tenant sheet-settings <tenant> [--being-stat-group G] [--weapon-stat-group G] [--ability-information-type T] [--clear-...] [--json]` | Reads a library's sheet settings, or changes only the ones named; each `--clear-...` unsets one |
 | `lorenzo item show <item>`, `lorenzo item-instance show <instance>`, `lorenzo being show <being>` `--tenant <tenant> [--json]` | Reads an item, an instance or a being by id, link name or exact name: resolved stats, inheritance, containment and notes, and for a being its equipped weapons and abilities |
-| `lorenzo calendar import FILE --tenant <tenant> [--choices F] [--review-notes] [--accept-warnings] [--dry-run] [--plan-out F] [--apply-plan F] [--timeout S] [--yes] [--json]`, `lorenzo calendar export <source-key> --tenant <tenant> [-O FILE]` | Imports an authored calendar document and exports the current managed source. See [Calendar files](#calendar-files) |
+| `lorenzo import calendar FILE --tenant <tenant> [--choices F] [--review-notes] [--accept-warnings] [--dry-run] [--plan-out F] [--apply-plan F] [--timeout S] [--yes] [--json]`, `lorenzo export calendar <source-key> --tenant <tenant> [-O FILE]` | Imports an authored calendar document and exports the current managed source. See [Calendar files](#calendar-files) |
 | `lorenzo api <METHOD> <path> [-d JSON] [-q K=V] [--paginate]` | One authenticated request to the API, for scripts. See [Scripting](#scripting) |
 
 ## Importing MPMB items
@@ -119,11 +119,11 @@ uv run lorenzo seed --tenant my-repository --yes
 
 # The sheet's own SRD items (its data files are GPL-3.0 and are not shipped; clone the repository):
 S=/tmp/mpmb/_variables
-uv run lorenzo plan  --tenant my-repository --base $S/ListsSources.js --base $S/Lists.js --base $S/ListsGear.js
-uv run lorenzo apply --tenant my-repository --base $S/ListsSources.js --base $S/Lists.js --base $S/ListsGear.js --yes
+uv run lorenzo import mpmb plan  --tenant my-repository --base $S/ListsSources.js --base $S/Lists.js --base $S/ListsGear.js
+uv run lorenzo import mpmb apply --tenant my-repository --base $S/ListsSources.js --base $S/Lists.js --base $S/ListsGear.js --yes
 
 # Homebrew on top of it (a later file wins), with your own map:
-uv run lorenzo apply --tenant my-repository --base $S/ListsSources.js --base $S/Lists.js \
+uv run lorenzo import mpmb apply --tenant my-repository --base $S/ListsSources.js --base $S/Lists.js \
   --base $S/ListsGear.js --map my.map.toml my-homebrew.js --yes
 ```
 
@@ -247,7 +247,7 @@ lorenzo repo publish --tenant core
 lorenzo tenant create "Common Fantasy Equipment" --slug common-fantasy-eq
 lorenzo repo offer common-fantasy-eq --tenant core --yes
 lorenzo seed --tenant common-fantasy-eq --layer equipment --yes
-lorenzo apply --tenant common-fantasy-eq --part neutral --public-catalog $BASE --yes
+lorenzo import mpmb apply --tenant common-fantasy-eq --part neutral --public-catalog $BASE --yes
 lorenzo repo publish --tenant common-fantasy-eq
 
 # the rules: a copy of core, and D&D's stats and categories
@@ -261,7 +261,7 @@ lorenzo tenant create "Common D&D5e Equipment" --slug dnd5e-common-eq
 lorenzo repo offer dnd5e-common-eq --tenant common-fantasy-eq --yes
 lorenzo repo offer dnd5e-common-eq --tenant dnd5e --yes
 lorenzo seed --tenant dnd5e-common-eq --layer dnd5e-equipment --yes
-lorenzo apply --tenant dnd5e-common-eq --part system $BASE --yes
+lorenzo import mpmb apply --tenant dnd5e-common-eq --part system $BASE --yes
 lorenzo repo publish --tenant dnd5e-common-eq
 ```
 
@@ -289,10 +289,10 @@ lorenzo repo updates common-fantasy-eq --tenant my-table --apply # each table ta
 The bridge isn't asked, and the table's sword keeps the bridge's prototype. A correction to core or to the rules goes the same way. **Publishing again is the announcement, not the permission**: `repo updates` reads a repository as it is now, so a table sees a change before it is published, and `repo list` says "updated since" once it has been. The repositories built on the one that changed take its updates when their authors want their own copies current, and **a bridge has to before it imports D&D's half of new equipment**, since the system pass finds an item in the bridge's own copy of the equipment (an item it doesn't have is held, with the way out). A bridge that takes a correction keeps what it attached.
 
 ```bash
-lorenzo apply --tenant common-fantasy-eq --part neutral --public-catalog $BASE more.js --yes
+lorenzo import mpmb apply --tenant common-fantasy-eq --part neutral --public-catalog $BASE more.js --yes
 lorenzo repo publish --tenant common-fantasy-eq
 lorenzo repo updates common-fantasy-eq --tenant dnd5e-common-eq --apply   # the bridge's copy of it first
-lorenzo apply --tenant dnd5e-common-eq --part system $BASE more.js --yes
+lorenzo import mpmb apply --tenant dnd5e-common-eq --part system $BASE more.js --yes
 lorenzo repo publish --tenant dnd5e-common-eq
 lorenzo repo updates common-fantasy-eq --tenant my-table --apply            # then each table: the items,
 lorenzo repo updates dnd5e-common-eq --tenant my-table --apply              # and the prototypes on them
@@ -363,7 +363,7 @@ Homebrew is written against lists that already hold the sheet's SRD data, and so
 
 ```bash
 git clone https://github.com/morepurplemorebetter/MPMBs-Character-Record-Sheet /tmp/mpmb
-uv run lorenzo inspect \
+uv run lorenzo import mpmb inspect \
   --base /tmp/mpmb/_variables/ListsSources.js --base /tmp/mpmb/_variables/Lists.js \
   --base /tmp/mpmb/_variables/ListsGear.js my-homebrew.js
 ```
@@ -442,12 +442,12 @@ Convert saved donjon exports offline with `lorenzo-convert donjon`, or author a
 works in a library or repository; it does not seed setting data.
 
 ```bash
-lorenzo calendar import isles.calendar.json --tenant my-library --dry-run --json
-lorenzo calendar import isles.calendar.json --tenant my-library --choices choices.json \
+lorenzo import calendar isles.calendar.json --tenant my-library --dry-run --json
+lorenzo import calendar isles.calendar.json --tenant my-library --choices choices.json \
   --accept-warnings --dry-run --plan-out reviewed-plan.json
-lorenzo calendar import isles.calendar.json --tenant my-library --choices choices.json \
+lorenzo import calendar isles.calendar.json --tenant my-library --choices choices.json \
   --accept-warnings --apply-plan reviewed-plan.json --yes
-lorenzo calendar export isles --tenant my-library -O isles.current.json
+lorenzo export calendar isles --tenant my-library -O isles.current.json
 ```
 
 `--review-notes` asks for each note's classification (note, Fact, Event or recurring observance).
@@ -494,7 +494,7 @@ The API saves the calendar and dated notes in one transaction, so there is no pe
 save percentage before confirmation.
 
 Planning and saving wait up to 300 seconds for a response. Use `--timeout 600` on
-`lorenzo calendar import` to allow more time; other CLI requests retain their usual timeout.
+`lorenzo import calendar` to allow more time; other CLI requests retain their usual timeout.
 If the connection times out, the outcome is unconfirmed: the server may still finish.
 Do not delete the calendar. Preview again with the same source key, file and note choices
 using `--dry-run`; unchanged units are already imported. Reimports do not duplicate them.

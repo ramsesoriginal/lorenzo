@@ -87,7 +87,15 @@ def test_a_bridge_is_built_on_core_holds_its_layers_and_the_items_beyond_the_see
         stack,
         token,
         tmp_path,
-        *["apply", "--tenant", bridge, "--review-queue", str(tmp_path / "rq.json")],
+        *[
+            "import",
+            "mpmb",
+            "apply",
+            "--tenant",
+            bridge,
+            "--review-queue",
+            str(tmp_path / "rq.json"),
+        ],
         *["--proposed-map", str(tmp_path / "pm.toml"), str(FIXTURES / "weapons.js"), "--yes"],
     )
     assert imported.exit_code == 1, imported.output  # the moon whip is held for review
