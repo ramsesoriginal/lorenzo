@@ -19,12 +19,16 @@ from pydantic import TypeAdapter
 
 if TYPE_CHECKING:
     from lorenzo_cli.client.models import (
+        ApplyOut,
         ApplyUpdatesOut,
         CalendarDocumentOutput,
         CalendarImportPlan,
         CalendarImportReceipt,
+        CampaignOut,
         ComparisonFormulaBodyInput,
+        ComputedStatDependentOut,
         ComputedStatOut,
+        ComputedStatPreviewOut,
         ContentsFormulaBodyInput,
         CopyOut,
         CopyPlanOut,
@@ -32,6 +36,11 @@ if TYPE_CHECKING:
         DiceValueFormulaBody,
         EntityDetailOut,
         EntityStatWriteOut,
+        FeatureColumnsOut,
+        GrantRuleOut,
+        GrantsOut,
+        HeldFeatureOut,
+        HeldFeaturesOut,
         InformationOut,
         ItemInstanceOut,
         ItemOut,
@@ -44,7 +53,12 @@ if TYPE_CHECKING:
         PackGivenOut,
         PageAttachmentRefOut,
         PageBeingSummaryOut,
+        PageCampaignSummaryOut,
         PageCharacterSummaryOut,
+        PageEntityListOut,
+        PageEntryEffectiveStatsOut,
+        PageFindingOut,
+        PageGrantRuleOut,
         PageInformationOut,
         PageItemInstanceOut,
         PageItemOut,
@@ -52,7 +66,10 @@ if TYPE_CHECKING:
         PageStatGroupOut,
         PageSubscriberOut,
         PageSubscriptionOut,
+        PageSystemOut,
+        PageTemplateSummaryOut,
         PageTenantSummaryOut,
+        PrerequisitesOut,
         ProductFormulaBodyInput,
         PublishedOut,
         RatioFormulaBodyInput,
@@ -64,6 +81,10 @@ if TYPE_CHECKING:
         SubscriberOut,
         SubscribersSummaryOut,
         SumFormulaBodyInput,
+        SystemOut,
+        TemplateOut,
+        TemplateSummaryOut,
+        TemplateViewOut,
         TenantOut,
         UpdatesOut,
     )
@@ -162,13 +183,6 @@ CREATE_STAT_GROUP: Op[StatGroupOut] = Op(
     f"{_TENANT}/stat-groups",
     request_type="StatGroupCreate",
     response_type="StatGroupOut",
-)
-PATCH_STAT_DEFINITION: Op[StatDefinitionOut] = Op(
-    "patch_stat_definition",
-    "PATCH",
-    f"{_TENANT}/stat-definitions/{{stat_definition_id}}",
-    request_type="StatDefinitionUpdate",
-    response_type="StatDefinitionOut",
 )
 LIST_STAT_DEFINITIONS: Op[PageStatDefinitionOut] = Op(
     "list_stat_definitions",
@@ -449,6 +463,320 @@ EXPORT_CALENDAR_IMPORT: Op[CalendarDocumentOutput] = Op(
     response_type="CalendarDocumentOutput",
 )
 
+# --- RFC 0052 to RFC 0056: systems, templates, features, grants, the check (RFC 0057 C4) ---
+
+LIST_SYSTEMS: Op[PageSystemOut] = Op(
+    "list_systems",
+    "GET",
+    f"{_TENANT}/systems",
+    response_type="PageSystemOut",
+)
+
+CREATE_SYSTEM: Op[SystemOut] = Op(
+    "create_system",
+    "POST",
+    f"{_TENANT}/systems",
+    request_type="SystemCreate",
+    response_type="SystemOut",
+)
+
+GET_SYSTEM: Op[SystemOut] = Op(
+    "get_system",
+    "GET",
+    f"{_TENANT}/systems/{{system_id}}",
+    response_type="SystemOut",
+)
+
+UPDATE_SYSTEM: Op[SystemOut] = Op(
+    "update_system",
+    "PATCH",
+    f"{_TENANT}/systems/{{system_id}}",
+    request_type="SystemUpdate",
+    response_type="SystemOut",
+)
+
+DELETE_SYSTEM: Op[None] = Op(
+    "delete_system",
+    "DELETE",
+    f"{_TENANT}/systems/{{system_id}}",
+)
+
+GET_STAT_GROUP: Op[StatGroupOut] = Op(
+    "get_stat_group",
+    "GET",
+    f"{_TENANT}/stat-groups/{{stat_group_id}}",
+    response_type="StatGroupOut",
+)
+
+GET_STAT_DEFINITION: Op[StatDefinitionOut] = Op(
+    "get_stat_definition",
+    "GET",
+    f"{_TENANT}/stat-definitions/{{stat_definition_id}}",
+    response_type="StatDefinitionOut",
+)
+
+LIST_STAT_DEPENDENTS: Op[list[ComputedStatDependentOut]] = Op(
+    "list_stat_dependents",
+    "GET",
+    f"{_TENANT}/stat-definitions/{{stat_definition_id}}/dependents",
+    response_type="list[ComputedStatDependentOut]",
+)
+
+DELETE_COMPUTED_STAT: Op[None] = Op(
+    "delete_computed_stat",
+    "DELETE",
+    f"{_TENANT}/entities/{{entity_id}}/computed-stats/{{stat_definition_id}}",
+)
+
+PREVIEW_COMPUTED_STAT: Op[ComputedStatPreviewOut] = Op(
+    "preview_computed_stat",
+    "POST",
+    f"{_TENANT}/entities/{{entity_id}}/computed-stats/{{stat_definition_id}}/preview",
+    request_type="ComputedStatPreviewIn",
+    response_type="ComputedStatPreviewOut",
+)
+
+LIST_ENTITIES: Op[PageEntityListOut] = Op(
+    "list_entities",
+    "GET",
+    f"{_TENANT}/entities",
+    response_type="PageEntityListOut",
+)
+
+CREATE_ENTITY: Op[EntityDetailOut] = Op(
+    "create_entity",
+    "POST",
+    f"{_TENANT}/entities",
+    request_type="EntityCreate",
+    response_type="EntityDetailOut",
+)
+
+GET_ENTITY_BY_SLUG: Op[EntityDetailOut] = Op(
+    "get_entity_by_slug",
+    "GET",
+    f"{_TENANT}/entities/by-slug/{{slug}}",
+    response_type="EntityDetailOut",
+)
+
+LIST_EFFECTIVE_STATS: Op[PageEntryEffectiveStatsOut] = Op(
+    "list_effective_stats",
+    "GET",
+    f"{_TENANT}/entities/effective-stats",
+    response_type="PageEntryEffectiveStatsOut",
+)
+
+ADD_ENTITY_KIND: Op[EntityDetailOut] = Op(
+    "add_entity_kind",
+    "PUT",
+    f"{_TENANT}/entities/{{entity_id}}/kinds/{{kind}}",
+    request_type="EntityKindPut",
+    response_type="EntityDetailOut",
+)
+
+REMOVE_ENTITY_KIND: Op[EntityDetailOut] = Op(
+    "remove_entity_kind",
+    "DELETE",
+    f"{_TENANT}/entities/{{entity_id}}/kinds/{{kind}}",
+    response_type="EntityDetailOut",
+)
+
+LIST_TEMPLATES: Op[PageTemplateSummaryOut] = Op(
+    "list_templates",
+    "GET",
+    f"{_TENANT}/templates",
+    response_type="PageTemplateSummaryOut",
+)
+
+CREATE_TEMPLATE: Op[TemplateOut] = Op(
+    "create_template",
+    "POST",
+    f"{_TENANT}/templates",
+    request_type="TemplateIn",
+    response_type="TemplateOut",
+)
+
+GET_TEMPLATE: Op[TemplateOut] = Op(
+    "get_template",
+    "GET",
+    f"{_TENANT}/templates/{{template_id}}",
+    response_type="TemplateOut",
+)
+
+REPLACE_TEMPLATE: Op[TemplateOut] = Op(
+    "replace_template",
+    "PUT",
+    f"{_TENANT}/templates/{{template_id}}",
+    request_type="TemplateIn",
+    response_type="TemplateOut",
+)
+
+DELETE_TEMPLATE: Op[None] = Op(
+    "delete_template",
+    "DELETE",
+    f"{_TENANT}/templates/{{template_id}}",
+)
+
+MATCHING_TEMPLATES: Op[list[TemplateSummaryOut]] = Op(
+    "matching_templates",
+    "GET",
+    f"{_TENANT}/entities/{{entity_id}}/matching-templates",
+    response_type="list[TemplateSummaryOut]",
+)
+
+READ_THROUGH_TEMPLATE: Op[TemplateViewOut] = Op(
+    "read_through_template",
+    "GET",
+    f"{_TENANT}/entities/{{entity_id}}/templates/{{template_id}}",
+    response_type="TemplateViewOut",
+)
+
+LIST_CAMPAIGNS: Op[PageCampaignSummaryOut] = Op(
+    "list_campaigns",
+    "GET",
+    f"{_TENANT}/campaigns",
+    response_type="PageCampaignSummaryOut",
+)
+
+CREATE_CAMPAIGN: Op[CampaignOut] = Op(
+    "create_campaign",
+    "POST",
+    f"{_TENANT}/campaigns",
+    request_type="CampaignCreate",
+    response_type="CampaignOut",
+)
+
+GET_CAMPAIGN: Op[CampaignOut] = Op(
+    "get_campaign",
+    "GET",
+    f"{_TENANT}/campaigns/{{campaign_id}}",
+    response_type="CampaignOut",
+)
+
+UPDATE_CAMPAIGN: Op[CampaignOut] = Op(
+    "update_campaign",
+    "PATCH",
+    f"{_TENANT}/campaigns/{{campaign_id}}",
+    request_type="CampaignUpdate",
+    response_type="CampaignOut",
+)
+
+LIST_HELD_FEATURES: Op[HeldFeaturesOut] = Op(
+    "list_held_features",
+    "GET",
+    f"{_TENANT}/entities/{{entity_id}}/features",
+    response_type="HeldFeaturesOut",
+)
+
+AWARD_FEATURE: Op[HeldFeatureOut] = Op(
+    "award_feature",
+    "POST",
+    f"{_TENANT}/entities/{{entity_id}}/features",
+    request_type="FeatureAwardIn",
+    response_type="HeldFeatureOut",
+)
+
+GET_HELD_FEATURE: Op[HeldFeatureOut] = Op(
+    "get_held_feature",
+    "GET",
+    f"{_TENANT}/features/{{instance_id}}",
+    response_type="HeldFeatureOut",
+)
+
+REMOVE_FEATURE: Op[None] = Op(
+    "remove_feature",
+    "DELETE",
+    f"{_TENANT}/features/{{instance_id}}",
+)
+
+SET_FEATURE_ACTIVE: Op[HeldFeatureOut] = Op(
+    "set_feature_active",
+    "PUT",
+    f"{_TENANT}/features/{{instance_id}}/active",
+    request_type="FeatureActiveIn",
+    response_type="HeldFeatureOut",
+)
+
+GET_FEATURE_COLUMNS: Op[FeatureColumnsOut] = Op(
+    "get_feature_columns",
+    "GET",
+    f"{_TENANT}/features/prototypes/{{feature_id}}",
+    response_type="FeatureColumnsOut",
+)
+
+GET_PREREQUISITES: Op[PrerequisitesOut] = Op(
+    "get_prerequisites",
+    "GET",
+    f"{_TENANT}/features/prototypes/{{feature_id}}/prerequisites",
+    response_type="PrerequisitesOut",
+)
+
+PUT_PREREQUISITES: Op[PrerequisitesOut] = Op(
+    "put_prerequisites",
+    "PUT",
+    f"{_TENANT}/features/prototypes/{{feature_id}}/prerequisites",
+    request_type="PrerequisitesIn",
+    response_type="PrerequisitesOut",
+)
+
+LIST_GRANT_RULES: Op[PageGrantRuleOut] = Op(
+    "list_grant_rules",
+    "GET",
+    f"{_TENANT}/grant-rules",
+    response_type="PageGrantRuleOut",
+)
+
+CREATE_GRANT_RULE: Op[GrantRuleOut] = Op(
+    "create_grant_rule",
+    "POST",
+    f"{_TENANT}/grant-rules",
+    request_type="GrantRuleIn",
+    response_type="GrantRuleOut",
+)
+
+GET_GRANT_RULE: Op[GrantRuleOut] = Op(
+    "get_grant_rule",
+    "GET",
+    f"{_TENANT}/grant-rules/{{rule_id}}",
+    response_type="GrantRuleOut",
+)
+
+REPLACE_GRANT_RULE: Op[GrantRuleOut] = Op(
+    "replace_grant_rule",
+    "PUT",
+    f"{_TENANT}/grant-rules/{{rule_id}}",
+    request_type="GrantRuleUpdate",
+    response_type="GrantRuleOut",
+)
+
+DELETE_GRANT_RULE: Op[None] = Op(
+    "delete_grant_rule",
+    "DELETE",
+    f"{_TENANT}/grant-rules/{{rule_id}}",
+)
+
+GET_GRANTS: Op[GrantsOut] = Op(
+    "get_grants",
+    "GET",
+    f"{_TENANT}/entities/{{entity_id}}/grants",
+    response_type="GrantsOut",
+)
+
+APPLY_GRANTS: Op[ApplyOut] = Op(
+    "apply_grants_route",
+    "POST",
+    f"{_TENANT}/entities/{{entity_id}}/grants/apply",
+    request_type="ApplyIn",
+    response_type="ApplyOut",
+)
+
+CHECK_VOCABULARY: Op[PageFindingOut] = Op(
+    "check_vocabulary",
+    "GET",
+    f"{_TENANT}/vocabulary-check",
+    response_type="PageFindingOut",
+)
+
+
 ALL_OPS: tuple[Op[Any], ...] = (
     PLAN_CALENDAR_IMPORT,
     APPLY_CALENDAR_IMPORT,
@@ -508,4 +836,47 @@ ALL_OPS: tuple[Op[Any], ...] = (
     COPY_REPOSITORY,
     LIST_REPOSITORY_UPDATES,
     APPLY_REPOSITORY_UPDATES,
+    LIST_SYSTEMS,
+    CREATE_SYSTEM,
+    GET_SYSTEM,
+    UPDATE_SYSTEM,
+    DELETE_SYSTEM,
+    GET_STAT_GROUP,
+    GET_STAT_DEFINITION,
+    LIST_STAT_DEPENDENTS,
+    DELETE_COMPUTED_STAT,
+    PREVIEW_COMPUTED_STAT,
+    LIST_ENTITIES,
+    CREATE_ENTITY,
+    GET_ENTITY_BY_SLUG,
+    LIST_EFFECTIVE_STATS,
+    ADD_ENTITY_KIND,
+    REMOVE_ENTITY_KIND,
+    LIST_TEMPLATES,
+    CREATE_TEMPLATE,
+    GET_TEMPLATE,
+    REPLACE_TEMPLATE,
+    DELETE_TEMPLATE,
+    MATCHING_TEMPLATES,
+    READ_THROUGH_TEMPLATE,
+    LIST_CAMPAIGNS,
+    CREATE_CAMPAIGN,
+    GET_CAMPAIGN,
+    UPDATE_CAMPAIGN,
+    LIST_HELD_FEATURES,
+    AWARD_FEATURE,
+    GET_HELD_FEATURE,
+    REMOVE_FEATURE,
+    SET_FEATURE_ACTIVE,
+    GET_FEATURE_COLUMNS,
+    GET_PREREQUISITES,
+    PUT_PREREQUISITES,
+    LIST_GRANT_RULES,
+    CREATE_GRANT_RULE,
+    GET_GRANT_RULE,
+    REPLACE_GRANT_RULE,
+    DELETE_GRANT_RULE,
+    GET_GRANTS,
+    APPLY_GRANTS,
+    CHECK_VOCABULARY,
 )

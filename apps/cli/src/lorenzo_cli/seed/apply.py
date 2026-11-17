@@ -28,10 +28,10 @@ from lorenzo_cli.client.ops import (
     CREATE_ITEM,
     CREATE_STAT_DEFINITION,
     CREATE_STAT_GROUP,
-    PATCH_STAT_DEFINITION,
     SET_COMPUTED_STAT,
     SET_ENTITY_STAT,
     SET_ENTITY_TAG,
+    UPDATE_STAT_DEFINITION,
 )
 from lorenzo_cli.client.transport import LorenzoClient
 from lorenzo_cli.prototypes import add_parent
@@ -87,7 +87,7 @@ def apply_plan(
                     definitions[wanted] if key.endswith("_hint") else wanted
                 )
             client.call(
-                PATCH_STAT_DEFINITION,
+                UPDATE_STAT_DEFINITION,
                 path={**tenant, "stat_definition_id": definitions[action.name]},
                 body=StatDefinitionUpdate(**values),
             )
