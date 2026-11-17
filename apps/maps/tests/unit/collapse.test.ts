@@ -1,7 +1,15 @@
 import { type BBox, type Cell, cellCentre, type GridSpec } from '@lorenzo/map-renderer';
 import { describe, expect, it } from 'vitest';
+import {
+  cellFill,
+  MAX_REGION_CELLS,
+  MAX_TILE_CELLS,
+  regionCells,
+  type Tile,
+} from '../../src/lib/cell-fill';
 import { directionsOf, neighbour, opposite } from '../../src/lib/cell-neighbours';
 import { collapse, learn, NOTHING, obeys, TRIES } from '../../src/lib/collapse';
+import { regionOf } from '../../src/lib/generator';
 
 const extent: BBox = [0, 0, 1000, 800];
 const square: GridSpec = { kind: 'square', cell: { size: 50 } };
@@ -222,5 +230,140 @@ describe('filling a region by the rules (ADR 0478)', () => {
     for (let seed = 0; seed < 10; seed += 1) {
       expect(collapse(square, apart, rules, seed)).not.toBeNull();
     }
+  });
+});
+
+describe('what a fill does to a Map (ADR 0478)', () => {
+  const FORMAT = 'lorenzo.geometry/1';
+  const whole = regionOf(null, [0, 0, 1000, 800]);
+  const yard = regionOf(
+    {
+      name: 'The yard',
+      geometry: {
+        format: FORMAT,
+        parts: [
+          {
+            shape: 'polygon',
+            rings: [
+              [
+                [500, 400],
+                [800, 400],
+                [800, 600],
+                [500, 600],
+              ],
+            ],
+          },
+        ],
+      },
+    },
+    [0, 0, 1000, 800],
+  );
+  // Two entries in patches, on a grid of 20 by 16 squares.
+  const wall: Tile = {
+    id: 'wall',
+    name: 'Wall',
+    cells: [...block(0, 0, 3, 1), ...block(0, 4, 3, 5)],
+  };
+  const floor: Tile = { id: 'floor', name: 'Floor', cells: block(0, 2, 3, 3) };
+  const held = new Map([
+    ['wall', wall.cells],
+    ['floor', floor.cells],
+  ]);
+
+  it('takes the cells whose middle lies in the region, row by row', () => {
+    expect(regionCells(square, extent, whole)).toHaveLength(20 * 16);
+    expect(regionCells(square, extent, whole)?.slice(0, 3)).toEqual([
+      [0, 0],
+      [1, 0],
+      [2, 0],
+    ]);
+    // 300 by 200 units of 50-unit cells: six by four, from column 10 and row 8.
+    const inYard = regionCells(square, extent, yard) as Cell[];
+
+    expect(inYard).toHaveLength(24);
+    expect(inYard[0]).toEqual([10, 8]);
+    expect(inYard[23]).toEqual([15, 11]);
+    // Hexes too: every cell found has its middle in the region.
+    for (const cell of regionCells(pointy, extent, yard) as Cell[]) {
+      expect(yard.contains(cellCentre(pointy, extent, cell))).toBe(true);
+    }
+    expect(regionCells(square, extent, whole, 100)).toBeNull();
+    expect(MAX_REGION_CELLS).toBe(10_000);
+  });
+
+  it('gives each tile the cells it gains, and keeps what it had outside the region', () => {
+    const fill = cellFill(square, extent, [wall, floor], held, yard, 4821);
+
+    if (!fill.ok) throw new Error(fill.why);
+
+    const [walls, floors] = fill.tiles as [
+      (typeof fill.tiles)[number],
+      (typeof fill.tiles)[number],
+    ];
+
+    expect(fill.count).toMatch(/^\d+ cells of [12] tiles?$/);
+    expect(walls.gained.length + floors.gained.length).toBeLessThanOrEqual(24);
+    // What lay outside the region is all still there, before what was gained.
+    expect(walls.cells.slice(0, wall.cells.length)).toEqual(wall.cells);
+    expect(walls.cells).toHaveLength(wall.cells.length + walls.gained.length);
+    expect(floors.cells).toHaveLength(floor.cells.length + floors.gained.length);
+    expect(walls.tone).toBe(0);
+    expect(floors.tone).toBe(1);
+    expect(walls.changed).toBe(walls.gained.length > 0);
+    for (const cell of [...walls.gained, ...floors.gained]) {
+      expect(cell[0] >= 10 && cell[0] <= 15 && cell[1] >= 8 && cell[1] <= 11).toBe(true);
+    }
+  });
+
+  it('replaces what a tile had inside the region: over its own example, the example goes', () => {
+    // The region is the whole sheet, so every cell of the example is inside it.
+    const small = regionOf(null, [0, 0, 200, 300]);
+    const fill = cellFill(square, extent, [wall, floor], held, small, 7);
+
+    if (!fill.ok) throw new Error(fill.why);
+
+    for (const tile of fill.tiles) {
+      // Nothing is kept from before: only what the fill gave.
+      expect(tile.cells).toEqual(tile.gained);
+    }
+    expect(fill.tiles.reduce((sum, tile) => sum + tile.gained.length, 0)).toBeLessThanOrEqual(24);
+  });
+
+  it('refuses a tile that would hold more than a drawing does, naming it', () => {
+    // One tile and nothing else in the example: the whole sheet of 320 cells would all be it.
+    const all: Tile = { id: 'sea', name: 'The sea', cells: block(0, 0, 3, 3) };
+    const fill = cellFill(square, extent, [all], new Map([['sea', all.cells]]), whole, 1);
+
+    expect(fill.ok).toBe(false);
+    if (fill.ok) return;
+    expect(fill.why).toBe(
+      'The sea would hold 320 cells, and a drawing holds 256. Select a smaller area first.',
+    );
+    expect(fill.tiles[0]?.gained).toHaveLength(320);
+    expect(MAX_TILE_CELLS).toBe(256);
+  });
+
+  it('says what is missing: no example, a region too large, or no tiling', () => {
+    expect(cellFill(square, extent, [], new Map(), whole, 1)).toMatchObject({
+      ok: false,
+      why: 'There is no example yet: draw some cells with the Cells tool first, and the fill learns from them.',
+    });
+
+    const fine: GridSpec = { kind: 'square', cell: { size: 5 } };
+
+    expect(cellFill(fine, extent, [wall], held, whole, 1)).toMatchObject({
+      ok: false,
+      why: 'The whole sheet has more than 10000 cells. Select a smaller area first.',
+    });
+    // One tile only ever seen with the other to its east, in a strip two wide.
+    const strip: Tile[] = [
+      { id: 'a', name: 'A', cells: [[0, 0]] },
+      { id: 'b', name: 'B', cells: [[1, 0]] },
+    ];
+
+    expect(cellFill(square, extent, strip, new Map(), whole, 1)).toMatchObject({
+      ok: false,
+      why: 'No tiling fits these rules here. Roll another seed.',
+    });
   });
 });

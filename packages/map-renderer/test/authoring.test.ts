@@ -6,6 +6,7 @@ import {
   handleAt,
   layout,
   legend,
+  OVERLAY_TONES,
   type Overlay,
   overlayPrims,
   type PathPrim,
@@ -209,6 +210,22 @@ describe('the overlay an editor draws', () => {
       // With no divider nothing is clipped and no divider is drawn.
       expect(area.clip).toBeUndefined();
       expect(scene.prims.some((p) => p.id === 'overlay:divider')).toBe(false);
+    });
+
+    it('draws an area in one of six tones when it is given one', () => {
+      const toned = (tone: number) =>
+        layout(
+          model,
+          view({ overlay: [{ id: 't', kind: 'area', rings: [square], tone }] }),
+        ).prims.find((p) => p.id === 'overlay:t')?.cls;
+
+      expect(OVERLAY_TONES).toBe(6);
+      expect(toned(0)).toBe('m-ov m-ov-area m-ov-tone-0');
+      expect(toned(5)).toBe('m-ov m-ov-area m-ov-tone-5');
+      // A tone beyond the six is the nearest of them, and a part of one is the whole below it.
+      expect(toned(9)).toBe('m-ov m-ov-area m-ov-tone-5');
+      expect(toned(-2)).toBe('m-ov m-ov-area m-ov-tone-0');
+      expect(toned(2.7)).toBe('m-ov m-ov-area m-ov-tone-2');
     });
 
     it('with a divider draws the clipped shapes to its right only, and the divider itself', () => {

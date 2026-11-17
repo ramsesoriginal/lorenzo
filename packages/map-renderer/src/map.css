@@ -313,6 +313,31 @@
   stroke-linejoin: round;
 }
 
+/* The tones of a preview (ADR 0478): six strengths of the one colour, lightest first. */
+.m-ov-tone-0 {
+  fill-opacity: 0.12;
+}
+
+.m-ov-tone-1 {
+  fill-opacity: 0.26;
+}
+
+.m-ov-tone-2 {
+  fill-opacity: 0.4;
+}
+
+.m-ov-tone-3 {
+  fill-opacity: 0.54;
+}
+
+.m-ov-tone-4 {
+  fill-opacity: 0.68;
+}
+
+.m-ov-tone-5 {
+  fill-opacity: 0.82;
+}
+
 .m-ov-divider {
   fill: none;
   stroke: var(--text-primary);

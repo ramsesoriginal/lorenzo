@@ -15,6 +15,7 @@ import {
   type ToolEvent,
 } from '@lorenzo/map-renderer';
 import { LorenzoApiError } from './api';
+import { type CellFill, cellFill, type Tile } from './cell-fill';
 import {
   cellOfPoint,
   cellsGeometry,
@@ -153,7 +154,8 @@ type ToolName =
   | 'cells'
   | 'height-line'
   | 'cave-system'
-  | 'marching-squares';
+  | 'marching-squares'
+  | 'wave-function-collapse';
 
 const TOOLS: [ToolName, string][] = [
   ['select', 'Select'],
@@ -165,6 +167,7 @@ const TOOLS: [ToolName, string][] = [
   ['height-line', 'Height line'],
   ['cave-system', 'Cave system'],
   ['marching-squares', 'Fill by marching squares'],
+  ['wave-function-collapse', 'Fill by wave function collapse'],
   ['area', 'Area'],
   ['cells', 'Cells'],
 ];
@@ -245,6 +248,8 @@ export function createEditor(context: EditorContext): Editor {
     geometry: Geometry | null;
     count: string;
     fit: Fit;
+    /** For a fill of cells (ADR 0478): what each tile entry gains and has afterwards. */
+    cells?: CellFill;
   } | null = null;
   let syncGenerator: () => void = () => {};
   // The part of the selected placement being changed, when it has several (ADR 0474).
@@ -310,6 +315,11 @@ export function createEditor(context: EditorContext): Editor {
     };
   }
 
+  /** Whether the tool previews and applies (ADR 0475). */
+  const generating = () => toolDecl().generator === true;
+  /** Whether it is the one that writes cells for the entries of an example (ADR 0478). */
+  const fillsCells = () => toolDecl().cells === true;
+
   /** The generator that is the tool, when the tool is one. */
   const generator = () => (toolDecl().generator ? GENERATORS[toolName] : undefined);
 
@@ -328,11 +338,58 @@ export function createEditor(context: EditorContext): Editor {
    * set (ADR 0475). Worked out again only when one of those has changed; never stored.
    */
   function generated() {
-    const def = generator();
-    if (!def) return null;
+    if (!generating()) return null;
     const decl = toolDecl();
     const from = rowOf(regionId);
     const seed = seedNow();
+    if (fillsCells()) {
+      const grid = gridNow();
+      if (!grid) return null;
+      // The example is every region of whole cells on this Map, in the order they are drawn, so
+      // the entry on top is last and wins a cell two of them hold.
+      const drawn = context
+        .rows()
+        .flatMap((row) => {
+          const cells = cellsOf(row.geometry as unknown as Geometry, grid, context.extent);
+          return cells ? [{ row, cells }] : [];
+        })
+        .sort(
+          (a, b) => a.row.z - b.row.z || (a.row.id < b.row.id ? -1 : a.row.id > b.row.id ? 1 : 0),
+        );
+      const key = JSON.stringify([
+        toolName,
+        seed,
+        from?.id ?? null,
+        from?.geometry ?? null,
+        grid,
+        drawn.map(({ row, cells }) => [row.id, cells]),
+      ]);
+      if (made?.key === key) return made;
+      const region = regionOf(
+        from ? { name: from.name, geometry: from.geometry as unknown as Geometry } : null,
+        context.extent,
+      );
+      const example = drawn.map(({ row, cells }): Tile => ({ id: row.id, name: row.name, cells }));
+      const plan = cellFill(
+        grid,
+        context.extent,
+        example,
+        new Map(example.map((tile) => [tile.id, tile.cells])),
+        region,
+        seed,
+      );
+      made = {
+        key,
+        region,
+        geometry: null,
+        count: plan.ok ? plan.count : '',
+        fit: plan.ok ? { ok: true } : { ok: false, why: plan.why },
+        cells: plan,
+      };
+      return made;
+    }
+    const def = generator();
+    if (!def) return null;
     // Every option but the role, which changes what is written and not what is drawn.
     const set = (decl.options ?? []).map((option) =>
       option.id === ROLE.id ? null : optionValues.get(decl, option),
@@ -394,7 +451,25 @@ export function createEditor(context: EditorContext): Editor {
     if (toolName === 'freehand') {
       return stroke && stroke.length > 1 ? [{ id: 'stroke', kind: 'line', pts: stroke }] : [];
     }
-    if (generator()) {
+    if (fillsCells()) {
+      // The preview of a fill of cells: each tile's cells as one shape, in the tile's tone.
+      const grid = gridNow();
+      if (!grid) return [];
+      return (generated()?.cells?.tiles ?? []).flatMap((tile): Overlay[number][] =>
+        tile.gained.length === 0
+          ? []
+          : [
+              {
+                id: `tile${tile.id}`,
+                kind: 'area',
+                rings: tile.gained.map((cell) => cellPolygon(grid, context.extent, cell)),
+                tone: tile.tone,
+                clipped: true,
+              },
+            ],
+      );
+    }
+    if (generating()) {
       // The preview: what Apply would write, drawn over the Map and never stored.
       return (generated()?.geometry?.parts ?? []).flatMap((part, i): Overlay[number][] =>
         part.shape === 'polygon'
@@ -652,6 +727,7 @@ export function createEditor(context: EditorContext): Editor {
         return 'Drag on the map to draw. The Line tool takes typed points.';
       case 'cave-system':
       case 'marching-squares':
+      case 'wave-function-collapse':
         return 'Set the options, then APPLY or DISCARD.';
       case 'line':
       case 'height-line':
@@ -689,7 +765,7 @@ export function createEditor(context: EditorContext): Editor {
       case 'discard':
       case 'compare':
         // A generator's own commands (ADR 0475): they mean something only while one is the tool.
-        if (!editing || !generator()) {
+        if (!editing || !generating()) {
           answer('That is a command of a generator, and no generator is the tool.', true);
           return;
         }
@@ -739,7 +815,7 @@ export function createEditor(context: EditorContext): Editor {
         if (toolName === 'cells') finishCells();
         else if (pathTool()) finishDraft();
         else if (toolName === 'freehand') answer('A stroke finishes when you let go.', true);
-        else if (generator()) answer('APPLY draws what is previewed.', true);
+        else if (generating()) answer('APPLY draws what is previewed.', true);
         else answer('A circle finishes with its second point.', true);
         return;
       }
@@ -1051,7 +1127,7 @@ export function createEditor(context: EditorContext): Editor {
         return true;
       }
       // A generator takes no point: its region was chosen before it, and it draws on Apply.
-      if (generator()) return true;
+      if (generating()) return true;
       if (toolName === 'cells') {
         const grid = gridNow();
         const cell = grid ? cellOfPoint(grid, context.extent, event.point) : null;
@@ -1218,6 +1294,7 @@ export function createEditor(context: EditorContext): Editor {
 
   /** Writes what is previewed as one placement and one history step; answers what happened. */
   async function applyGenerator(): Promise<string> {
+    if (fillsCells()) return applyCells();
     const def = generator();
     const now = generated();
     if (!def || !now) return '';
@@ -1234,6 +1311,56 @@ export function createEditor(context: EditorContext): Editor {
     return status.textContent ?? '';
   }
 
+  /**
+   * Writes a fill of cells (ADR 0478): one placement of cells for each tile entry that changes, in
+   * one batch and one history step. An entry left with no cell is taken off the Map.
+   */
+  async function applyCells(): Promise<string> {
+    const now = generated();
+    const plan = now?.cells;
+    const grid = gridNow();
+    if (!now || !plan || !grid) return '';
+    if (!plan.ok) {
+      say(plan.why, true);
+      return plan.why;
+    }
+    const put: NonNullable<Parameters<typeof batchPlacements>[2]['put']> = [];
+    const remove: string[] = [];
+    const step: Step = [];
+    for (const tile of plan.tiles) {
+      const row = rowOf(tile.id);
+      if (!row || !tile.changed) continue;
+      const before = rowState(row);
+      if (tile.cells.length === 0) {
+        remove.push(row.id);
+        step.push({ entry: row.id, before, after: null });
+        continue;
+      }
+      // A cell that carried a value keeps it (ADR 0337).
+      const geometry = cellsGeometry(
+        grid,
+        context.extent,
+        tile.cells,
+        row.geometry as unknown as Geometry,
+      );
+      put.push({ entry_id: row.id, geometry, role: before.role, style: before.style, z: before.z });
+      step.push({ entry: row.id, before, after: { ...before, geometry } });
+    }
+    if (step.length === 0) {
+      say('This fill changes nothing: every cell would be what it is. Roll another seed.', true);
+      return status.textContent ?? '';
+    }
+    const name = `Filled by wave function collapse, seed ${seedNow()}: ${plan.count} in ${now.region.words}`;
+    await guarded(async () => {
+      await batchPlacements(context.tenant, context.mapId, { put, remove });
+      await reload();
+      history.record(step, name);
+      setTool('select');
+      say(`${plan.count} drawn in ${now.region.words}.`);
+    });
+    return status.textContent ?? '';
+  }
+
   /** The preview's line, Compare with its divider, and Apply and Discard. */
   function generatorControls(): HTMLElement {
     const box = el('div', '', 'stack-tight map-generator');
@@ -1244,7 +1371,22 @@ export function createEditor(context: EditorContext): Editor {
     const split = field('Compare with the Map as it is', '', 'checkbox');
     split.input.checked = compare;
     split.input.addEventListener('change', () => setCompare(split.input.checked));
-    box.append(line, split.label);
+    box.append(line);
+    // A fill of cells names its tiles, each with its tone and what it would get: the tone is
+    // never the only way to tell them apart (ADR 0478).
+    const tiles = el('ul', '', 'list map-generator-tiles');
+    tiles.setAttribute('aria-label', 'Tiles, the lightest tone first');
+    if (fillsCells()) {
+      box.append(
+        el(
+          'p',
+          'It learns from the cells already drawn on this Map: which entry lies beside which. Each entry gets the cells the fill gives it; nothing is drawn until you apply it.',
+          'status-text',
+        ),
+        tiles,
+      );
+    }
+    box.append(split.label);
     if (compare) {
       const slider = field('Divider', String(Math.round(divide * 100)), 'range');
       slider.input.min = '0';
@@ -1267,7 +1409,23 @@ export function createEditor(context: EditorContext): Editor {
       const now = generated();
       line.textContent = generatedWords();
       line.classList.toggle('error-text', now ? !now.fit.ok : false);
-      apply.disabled = !now?.fit.ok || !target;
+      apply.disabled = !now?.fit.ok || (!fillsCells() && !target);
+      tiles.replaceChildren(
+        ...(now?.cells?.tiles ?? []).map((tile) => {
+          const item = el('li', '', 'row-tight');
+          const swatch = el('span', '', 'map-tone');
+          swatch.dataset.tone = String(tile.tone);
+          swatch.setAttribute('aria-hidden', 'true');
+          item.append(
+            swatch,
+            el(
+              'span',
+              `${tile.name}: ${tile.gained.length} ${tile.gained.length === 1 ? 'cell' : 'cells'}`,
+            ),
+          );
+          return item;
+        }),
+      );
     };
     syncGenerator();
     return box;
@@ -1557,7 +1715,7 @@ export function createEditor(context: EditorContext): Editor {
           'p',
           toolName === 'pin'
             ? 'Click the map to place it.'
-            : generator()
+            : generating()
               ? 'The preview on the Map is what Apply will draw for it; nothing is drawn until then.'
               : toolName === 'height-line'
                 ? 'Give the height and its unit above, then click each point. Press Enter or double-click to finish, Backspace to take back a point, Escape to start again.'
@@ -2129,8 +2287,9 @@ export function createEditor(context: EditorContext): Editor {
     const options = optionFields();
     if (options) panel.append(options);
     if (toolName !== 'select') {
-      panel.append(chooser());
-      if (generator()) panel.append(generatorControls());
+      // A fill of cells draws for the entries of its example: there is no entry to choose.
+      if (!fillsCells()) panel.append(chooser());
+      if (generating()) panel.append(generatorControls());
       return;
     }
     const row = rowOf(selectedId);

@@ -497,12 +497,23 @@ test('the toolbox is drawn from the tool registry: groups, one key a tool, and p
     await expect(page.getByText(/Height brush is planned\./)).toBeVisible();
     // All tools lists every tool, finds one by a few words and says which are planned.
     await page.getByRole('button', { name: 'All tools' }).click();
-    await page.getByLabel('Find a tool').fill('wave');
-    const fill = page.getByRole('button', { name: 'Fill by wave function collapse', exact: true });
-    await expect(fill).toHaveAttribute('aria-disabled', 'true');
+    await page.getByLabel('Find a tool').fill('brush');
+    const brush = page.getByRole('button', { name: 'Height brush', exact: true });
+    await expect(brush).toHaveAttribute('aria-disabled', 'true');
     await expect(page.locator('.map-all-tools-list')).toContainText('planned');
-    await fill.click({ force: true });
-    await expect(page.getByText(/Fill by wave function collapse is planned\./)).toBeVisible();
+    await brush.click({ force: true });
+    await expect(page.getByText(/Height brush is planned\./)).toBeVisible();
+    // A tool for a grid is not planned, and says it is not for this Map.
+    await page.getByLabel('Find a tool').fill('wave');
+    const collapse = page.getByRole('button', {
+      name: 'Fill by wave function collapse',
+      exact: true,
+    });
+    await expect(collapse).toHaveAttribute('aria-disabled', 'true');
+    await collapse.click({ force: true });
+    await expect(
+      page.getByText('Fill by wave function collapse is not available on this Map.'),
+    ).toBeVisible();
     // A key typed into a field is the field's.
     await page.getByLabel('Find a tool').fill('');
     await page.getByLabel('Find a tool').press('p');

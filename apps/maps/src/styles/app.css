@@ -705,3 +705,42 @@
 .map-shortcuts::backdrop {
   background: var(--fill-soft);
 }
+
+/* The tiles of a fill of cells (ADR 0478): each named beside the tone the preview draws it in. */
+.map-generator-tiles {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.map-tone {
+  flex: none;
+  inline-size: var(--space-4);
+  block-size: var(--space-4);
+  border: 1px solid var(--action);
+  background: var(--action);
+}
+
+.map-tone[data-tone="0"] {
+  background: color-mix(in srgb, var(--action) 12%, transparent);
+}
+
+.map-tone[data-tone="1"] {
+  background: color-mix(in srgb, var(--action) 26%, transparent);
+}
+
+.map-tone[data-tone="2"] {
+  background: color-mix(in srgb, var(--action) 40%, transparent);
+}
+
+.map-tone[data-tone="3"] {
+  background: color-mix(in srgb, var(--action) 54%, transparent);
+}
+
+.map-tone[data-tone="4"] {
+  background: color-mix(in srgb, var(--action) 68%, transparent);
+}
+
+.map-tone[data-tone="5"] {
+  background: color-mix(in srgb, var(--action) 82%, transparent);
+}

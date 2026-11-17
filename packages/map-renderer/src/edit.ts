@@ -26,6 +26,12 @@ export type OverlayShape =
       kind: 'area';
       rings: readonly (readonly Point[])[];
       clipped?: boolean;
+      /**
+       * One of six strengths of the overlay's colour, 0 the lightest (ADR 0478): how a preview
+       * tells kinds of thing apart. A tone is never the only way they are told; the page names
+       * them too.
+       */
+      tone?: number;
     }
   | {
       id: string;
@@ -44,6 +50,9 @@ export type OverlayShape =
     };
 
 export type Overlay = readonly OverlayShape[];
+
+/** How many tones an overlay area can take. */
+export const OVERLAY_TONES = 6;
 
 /** The radius a handle is drawn with, and the distance it is picked from, in screen pixels. */
 export const HANDLE_RADIUS = 6;
@@ -134,7 +143,10 @@ export function overlayPrims(
       prims.push({
         id,
         kind: 'path',
-        cls: 'm-ov m-ov-area',
+        cls:
+          shape.tone === undefined
+            ? 'm-ov m-ov-area'
+            : `m-ov m-ov-area m-ov-tone-${Math.max(0, Math.min(OVERLAY_TONES - 1, Math.trunc(shape.tone)))}`,
         d: rings.map((ring) => `M ${ring.map((p) => `${p[0]} ${p[1]}`).join(' L ')} Z`).join(' '),
         fillRule: 'evenodd',
         bbox: [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)],

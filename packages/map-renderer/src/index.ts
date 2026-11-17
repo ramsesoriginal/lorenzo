@@ -1,5 +1,5 @@
 export type { Overlay, OverlayShape, Tool, ToolEvent } from './edit';
-export { HANDLE_PICK, HANDLE_RADIUS, handleAt, overlayPrims } from './edit';
+export { HANDLE_PICK, HANDLE_RADIUS, handleAt, OVERLAY_TONES, overlayPrims } from './edit';
 export { placementCentre } from './geom';
 export type { Cell, GridKind, GridSpec, Orientation } from './grid';
 export { cellAt, cellCentre, cellCount, cellPolygon, inGrid, isGridKind } from './grid';

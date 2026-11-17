@@ -5,6 +5,7 @@ import {
   HEIGHT,
   numberFor,
   optionsOf,
+  SEED,
   SNAP,
   searchTools,
   TENSION,
@@ -48,10 +49,15 @@ test('a search finds a tool by name, group or key', () => {
   expect(searchTools('terrain').map((t) => t.id)).toEqual(['height-line', 'height-brush']);
   expect(searchTools('fill wave').map((t) => t.id)).toEqual(['wave-function-collapse']);
   expect(toolById('marching-squares')).toMatchObject({ state: 'ready', generator: true });
-  expect(TOOLS.filter((t) => t.state === 'planned').map((t) => t.id)).toEqual([
-    'height-brush',
-    'wave-function-collapse',
-  ]);
+  expect(TOOLS.filter((t) => t.state === 'planned').map((t) => t.id)).toEqual(['height-brush']);
+  // The fill of cells is for a Map with a grid, and never a sphere.
+  const collapse = toolById('wave-function-collapse') as ToolDecl;
+
+  expect(collapse).toMatchObject({ state: 'ready', generator: true, cells: true });
+  expect(usable(collapse, { grid: true, sphere: false })).toBe(true);
+  expect(usable(collapse, { grid: false, sphere: false })).toBe(false);
+  expect(usable(collapse, { grid: true, sphere: true })).toBe(false);
+  expect(optionsOf(collapse, { grid: true })).toEqual([SEED]);
   expect(searchTools('nothing like it')).toEqual([]);
 });
 

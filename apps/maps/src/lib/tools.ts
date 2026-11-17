@@ -298,11 +298,14 @@ export type ToolDecl = {
   notOnSphere?: boolean;
   /** It previews and applies (ADR 0475): its behaviour is in `generators.ts`. */
   generator?: boolean;
+  /**
+   * A generator that writes cells for the entries of an example, not one entry's drawing
+   * (ADR 0478): it has no entry to choose.
+   */
+  cells?: boolean;
   /** What a person can set for it (ADR 0470). */
   options?: ToolOption[];
 };
-
-const later = 'It is built later, with its own decision.';
 
 export const TOOLS: ToolDecl[] = [
   {
@@ -464,8 +467,12 @@ export const TOOLS: ToolDecl[] = [
     key: 'w',
     input: 'a region on a grid and a seed',
     output: 'cells',
-    state: 'planned',
-    reason: later,
+    state: 'ready',
+    needsGrid: true,
+    notOnSphere: true,
+    generator: true,
+    cells: true,
+    options: [SEED],
   },
 ];
 
