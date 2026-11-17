@@ -88,4 +88,4 @@ def test_an_enum_needs_values_and_only_an_enum_has_them() -> None:
 def test_the_schema_describes_every_table() -> None:
     schema = json_schema()
     assert schema["title"] == "Lorenzo library document"
-    assert {"system", "group", "stat", "entry", "attach"} <= set(schema["properties"])
+    assert {"system", "group", "stat", "entry", "formula", "attach"} <= set(schema["properties"])

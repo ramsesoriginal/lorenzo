@@ -10,13 +10,14 @@ import typer
 from rich.text import Text
 
 from lorenzo_cli import console, starters
+from lorenzo_cli.client.transport import LorenzoClient
 from lorenzo_cli.commands.common import TenantOption
 from lorenzo_cli.library import document as documents
 from lorenzo_cli.library.document import Document, DocumentError
-from lorenzo_cli.library.exporter import ExportError, export, to_toml
+from lorenzo_cli.library.exporter import ExportError, chosen, export, to_toml
 from lorenzo_cli.library.planner import Plan, make_plan
 from lorenzo_cli.library.render import counts_line, plan_json, print_plan, print_result
-from lorenzo_cli.library.state import LibraryState, read
+from lorenzo_cli.library.state import LibraryState, read, read_formulas
 from lorenzo_cli.library.writer import apply as write_plan
 from lorenzo_cli.runtime import Runtime, _client, _reporting_errors, may_write
 from lorenzo_cli.self_service import SelfServiceError
@@ -52,6 +53,17 @@ def _document(file: Path | None, starter: str | None) -> Document:
         raise SelfServiceError(str(exc)) from exc
 
 
+def read_formulas_for(
+    client: LorenzoClient, state: LibraryState, doc: Document, *, prune: bool
+) -> None:
+    """The formulas the plan compares: on the entries the document's formulas name, and, when
+    pruning a system, on its vocabulary entries."""
+    wanted = {e.id for f in doc.formula if (e := state.entry(f.on)) is not None}
+    if prune and doc.system is not None and doc.system.slug in state.systems:
+        wanted |= {e.id for e in chosen(state, doc.system.slug)}
+    read_formulas(client, state, wanted)
+
+
 def _planned(
     runtime: Runtime, tenant: str, doc: Document, *, prune: bool, writes: bool
 ) -> tuple[Plan, LibraryState]:
@@ -59,6 +71,7 @@ def _planned(
         target = resolve_tenant(client, tenant)
         with console.waiting(f"Reading {target.slug}"):
             state = read(client, target)
+            read_formulas_for(client, state, doc, prune=prune)
     return make_plan(doc, state, prune=prune), state
 
 
@@ -111,6 +124,7 @@ def apply_command(
             target = resolve_tenant(client, tenant)
             with console.waiting(f"Reading {target.slug}"):
                 state = read(client, target)
+                read_formulas_for(client, state, doc, prune=prune)
             plan = make_plan(doc, state, prune=prune)
             if not as_json:
                 print_plan(plan)
@@ -139,6 +153,7 @@ def _export(ctx: typer.Context, tenant: str, system: str | None, output: Path | 
         with console.waiting(f"Reading {target.slug}"):
             state = read(client, target)
         try:
+            read_formulas(client, state, {e.id for e in chosen(state, system)})
             text = to_toml(export(state, system))
         except ExportError as exc:
             raise SelfServiceError(str(exc)) from exc

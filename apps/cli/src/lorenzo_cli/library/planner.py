@@ -14,7 +14,8 @@ from typing import Any, Literal
 from uuid import UUID
 
 from lorenzo_cli.client.models import TenantOut
-from lorenzo_cli.library.document import Document, EntryRow, GroupRow, StatRow
+from lorenzo_cli.library.document import Document, EntryRow, FormulaRow, GroupRow, StatRow
+from lorenzo_cli.library.formulas import canonical, from_api, stats_named
 from lorenzo_cli.library.state import EntryState, LibraryState, description_text
 
 Verb = Literal["create", "change", "remove"]
@@ -352,6 +353,40 @@ class _Planner:
                     f"{where}: its description differs here; apply does not rewrite a description."
                 )
 
+    def formula(self, row: FormulaRow) -> None:
+        where = f"formula {row.stat} on {row.on}"
+        if not self.has_entry(row.on):
+            self.missing("entry", row.on, where)
+            return
+        for name in [row.stat, *stats_named(row.fields())]:
+            if not self.has_stat(name):
+                self.missing("stat", name, where)
+        entry = self.state.entry(row.on)
+        stat = self.state.stats.get(row.stat)
+        held = self.state.formulas.get((entry.id, stat.id)) if entry is not None and stat else None
+        key = f"{row.on}: {row.stat}"
+        if held is None:
+            self.add("create", "formula", key, AFTER_ENTRIES, row.kind)
+            return
+        names = {s.id: s.name for s in self.state.stats.values()}
+        current = from_api(
+            {k: v for k, v in held.items() if k != "kind"}, lambda i: names.get(i, str(i))
+        )
+        if held.get("kind") != row.kind or canonical(row.kind, current) != canonical(
+            row.kind, row.fields()
+        ):
+            self.add("change", "formula", key, AFTER_ENTRIES, row.kind)
+
+    def prune_formulas(self, under: set[UUID], system_stats: set[UUID]) -> None:
+        named = {(f.on, f.stat) for f in self.doc.formula}
+        names = {s.id: s.name for s in self.state.stats.values()}
+        for (entry_id, stat_id), _ in sorted(self.state.formulas.items(), key=str):
+            entry = self.state.entries.get(entry_id)
+            if entry is None or entry_id not in under or stat_id not in system_stats:
+                continue
+            if (entry.slug, names.get(stat_id)) not in named:
+                self.add("remove", "formula", f"{entry.slug}: {names.get(stat_id)}", REMOVE)
+
     def attach(self) -> None:
         for row in self.doc.attach:
             where = f"attach {row.entry} to {row.parent}"
@@ -391,6 +426,8 @@ class _Planner:
             return
         children = self.state.children()
         under = self.state.descendants(system.root_entry_id)
+        system_stats = {s.id for s in self.state.stats.values() if s.stat_group_id in group_ids}
+        self.prune_formulas(under, system_stats)
         going = {
             e
             for e in under
@@ -437,6 +474,8 @@ def make_plan(doc: Document, state: LibraryState, *, prune: bool = False) -> Pla
     for stat in doc.stat:
         planner.stat(stat)
     planner.entries()
+    for formula in doc.formula:
+        planner.formula(formula)
     planner.attach()
     if prune:
         planner.prune()

@@ -12,7 +12,15 @@ from typing import Any
 from uuid import UUID
 
 from lorenzo_cli.client.models import StatDefinitionOut, StatGroupOut
-from lorenzo_cli.library.document import Document, EntryRow, GroupRow, StatRow, SystemRow
+from lorenzo_cli.library.document import (
+    Document,
+    EntryRow,
+    FormulaRow,
+    GroupRow,
+    StatRow,
+    SystemRow,
+)
+from lorenzo_cli.library.formulas import from_api, stats_named
 from lorenzo_cli.library.planner import is_vocabulary_entry
 from lorenzo_cli.library.state import EntryState, LibraryState, description_text
 
@@ -107,8 +115,14 @@ def _ordered(entries: list[EntryState], state: LibraryState) -> list[EntryState]
     return placed
 
 
-def export(state: LibraryState, system_slug: str | None) -> Document:
-    """The document of `system_slug`, or of the neutral vocabulary when it is None."""
+def chosen(state: LibraryState, system_slug: str | None) -> list[EntryState]:
+    """The entries the document of `system_slug` (or the neutral one) holds."""
+    return _choice(state, system_slug)[1]
+
+
+def _choice(
+    state: LibraryState, system_slug: str | None
+) -> tuple[list[StatGroupOut], list[EntryState], SystemRow | None, str]:
     children = state.children()
     roots = {s.root_entry_id for s in state.systems.values() if s.root_entry_id is not None}
     under_systems: set[UUID] = set()
@@ -142,7 +156,13 @@ def export(state: LibraryState, system_slug: str | None) -> Document:
             slug=system.slug, name=system.name, root=root_entry.slug if root_entry else None
         )
         name = system.slug
+    return groups, entries, system_row, name
 
+
+def export(state: LibraryState, system_slug: str | None) -> Document:
+    """The document of `system_slug`, or of the neutral vocabulary when it is None. The formulas
+    of its entries are those `state.read_formulas` read."""
+    groups, entries, system_row, name = _choice(state, system_slug)
     group_ids = {g.id for g in groups}
     groups.sort(key=lambda g: (g.position, g.name))
     stats = sorted(
@@ -152,12 +172,27 @@ def export(state: LibraryState, system_slug: str | None) -> Document:
     by_group = {g.id: g for g in groups}
     ordered = _ordered(entries, state)
     doc_entries = [_entry_row(e, state) for e in ordered]
+    names = {s.id: s.name for s in state.stats.values()}
+    doc_formulas = [
+        FormulaRow(
+            on=entry.slug or str(entry.id),
+            stat=names[stat_id],
+            kind=body["kind"],
+            **from_api({k: v for k, v in body.items() if k != "kind"}, lambda i: names[i]),
+        )
+        for entry in ordered
+        for (entry_id, stat_id), body in sorted(state.formulas.items(), key=str)
+        if entry_id == entry.id and stat_id in names
+    ]
 
     # What the document refers to and does not hold comes from another document.
     named_stats = {s.name for s in stats}
     named_entries = {e.slug for e in doc_entries}
-    outside = any(n not in named_stats for e in doc_entries for n in (*e.stats, *e.tags)) or any(
-        p not in named_entries for e in doc_entries for p in e.parents
+    read = [n for f in doc_formulas for n in (f.stat, *stats_named(f.fields()))]
+    outside = (
+        any(n not in named_stats for e in doc_entries for n in (*e.stats, *e.tags))
+        or any(p not in named_entries for e in doc_entries for p in e.parents)
+        or any(n not in named_stats for n in read)
     )
     requires = [NEUTRAL] if system_slug is not None and outside else []
 
@@ -169,6 +204,7 @@ def export(state: LibraryState, system_slug: str | None) -> Document:
         group=[_group_row(g, of_system=system_slug is not None) for g in groups],
         stat=[_stat_row(s, by_group[s.stat_group_id], state) for s in stats],
         entry=doc_entries,
+        formula=doc_formulas,
     )
 
 

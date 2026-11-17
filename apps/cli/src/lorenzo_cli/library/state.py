@@ -45,6 +45,9 @@ class LibraryState:
     groups: dict[str, StatGroupOut] = field(default_factory=dict)
     stats: dict[str, StatDefinitionOut] = field(default_factory=dict)
     entries: dict[UUID, EntryState] = field(default_factory=dict)
+    # Formulas by (entry, stat), as the API writes them; read only for the entries asked for.
+    formulas: dict[tuple[UUID, UUID], dict[str, Any]] = field(default_factory=dict)
+    formulas_read: set[UUID] = field(default_factory=set)
 
     def system_of(self, group: StatGroupOut) -> SystemOut | None:
         return next((s for s in self.systems.values() if s.id == group.system_id), None)
@@ -109,6 +112,23 @@ def read(client: LorenzoClient, tenant: TenantOut) -> LibraryState:
         cursor = page.next_cursor
         if cursor is None:
             return state
+
+
+def read_formulas(client: LorenzoClient, state: LibraryState, entry_ids: set[UUID]) -> None:
+    """The formulas held by these entries, one request each: only the entries a document or an
+    export names, never the whole library."""
+    for entry_id in sorted(entry_ids):
+        if entry_id in state.formulas_read:
+            continue
+        rows = client.call(
+            ops.LIST_ENTITY_COMPUTED_STATS,
+            path={"tenant_id": state.tenant.id, "entity_id": entry_id},
+        ).value
+        for row in rows:
+            state.formulas[(entry_id, row.stat_definition_id)] = row.formula.model_dump(
+                mode="json", by_alias=True
+            )
+        state.formulas_read.add(entry_id)
 
 
 def description_text(information: InformationOut) -> str:

@@ -475,6 +475,32 @@ lorenzo schema document > lorenzo-document.schema.json   # for an editor to chec
 
 `apply` sets what the document names and leaves what it does not; it never deletes. `--prune` also removes what the document's system no longer names, shown first: its stat groups and stats, and the entries under its root that are features or that others inherit from (a leaf item imported under the root is content and stays). It is refused for a document without a `[system]`. A description is created when an entry has none; one that differs is reported, not rewritten. `lorenzo starter list|show` names and prints the documents that ship with the CLI, and `--starter NAME` on `plan` and `apply` stands for one. `lorenzo schema output COMMAND` prints the shape of a command's `--json` output.
 
+### Formulas
+
+A formula is one of the API's curated kinds with its fields, never an expression ([ADR 0486](../../docs/adr/0486-formulas-from-the-command-line.md), RFC 0016): `linear`, `comparison`, `sum`, `contents`, `min`, `max`, `product`, `ratio`, `select`, `dice_value` and `dice`. In a document it is a `[[formula]]` with `on` (the entry), `stat`, `kind` and the kind's fields, a stat named by its name (`source`, `left`, `right`, `numerator`, `denominator`, `count`, `sides`, `where`, a term's or input's `stat`, `factors`) and `round` for the rounding:
+
+```toml
+[[formula]]
+on = "tt-character"
+stat = "tt_proficiency"
+kind = "select"
+source = "tt_level"
+mode = "threshold"
+steps = [{ from = 1, result = { number = 2 } }, { from = 5, result = { number = 3 } }]
+```
+
+```bash
+lorenzo formula set tt_strength_mod --on tt-character -t lib --kind linear --source tt_strength --multiplier 0.5 --offset -5 --round floor
+lorenzo formula set tt_armour --on tt-fighter -t lib --kind min --input tt_dex_mod --input 2
+lorenzo formula set tt_proficiency --on tt-character -t lib --from proficiency.toml   # a select, with its steps
+lorenzo formula show tt_strength_mod --on tt-fighter -t lib      # its own, or the one it inherits
+lorenzo formula preview tt_damage --on tt-fighter -t lib         # the value and each input; dice as 3d6
+lorenzo formula tree tt_damage --on tt-fighter -t lib            # the chain down, and what reads it
+lorenzo formula delete tt_armour --on tt-fighter -t lib
+```
+
+The limits of a kind are checked before anything is sent (two to five inputs or factors, one to twenty terms, one to sixty-four steps, a dice count of 1 to 100 and sides of 2 to 1000), and `preview` with `--kind` or `--from` evaluates a formula before it is saved. `--warnings` on `set` asks the vocabulary check about what it wrote.
+
 The library's being stat group, weapon stat group and ability information type use one command. With no setting options it reads them; with options it changes only those named. The ability type is free text, not a separately created vocabulary row.
 
 ```bash

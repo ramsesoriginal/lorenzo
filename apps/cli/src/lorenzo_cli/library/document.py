@@ -9,7 +9,7 @@ from __future__ import annotations
 import tomllib
 from collections import Counter
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
@@ -100,6 +100,30 @@ class EntryRow(_Row):
     starts_inactive: bool | None = None
 
 
+class FormulaRow(BaseModel):
+    """A formula on an entry (ADR 0486): `on` the entry's slug, `stat` the stat it computes, `kind`,
+    and that kind's fields as `library.formulas` names them."""
+
+    model_config = ConfigDict(extra="allow")
+
+    on: str = Field(pattern=ENTRY_SLUG, max_length=100)
+    stat: str = Field(min_length=1)
+    kind: str
+
+    @model_validator(mode="after")
+    def _its_kind_accepts_it(self) -> FormulaRow:
+        from lorenzo_cli.library.formulas import FormulaError, check
+
+        try:
+            check(self.kind, self.fields())
+        except FormulaError as exc:
+            raise ValueError(f"formula {self.stat} on {self.on}: {exc}") from exc
+        return self
+
+    def fields(self) -> dict[str, Any]:
+        return dict(self.model_extra or {})
+
+
 class AttachRow(_Row):
     """A parent added to an entry another document owns (ADR 0172)."""
 
@@ -115,6 +139,7 @@ class Document(_Row):
     group: list[GroupRow] = Field(default_factory=list)
     stat: list[StatRow] = Field(default_factory=list)
     entry: list[EntryRow] = Field(default_factory=list)
+    formula: list[FormulaRow] = Field(default_factory=list)
     attach: list[AttachRow] = Field(default_factory=list)
 
     @model_validator(mode="after")
@@ -123,6 +148,7 @@ class Document(_Row):
             ("group", [g.name for g in self.group]),
             ("stat", [s.name for s in self.stat]),
             ("entry", [e.slug for e in self.entry]),
+            ("formula", [f"{f.stat} on {f.on}" for f in self.formula]),
         ):
             twice = sorted(k for k, n in Counter(keys).items() if n > 1)
             if twice:

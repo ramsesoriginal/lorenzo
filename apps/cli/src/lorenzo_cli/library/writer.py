@@ -28,6 +28,7 @@ from lorenzo_cli.client.models import (
     SystemUpdate,
 )
 from lorenzo_cli.client.transport import LorenzoClient
+from lorenzo_cli.library import formulas
 from lorenzo_cli.library.document import Document
 from lorenzo_cli.library.planner import Action, Plan
 from lorenzo_cli.library.state import LibraryState
@@ -248,6 +249,38 @@ class _Writer:
                 content=row.description,
                 locale="en-US",
             ),
+        )
+
+    # --- formulas ----------------------------------------------------------------------------
+
+    def _set_formula(self, action: Action) -> None:
+        slug, stat = action.key.split(": ")
+        row = next(f for f in self.doc.formula if f.on == slug and f.stat == stat)
+        self.client.call(
+            ops.SET_COMPUTED_STAT,
+            path={
+                **self.path,
+                "entity_id": self.ids.entries[slug],
+                "stat_definition_id": self.ids.stats[stat],
+            },
+            body=formulas.body(row.kind, row.fields(), lambda name: self.ids.stats[name]),
+        )
+
+    def _create_formula(self, action: Action, _: dict[str, Any]) -> None:
+        self._set_formula(action)
+
+    def _change_formula(self, action: Action, _: dict[str, Any]) -> None:
+        self._set_formula(action)
+
+    def _remove_formula(self, action: Action, _: dict[str, Any]) -> None:
+        slug, stat = action.key.split(": ")
+        self.client.call(
+            ops.DELETE_COMPUTED_STAT,
+            path={
+                **self.path,
+                "entity_id": self.ids.entries[slug],
+                "stat_definition_id": self.ids.stats[stat],
+            },
         )
 
     # --- pruning ---------------------------------------------------------------------------

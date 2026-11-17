@@ -44,6 +44,7 @@ COMMANDS: dict[str, Entry] = {
     "apply": Entry(f"{_C}library", "app", "Apply a library document to a library.", "apply"),
     "starter": Entry(f"{_C}library", "starter_app", "The documents that ship with the CLI."),
     "system": Entry(f"{_C}systems", "app", "List, read, create, edit or delete a game system."),
+    "formula": Entry(f"{_C}formulas", "app", "Set, show, preview, trace or delete a formula."),
     "import": Entry(
         f"{_C}transfer", "import_app", "Import MPMB items, an inventory or a calendar."
     ),
