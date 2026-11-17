@@ -15,6 +15,12 @@ A generator writes everything it draws as parts of one entry's placement ([ADR 0
 - **One history step**, "Split Fields into 6 entries", writes the placements as one batch. Undo puts the original's drawing back and takes the new ones off this Map; the new Locations stay in the library, as a Location made from the chooser does.
 - The Locations are made one by one before the batch. If one cannot be made, nothing is placed, the panel names how many were made, and they stay in the library.
 
+## Built
+
+- Whether the original is open to the whole library is read when splitting; when the person splitting is not told, the new places are restricted.
+- The action sits under the parts list with a short sentence of what it does; the base name is the entry's name at first.
+- After the split nothing is selected, as the drawing that was selected is gone from the Map.
+
 ## Validation and delivery
 
 Unit tests: the names and order, the parts as placements with the original's role, line and order, heights kept, the 100 limit. Browser tests against the real API: a fill of several areas split into Locations under the original, each on the Map, the original's drawing gone, undo and redo; a split refused over 100 parts; axe in light and dark with the action shown.
