@@ -679,14 +679,18 @@
   opacity: 0.7;
 }
 
+/* The line and, under it, its answer: the answer wraps onto a row of its own, so however long it
+   is the line keeps its width. */
 .map-command {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   inline-size: 100%;
   max-inline-size: 22rem;
 }
 
 .map-command .text-input {
+  flex: 1 1 100%;
   min-inline-size: 0;
   inline-size: 100%;
 }
