@@ -1,6 +1,7 @@
 import { expect, test } from 'vitest';
 import {
   createOptionValues,
+  EXAMPLE,
   GROUPS,
   HEIGHT,
   numberFor,
@@ -57,7 +58,7 @@ test('a search finds a tool by name, group or key', () => {
   expect(usable(collapse, { grid: true, sphere: false })).toBe(true);
   expect(usable(collapse, { grid: false, sphere: false })).toBe(false);
   expect(usable(collapse, { grid: true, sphere: true })).toBe(false);
-  expect(optionsOf(collapse, { grid: true })).toEqual([SEED]);
+  expect(optionsOf(collapse, { grid: true })).toEqual([EXAMPLE, SEED]);
   expect(searchTools('nothing like it')).toEqual([]);
 });
 

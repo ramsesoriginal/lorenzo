@@ -23,7 +23,8 @@ export const GROUPS: ToolGroup[] = ['select', 'place', 'draw', 'terrain', 'gener
 /**
  * An option of a tool (ADR 0470): the Options tab draws it and the command line sets it by its word.
  * A type is built with the first tool that has one: `toggle` for snapping, `number` for a spline,
- * `text` for a height line's unit, `seed` and `choice` for the generators.
+ * `text` for a height line's unit, `seed` and `choice` for the generators, and `map` for the example
+ * of a fill of cells.
  */
 export type ToolOption = {
   id: string;
@@ -61,6 +62,14 @@ export type ToolOption = {
       choices: readonly (readonly [string, string])[];
     }
   | {
+      /**
+       * A Map of the library by its id, '' for this one (ADR 0479). The Maps it offers are read
+       * when the tool is chosen, so the declaration names none.
+       */
+      type: 'map';
+      first: '';
+    }
+  | {
       type: 'text';
       /** Empty when the person gives it before the tool can finish. */
       first: string;
@@ -73,6 +82,7 @@ export type ToggleOption = Extract<ToolOption, { type: 'toggle' }>;
 export type NumberOption = Extract<ToolOption, { type: 'number' }>;
 export type TextOption = Extract<ToolOption, { type: 'text' }>;
 export type SeedOption = Extract<ToolOption, { type: 'seed' }>;
+export type MapOption = Extract<ToolOption, { type: 'map' }>;
 export type ChoiceOption = Extract<ToolOption, { type: 'choice' }>;
 
 export type OptionValue = boolean | number | string | null;
@@ -127,6 +137,15 @@ export const SEED: SeedOption = { id: 'seed', name: 'Seed', word: 'seed', type: 
  * The role of what a generator draws (ADR 0475): the person's to choose, and none at first. The
  * list is the renderer's closed list of roles (ADR 0337).
  */
+/** The Map a fill of cells learns from (ADR 0479): this one at first. */
+export const EXAMPLE: MapOption = {
+  id: 'example',
+  name: 'Example',
+  word: 'example',
+  type: 'map',
+  first: '',
+};
+
 export const ROLE: ChoiceOption = {
   id: 'role',
   name: 'Role',
@@ -472,7 +491,7 @@ export const TOOLS: ToolDecl[] = [
     notOnSphere: true,
     generator: true,
     cells: true,
-    options: [SEED],
+    options: [EXAMPLE, SEED],
   },
 ];
 
@@ -515,6 +534,7 @@ export type OptionValues = {
   get(tool: ToolDecl, option: NumberOption): number | null;
   get(tool: ToolDecl, option: TextOption): string;
   get(tool: ToolDecl, option: ChoiceOption): string;
+  get(tool: ToolDecl, option: MapOption): string;
   get(tool: ToolDecl, option: SeedOption): number | null;
   get(tool: ToolDecl, option: ToolOption): OptionValue;
   set(tool: ToolDecl, option: ToolOption, value: OptionValue): void;

@@ -155,6 +155,12 @@ function parseOption(
           message: `${name} takes one of: ${option.choices.map(([, title]) => title.toLowerCase()).join(', ')}.`,
         };
   }
+  if (option.type === 'map') {
+    // The name is matched against the Maps offered by the editor, which reads them.
+    return rest
+      ? { kind: 'option', option, value: rest }
+      : { kind: 'error', message: `${name} takes the name of a Map, or THIS for this Map.` };
+  }
   if (option.type === 'seed') {
     const typed = seedOf(rest);
     return typed === null

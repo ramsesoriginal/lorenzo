@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { parseCommand, parsePoint } from '../../src/lib/command-line';
-import { SNAP, TOOLS, toolById } from '../../src/lib/tools';
+import { EXAMPLE, SNAP, TOOLS, toolById } from '../../src/lib/tools';
 
 const flat = { grid: false, sphere: false };
 
@@ -116,6 +116,25 @@ describe('the command line', () => {
     expect(parseCommand('TENSION 0.4', TOOLS, onGrid)).toEqual({
       kind: 'error',
       message: 'Line has no option TENSION on this Map. It has SNAP.',
+    });
+  });
+
+  it('takes the example of a fill of cells by the name of a Map, which the editor looks up', () => {
+    const collapse = {
+      grid: true,
+      sphere: false,
+      tool: toolById('wave-function-collapse'),
+    };
+
+    expect(parseCommand('EXAMPLE Old caves', TOOLS, collapse)).toEqual({
+      kind: 'option',
+      option: EXAMPLE,
+      value: 'Old caves',
+    });
+    expect(parseCommand('example this', TOOLS, collapse)).toMatchObject({ value: 'this' });
+    expect(parseCommand('EXAMPLE', TOOLS, collapse)).toEqual({
+      kind: 'error',
+      message: 'EXAMPLE takes the name of a Map, or THIS for this Map.',
     });
   });
 });

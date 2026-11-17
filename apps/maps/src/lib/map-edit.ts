@@ -6,7 +6,9 @@ import {
   cellPolygon,
   type Geometry,
   type GridSpec,
+  gridOf,
   inGrid,
+  type MapModel,
   type MapViewController,
   type Overlay,
   ROLE_WORDS,
@@ -14,8 +16,8 @@ import {
   type Tool,
   type ToolEvent,
 } from '@lorenzo/map-renderer';
-import { LorenzoApiError } from './api';
-import { type CellFill, cellFill, type Tile } from './cell-fill';
+import { client, LorenzoApiError, unwrap } from './api';
+import { type CellFill, cellFill } from './cell-fill';
 import {
   cellOfPoint,
   cellsGeometry,
@@ -28,6 +30,14 @@ import {
 } from './cells-edit';
 import { HELP, parseCommand } from './command-line';
 import { button, el, field, groupTitle, message, select, statusLine } from './dom';
+import {
+  drawnCells,
+  type ExampleMap,
+  heldHere,
+  mapNamed,
+  sameGridKind,
+  tilesOf,
+} from './example-maps';
 import { strokeLine, unitsPerPixel } from './freehand';
 import {
   type Fit,
@@ -87,6 +97,7 @@ import { SPLINE_MAX_POINTS, splineCurve } from './spline';
 import {
   createOptionValues,
   TOOLS as DECLARED,
+  EXAMPLE,
   GROUP_NAMES,
   GROUPS,
   HEIGHT,
@@ -252,6 +263,18 @@ export function createEditor(context: EditorContext): Editor {
     cells?: CellFill;
   } | null = null;
   let syncGenerator: () => void = () => {};
+  // The Maps a fill of cells may learn from (ADR 0479), read once the tool is first chosen, and
+  // the example Map read for it when it is not this one.
+  let exampleMaps: ExampleMap[] | null = null;
+  let exampleMapsRead: Promise<void> | null = null;
+  let example: {
+    id: string;
+    name: string;
+    grid: GridSpec;
+    extent: [number, number, number, number];
+    rows: Row[];
+  } | null = null;
+  let exampleProblem: string | null = null;
   // The part of the selected placement being changed, when it has several (ADR 0474).
   let selectedPart: PartRef | null = null;
   let busy = false;
@@ -345,39 +368,53 @@ export function createEditor(context: EditorContext): Editor {
     if (fillsCells()) {
       const grid = gridNow();
       if (!grid) return null;
-      // The example is every region of whole cells on this Map, in the order they are drawn, so
-      // the entry on top is last and wins a cell two of them hold.
-      const drawn = context
-        .rows()
-        .flatMap((row) => {
-          const cells = cellsOf(row.geometry as unknown as Geometry, grid, context.extent);
-          return cells ? [{ row, cells }] : [];
-        })
-        .sort(
-          (a, b) => a.row.z - b.row.z || (a.row.id < b.row.id ? -1 : a.row.id > b.row.id ? 1 : 0),
-        );
-      const key = JSON.stringify([
-        toolName,
-        seed,
-        from?.id ?? null,
-        from?.geometry ?? null,
-        grid,
-        drawn.map(({ row, cells }) => [row.id, cells]),
-      ]);
-      if (made?.key === key) return made;
       const region = regionOf(
         from ? { name: from.name, geometry: from.geometry as unknown as Geometry } : null,
         context.extent,
       );
-      const example = drawn.map(({ row, cells }): Tile => ({ id: row.id, name: row.name, cells }));
-      const plan = cellFill(
-        grid,
-        context.extent,
-        example,
-        new Map(example.map((tile) => [tile.id, tile.cells])),
-        region,
+      const chosen = optionValues.get(decl, EXAMPLE);
+      const waiting = (why: string) => {
+        const key = JSON.stringify([toolName, 'waiting', chosen, why, from?.id ?? null]);
+        if (made?.key !== key) {
+          made = { key, region, geometry: null, count: '', fit: { ok: false, why } };
+        }
+        return made;
+      };
+      // The example: this Map, or the Map chosen once it has been read.
+      const source =
+        chosen === ''
+          ? { name: 'this Map', grid, extent: context.extent, rows: context.rows() }
+          : example?.id === chosen
+            ? example
+            : null;
+      if (!source) return waiting(exampleProblem ?? 'Reading the example Map.');
+      const drawn = drawnCells(source.rows, source.grid, source.extent);
+      const here =
+        chosen === '' ? [] : context.rows().map((row) => [row.id, row.geometry] as const);
+      const key = JSON.stringify([
+        toolName,
         seed,
-      );
+        chosen,
+        from?.id ?? null,
+        from?.geometry ?? null,
+        grid,
+        drawn.map(({ row, cells }) => [row.id, cells]),
+        here,
+      ]);
+      if (made?.key === key) return made;
+      const tiles = tilesOf(drawn);
+      if (chosen !== '' && !tiles.some((tile) => tile.cells.length > 0)) {
+        return waiting(
+          `${source.name} has no entries drawn as cells, and the fill learns from them. Choose another example.`,
+        );
+      }
+      // On this Map the example is what each entry holds; from another, what this Map holds of it.
+      const held =
+        chosen === ''
+          ? { ok: true as const, held: new Map(tiles.map((tile) => [tile.id, tile.cells])) }
+          : heldHere(tiles, context.rows(), grid, context.extent);
+      if (!held.ok) return waiting(held.why);
+      const plan = cellFill(grid, context.extent, tiles, held.held, region, seed);
       made = {
         key,
         region,
@@ -753,6 +790,21 @@ export function createEditor(context: EditorContext): Editor {
         answer(HELP);
         return;
       case 'option':
+        if (command.option.type === 'map') {
+          await readExampleMaps();
+          const id = mapNamed(exampleMaps ?? [], String(command.value));
+          if (id === null) {
+            answer(
+              `No Map of the library with a grid of this kind is called ${command.value}.`,
+              true,
+            );
+            return;
+          }
+          setOption(command.option, id);
+          await readExample(id);
+          answer(`Example is ${exampleName()}.`);
+          return;
+        }
         setOption(command.option, command.value);
         answer(
           typeof command.value !== 'boolean'
@@ -1260,9 +1312,100 @@ export function createEditor(context: EditorContext): Editor {
     renderToolbar();
     render();
     refresh();
+    if (fillsCells()) void readExampleMaps();
   }
 
   // --- a generator: preview, compare, apply, discard (ADR 0475) --------------------------------
+
+  /**
+   * The Maps of the library a fill of cells may learn from (ADR 0479): those with a grid of the
+   * kind this Map has, read once. One that cannot be read is left out.
+   */
+  function readExampleMaps(): Promise<void> {
+    exampleMapsRead ??= (async () => {
+      const grid = gridNow();
+      if (!grid) return;
+      const found: ExampleMap[] = [];
+      for (let page = 1; ; page += 1) {
+        const list = await unwrap(
+          await client.GET('/tenants/{tenant_id}/maps', {
+            params: { path: { tenant_id: context.tenant }, query: { page, size: 100 } },
+          }),
+        );
+        const others = list.items.filter((item) => item.id !== context.mapId);
+        const kinds = await Promise.all(
+          others.map(async (item) => {
+            try {
+              return gridOfMap(await readHeader(item.id));
+            } catch {
+              return null;
+            }
+          }),
+        );
+        others.forEach((item, i) => {
+          const other = kinds[i];
+          if (other && sameGridKind(grid, other.grid)) found.push({ id: item.id, name: item.name });
+        });
+        if (page * 100 >= list.total || list.items.length === 0) break;
+      }
+      exampleMaps = found;
+      if (fillsCells()) {
+        render();
+        refresh();
+      }
+    })().catch(() => {
+      exampleMaps = [];
+      exampleProblem = 'The Maps of the library could not be read. Try again.';
+      exampleMapsRead = null;
+    });
+    return exampleMapsRead;
+  }
+
+  async function readHeader(id: string) {
+    return unwrap(
+      await client.GET('/tenants/{tenant_id}/maps/{map_id}', {
+        params: { path: { tenant_id: context.tenant, map_id: id } },
+        cache: 'no-cache',
+      }),
+    );
+  }
+
+  /** A Map's grid and sheet from its header; null for a Map without a grid, or a sphere. */
+  function gridOfMap(header: { system: unknown; view?: unknown }) {
+    const system = header.system as { kind: string; extent?: [number, number, number, number] };
+    if (system.kind === 'sphere' || !system.extent) return null;
+    const grid = gridOf({
+      system: header.system,
+      placements: [],
+      overlay: (header.view as { grid?: GridSpec } | null)?.grid ?? null,
+    } as unknown as MapModel);
+    return grid ? { grid, extent: system.extent } : null;
+  }
+
+  /** Reads the Map chosen as the example, and draws the preview again once it is read. */
+  async function readExample(id: string) {
+    example = null;
+    exampleProblem = null;
+    if (id === '') return;
+    try {
+      const header = await readHeader(id);
+      const kind = gridOfMap(header);
+      const grid = gridNow();
+      if (!kind || !grid || !sameGridKind(grid, kind.grid)) {
+        exampleProblem = `${header.name} has no grid of the kind this Map has. Choose another example.`;
+      } else {
+        const { rows } = await readPlacements(context.tenant, id);
+        if (optionValues.get(toolDecl(), EXAMPLE) !== id) return;
+        example = { id, name: header.name, grid: kind.grid, extent: kind.extent, rows };
+      }
+    } catch {
+      exampleProblem = 'The example Map could not be read. Choose it again.';
+    }
+    if (fillsCells()) {
+      render();
+      refresh();
+    }
+  }
 
   /** The view is whole again and nothing of a preview is kept. */
   function leaveGenerator() {
@@ -1327,9 +1470,21 @@ export function createEditor(context: EditorContext): Editor {
     const put: NonNullable<Parameters<typeof batchPlacements>[2]['put']> = [];
     const remove: string[] = [];
     const step: Step = [];
+    const chosen = optionValues.get(toolDecl(), EXAMPLE);
     for (const tile of plan.tiles) {
       const row = rowOf(tile.id);
-      if (!row || !tile.changed) continue;
+      if (!tile.changed) continue;
+      if (!row) {
+        // An entry of another example, new to this Map: placed with the role, line and drawing
+        // order it has there (ADR 0479).
+        const there = chosen === '' ? undefined : example?.rows.find((one) => one.id === tile.id);
+        if (!there || tile.cells.length === 0) continue;
+        const how = rowState(there);
+        const geometry = cellsGeometry(grid, context.extent, tile.cells);
+        put.push({ entry_id: tile.id, geometry, role: how.role, style: how.style, z: how.z });
+        step.push({ entry: tile.id, before: null, after: { ...how, geometry } });
+        continue;
+      }
       const before = rowState(row);
       if (tile.cells.length === 0) {
         remove.push(row.id);
@@ -1361,6 +1516,15 @@ export function createEditor(context: EditorContext): Editor {
     return status.textContent ?? '';
   }
 
+  /** What the example of a fill of cells is called: this Map, or the Map chosen. */
+  function exampleName(): string {
+    const chosen = optionValues.get(toolDecl(), EXAMPLE);
+    if (chosen === '') return 'this Map';
+    return (
+      exampleMaps?.find((map) => map.id === chosen)?.name ?? example?.name ?? 'the example Map'
+    );
+  }
+
   /** The preview's line, Compare with its divider, and Apply and Discard. */
   function generatorControls(): HTMLElement {
     const box = el('div', '', 'stack-tight map-generator');
@@ -1380,7 +1544,7 @@ export function createEditor(context: EditorContext): Editor {
       box.append(
         el(
           'p',
-          'It learns from the cells already drawn on this Map: which entry lies beside which. Each entry gets the cells the fill gives it; nothing is drawn until you apply it.',
+          `It learns from the cells already drawn on ${exampleName()}: which entry lies beside which. Each entry gets the cells the fill gives it; nothing is drawn until you apply it.`,
           'status-text',
         ),
         tiles,
@@ -2251,6 +2415,27 @@ export function createEditor(context: EditorContext): Editor {
           optionValues.set(decl, option, line.input.value);
         });
         box.append(line.label);
+        continue;
+      }
+      if (option.type === 'map') {
+        // This Map first, then the Maps of the library with a grid of the same kind, once read.
+        const now = optionValues.get(decl, option);
+        const line = select(
+          option.name,
+          [
+            ['', 'This Map'],
+            ...(exampleMaps ?? []).map((map): [string, string] => [map.id, map.name]),
+          ],
+          now,
+        );
+        line.input.addEventListener('change', () => {
+          const id = line.input.value;
+          setOption(option, id);
+          void readExample(id);
+        });
+        box.append(line.label);
+        if (exampleMaps === null)
+          box.append(el('p', 'Reading the Maps of the library.', 'status-text'));
         continue;
       }
       if (option.type === 'text') {

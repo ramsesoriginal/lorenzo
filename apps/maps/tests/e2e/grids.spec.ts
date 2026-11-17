@@ -530,6 +530,174 @@ for (const theme of ['light', 'dark'] as const) {
   });
 }
 
+/** Two Maps of squares: one with stripes drawn as cells, and one to fill, with an area Yard. */
+async function examplePair(w: Awaited<ReturnType<typeof world>>) {
+  const grid = SQUARE as unknown as GridSpec;
+  const extent = [0, 0, 1000, 800] as const;
+  const caves = await w.makeMap('Old caves', SQUARE);
+  const level = await w.makeMap('New level', SQUARE);
+  const row = (r: number): [number, number][] => [0, 1, 2, 3].map((c): [number, number] => [c, r]);
+  const stripes = { Wall: [...row(0), ...row(2)], Floor: [...row(1), ...row(3)] };
+  const put = async (map: string, entry: string, geometry: unknown, z: number) =>
+    ok(
+      w.gm.PUT('/tenants/{tenant_id}/maps/{map_id}/placements/{entry_id}', {
+        params: { path: { ...w.path, map_id: map, entry_id: entry } },
+        body: { geometry, z } as never,
+      }),
+    );
+  const wall = await w.place('Wall');
+  const floor = await w.place('Floor');
+  await put(caves.id, wall.id, cellsGeometry(grid, extent, stripes.Wall), 2);
+  await put(caves.id, floor.id, cellsGeometry(grid, extent, stripes.Floor), 3);
+  const ring = [
+    [500, 400],
+    [900, 400],
+    [900, 800],
+    [500, 800],
+  ] as [number, number][];
+  const yard = await w.place('Yard');
+  await put(
+    level.id,
+    yard.id,
+    { format: 'lorenzo.geometry/1', parts: [{ shape: 'polygon', rings: [ring] }] },
+    0,
+  );
+  const region = regionOf(
+    {
+      name: 'Yard',
+      geometry: { format: 'lorenzo.geometry/1', parts: [{ shape: 'polygon', rings: [ring] }] },
+    },
+    extent,
+  );
+  return { grid, extent, caves, level, stripes, wall, floor, region, put };
+}
+
+async function fillFrom(page: Page, w: Awaited<ReturnType<typeof world>>, level: { id: string }) {
+  await page.goto(`/map/?tenant=${w.tenant.id}&id=${level.id}`);
+  await expect(page.getByRole('heading', { name: 'New level', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Edit this map' }).click();
+  await openPanel(page, 'Places');
+  await page.locator('.map-places').getByRole('button', { name: /Yard/ }).click();
+  await expect(page.getByRole('heading', { name: 'Change Yard' })).toBeVisible();
+  await page
+    .getByRole('group', { name: 'Generate', exact: true })
+    .getByRole('button', { name: 'Fill by wave function collapse', exact: true })
+    .click();
+}
+
+for (const theme of ['light', 'dark'] as const) {
+  test(`a fill by wave function collapse learns from another Map and places its entries here, in ${theme}`, async ({
+    browser,
+  }) => {
+    const w = await world();
+    const pair = await examplePair(w);
+    // Neither entry is on this Map yet: the fill places both, as they are drawn on the example.
+    const tiles = [
+      { id: pair.wall.id, name: 'Wall', cells: pair.stripes.Wall },
+      { id: pair.floor.id, name: 'Floor', cells: pair.stripes.Floor },
+    ];
+    const expected = cellFill(pair.grid, pair.extent, tiles, new Map(), pair.region, 4821);
+    if (!expected.ok) throw new Error(expected.why);
+    const gained = (name: string) => expected.tiles.find((t) => t.name === name)?.gained ?? [];
+    expect(gained('Wall')).toHaveLength(8);
+
+    const page = await signedIn(browser, w.subject, theme);
+    try {
+      await fillFrom(page, w, pair.level);
+      const command = page.getByLabel('Command', { exact: true });
+      await command.fill('SEED 4821');
+      await command.press('Enter');
+      await command.fill('EXAMPLE old caves');
+      await command.press('Enter');
+      await expect(page.locator('.map-command-answer')).toContainText('Example is Old caves.');
+      const preview = page.getByRole('group', { name: 'Preview' });
+      await expect(preview).toContainText('It learns from the cells already drawn on Old caves');
+      await expect(preview.locator('.map-generator-result')).toHaveText(
+        '16 cells of 2 tiles in Yard.',
+      );
+      await expect(preview.locator('.map-generator-tiles li')).toHaveText([
+        'Wall: 8 cells',
+        'Floor: 8 cells',
+      ]);
+      await expect(page.getByRole('combobox', { name: 'Example', exact: true })).toHaveValue(
+        pair.caves.id,
+      );
+      const result = await new AxeBuilder({ page }).exclude('.shell-bottom').analyze();
+      expect(result.violations.map((v) => `${v.id}: ${v.nodes[0]?.html}`)).toEqual([]);
+
+      // Apply: both entries are placed here, with the drawing order they have on the example.
+      await preview.getByRole('button', { name: 'Apply' }).click();
+      await expect.poll(async () => (await w.read(pair.level.id)).length).toBe(3);
+      const rows = await w.read(pair.level.id);
+      for (const [name, z] of [
+        ['Wall', 2],
+        ['Floor', 3],
+      ] as const) {
+        const row = rows.find((r) => r.name === name);
+        expect(row?.geometry).toEqual(cellsGeometry(pair.grid, pair.extent, gained(name)));
+        expect(row?.z).toBe(z);
+      }
+      // The example is as it was.
+      expect(
+        geometryOf((await w.read(pair.caves.id)).find((r) => r.name === 'Wall')).parts,
+      ).toHaveLength(8);
+      await openPanel(page, 'History');
+      await expect(page.locator('.map-slideover')).toContainText(
+        'Filled by wave function collapse, seed 4821: 16 cells of 2 tiles in Yard',
+      );
+      // Undo takes both off this Map again.
+      await page.getByRole('button', { name: 'Undo' }).click();
+      await expect.poll(async () => (await w.read(pair.level.id)).length).toBe(1);
+    } finally {
+      await page.context().close();
+    }
+  });
+}
+
+test('a fill by wave function collapse from another Map refuses an entry drawn here otherwise, and offers Maps of its kind only', async ({
+  browser,
+}) => {
+  const w = await world();
+  const pair = await examplePair(w);
+  await w.makeMap('Honeycomb', HEX);
+  // Floor is a pin on this Map: the fill would have to take that drawing away.
+  await pair.put(
+    pair.level.id,
+    pair.floor.id,
+    { format: 'lorenzo.geometry/1', parts: [{ shape: 'point', at: [150, 150] }] },
+    0,
+  );
+  const page = await signedIn(browser, w.subject);
+  try {
+    await fillFrom(page, w, pair.level);
+    const example = page.getByRole('combobox', { name: 'Example', exact: true });
+    // The hexes are not offered: only Maps with a grid of the kind this Map has.
+    await expect(example.locator('option')).toHaveText(['This Map', 'Old caves']);
+    await example.selectOption({ label: 'Old caves' });
+    const preview = page.getByRole('group', { name: 'Preview' });
+    await expect(preview.locator('.map-generator-result')).toHaveText(
+      'Floor is drawn on this Map as something else than cells, and a Map holds one drawing for an entry. Take it off this Map first, or choose another example.',
+    );
+    await expect(preview.getByRole('button', { name: 'Apply' })).toBeDisabled();
+    const command = page.getByLabel('Command', { exact: true });
+    await command.fill('EXAMPLE Honeycomb');
+    await command.press('Enter');
+    await expect(page.locator('.map-command-answer')).toContainText(
+      'No Map of the library with a grid of this kind is called Honeycomb.',
+    );
+    // Back to this Map, which has no cells drawn.
+    await command.fill('EXAMPLE this');
+    await command.press('Enter');
+    await expect(page.locator('.map-command-answer')).toContainText('Example is this Map.');
+    await expect(preview.locator('.map-generator-result')).toHaveText(
+      'There is no example yet: draw some cells with the Cells tool first, and the fill learns from them.',
+    );
+    expect(await w.read(pair.level.id)).toHaveLength(2);
+  } finally {
+    await page.context().close();
+  }
+});
+
 test('a fill by wave function collapse says what is missing: no example, or a tile too large', async ({
   browser,
 }) => {

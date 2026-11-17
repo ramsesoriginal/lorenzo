@@ -28,7 +28,8 @@ several parts, or an area with holes, is changed a part at a time
 from a seed, and applies it as one step ([ADR 0475](../../docs/adr/0475-the-generator-contract.md)); Cave system is
 the first ([ADR 0476](../../docs/adr/0476-the-cave-system-generator.md)), Fill by marching squares the second
 ([ADR 0477](../../docs/adr/0477-the-fill-by-marching-squares-generator.md)) and Fill by wave function collapse the
-third, which fills the cells of a grid in the manner of the cells already drawn
+third, which fills the cells of a grid in the manner of the cells already drawn on this Map or another of the
+library
 ([ADR 0479](../../docs/adr/0479-the-fill-by-wave-function-collapse-generator.md)) (a handle is dragged; every point is also a
 number field), role, line and drawing order, "place the children" of a Location drawn as an area,
 undo and redo, and *Settings* (name, sheet, the Location it shows, theme name, who sees it). A Map may be a grid of squares, rectangles or hexes (the
