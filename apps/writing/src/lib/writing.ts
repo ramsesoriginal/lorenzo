@@ -25,6 +25,7 @@ import {
   writeDraft,
 } from './drafts';
 import { linkReview } from './link-review';
+import { exportControls } from './manuscript-export';
 import { reviewAddress, reviewScreen } from './review';
 import { draftCount } from './word-count';
 import { writingDetails } from './writing-details';
@@ -441,6 +442,7 @@ async function manuscript(host: HTMLElement, account: string, tenant: string, en
 
   const area = element('div', '', 'stack');
 
+  const exports = exportControls(tenant, entry);
   const details = element('details');
   details.append(element('summary', 'Details'));
   const worldDetails = element('div', '', 'stack-tight');
@@ -522,6 +524,7 @@ async function manuscript(host: HTMLElement, account: string, tenant: string, en
     back.hidden = active;
     details.hidden = active;
     history.hidden = active;
+    exports.hidden = active;
     focus.textContent = active ? 'Leave focus' : 'Focus';
   });
   focus.setAttribute('aria-pressed', 'false');
@@ -572,6 +575,7 @@ async function manuscript(host: HTMLElement, account: string, tenant: string, en
     area,
     count.element,
     details,
+    exports,
     history,
   );
 
