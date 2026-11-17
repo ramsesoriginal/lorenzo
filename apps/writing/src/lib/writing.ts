@@ -24,9 +24,13 @@ import {
   selectDraft,
   writeDraft,
 } from './drafts';
+import { linkReview } from './link-review';
+import { exportControls } from './manuscript-export';
 import { reviewAddress, reviewScreen } from './review';
 import { draftCount } from './word-count';
 import { writingDetails } from './writing-details';
+import { writingSession } from './writing-session';
+import { writingTimer } from './writing-timer';
 
 const message = (error: unknown) =>
   error instanceof Error ? error.message : 'This could not be completed.';
@@ -438,6 +442,7 @@ async function manuscript(host: HTMLElement, account: string, tenant: string, en
 
   const area = element('div', '', 'stack');
 
+  const exports = exportControls(tenant, entry);
   const details = element('details');
   details.append(element('summary', 'Details'));
   const worldDetails = element('div', '', 'stack-tight');
@@ -449,7 +454,17 @@ async function manuscript(host: HTMLElement, account: string, tenant: string, en
   }
   details.addEventListener('toggle', () => {
     if (details.open && !worldDetails.children.length)
-      void writingDetails(worldDetails, tenant, entry).catch((error) => {
+      void writingDetails(
+        worldDetails,
+        tenant,
+        entry,
+        undefined,
+        () =>
+          editor
+            .read()
+            .flatMap((payload) => (payload.kind === 'description' ? [payload.content] : [])),
+        applyRepositoryUpdate,
+      ).catch((error) => {
         worldDetails.textContent = message(error);
       });
   });
@@ -509,6 +524,7 @@ async function manuscript(host: HTMLElement, account: string, tenant: string, en
     back.hidden = active;
     details.hidden = active;
     history.hidden = active;
+    exports.hidden = active;
     focus.textContent = active ? 'Leave focus' : 'Focus';
   });
   focus.setAttribute('aria-pressed', 'false');
@@ -544,6 +560,11 @@ async function manuscript(host: HTMLElement, account: string, tenant: string, en
     () => editor.read().flatMap((p) => (p.kind === 'description' ? [p.content] : [])),
     { tenant, id: entry, scope: 'direct' },
   );
+  const sessionGoal = writingSession(API_BASE_URL, account, tenant, () =>
+    editor.read().flatMap((p) => (p.kind === 'description' ? [p.content] : [])),
+  );
+  count.element.append(sessionGoal.element);
+  count.element.append(writingTimer(API_BASE_URL, account, tenant));
   host.replaceChildren(
     back,
     heading,
@@ -554,6 +575,7 @@ async function manuscript(host: HTMLElement, account: string, tenant: string, en
     area,
     count.element,
     details,
+    exports,
     history,
   );
 
@@ -610,11 +632,15 @@ async function manuscript(host: HTMLElement, account: string, tenant: string, en
 
         const control = createEditor({
           textarea: text,
+          reviewEntitySelection: () => review.open(),
           layout: 'tabs',
           toolbar: ['bold', 'italic', 'heading', 'bullets', '|', 'link', 'entity', 'undo'],
 
           render: (source) => render(parse(source), { externalImages: false }),
         });
+
+        const review = linkReview(tenant, text, control);
+        container.append(review.element);
 
         return {
           value: () => text.value,
@@ -625,6 +651,7 @@ async function manuscript(host: HTMLElement, account: string, tenant: string, en
     });
 
     area.replaceChildren(editor.element);
+    sessionGoal.rebase();
     count.refresh();
     observed = fingerprint(editor.read());
   }
@@ -635,6 +662,7 @@ async function manuscript(host: HTMLElement, account: string, tenant: string, en
     const next = fingerprint(editor.read());
     if (next === observed) return;
     observed = next;
+    sessionGoal.changed();
     count.refresh();
     dirty = true;
 
@@ -729,6 +757,53 @@ async function manuscript(host: HTMLElement, account: string, tenant: string, en
           })();
         }),
       );
+    }
+  }
+
+  async function applyRepositoryUpdate(
+    action: () => Promise<void>,
+    options?: { composition: boolean },
+  ) {
+    if (!alive || dirty || saving || blocked) {
+      throw new Error('Save your draft and resolve any conflicts before accepting an update.');
+    }
+    saving = true;
+    area.inert = true;
+    saveButton.disabled = true;
+    try {
+      await action();
+      if (!alive) return;
+      if (options?.composition) {
+        blocked = true;
+        location.reload();
+        return;
+      }
+      // The server may have accepted an update even if the following read fails.
+      // Keep the mounted draft protected until its current versions can be read.
+      blocked = true;
+      const current = await read();
+      if (!alive) return;
+      original = current;
+      receipt = { id: current.id, information: current };
+      mount(current.payloads);
+      observed = fingerprint(current.payloads);
+      await serial;
+      try {
+        await removeDraft(key);
+      } catch {
+        warning.textContent = 'Saved on the server. Browser recovery could not be cleared.';
+      }
+      dirty = false;
+      blocked = false;
+      status.textContent = 'Saved';
+    } catch (error) {
+      if (blocked)
+        status.textContent = 'Update accepted. Reload to read the saved manuscript before editing.';
+      throw error;
+    } finally {
+      saving = false;
+      area.inert = blocked;
+      saveButton.disabled = blocked;
     }
   }
 
