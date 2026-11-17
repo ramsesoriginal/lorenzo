@@ -7,6 +7,7 @@ import {
   MAX_TILE_CELLS,
   regionCells,
   type Tile,
+  TONES,
 } from '../../src/lib/cell-fill';
 import { directionsOf, neighbour, opposite } from '../../src/lib/cell-neighbours';
 import { collapse, learn, NOTHING, obeys, TRIES } from '../../src/lib/collapse';
@@ -309,7 +310,7 @@ describe('what a fill does to a Map (ADR 0478)', () => {
     expect(walls.cells).toHaveLength(wall.cells.length + walls.gained.length);
     expect(floors.cells).toHaveLength(floor.cells.length + floors.gained.length);
     expect(walls.tone).toBe(0);
-    expect(floors.tone).toBe(1);
+    expect(floors.tone).toBe(TONES - 1);
     expect(walls.changed).toBe(walls.gained.length > 0);
     for (const cell of [...walls.gained, ...floors.gained]) {
       expect(cell[0] >= 10 && cell[0] <= 15 && cell[1] >= 8 && cell[1] <= 11).toBe(true);

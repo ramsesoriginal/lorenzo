@@ -21,6 +21,14 @@ export const MAX_REGION_CELLS = 10_000;
 /** How many tones the preview tells tiles apart by. */
 export const TONES = 6;
 
+/** The tone of one tile among `count`: spread over the whole range while there are tones enough,
+ *  so two tiles are the faintest and the strongest, and going round again beyond that. */
+export function toneOf(index: number, count: number): number {
+  if (count > TONES) return index % TONES;
+
+  return Math.round((index * (TONES - 1)) / Math.max(1, count - 1));
+}
+
 /** An entry of the example and the cells it holds there, in the order they are drawn: last on top. */
 export type Tile = { id: string; name: string; cells: readonly Cell[] };
 
@@ -142,7 +150,7 @@ export function cellFill(
     return {
       id: tile.id,
       name: tile.name,
-      tone: index % TONES,
+      tone: toneOf(index, example.length),
       gained,
       cells: after,
       changed: after.length !== before.length || after.some((cell) => !was.has(key(cell))),
