@@ -75,7 +75,7 @@ describe('the geometry validator, mirrored (ADR 0337, ADR 0475)', () => {
     });
     expect(checkGeometry(doc([line(LIMITS.vertices), { shape: 'point', at: [0, 0] }]))).toEqual({
       ok: false,
-      why: 'a placement has at most 2000 vertices',
+      why: 'a placement has at most 8000 vertices',
     });
     // A bezier counts its start and three for every segment; a circle and a point one each.
     expect(
@@ -106,7 +106,7 @@ describe('the geometry validator, mirrored (ADR 0337, ADR 0475)', () => {
     // Long coordinates: within the vertices, beyond the bytes.
     const wide = {
       shape: 'polyline',
-      pts: Array.from({ length: 1990 }, (_, i) => [1234567.123456 + i, -7654321.654321 - i]),
+      pts: Array.from({ length: 7990 }, (_, i) => [-9999999.123456 + i, -9999999.654321 + i]),
     };
     const big = checkGeometry(doc([wide]));
 

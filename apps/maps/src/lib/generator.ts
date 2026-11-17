@@ -103,11 +103,11 @@ export function regionOf(
 
 /** What a tool says to change when a result is over a limit: one sentence for each. */
 export type Hints = {
-  /** More than a placement's 2,000 vertices. */
+  /** More than a placement's vertices (ADR 0337, ADR 0481). */
   vertices: string;
-  /** More than a placement's 256 parts. */
+  /** More than a placement's parts. */
   parts: string;
-  /** More than a placement's 64 KiB. */
+  /** More than a placement's bytes. */
   bytes: string;
   /** A polygon the API would refuse: one that touches or crosses itself, or a stray hole. */
   shape: string;

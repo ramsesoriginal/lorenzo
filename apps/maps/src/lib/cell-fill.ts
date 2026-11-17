@@ -9,11 +9,17 @@ import {
   type GridSpec,
   inGrid,
 } from '@lorenzo/map-renderer';
+import { cellsGeometry } from './cells-edit';
 import { collapse, learn } from './collapse';
-import { counted, type Region } from './generator';
+import { counted, fits, type Hints, type Region } from './generator';
 
-/** A placement holds at most this many cells (ADR 0337, ADR 0356). */
-export const MAX_TILE_CELLS = 256;
+/** What a tile over a drawing's limits says to change (ADR 0481). */
+const TILE_HINTS: Hints = {
+  vertices: 'Select a smaller area first.',
+  parts: 'Select a smaller area first.',
+  bytes: 'Select a smaller area first.',
+  shape: 'Roll another seed.',
+};
 /** One batch writes at most this many placements (ADR 0351). */
 export const MAX_TILES = 100;
 /** A region of more cells than this is not worked out: the page would stand still for it. */
@@ -156,14 +162,14 @@ export function cellFill(
       changed: after.length !== before.length || after.some((cell) => !was.has(key(cell))),
     };
   });
-  const over = tiles.find((tile) => tile.cells.length > MAX_TILE_CELLS);
+  // Each tile's cells are written as outlines (ADR 0481): one that would be over a drawing's
+  // limits refuses the result, by name.
+  for (const tile of tiles) {
+    if (!tile.changed || tile.cells.length === 0) continue;
 
-  if (over) {
-    return {
-      ok: false,
-      why: `${over.name} would hold ${over.cells.length} cells, and a drawing holds ${MAX_TILE_CELLS}. Select a smaller area first.`,
-      tiles,
-    };
+    const fit = fits(cellsGeometry(grid, extent, tile.cells), TILE_HINTS);
+
+    if (!fit.ok) return { ok: false, why: `${tile.name}: ${fit.why}`, tiles };
   }
 
   const filled = tiles.reduce((sum, tile) => sum + tile.gained.length, 0);

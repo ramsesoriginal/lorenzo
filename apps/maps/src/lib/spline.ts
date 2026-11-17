@@ -1,15 +1,16 @@
 // The Spline tool's curve (ADR 0471): a smooth line through points, written as one open bezier part
 // and read back from one. Pure: nothing here touches the page.
 import type { Part } from '@lorenzo/map-renderer';
+import { LIMITS } from './validate';
 
 type Pt = readonly [number, number];
 type Bezier = Extract<Part, { shape: 'bezier' }>;
 
 /**
- * The start and three for every segment count toward a placement's 2,000 vertices (ADR 0337), so a
- * spline has at most 666 segments: this many points.
+ * The start and three for every segment count toward a placement's vertices (ADR 0337, ADR 0481),
+ * so a spline of 8,000 has at most 2,666 segments: this many points.
  */
-export const SPLINE_MAX_POINTS = 667;
+export const SPLINE_MAX_POINTS = Math.floor((LIMITS.vertices - 1) / 3) + 1;
 
 /** How near a stored control must be to the spline's own, in drawing units, to be read as a spline. */
 const NEAR = 0.02;

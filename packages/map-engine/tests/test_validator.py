@@ -143,13 +143,14 @@ def test_a_vertex_limit_and_a_part_limit():
         validate_geometry({"format": "lorenzo.geometry/1", "parts": parts})
 
 
-def test_a_placement_has_at_most_sixty_four_kib():
+def test_a_placement_has_at_most_256_kib():
+    # Within the 8,000 vertices, beyond the 256 KiB of ADR 0481.
     big = {
         "format": "lorenzo.geometry/1",
         "parts": [
             {
                 "shape": "polyline",
-                "pts": [[1234567.123456 + i, -7654321.654321] for i in range(1999)],
+                "pts": [[-9999999.123456 + i, -9999999.654321 + i] for i in range(7990)],
             }
         ],
     }

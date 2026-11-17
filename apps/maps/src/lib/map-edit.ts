@@ -172,6 +172,14 @@ export type Editor = {
   destroy(): void;
 };
 
+/** What the Cells tool says to change when a region is over a drawing's limits (ADR 0481). */
+const CELL_HINTS: Hints = {
+  vertices: 'Draw fewer cells, or the rest for another entry.',
+  parts: 'Draw fewer cells, or the rest for another entry.',
+  bytes: 'Draw fewer cells, or the rest for another entry.',
+  shape: 'Draw the region again.',
+};
+
 /** What the Height brush says to change when its lines are over a limit (ADR 0480). */
 const BRUSH_HINTS: Hints = {
   vertices: 'Use a larger Step, or brush a smaller place.',
@@ -1279,7 +1287,11 @@ export function createEditor(context: EditorContext): Editor {
     else {
       // Drawing an entry's cells again keeps the value a cell already had.
       const was = rowOf(target?.id ?? null)?.geometry as unknown as Geometry | undefined;
-      void finish(cellsGeometry(grid, context.extent, cells, was));
+      const geometry = cellsGeometry(grid, context.extent, cells, was);
+      // The cells are written as outlines (ADR 0481); what is over a drawing's limits is said.
+      const fit = fits(geometry, CELL_HINTS);
+      if (!fit.ok) say(fit.why, true);
+      else void finish(geometry);
     }
   };
 
@@ -1424,7 +1436,7 @@ export function createEditor(context: EditorContext): Editor {
           next.length === cells.length &&
           !cells.some((c) => c[0] === cell[0] && c[1] === cell[1])
         ) {
-          say(`A region has at most ${MAX_CELLS_PER_PLACEMENT} cells.`, true);
+          say(`The Cells tool takes at most ${MAX_CELLS_PER_PLACEMENT} cells at once.`, true);
         }
         cells = next;
         refresh();

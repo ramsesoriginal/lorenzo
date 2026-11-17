@@ -94,20 +94,25 @@ describe('a freehand stroke (ADR 0472)', () => {
   });
 
   it('always fits a placement: the tolerance is raised until it does, and it says so', () => {
-    // A stroke whose every sample is a corner, far more of them than a placement holds.
-    const long = wave(MAX_VERTICES * 3, 4);
-    const kept = strokeLine(long, 0.5);
+    // A stroke whose every sample is a corner, three times as many as a limit of 1,000 holds.
+    const long = wave(3000, 4);
+    const kept = strokeLine(long, 0.5, 1000);
 
     expect(strokeLine(wave(100, 4), 0.5)).toMatchObject({ coarser: false });
     expect(kept.coarser).toBe(true);
-    expect(kept.pts.length).toBeLessThanOrEqual(MAX_VERTICES);
+    expect(kept.pts.length).toBeLessThanOrEqual(1000);
     expect(kept.pts.length).toBeGreaterThanOrEqual(2);
     expect(kept.pts[0]).toEqual(long[0]);
     expect(kept.pts[kept.pts.length - 1]).toEqual(long[long.length - 1]);
     // The same from no tolerance at all, and to a limit of the caller's own.
-    expect(strokeLine(long, 0).pts.length).toBeLessThanOrEqual(MAX_VERTICES);
+    expect(strokeLine(long, 0, 1000).pts.length).toBeLessThanOrEqual(1000);
     expect(strokeLine(wave(100, 4), 0.5, 10).pts.length).toBeLessThanOrEqual(10);
-  });
+    // And to the placement's own limit (ADR 0481), one point over it.
+    const over = strokeLine(wave(MAX_VERTICES + 1, 4), 0.5);
+
+    expect(over.coarser).toBe(true);
+    expect(over.pts.length).toBeLessThanOrEqual(MAX_VERTICES);
+  }, 20_000);
 
   it('turns a tolerance in pixels into drawing units by the zoom', () => {
     // A sheet of 1000 by 800 in a view of 500 by 400: half a pixel a unit when it fits.

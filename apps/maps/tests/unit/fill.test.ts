@@ -307,12 +307,24 @@ describe('the Fill by marching squares generator (ADR 0477)', () => {
     expect(def?.run(whole, 12, set({ scale: 3, lines: 2 })).needs).toBe(
       'Height lines need a first height, a step and a unit: give all three, or set Height lines to 0.',
     );
-    // The finest noise with every height line has more points than a drawing holds.
+    // Even the finest noise with every height line fits a drawing since ADR 0481; one over the
+    // limit is still named.
     const many = def?.run(whole, 3, set({ scale: 20, lines: 8, first: 0, step: 1 }, 'm'));
 
-    expect(fits(many?.geometry ?? null, def?.hints as never)).toEqual({
+    expect(fits(many?.geometry ?? null, def?.hints as never)).toEqual({ ok: true });
+    expect(
+      fits(
+        {
+          format: 'lorenzo.geometry/1',
+          parts: [
+            { shape: 'polyline', pts: Array.from({ length: 8001 }, (_, i) => [i, i % 2] as const) },
+          ],
+        } as never,
+        def?.hints as never,
+      ),
+    ).toEqual({
       ok: false,
-      why: 'This has more than the 2000 points a drawing holds. Lower Height lines, or raise Scale.',
+      why: 'This has more than the 8000 points a drawing holds. Lower Height lines, or raise Scale.',
     });
   });
 });

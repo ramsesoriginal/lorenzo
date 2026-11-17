@@ -1,8 +1,9 @@
 """The limits of ADR 0337, in one place. They begin strict and are loosened by ADR."""
 
-MAX_PLACEMENT_BYTES = 64 * 1024
-MAX_VERTICES = 2_000
-MAX_PARTS = 256
+# Raised from 64 KiB, 2,000 and 256 by ADR 0481.
+MAX_PLACEMENT_BYTES = 256 * 1024
+MAX_VERTICES = 8_000
+MAX_PARTS = 1_024
 MAX_COORDINATE = 10_000_000
 MAX_VALUE = 1_000_000_000_000
 MAX_DECIMALS = 6

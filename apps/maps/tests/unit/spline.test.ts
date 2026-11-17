@@ -188,10 +188,10 @@ describe('a spline (ADR 0471)', () => {
     const most: Pt[] = Array.from({ length: SPLINE_MAX_POINTS }, (_, i): Pt => [i, i % 2]);
     const full = splinePart(most, 0.5);
 
-    // The start and three for every segment: within the 2,000 of ADR 0337.
-    expect(1 + full.segs.length * 3).toBeLessThanOrEqual(2000);
+    // The start and three for every segment: within the 8,000 of ADR 0481.
+    expect(1 + full.segs.length * 3).toBeLessThanOrEqual(8000);
     expect(full.segs).toHaveLength(SPLINE_MAX_POINTS - 1);
-    expect(1 + SPLINE_MAX_POINTS * 3).toBeGreaterThan(2000);
+    expect(1 + SPLINE_MAX_POINTS * 3).toBeGreaterThan(8000);
 
     const whole: Editable = { kind: 'spline', pts: most.map((p) => [...p] as Pt), tension: 0.5 };
 
