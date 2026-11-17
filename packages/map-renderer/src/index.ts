@@ -1,6 +1,6 @@
 export type { Overlay, OverlayShape, Tool, ToolEvent } from './edit';
-export { HANDLE_PICK, HANDLE_RADIUS, handleAt, overlayPrims } from './edit';
-export { placementCentre } from './geom';
+export { HANDLE_PICK, HANDLE_RADIUS, handleAt, OVERLAY_TONES, overlayPrims } from './edit';
+export { bezierPoints, placementCentre } from './geom';
 export type { Cell, GridKind, GridSpec, Orientation } from './grid';
 export { cellAt, cellCentre, cellCount, cellPolygon, inGrid, isGridKind } from './grid';
 export type { GridState } from './gridDraw';
@@ -20,6 +20,7 @@ export { createMapView } from './mapView';
 export type { PaintOptions, TreeNode } from './paint';
 export { iconHref, paintSvg, sceneToSvg, sceneTree } from './paint';
 export { project, unproject } from './project';
+export { hashString, seeded } from './random';
 export type { Arc } from './relief';
 export { reliefArcs } from './relief';
 export type {

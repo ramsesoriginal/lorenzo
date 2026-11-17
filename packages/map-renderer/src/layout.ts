@@ -1,5 +1,5 @@
 import { overlayPrims } from './edit';
-import { bboxOf, finitePoint, flattenCubic, growBBox, num } from './geom';
+import { bboxOf, finitePoint, flattenCubic, flattenPath, growBBox, num } from './geom';
 import { gridPrims } from './gridDraw';
 import { layerPrims } from './layers';
 import { project, toScreen, transformOf } from './project';
@@ -27,6 +27,9 @@ export const HOVER_CLASS = 'm-hover';
 
 /** How far a line is found from, in pixels, at least. */
 export const LINE_TOLERANCE = 8;
+/** How far above its line a value is written, in screen pixels. */
+const VALUE_LIFT = 6;
+
 /** What an estimate of a label's width assumes, per character, for 13px text. */
 const CHAR_WIDTH = 7;
 
@@ -232,9 +235,58 @@ function compareText(a: string, b: string): number {
   return a < b ? -1 : a > b ? 1 : 0;
 }
 
+/** How many heights a mark's name says before it says how many more there are. */
+const HEIGHTS_SAID = 3;
+
+/** A part's value with its unit, as it is drawn and said: "250 m". */
+export function valueWords(part: Part): string | null {
+  return typeof part.value === 'number' && typeof part.unit === 'string' && part.unit !== ''
+    ? `${part.value} ${part.unit}`
+    : null;
+}
+
+/** The middle of the longest piece of a line on the screen, by its length, or null for no line. */
+function middleOf(d: string): Point | null {
+  let best: { pts: Point[]; length: number } | null = null;
+
+  for (const piece of flattenPath(d)) {
+    let length = 0;
+
+    for (let i = 1; i < piece.pts.length; i += 1) {
+      const a = piece.pts[i - 1] as Point;
+      const b = piece.pts[i] as Point;
+
+      length += Math.hypot(b[0] - a[0], b[1] - a[1]);
+    }
+
+    if (piece.pts.length > 0 && (!best || length > best.length)) best = { pts: piece.pts, length };
+  }
+
+  if (!best) return null;
+
+  let left = best.length / 2;
+
+  for (let i = 1; i < best.pts.length; i += 1) {
+    const a = best.pts[i - 1] as Point;
+    const b = best.pts[i] as Point;
+    const step = Math.hypot(b[0] - a[0], b[1] - a[1]);
+
+    if (step >= left && step > 0) {
+      const f = left / step;
+
+      return [a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f];
+    }
+
+    left -= step;
+  }
+
+  return best.pts[0] ?? null;
+}
+
 /**
  * What a mark is called: the name and the role in words. Words drawn in the mark that the name
- * does not hold, such as a person's initials, are part of it too (WCAG 2.5.3, label in name).
+ * does not hold, such as a person's initials or a line's height, are part of it too (WCAG 2.5.3,
+ * label in name).
  */
 function accessibleName(placement: Placement, role: Role | null, drawn: readonly string[]): string {
   const name = placement.entry.name;
@@ -313,6 +365,8 @@ export function layout(model: MapModel, view: View, theme: Theme = defaultTheme)
 
   if (view.groups.grid) prims.push(...gridPrims(model, t).prims);
 
+  // The values lines carry (ADR 0473), drawn after every placement so no mark covers them.
+  const values: Prim[] = [];
   const onSphere = isSphere(system);
   const onScreen = (p: Point): Point => sp(toScreen(t, p));
 
@@ -321,12 +375,19 @@ export function layout(model: MapModel, view: View, theme: Theme = defaultTheme)
     const ids = new Map<string, number>();
     const first = prims.length;
 
+    // The heights its lines carry (ADR 0473), each said once, whether or not names are drawn.
+    const heights: string[] = [];
+
     placement.geometry.parts.forEach((part, partIndex) => {
       const shape = onSphere
         ? buildSphereShape(part, system, onScreen)
         : buildShape(part, place, t.scale);
 
       if (!shape) return;
+
+      const words = shape.kind === 'line' ? valueWords(part) : null;
+
+      if (words !== null && !heights.includes(words)) heights.push(words);
 
       for (const mark of theme.marks({ placement, role, part, partIndex, shape, ctx })) {
         const base = `${entryId}:${partIndex}:${mark.purpose}`;
@@ -335,18 +396,53 @@ export function layout(model: MapModel, view: View, theme: Theme = defaultTheme)
         ids.set(base, seen + 1);
         prims.push(primOf(mark, seen === 0 ? base : `${base}#${seen}`, entryId, view));
       }
+
+      // A line that carries a value says it at its middle, in every theme, with the names.
+      const at =
+        words !== null && view.groups.names && shape.kind === 'line' ? middleOf(shape.d) : null;
+
+      if (at && words !== null) {
+        // Written above every mark and outside the placement's own button: a mark's name could not
+        // hold the text of every line it has (WCAG 2.5.3), and it says the heights itself.
+        const { entryId: _mark, ...label } = primOf(
+          {
+            type: 'text',
+            purpose: 'value',
+            cls: 'm-lbl m-lbl-value',
+            at: [at[0], at[1] - VALUE_LIFT],
+            text: words,
+            anchor: 'middle',
+          },
+          `${entryId}:${partIndex}:value`,
+          entryId,
+          view,
+        );
+
+        values.push(label as Prim);
+      }
     });
 
     const lead = prims[first];
 
     if (lead) {
       const drawn = prims.slice(first).flatMap((prim) => (prim.kind === 'text' ? [prim.text] : []));
+      const said =
+        heights.length > HEIGHTS_SAID
+          ? [
+              ...heights.slice(0, HEIGHTS_SAID).map((h) => `height ${h}`),
+              `and ${heights.length - HEIGHTS_SAID} more heights`,
+            ]
+          : heights.map((h) => `height ${h}`);
 
-      lead.label = accessibleName(placement, role, drawn);
+      lead.label = accessibleName(placement, role, [...drawn, ...said]);
     }
   }
 
-  if (view.overlay?.length) prims.push(...overlayPrims(view.overlay, system, t));
+  prims.push(...values);
+
+  if (view.overlay?.length) {
+    prims.push(...overlayPrims(view.overlay, system, t, view.overlayDivide));
+  }
 
   return {
     theme: theme.name,

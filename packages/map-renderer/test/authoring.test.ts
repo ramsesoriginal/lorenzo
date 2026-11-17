@@ -6,12 +6,14 @@ import {
   handleAt,
   layout,
   legend,
+  OVERLAY_TONES,
   type Overlay,
   overlayPrims,
   type PathPrim,
   plainTheme,
   ROLES,
   SWATCH,
+  sceneToSvg,
   THEME_NAMES,
   themeNamed,
   themes,
@@ -165,6 +167,106 @@ describe('the overlay an editor draws', () => {
     expect(extra[1]?.cls).toContain('m-ov-preview');
     expect(extra[4]?.cls).toContain('m-ov-active');
     expect((extra[0] as PathPrim).d.endsWith(' Z')).toBe(true);
+  });
+
+  describe('a filled area and a divider (ADR 0475)', () => {
+    const square: [number, number][] = [
+      [100, 100],
+      [300, 100],
+      [300, 300],
+      [100, 300],
+    ];
+    const hole: [number, number][] = [
+      [150, 150],
+      [250, 150],
+      [250, 250],
+    ];
+    const preview: Overlay = [
+      { id: 'cave', kind: 'area', rings: [square, hole], clipped: true },
+      {
+        id: 'contour',
+        kind: 'line',
+        pts: [
+          [0, 0],
+          [100, 0],
+        ],
+        clipped: true,
+      },
+      { id: 'p0', kind: 'handle', at: [0, 0] },
+    ];
+
+    it('draws an area as one even-odd path, its holes cut out, that takes no pointer', () => {
+      const scene = layout(model, view({ overlay: preview }));
+      const area = scene.prims.find((p) => p.id === 'overlay:cave') as PathPrim;
+
+      expect(area.cls).toBe('m-ov m-ov-area');
+      expect(area.fillRule).toBe('evenodd');
+      expect(area.d).toBe(
+        'M 100 100 L 300 100 L 300 300 L 100 300 Z M 150 150 L 250 150 L 250 250 Z',
+      );
+      expect(area.bbox).toEqual([100, 100, 300, 300]);
+      expect(area.entryId).toBeUndefined();
+      expect(area.hit).toBeUndefined();
+      // With no divider nothing is clipped and no divider is drawn.
+      expect(area.clip).toBeUndefined();
+      expect(scene.prims.some((p) => p.id === 'overlay:divider')).toBe(false);
+    });
+
+    it('draws an area in one of six tones when it is given one', () => {
+      const toned = (tone: number) =>
+        layout(
+          model,
+          view({ overlay: [{ id: 't', kind: 'area', rings: [square], tone }] }),
+        ).prims.find((p) => p.id === 'overlay:t')?.cls;
+
+      expect(OVERLAY_TONES).toBe(6);
+      expect(toned(0)).toBe('m-ov m-ov-area m-ov-tone-0');
+      expect(toned(5)).toBe('m-ov m-ov-area m-ov-tone-5');
+      // A tone beyond the six is the nearest of them, and a part of one is the whole below it.
+      expect(toned(9)).toBe('m-ov m-ov-area m-ov-tone-5');
+      expect(toned(-2)).toBe('m-ov m-ov-area m-ov-tone-0');
+      expect(toned(2.7)).toBe('m-ov m-ov-area m-ov-tone-2');
+    });
+
+    it('with a divider draws the clipped shapes to its right only, and the divider itself', () => {
+      const scene = layout(model, view({ overlay: preview, overlayDivide: 0.25 }));
+      const byId = (id: string) => scene.prims.find((p) => p.id === id);
+
+      // The view is 1000 by 640: a quarter of the way across is 250.
+      expect(byId('overlay:cave')?.clip).toEqual([250, 0, 1000, 640]);
+      expect(byId('overlay:contour')?.clip).toEqual([250, 0, 1000, 640]);
+      expect(byId('overlay:p0')?.clip).toBeUndefined();
+      expect(byId('overlay:divider')).toMatchObject({
+        kind: 'path',
+        cls: 'm-ov m-ov-divider',
+        d: 'M 250 0 L 250 640',
+      });
+      expect(scene.prims[scene.prims.length - 1]?.id).toBe('overlay:divider');
+      // A divider beyond the view stays at its edge.
+      expect(
+        layout(model, view({ overlay: preview, overlayDivide: 7 })).prims.find(
+          (p) => p.id === 'overlay:divider',
+        ),
+      ).toMatchObject({ d: 'M 1000 0 L 1000 640' });
+      // An overlay with nothing clipped has no divider, wherever the view is split.
+      expect(
+        layout(
+          model,
+          view({ overlay: [{ id: 'p0', kind: 'handle', at: [0, 0] }], overlayDivide: 0.5 }),
+        ).prims.some((p) => p.id === 'overlay:divider'),
+      ).toBe(false);
+    });
+
+    it('is painted with one clip for the shapes that share it', () => {
+      const svg = sceneToSvg(layout(model, view({ overlay: preview, overlayDivide: 0.25 })), {
+        idPrefix: 'm',
+      });
+
+      expect(svg.match(/<clipPath /g)).toHaveLength(1);
+      expect(svg).toContain('<clipPath id="m-clip-0"><rect x="250" y="0" width="750" height="640"');
+      expect(svg.match(/clip-path="url\(#m-clip-0\)"/g)).toHaveLength(2);
+      expect(sceneToSvg(layout(model, view({ overlay: preview })))).not.toContain('clipPath');
+    });
   });
 
   it('puts handles where the drawing point is on the screen, and a disc by drawing units', () => {

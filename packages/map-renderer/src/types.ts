@@ -182,4 +182,9 @@ export type View = {
   iconBase?: string;
   /** What an editor draws over the marks (ADR 0353); none when nothing is being edited. */
   overlay?: Overlay;
+  /**
+   * Where a divider splits the view, as a fraction of its width from the left (ADR 0475): the
+   * overlay's clipped shapes are drawn to its right only.
+   */
+  overlayDivide?: number;
 };

@@ -52,6 +52,11 @@ returns them. The roles are a closed list (`ROLES`); a role the list does not kn
 Positions are drawing units, y down, and `project(system, point)` is the one place a position
 becomes a drawing position (the identity for `plane` and `outline`).
 
+A part may carry a `value` and a `unit`. A line or a curve that does is labelled with them at its
+middle ("250 m"), in every theme, while Names are shown, and the mark's accessible name says the
+height either way ([ADR 0473](../../docs/adr/0473-the-height-line-tool.md)). Nothing else reads a
+value.
+
 `View`: `zoom` 1 fits the whole sheet in the viewport and 2 is twice that; `centre` is the drawing
 point in the middle of the viewport; `groups` are Places (everything but presence and routes),
 People (`presence`), Roads (`route`), Names (the labels) and `showPlaces` (a hairline outline for a
@@ -113,6 +118,16 @@ For an editor (ADR 0353) a view takes a `Tool` and an `Overlay`: `setTool(tool)`
 tool in drawing units (`down`, `drag`, `up`, `click`, `dblclick`, `move`, `key`), and `setOverlay(shapes)`
 draws lines, discs and draggable handles above the marks. A view with no tool behaves as before; the
 renderer knows nothing of what the editor does with either.
+
+An overlay may also hold a filled `area` (an outline and its holes), which is how a generator shows what
+it would draw before anything is written. `setOverlayDivide(fraction)` splits the view at that fraction of
+its width: overlay shapes marked `clipped` are drawn to the right of it only, with a divider line, so the
+Map as it is shows on the left ([ADR 0475](../../docs/adr/0475-the-generator-contract.md)). `bezierPoints(part)` gives the points
+a curve is drawn through, so an editor reads a curved line as it is drawn
+([ADR 0480](../../docs/adr/0480-the-height-brush.md)). An `area` may
+carry a `tone`, one of `OVERLAY_TONES` (six) strengths of the overlay's colour, so a preview of several kinds
+of thing tells them apart; the tone is never the only sign, and whoever sets it names the kinds beside the
+Map ([ADR 0479](../../docs/adr/0479-the-fill-by-wave-function-collapse-generator.md)).
 
 ## Grids
 

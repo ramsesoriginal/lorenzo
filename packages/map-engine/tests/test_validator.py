@@ -26,6 +26,8 @@ from lorenzo_map import (
 GOLDEN = Path(__file__).parents[1] / "golden"
 GEOMETRY = json.loads((GOLDEN / "geometry.json").read_text(encoding="utf-8"))
 SYSTEM = json.loads((GOLDEN / "system.json").read_text(encoding="utf-8"))
+CAVES = json.loads((GOLDEN / "caves.json").read_text(encoding="utf-8"))
+FILLS = json.loads((GOLDEN / "fills.json").read_text(encoding="utf-8"))
 
 
 @pytest.mark.parametrize("case", GEOMETRY["accepted"], ids=lambda c: c["name"])
@@ -36,6 +38,40 @@ def test_geometry_the_golden_corpus_accepts(case):
     assert checked.bytes == len(
         json.dumps(checked.geometry, separators=(",", ":"), ensure_ascii=False).encode()
     )
+
+
+@pytest.mark.parametrize(
+    "case", [c for c in CAVES["cases"] if c["output"] is not None], ids=lambda c: c["name"]
+)
+def test_what_the_cave_generator_draws_is_accepted(case):
+    """The generators of Lorenzo Maps run in the browser (ADR 0475, 0476); what they draw is held
+    to this validator here, on the vectors their own tests reproduce."""
+    checked = validate_geometry(case["output"])
+    assert checked.geometry == case["output"]
+    assert len(case["output"]["parts"]) == case["caves"]
+    assert all(part["shape"] == "polygon" for part in case["output"]["parts"])
+
+
+@pytest.mark.parametrize(
+    "case", [c for c in FILLS["cases"] if c["output"] is not None], ids=lambda c: c["name"]
+)
+def test_what_the_fill_generator_draws_is_accepted(case):
+    """Areas and, after them, height lines: each goes round, or ends at its region's edge
+    (ADR 0477)."""
+    checked = validate_geometry(case["output"])
+    assert checked.geometry == case["output"]
+    parts = case["output"]["parts"]
+    assert [part["shape"] for part in parts] == ["polygon"] * case["areas"] + ["polyline"] * (
+        case["lines"]
+    )
+    for line in parts[case["areas"] :]:
+        assert len(line["pts"]) >= 2
+        # A line carries its height and unit, unless they were still to be given.
+        assert ("value" in line and "unit" in line) != case["needsHeights"]
+
+
+def test_the_cave_vectors_cover_no_cave_at_all():
+    assert any(c["output"] is None and c["caves"] == 0 for c in CAVES["cases"])
 
 
 @pytest.mark.parametrize("case", GEOMETRY["refused"], ids=lambda c: c["name"])

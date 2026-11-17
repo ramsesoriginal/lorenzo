@@ -6,7 +6,9 @@ import {
   cellPolygon,
   type Geometry,
   type GridSpec,
+  gridOf,
   inGrid,
+  type MapModel,
   type MapViewController,
   type Overlay,
   ROLE_WORDS,
@@ -14,7 +16,8 @@ import {
   type Tool,
   type ToolEvent,
 } from '@lorenzo/map-renderer';
-import { LorenzoApiError } from './api';
+import { client, LorenzoApiError, unwrap } from './api';
+import { type CellFill, cellFill } from './cell-fill';
 import {
   cellOfPoint,
   cellsGeometry,
@@ -28,6 +31,28 @@ import {
 import { HELP, parseCommand } from './command-line';
 import { button, el, field, groupTitle, message, select, statusLine } from './dom';
 import {
+  drawnCells,
+  type ExampleMap,
+  heldHere,
+  mapNamed,
+  sameGridKind,
+  tilesOf,
+} from './example-maps';
+import { strokeLine, unitsPerPixel } from './freehand';
+import {
+  type Fit,
+  fits,
+  type Hints,
+  nextSeed,
+  type Region,
+  regionOf,
+  SEED_MOST,
+  seedFrom,
+  seedOf,
+  stepName,
+} from './generator';
+import { GENERATORS } from './generators';
+import {
   type Editable,
   editableOf,
   handlesOf,
@@ -40,6 +65,19 @@ import {
   toGeometry,
   translate,
 } from './geometry-edit';
+import { heightOf, rememberedHeight, rememberHeight, unitOf } from './height';
+import {
+  type BrushField,
+  brushField,
+  type EntryLine,
+  entryLines,
+  type Redraw,
+  redraw,
+  redrawWords,
+  stepOf,
+  strokeOf,
+  withStroke,
+} from './height-field';
 import { type Change, createHistory, type Step, writeFor } from './history';
 import { createKeyMap } from './keymap';
 import {
@@ -54,20 +92,47 @@ import {
   removePlacement,
   rowState,
 } from './map-api';
+import {
+  hasParts,
+  isHeightLines,
+  MAX_PARTS,
+  movedPart,
+  type PartRef,
+  partAt,
+  partNames,
+  partShape,
+  refAfterRemoval,
+  withoutPart,
+  withPart,
+  withParts,
+} from './parts-edit';
 import { SPLINE_MAX_POINTS, splineCurve } from './spline';
 import {
+  BRUSH_ROLE,
+  BRUSH_STEP,
   createOptionValues,
   TOOLS as DECLARED,
+  EXAMPLE,
+  FILL_FIRST,
   GROUP_NAMES,
+  GROUPS,
+  HEIGHT,
   numberFor,
+  type OptionValue,
   optionsOf,
+  RADIUS,
+  ROLE,
+  SEED,
   SNAP,
+  STRENGTH,
   searchTools,
   TENSION,
+  TOLERANCE,
   type ToolDecl,
   type ToolOption,
   toolById,
   toolsOf,
+  UNIT,
   usable,
 } from './tools';
 
@@ -107,7 +172,28 @@ export type Editor = {
   destroy(): void;
 };
 
-type ToolName = 'select' | 'pin' | 'circle' | 'line' | 'spline' | 'area' | 'cells';
+/** What the Height brush says to change when its lines are over a limit (ADR 0480). */
+const BRUSH_HINTS: Hints = {
+  vertices: 'Use a larger Step, or brush a smaller place.',
+  parts: 'Use a larger Step.',
+  bytes: 'Use a larger Step, or brush a smaller place.',
+  shape: 'Brush it again.',
+};
+
+type ToolName =
+  | 'select'
+  | 'pin'
+  | 'circle'
+  | 'line'
+  | 'spline'
+  | 'freehand'
+  | 'area'
+  | 'cells'
+  | 'height-line'
+  | 'height-brush'
+  | 'cave-system'
+  | 'marching-squares'
+  | 'wave-function-collapse';
 
 const TOOLS: [ToolName, string][] = [
   ['select', 'Select'],
@@ -115,6 +201,12 @@ const TOOLS: [ToolName, string][] = [
   ['circle', 'Circle'],
   ['line', 'Line'],
   ['spline', 'Spline'],
+  ['freehand', 'Freehand'],
+  ['height-line', 'Height line'],
+  ['height-brush', 'Height brush'],
+  ['cave-system', 'Cave system'],
+  ['marching-squares', 'Fill by marching squares'],
+  ['wave-function-collapse', 'Fill by wave function collapse'],
   ['area', 'Area'],
   ['cells', 'Cells'],
 ];
@@ -147,6 +239,9 @@ const ROLE_OPTIONS: [string, string][] = [
 
 const BATCH_MAX = 100;
 
+/** How near a line or a pin a press chooses that part of a placement, in screen pixels. */
+const PART_REACH = 8;
+
 const same = (a: Pt, b: Pt) => Math.hypot(a[0] - b[0], a[1] - b[1]) < 0.01;
 const asText = (error: unknown) =>
   error instanceof LorenzoApiError ? error.message : message(error);
@@ -167,11 +262,63 @@ export function createEditor(context: EditorContext): Editor {
   let cells: Cell[] = [];
   // What the tools' options are set to (ADR 0470), Snap to the grid among them (ADR 0356).
   const optionValues = createOptionValues();
+  // The height and unit last drawn on this Map in this browser are offered again (ADR 0473).
+  const keptHeight = rememberedHeight(context.mapId);
+  if (keptHeight) {
+    const heightLine = toolById('height-line') as ToolDecl;
+    optionValues.set(heightLine, HEIGHT, keptHeight.value);
+    optionValues.set(heightLine, UNIT, keptHeight.unit);
+  }
   let rubber: Pt | null = null;
+  // The samples of a freehand stroke while the pointer is held (ADR 0472).
+  let stroke: Pt[] | null = null;
   let selectedId: string | null = null;
   // The selected shape while a handle or the shape is being dragged, drawn as an overlay.
   let working: Editable | null = null;
-  let dragging: { handle: string | null; base: Editable; start: Pt } | null = null;
+  let dragging: { handle: string | null; base: Editable; start: Pt; by: Pt } | null = null;
+  // A generator (ADR 0475): the placement its region was taken from, whether the view is split to
+  // compare, where, and the result last worked out with what it was worked out from.
+  let regionId: string | null = null;
+  let compare = false;
+  let divide = 0.5;
+  let made: {
+    key: string;
+    region: Region;
+    geometry: Geometry | null;
+    count: string;
+    fit: Fit;
+    /** For a fill of cells (ADR 0479): what each tile entry gains and has afterwards. */
+    cells?: CellFill;
+    /** For the Height brush (ADR 0480): which lines go and which are drawn. */
+    brush?: Extract<Redraw, { ok: true }>;
+  } | null = null;
+  // The Height brush (ADR 0480): the field of the entry being brushed and what the strokes have
+  // moved it by, in steps; the stroke under way; and where the pointer is.
+  let brush: {
+    key: string;
+    flat: number;
+    lines: EntryLine[];
+    field: BrushField;
+    raised: Float64Array;
+    strokes: number;
+  } | null = null;
+  let brushStroke: { pts: Pt[]; lower: boolean } | null = null;
+  let brushAt: Pt | null = null;
+  let syncGenerator: () => void = () => {};
+  // The Maps a fill of cells may learn from (ADR 0479), read once the tool is first chosen, and
+  // the example Map read for it when it is not this one.
+  let exampleMaps: ExampleMap[] | null = null;
+  let exampleMapsRead: Promise<void> | null = null;
+  let example: {
+    id: string;
+    name: string;
+    grid: GridSpec;
+    extent: [number, number, number, number];
+    rows: Row[];
+  } | null = null;
+  let exampleProblem: string | null = null;
+  // The part of the selected placement being changed, when it has several (ADR 0474).
+  let selectedPart: PartRef | null = null;
   let busy = false;
 
   const say = (text: string, failed = false) => {
@@ -180,6 +327,12 @@ export function createEditor(context: EditorContext): Editor {
     status.setAttribute('role', failed ? 'alert' : 'status');
   };
   const gridNow = () => context.grid();
+  /** The tools that take a point at a time and finish with Enter. */
+  const pathTool = () =>
+    toolName === 'line' ||
+    toolName === 'spline' ||
+    toolName === 'area' ||
+    toolName === 'height-line';
   /** The declaration of the tool that is on. */
   const toolDecl = (): ToolDecl => toolById(toolName) as ToolDecl;
   const snapped = (kind: 'centre' | 'corner', p: Pt): Pt => {
@@ -200,6 +353,282 @@ export function createEditor(context: EditorContext): Editor {
     p[0] <= context.extent[2] &&
     p[1] >= context.extent[1] &&
     p[1] <= context.extent[3];
+
+  /** Whether a placement is a region of whole cells of this Map's grid: the Cells panel's own. */
+  const isCellsRow = (row: Row) => {
+    const grid = gridNow();
+    return Boolean(grid && cellsOf(row.geometry as unknown as Geometry, grid, context.extent));
+  };
+
+  /**
+   * What of a placement is being changed (ADR 0474): the whole of one simple part, or the chosen
+   * part of several, with the geometry a changed shape makes of it.
+   */
+  function focusOf(row: Row): {
+    shape: Editable | null;
+    part: PartRef | null;
+    write(shape: Editable): Geometry;
+  } {
+    const geometry = row.geometry as unknown as Geometry;
+    if (isCellsRow(row)) return { shape: null, part: null, write: () => geometry };
+    if (!hasParts(geometry)) return { shape: editableOf(geometry), part: null, write: toGeometry };
+    const ref = selectedPart;
+    return {
+      shape: ref ? partShape(geometry, ref) : null,
+      part: ref,
+      write: (shape) => (ref ? withPart(geometry, ref, shape) : geometry),
+    };
+  }
+
+  /** Whether the tool previews and applies (ADR 0475). */
+  const generating = () => toolDecl().generator === true;
+  /** Whether it is the Height brush, which previews from strokes rather than a seed (ADR 0480). */
+  const brushing = () => toolDecl().brush === true;
+  /** How far a stroke of the brush reaches, in drawing units. */
+  const radiusNow = () =>
+    ((optionValues.get(toolDecl(), RADIUS) ?? RADIUS.first ?? 5) / 100) *
+    (context.extent[2] - context.extent[0]);
+
+  /**
+   * The field of the entry the brush is for, made again when the entry or its drawing changes; its
+   * Step and Unit start from the entry's lines. Refused for an entry drawn as anything else.
+   */
+  function brushNow():
+    | { ok: true; brush: NonNullable<typeof brush> }
+    | { ok: false; why: string }
+    | null {
+    if (!target) return null;
+    const row = target.id ? rowOf(target.id) : undefined;
+    const geometry = row ? (row.geometry as unknown as Geometry) : null;
+    const read = entryLines(target.name, geometry);
+    if (!read.ok) return read;
+    const decl = toolDecl();
+    const flat = optionValues.get(decl, FILL_FIRST) ?? 0;
+    const key = JSON.stringify([target.id ?? target.name, geometry]);
+    if (brush?.key !== key) {
+      const field = brushField(context.extent, read.lines, flat);
+      brush = {
+        key,
+        flat,
+        lines: read.lines,
+        field,
+        raised: new Float64Array(field.cols * field.rows),
+        strokes: 0,
+      };
+      const step = stepOf(read.lines);
+      if (step !== null) optionValues.set(decl, BRUSH_STEP, step);
+      if (read.unit) optionValues.set(decl, UNIT, read.unit);
+    } else if (read.lines.length === 0 && brush.flat !== flat) {
+      // Flat ground at another first height: what the strokes moved stays.
+      brush.field = brushField(context.extent, [], flat);
+      brush.flat = flat;
+    }
+    return { ok: true, brush };
+  }
+
+  /** One stroke of the brush through some points: it raises, or lowers with Shift. */
+  function brushStrokeAt(pts: readonly Pt[], lower: boolean): boolean {
+    const now = brushNow();
+    if (!now) {
+      say('Choose the entry whose height lines you are changing first.', true);
+      return false;
+    }
+    if (!now.ok) {
+      say(now.why, true);
+      return false;
+    }
+    const amount = (optionValues.get(toolDecl(), STRENGTH) ?? 1) * (lower ? -1 : 1);
+    now.brush.raised = withStroke(
+      now.brush.raised,
+      strokeOf(now.brush.field, pts, radiusNow()),
+      amount,
+    );
+    now.brush.strokes += 1;
+    refresh();
+    return true;
+  }
+  /** Whether it is the one that writes cells for the entries of an example (ADR 0479). */
+  const fillsCells = () => toolDecl().cells === true;
+
+  /** The generator that is the tool, when the tool is one. */
+  const generator = () => (toolDecl().generator ? GENERATORS[toolName] : undefined);
+
+  /** The seed of the tool that is on: the page draws the first, from the browser's randomness. */
+  function seedNow(): number {
+    const decl = toolDecl();
+    const kept = optionValues.get(decl, SEED);
+    if (kept !== null) return kept;
+    const first = seedFrom(crypto.getRandomValues(new Uint32Array(1))[0] ?? 0);
+    optionValues.set(decl, SEED, first);
+    return first;
+  }
+
+  /**
+   * What the generator that is on would draw, from the Map as it is and the options as they are
+   * set (ADR 0475). Worked out again only when one of those has changed; never stored.
+   */
+  function generated() {
+    if (!generating()) return null;
+    const decl = toolDecl();
+    if (brushing()) return brushed();
+    const from = rowOf(regionId);
+    const seed = seedNow();
+    if (fillsCells()) {
+      const grid = gridNow();
+      if (!grid) return null;
+      const region = regionOf(
+        from ? { name: from.name, geometry: from.geometry as unknown as Geometry } : null,
+        context.extent,
+      );
+      const chosen = optionValues.get(decl, EXAMPLE);
+      const waiting = (why: string) => {
+        const key = JSON.stringify([toolName, 'waiting', chosen, why, from?.id ?? null]);
+        if (made?.key !== key) {
+          made = { key, region, geometry: null, count: '', fit: { ok: false, why } };
+        }
+        return made;
+      };
+      // The example: this Map, or the Map chosen once it has been read.
+      const source =
+        chosen === ''
+          ? { name: 'this Map', grid, extent: context.extent, rows: context.rows() }
+          : example?.id === chosen
+            ? example
+            : null;
+      if (!source) return waiting(exampleProblem ?? 'Reading the example Map.');
+      const drawn = drawnCells(source.rows, source.grid, source.extent);
+      const here =
+        chosen === '' ? [] : context.rows().map((row) => [row.id, row.geometry] as const);
+      const key = JSON.stringify([
+        toolName,
+        seed,
+        chosen,
+        from?.id ?? null,
+        from?.geometry ?? null,
+        grid,
+        drawn.map(({ row, cells }) => [row.id, cells]),
+        here,
+      ]);
+      if (made?.key === key) return made;
+      const tiles = tilesOf(drawn);
+      if (chosen !== '' && !tiles.some((tile) => tile.cells.length > 0)) {
+        return waiting(
+          `${source.name} has no entries drawn as cells, and the fill learns from them. Choose another example.`,
+        );
+      }
+      // On this Map the example is what each entry holds; from another, what this Map holds of it.
+      const held =
+        chosen === ''
+          ? { ok: true as const, held: new Map(tiles.map((tile) => [tile.id, tile.cells])) }
+          : heldHere(tiles, context.rows(), grid, context.extent);
+      if (!held.ok) return waiting(held.why);
+      const plan = cellFill(grid, context.extent, tiles, held.held, region, seed);
+      made = {
+        key,
+        region,
+        geometry: null,
+        count: plan.ok ? plan.count : '',
+        fit: plan.ok ? { ok: true } : { ok: false, why: plan.why },
+        cells: plan,
+      };
+      return made;
+    }
+    const def = generator();
+    if (!def) return null;
+    // Every option but the role, which changes what is written and not what is drawn.
+    const set = (decl.options ?? []).map((option) =>
+      option.id === ROLE.id ? null : optionValues.get(decl, option),
+    );
+    const key = JSON.stringify([toolName, seed, set, from?.id ?? null, from?.geometry ?? null]);
+    if (made?.key === key) return made;
+    const region = regionOf(
+      from ? { name: from.name, geometry: from.geometry as unknown as Geometry } : null,
+      context.extent,
+    );
+    const result = def.run(region, seed, {
+      number: (option) => optionValues.get(decl, option),
+      text: (option) => optionValues.get(decl, option),
+    });
+    made = {
+      key,
+      region,
+      geometry: result.geometry,
+      count: result.count,
+      // What a person must still give comes before any limit: it is theirs to answer first.
+      fit:
+        result.needs && result.geometry
+          ? { ok: false, why: result.needs }
+          : fits(result.geometry, def.hints),
+    };
+    return made;
+  }
+
+  /** What the Height brush would draw (ADR 0480): the entry's lines, some kept, some drawn anew. */
+  function brushed() {
+    const decl = toolDecl();
+    const region = regionOf(null, context.extent);
+    const refused = (why: string) => {
+      const key = JSON.stringify(['brush', 'refused', why]);
+      if (made?.key !== key)
+        made = { key, region, geometry: null, count: '', fit: { ok: false, why } };
+      return made;
+    };
+    const now = brushNow();
+    if (!now) return refused('Choose the entry whose height lines you are changing.');
+    if (!now.ok) return refused(now.why);
+    const b = now.brush;
+    const step = optionValues.get(decl, BRUSH_STEP);
+    const unit = optionValues.get(decl, UNIT);
+    const first = optionValues.get(decl, FILL_FIRST);
+    const missing = [
+      ...(step === null ? ['the Step'] : []),
+      ...(unit === '' ? ['the Unit'] : []),
+      ...(b.lines.length === 0 && first === null ? ['the First height'] : []),
+    ];
+    if (missing.length > 0) {
+      const words =
+        missing.length === 1
+          ? missing[0]
+          : `${missing.slice(0, -1).join(', ')} and ${missing[missing.length - 1]}`;
+      return refused(`Give ${words} first: they are never assumed.`);
+    }
+    if (b.strokes === 0) {
+      return refused('Drag on the Map to raise the land, with Shift held to lower it.');
+    }
+    const key = JSON.stringify(['brush', b.key, b.strokes, step, unit, first]);
+    if (made?.key === key) return made;
+    const result = redraw(b.field, b.lines, b.raised, step as number, first ?? 0, context.extent);
+    if (!result.ok) return refused(result.why);
+    const row = target?.id ? rowOf(target.id) : undefined;
+    const before = row ? (row.geometry as unknown as Geometry) : null;
+    const parts = [
+      ...result.keep.map((part) => before?.parts[part]).filter((part) => part !== undefined),
+      ...result.add.map((line) => ({
+        shape: 'polyline' as const,
+        pts: line.pts,
+        value: line.value,
+        unit,
+      })),
+    ];
+    if (parts.length === 0) {
+      return refused(
+        `This would leave ${target?.name ?? 'the entry'} with no line. Remove from this map takes it off the Map.`,
+      );
+    }
+    const geometry: Geometry = { format: 'lorenzo.geometry/1', parts };
+    made = {
+      key,
+      region,
+      geometry,
+      count: redrawWords(result),
+      fit:
+        result.redrawn + result.fresh + result.gone === 0
+          ? { ok: false, why: 'The strokes change no line yet. Go on, or use a larger Strength.' }
+          : fits(geometry, BRUSH_HINTS),
+      brush: result,
+    };
+    return made;
+  }
 
   // --- what is drawn over the map -------------------------------------------------------------
 
@@ -231,6 +660,62 @@ export function createEditor(context: EditorContext): Editor {
         closed: true,
       }));
     }
+    if (toolName === 'freehand') {
+      return stroke && stroke.length > 1 ? [{ id: 'stroke', kind: 'line', pts: stroke }] : [];
+    }
+    if (fillsCells()) {
+      // The preview of a fill of cells: each tile's cells as one shape, in the tile's tone.
+      const grid = gridNow();
+      if (!grid) return [];
+      return (generated()?.cells?.tiles ?? []).flatMap((tile): Overlay[number][] =>
+        tile.gained.length === 0
+          ? []
+          : [
+              {
+                id: `tile${tile.id}`,
+                kind: 'area',
+                rings: tile.gained.map((cell) => cellPolygon(grid, context.extent, cell)),
+                tone: tile.tone,
+                clipped: true,
+              },
+            ],
+      );
+    }
+    if (brushing()) {
+      // The lines that would go, dashed; those that would be drawn; the stroke; the brush itself.
+      const out: Overlay[number][] = [];
+      const now = generated();
+      for (const part of now?.brush?.drop ?? []) {
+        const line = brush?.lines.find((one) => one.part === part);
+        if (line)
+          out.push({
+            id: `gone${part}`,
+            kind: 'line',
+            pts: line.pts,
+            preview: true,
+            clipped: true,
+          });
+      }
+      (now?.brush?.add ?? []).forEach((line, i) => {
+        out.push({ id: `new${i}`, kind: 'line', pts: line.pts, clipped: true });
+      });
+      if (brushStroke && brushStroke.pts.length > 1) {
+        out.push({ id: 'stroke', kind: 'line', pts: brushStroke.pts, preview: true });
+      }
+      if (brushAt)
+        out.push({ id: 'brush', kind: 'disc', at: brushAt, r: radiusNow(), preview: true });
+      return out;
+    }
+    if (generating()) {
+      // The preview: what Apply would write, drawn over the Map and never stored.
+      return (generated()?.geometry?.parts ?? []).flatMap((part, i): Overlay[number][] =>
+        part.shape === 'polygon'
+          ? [{ id: `made${i}`, kind: 'area', rings: part.rings, clipped: true }]
+          : part.shape === 'polyline'
+            ? [{ id: `made${i}`, kind: 'line', pts: part.pts, clipped: true }]
+            : [],
+      );
+    }
     if (toolName !== 'select') {
       if (draft.length === 0) return [];
       const last = draft[draft.length - 1] as Pt;
@@ -240,7 +725,7 @@ export function createEditor(context: EditorContext): Editor {
         if (r > 0) out.push({ id: 'draft', kind: 'disc', at: last, r });
       } else if (toolName === 'spline') {
         // The curve so far, and the curve it would be with the pointer as its next point.
-        const tension = optionValues.get(toolDecl(), TENSION);
+        const tension = optionValues.get(toolDecl(), TENSION) ?? 0.5;
         out.push({ id: 'draft', kind: 'line', pts: splineCurve(draft, tension) });
         if (rubber) {
           out.push({
@@ -258,11 +743,14 @@ export function createEditor(context: EditorContext): Editor {
       return out;
     }
     const row = rowOf(selectedId);
-    const shape = working ?? (row ? editableOf(row.geometry as unknown as Geometry) : null);
+    const shape = working ?? (row ? focusOf(row).shape : null);
     return shape ? shapeOverlay(shape, 'shape', true, dragging?.handle ?? undefined) : [];
   }
 
-  const refresh = () => context.view().setOverlay(overlay());
+  const refresh = () => {
+    context.view().setOverlay(overlay());
+    syncGenerator();
+  };
 
   // --- writing --------------------------------------------------------------------------------
 
@@ -276,12 +764,18 @@ export function createEditor(context: EditorContext): Editor {
   async function guarded(action: () => Promise<void>) {
     if (busy) return;
     busy = true;
+    // While a write is on its way the panel takes no press: one made then would be dropped, and
+    // would have been made against a drawing that is about to change.
+    panel.inert = true;
+    panel.setAttribute('aria-busy', 'true');
     try {
       await action();
     } catch (error) {
       say(asText(error), true);
     } finally {
       busy = false;
+      panel.inert = false;
+      panel.removeAttribute('aria-busy');
       renderToolbar();
     }
   }
@@ -317,7 +811,7 @@ export function createEditor(context: EditorContext): Editor {
     });
   }
 
-  async function finish(geometry: Geometry) {
+  async function finish(geometry: Geometry, how: { role?: string | null; step?: string } = {}) {
     const chosen = target;
     if (!chosen) return;
     await guarded(async () => {
@@ -330,7 +824,15 @@ export function createEditor(context: EditorContext): Editor {
       }
       if (!id) return;
       const before = rowOf(id);
-      const role = toolName === 'pin' ? 'site' : null;
+      // The two roles a tool chooses: a pin is a site (ADR 0353), a height line an isoline (ADR 0473).
+      const role =
+        how.role !== undefined
+          ? how.role
+          : toolName === 'pin'
+            ? 'site'
+            : toolName === 'height-line'
+              ? 'isoline'
+              : null;
       const saved = await putPlacement(context.tenant, context.mapId, id, {
         geometry,
         role,
@@ -339,9 +841,10 @@ export function createEditor(context: EditorContext): Editor {
       });
       history.record(
         [{ entry: id, before: before ? rowState(before) : null, after: rowState(saved) }],
-        `${before ? 'Redrew' : 'Drew'} ${saved.name}`,
+        how.step ?? `${before ? 'Redrew' : 'Drew'} ${saved.name}`,
       );
       context.setRows(upsert(saved));
+      leaveGenerator();
       draft = [];
       cells = [];
       rubber = null;
@@ -457,7 +960,16 @@ export function createEditor(context: EditorContext): Editor {
         return 'Type the point, x,y.';
       case 'circle':
         return draft.length === 0 ? 'Type the centre, x,y.' : 'Type a point on the edge, x,y.';
+      case 'freehand':
+        return 'Drag on the map to draw. The Line tool takes typed points.';
+      case 'height-brush':
+        return 'Drag on the map, or type RAISE x,y or LOWER x,y; then APPLY or DISCARD.';
+      case 'cave-system':
+      case 'marching-squares':
+      case 'wave-function-collapse':
+        return 'Set the options, then APPLY or DISCARD.';
       case 'line':
+      case 'height-line':
       case 'spline':
       case 'area':
         return `${draft.length} point${draft.length === 1 ? '' : 's'}. Type the next point, x,y, or DONE.`;
@@ -480,12 +992,63 @@ export function createEditor(context: EditorContext): Editor {
         answer(HELP);
         return;
       case 'option':
+        if (command.option.type === 'map') {
+          await readExampleMaps();
+          const id = mapNamed(exampleMaps ?? [], String(command.value));
+          if (id === null) {
+            answer(
+              `No Map of the library with a grid of this kind is called ${command.value}.`,
+              true,
+            );
+            return;
+          }
+          setOption(command.option, id);
+          await readExample(id);
+          answer(`Example is ${exampleName()}.`);
+          return;
+        }
         setOption(command.option, command.value);
         answer(
-          typeof command.value === 'number'
+          typeof command.value !== 'boolean'
             ? `${command.option.name} is ${command.value}.`
             : `${command.option.name} is ${command.value ? 'on' : 'off'}.`,
         );
+        return;
+      case 'roll':
+      case 'apply':
+      case 'discard':
+      case 'compare':
+        // A generator's own commands (ADR 0475): they mean something only while one is the tool.
+        if (!editing || !generating()) {
+          answer('That is a command of a generator, and no generator is the tool.', true);
+          return;
+        }
+        if (command.kind === 'roll' && !optionsOf(toolDecl(), here()).includes(SEED)) {
+          answer(`${toolDecl().name} has no seed to roll.`, true);
+          return;
+        }
+        if (command.kind === 'roll') {
+          setOption(SEED, nextSeed(seedNow()));
+          answer(`Seed ${seedNow()}: ${generatedWords()}`);
+        } else if (command.kind === 'compare') {
+          setCompare(command.on);
+          answer(
+            command.on ? 'The view is split: the Map as it is on the left.' : 'The view is whole.',
+          );
+        } else if (command.kind === 'discard') {
+          discardGenerator();
+          answer('Nothing was drawn.');
+        } else {
+          answer(await applyGenerator());
+        }
+        return;
+      case 'brush':
+        if (!editing || !brushing()) {
+          answer('RAISE and LOWER are commands of the Height brush, and it is not the tool.', true);
+          return;
+        }
+        if (brushStrokeAt([command.at], command.lower)) answer(generatedWords());
+        else answer(status.textContent ?? '', true);
         return;
       case 'planned':
       case 'unavailable':
@@ -516,7 +1079,9 @@ export function createEditor(context: EditorContext): Editor {
           return;
         }
         if (toolName === 'cells') finishCells();
-        else if (toolName === 'line' || toolName === 'spline' || toolName === 'area') finishDraft();
+        else if (pathTool()) finishDraft();
+        else if (toolName === 'freehand') answer('A stroke finishes when you let go.', true);
+        else if (generating()) answer('APPLY draws what is previewed.', true);
         else answer('A circle finishes with its second point.', true);
         return;
       }
@@ -663,14 +1228,34 @@ export function createEditor(context: EditorContext): Editor {
   // --- the tools ------------------------------------------------------------------------------
 
   const finishDraft = () => {
-    if (toolName === 'line' && draft.length >= 2) {
+    if (toolName === 'height-line' && draft.length >= 2) {
+      const decl = toolDecl();
+      const value = optionValues.get(decl, HEIGHT);
+      const unit = unitOf(optionValues.get(decl, UNIT));
+      if (value === null || unit === null) {
+        // Neither is ever assumed: the draft is kept until both are given.
+        say('A height line needs a height and a unit. Give both in the Options tab.', true);
+        return;
+      }
+      rememberHeight(context.mapId, { value, unit });
+      const line = toGeometry({ kind: 'line', pts: draft, value, unit });
+      // An entry already drawn as height lines takes this one as one more of them (ADR 0473).
+      const was = rowOf(target?.id ?? null)?.geometry as unknown as Geometry | undefined;
+      if (was && isHeightLines(was)) {
+        if (was.parts.length >= MAX_PARTS) {
+          say(`A drawing has at most ${MAX_PARTS} parts: this one is full.`, true);
+          return;
+        }
+        void finish(withParts(was, line));
+      } else void finish(line);
+    } else if (toolName === 'line' && draft.length >= 2) {
       void finish(toGeometry({ kind: 'line', pts: draft }));
     } else if (toolName === 'spline' && draft.length >= 2) {
       void finish(
         toGeometry({
           kind: 'spline',
           pts: draft,
-          tension: optionValues.get(toolDecl(), TENSION),
+          tension: optionValues.get(toolDecl(), TENSION) ?? 0.5,
         }),
       );
     } else if (toolName === 'area' && draft.length >= 3) {
@@ -701,10 +1286,24 @@ export function createEditor(context: EditorContext): Editor {
   const selectTool: Tool = {
     down(event: ToolEvent) {
       const row = rowOf(selectedId);
-      const base = row ? editableOf(row.geometry as unknown as Geometry) : null;
-      if (!row || !base) return false;
+      if (!row) return false;
+      const geometry = row.geometry as unknown as Geometry;
+      // A press on another part of the selected placement chooses that part.
+      if (!event.handle && event.hit === row.id && hasParts(geometry) && !isCellsRow(row)) {
+        const view = context.view();
+        const reach =
+          PART_REACH *
+          unitsPerPixel(context.extent, view.svg.getBoundingClientRect(), view.getView().zoom);
+        const under = partAt(geometry, [event.point[0], event.point[1]], reach);
+        if (under && under.part !== selectedPart?.part) {
+          selectedPart = under;
+          render();
+        }
+      }
+      const base = focusOf(row).shape;
+      if (!base) return false;
       if (event.handle || event.hit === row.id) {
-        dragging = { handle: event.handle, base, start: event.point };
+        dragging = { handle: event.handle, base, start: event.point, by: [0, 0] };
         working = base;
         return true;
       }
@@ -713,6 +1312,7 @@ export function createEditor(context: EditorContext): Editor {
     drag(event: ToolEvent) {
       if (!dragging) return;
       const { handle, base, start } = dragging;
+      dragging.by = [event.point[0] - start[0], event.point[1] - start[1]];
       working = handle
         ? moveHandle(base, handle, snapHandle(handle, event.point))
         : translate(base, event.point[0] - start[0], event.point[1] - start[1]);
@@ -728,17 +1328,93 @@ export function createEditor(context: EditorContext): Editor {
         refresh();
         return;
       }
-      void saveRow(row, { geometry: toGeometry(shape) });
+      const focus = focusOf(row);
+      // The body of an area dragged moves the area with its holes; a handle moves one point.
+      const geometry =
+        !drag.handle && focus.part && focus.part.ring === 0
+          ? movedPart(row.geometry as unknown as Geometry, focus.part.part, drag.by[0], drag.by[1])
+          : focus.write(shape);
+      void saveRow(row, { geometry });
     },
+  };
+
+  /** The stroke ends: its line is simplified as the Tolerance option says, and written. */
+  const finishStroke = () => {
+    const samples = stroke;
+    stroke = null;
+    refresh();
+    if (!samples) return;
+    const view = context.view();
+    const box = view.svg.getBoundingClientRect();
+    const tolerance =
+      (optionValues.get(toolDecl(), TOLERANCE) ?? 2) *
+      unitsPerPixel(context.extent, box, view.getView().zoom);
+    const line = strokeLine(samples, tolerance);
+    if (line.pts.length < 2) {
+      say('The stroke went nowhere, so nothing was drawn. Press, drag and let go.', true);
+      return;
+    }
+    void finish(toGeometry({ kind: 'line', pts: line.pts })).then(() => {
+      if (line.coarser && !status.classList.contains('error-text')) {
+        say(`${status.textContent} The line was made coarser to fit ${line.pts.length} points.`);
+      }
+    });
   };
 
   const drawTool: Tool = {
     cursor: 'crosshair',
+    down(event: ToolEvent) {
+      if (brushing()) {
+        const p: Pt = [event.point[0], event.point[1]];
+        brushStroke = { pts: inSheet(p) ? [p] : [], lower: event.shift };
+        brushAt = p;
+        refresh();
+        return true;
+      }
+      if (toolName !== 'freehand') return false;
+      if (!target) {
+        say('Choose what you are drawing first.', true);
+        return true;
+      }
+      const p: Pt = [event.point[0], event.point[1]];
+      stroke = inSheet(p) ? [p] : [];
+      return true;
+    },
+    drag(event: ToolEvent) {
+      if (brushStroke) {
+        const p: Pt = [event.point[0], event.point[1]];
+        brushAt = p;
+        if (inSheet(p)) brushStroke.pts.push(p);
+        refresh();
+        return;
+      }
+      if (!stroke) return;
+      const p: Pt = [event.point[0], event.point[1]];
+      // A stroke that leaves the sheet goes on where it comes back.
+      if (inSheet(p)) stroke.push(p);
+      refresh();
+    },
+    up() {
+      if (brushStroke) {
+        const done = brushStroke;
+        brushStroke = null;
+        if (done.pts.length > 0) brushStrokeAt(done.pts, done.lower);
+        else refresh();
+        return;
+      }
+      if (toolName === 'freehand') finishStroke();
+    },
     click(event: ToolEvent) {
       if (!target) {
         say('Choose what you are drawing first.', true);
         return true;
       }
+      if (toolName === 'freehand') {
+        say('Freehand is drawn by dragging. The Line tool takes points one by one.', true);
+        return true;
+      }
+      // A generator takes no point: its region was chosen before it, and it draws on Apply.
+      if (generating()) return true;
       if (toolName === 'cells') {
         const grid = gridNow();
         const cell = grid ? cellOfPoint(grid, context.extent, event.point) : null;
@@ -796,15 +1472,32 @@ export function createEditor(context: EditorContext): Editor {
       return true;
     },
     dblclick() {
-      if (toolName === 'line' || toolName === 'spline' || toolName === 'area') finishDraft();
+      if (pathTool()) finishDraft();
       return true;
     },
     move(event: ToolEvent) {
+      if (brushing()) {
+        brushAt = [event.point[0], event.point[1]];
+        refresh();
+        return;
+      }
       if (draft.length === 0) return;
       rubber = event.point;
       refresh();
     },
     key(event: KeyboardEvent) {
+      if (brushStroke && event.key === 'Escape') {
+        brushStroke = null;
+        refresh();
+        say('The stroke was dropped.');
+        return true;
+      }
+      if (toolName === 'freehand' && stroke && event.key === 'Escape') {
+        stroke = null;
+        refresh();
+        say('The stroke was dropped.');
+        return true;
+      }
       if (toolName === 'cells') {
         if (event.key === 'Enter') {
           finishCells();
@@ -825,10 +1518,7 @@ export function createEditor(context: EditorContext): Editor {
         }
         return false;
       }
-      if (
-        event.key === 'Enter' &&
-        (toolName === 'line' || toolName === 'spline' || toolName === 'area')
-      ) {
+      if (event.key === 'Enter' && pathTool()) {
         finishDraft();
         return true;
       }
@@ -853,10 +1543,21 @@ export function createEditor(context: EditorContext): Editor {
   const tool = (): Tool | null => (!editing ? null : toolName === 'select' ? selectTool : drawTool);
 
   function setTool(next: ToolName) {
+    leaveGenerator();
+    // A generator works in the placement that is selected when it is chosen (ADR 0475).
+    regionId = toolById(next)?.generator ? selectedId : null;
     toolName = next;
+    if (next === 'height-brush') {
+      // The brush is for the entry that is selected when it is height lines (ADR 0480).
+      const chosen = rowOf(selectedId);
+      if (chosen && isHeightLines(chosen.geometry as unknown as Geometry)) {
+        target = { id: chosen.id, name: chosen.name };
+      }
+    }
     draft = [];
     cells = [];
     rubber = null;
+    stroke = null;
     working = null;
     dragging = null;
     if (next === 'select') target = null;
@@ -864,6 +1565,344 @@ export function createEditor(context: EditorContext): Editor {
     renderToolbar();
     render();
     refresh();
+    if (fillsCells()) void readExampleMaps();
+  }
+
+  // --- a generator: preview, compare, apply, discard (ADR 0475) --------------------------------
+
+  /**
+   * The Maps of the library a fill of cells may learn from (ADR 0479): those with a grid of the
+   * kind this Map has, read once. One that cannot be read is left out.
+   */
+  function readExampleMaps(): Promise<void> {
+    exampleMapsRead ??= (async () => {
+      const grid = gridNow();
+      if (!grid) return;
+      const found: ExampleMap[] = [];
+      for (let page = 1; ; page += 1) {
+        const list = await unwrap(
+          await client.GET('/tenants/{tenant_id}/maps', {
+            params: { path: { tenant_id: context.tenant }, query: { page, size: 100 } },
+          }),
+        );
+        const others = list.items.filter((item) => item.id !== context.mapId);
+        const kinds = await Promise.all(
+          others.map(async (item) => {
+            try {
+              return gridOfMap(await readHeader(item.id));
+            } catch {
+              return null;
+            }
+          }),
+        );
+        others.forEach((item, i) => {
+          const other = kinds[i];
+          if (other && sameGridKind(grid, other.grid)) found.push({ id: item.id, name: item.name });
+        });
+        if (page * 100 >= list.total || list.items.length === 0) break;
+      }
+      exampleMaps = found;
+      if (fillsCells()) {
+        render();
+        refresh();
+      }
+    })().catch(() => {
+      exampleMaps = [];
+      exampleProblem = 'The Maps of the library could not be read. Try again.';
+      exampleMapsRead = null;
+    });
+    return exampleMapsRead;
+  }
+
+  async function readHeader(id: string) {
+    return unwrap(
+      await client.GET('/tenants/{tenant_id}/maps/{map_id}', {
+        params: { path: { tenant_id: context.tenant, map_id: id } },
+        cache: 'no-cache',
+      }),
+    );
+  }
+
+  /** A Map's grid and sheet from its header; null for a Map without a grid, or a sphere. */
+  function gridOfMap(header: { system: unknown; view?: unknown }) {
+    const system = header.system as { kind: string; extent?: [number, number, number, number] };
+    if (system.kind === 'sphere' || !system.extent) return null;
+    const grid = gridOf({
+      system: header.system,
+      placements: [],
+      overlay: (header.view as { grid?: GridSpec } | null)?.grid ?? null,
+    } as unknown as MapModel);
+    return grid ? { grid, extent: system.extent } : null;
+  }
+
+  /** Reads the Map chosen as the example, and draws the preview again once it is read. */
+  async function readExample(id: string) {
+    example = null;
+    exampleProblem = null;
+    if (id === '') return;
+    try {
+      const header = await readHeader(id);
+      const kind = gridOfMap(header);
+      const grid = gridNow();
+      if (!kind || !grid || !sameGridKind(grid, kind.grid)) {
+        exampleProblem = `${header.name} has no grid of the kind this Map has. Choose another example.`;
+      } else {
+        const { rows } = await readPlacements(context.tenant, id);
+        if (optionValues.get(toolDecl(), EXAMPLE) !== id) return;
+        example = { id, name: header.name, grid: kind.grid, extent: kind.extent, rows };
+      }
+    } catch {
+      exampleProblem = 'The example Map could not be read. Choose it again.';
+    }
+    if (fillsCells()) {
+      render();
+      refresh();
+    }
+  }
+
+  /** The view is whole again and nothing of a preview is kept. */
+  function leaveGenerator() {
+    made = null;
+    brush = null;
+    brushStroke = null;
+    brushAt = null;
+    syncGenerator = () => {};
+    if (compare) {
+      compare = false;
+      context.view().setOverlayDivide(null);
+    }
+  }
+
+  function setCompare(on: boolean) {
+    compare = on;
+    context.view().setOverlayDivide(on ? divide : null);
+    render();
+  }
+
+  /** What the preview is, in words: how much in where, or why it cannot be applied. */
+  function generatedWords(): string {
+    const now = generated();
+    if (!now) return '';
+    if (!now.fit.ok) return now.fit.why;
+    return brushing()
+      ? `${now.count} on ${target?.name ?? 'the entry'}.`
+      : `${now.count} in ${now.region.words}.`;
+  }
+
+  function discardGenerator() {
+    setTool('select');
+    say('Nothing was drawn.');
+  }
+
+  /** Writes what is previewed as one placement and one history step; answers what happened. */
+  async function applyGenerator(): Promise<string> {
+    if (fillsCells()) return applyCells();
+    if (brushing()) return applyBrush();
+    const def = generator();
+    const now = generated();
+    if (!def || !now) return '';
+    if (!now.fit.ok || !now.geometry) {
+      say(now.fit.ok ? 'There is nothing to draw.' : now.fit.why, true);
+      return status.textContent ?? '';
+    }
+    if (!target) {
+      say('Choose what you are drawing first.', true);
+      return status.textContent ?? '';
+    }
+    const step = stepName(def.what, seedNow(), now.count, now.region);
+    await finish(now.geometry, { role: optionValues.get(toolDecl(), ROLE) || null, step });
+    return status.textContent ?? '';
+  }
+
+  /**
+   * Writes a fill of cells (ADR 0479): one placement of cells for each tile entry that changes, in
+   * one batch and one history step. An entry left with no cell is taken off the Map.
+   */
+  async function applyCells(): Promise<string> {
+    const now = generated();
+    const plan = now?.cells;
+    const grid = gridNow();
+    if (!now || !plan || !grid) return '';
+    if (!plan.ok) {
+      say(plan.why, true);
+      return plan.why;
+    }
+    const put: NonNullable<Parameters<typeof batchPlacements>[2]['put']> = [];
+    const remove: string[] = [];
+    const step: Step = [];
+    const chosen = optionValues.get(toolDecl(), EXAMPLE);
+    for (const tile of plan.tiles) {
+      const row = rowOf(tile.id);
+      if (!tile.changed) continue;
+      if (!row) {
+        // An entry of another example, new to this Map: placed with the role, line and drawing
+        // order it has there (ADR 0479).
+        const there = chosen === '' ? undefined : example?.rows.find((one) => one.id === tile.id);
+        if (!there || tile.cells.length === 0) continue;
+        const how = rowState(there);
+        const geometry = cellsGeometry(grid, context.extent, tile.cells);
+        put.push({ entry_id: tile.id, geometry, role: how.role, style: how.style, z: how.z });
+        step.push({ entry: tile.id, before: null, after: { ...how, geometry } });
+        continue;
+      }
+      const before = rowState(row);
+      if (tile.cells.length === 0) {
+        remove.push(row.id);
+        step.push({ entry: row.id, before, after: null });
+        continue;
+      }
+      // A cell that carried a value keeps it (ADR 0337).
+      const geometry = cellsGeometry(
+        grid,
+        context.extent,
+        tile.cells,
+        row.geometry as unknown as Geometry,
+      );
+      put.push({ entry_id: row.id, geometry, role: before.role, style: before.style, z: before.z });
+      step.push({ entry: row.id, before, after: { ...before, geometry } });
+    }
+    if (step.length === 0) {
+      say('This fill changes nothing: every cell would be what it is. Roll another seed.', true);
+      return status.textContent ?? '';
+    }
+    const name = `Filled by wave function collapse, seed ${seedNow()}: ${plan.count} in ${now.region.words}`;
+    await guarded(async () => {
+      await batchPlacements(context.tenant, context.mapId, { put, remove });
+      await reload();
+      history.record(step, name);
+      setTool('select');
+      say(`${plan.count} drawn in ${now.region.words}.`);
+    });
+    return status.textContent ?? '';
+  }
+
+  /** What the example of a fill of cells is called: this Map, or the Map chosen. */
+  function exampleName(): string {
+    const chosen = optionValues.get(toolDecl(), EXAMPLE);
+    if (chosen === '') return 'this Map';
+    return (
+      exampleMaps?.find((map) => map.id === chosen)?.name ?? example?.name ?? 'the example Map'
+    );
+  }
+
+  /**
+   * Writes the brushed lines as the entry's one placement and one history step (ADR 0480): a
+   * placement already here keeps its role, line and drawing order; a new one takes the Role option.
+   */
+  async function applyBrush(): Promise<string> {
+    const now = generated();
+    const chosen = target;
+    if (!now || !chosen) return '';
+    if (!now.fit.ok || !now.geometry) {
+      say(now.fit.ok ? 'There is nothing to draw.' : now.fit.why, true);
+      return status.textContent ?? '';
+    }
+    const geometry = now.geometry;
+    const count = now.count;
+    await guarded(async () => {
+      let id = chosen.id;
+      if (!id && chosen.create) {
+        const created = await makeLocation(context.tenant, chosen.name, chosen.create.isPublic);
+        id = created.id;
+        // The Location exists now: a retry must not make another.
+        target = { id, name: created.name };
+      }
+      if (!id) return;
+      const row = rowOf(id);
+      const before = row ? rowState(row) : null;
+      const saved = await putPlacement(
+        context.tenant,
+        context.mapId,
+        id,
+        before
+          ? { ...before, geometry }
+          : {
+              geometry,
+              role: optionValues.get(toolDecl(), BRUSH_ROLE) || null,
+              style: null,
+              z: 0,
+            },
+      );
+      history.record(
+        [{ entry: id, before, after: rowState(saved) }],
+        `Height brush on ${saved.name}: ${count}`,
+      );
+      context.setRows(upsert(saved));
+      setTool('select');
+      context.select(id);
+      say(`${saved.name}: ${count}.`);
+    });
+    return status.textContent ?? '';
+  }
+
+  /** The preview's line, Compare with its divider, and Apply and Discard. */
+  function generatorControls(): HTMLElement {
+    const box = el('div', '', 'stack-tight map-generator');
+    box.setAttribute('role', 'group');
+    box.setAttribute('aria-label', 'Preview');
+    const line = el('p', '', 'status-text map-generator-result');
+    line.setAttribute('role', 'status');
+    const split = field('Compare with the Map as it is', '', 'checkbox');
+    split.input.checked = compare;
+    split.input.addEventListener('change', () => setCompare(split.input.checked));
+    box.append(line);
+    // A fill of cells names its tiles, each with its tone and what it would get: the tone is
+    // never the only way to tell them apart (ADR 0479).
+    const tiles = el('ul', '', 'list map-generator-tiles');
+    tiles.setAttribute('aria-label', 'Tiles, the lightest tone first');
+    if (fillsCells()) {
+      box.append(
+        el(
+          'p',
+          `It learns from the cells already drawn on ${exampleName()}: which entry lies beside which. Each entry gets the cells the fill gives it; nothing is drawn until you apply it.`,
+          'status-text',
+        ),
+        tiles,
+      );
+    }
+    box.append(split.label);
+    if (compare) {
+      const slider = field('Divider', String(Math.round(divide * 100)), 'range');
+      slider.input.min = '0';
+      slider.input.max = '100';
+      slider.input.step = '5';
+      slider.input.addEventListener('input', () => {
+        divide = Number(slider.input.value) / 100;
+        context.view().setOverlayDivide(divide);
+      });
+      box.append(slider.label);
+    }
+    const apply = button('Apply', async () => {
+      await applyGenerator();
+    });
+    const discard = button('Discard', async () => discardGenerator(), { variant: 'secondary' });
+    const actions = el('div', '', 'row-tight');
+    actions.append(apply, discard);
+    box.append(actions);
+    syncGenerator = () => {
+      const now = generated();
+      line.textContent = generatedWords();
+      line.classList.toggle('error-text', now ? !now.fit.ok : false);
+      apply.disabled = !now?.fit.ok || (!fillsCells() && !target);
+      tiles.replaceChildren(
+        ...(now?.cells?.tiles ?? []).map((tile) => {
+          const item = el('li', '', 'row-tight');
+          const swatch = el('span', '', 'map-tone');
+          swatch.dataset.tone = String(tile.tone);
+          swatch.setAttribute('aria-hidden', 'true');
+          item.append(
+            swatch,
+            el(
+              'span',
+              `${tile.name}: ${tile.gained.length} ${tile.gained.length === 1 ? 'cell' : 'cells'}`,
+            ),
+          );
+          return item;
+        }),
+      );
+    };
+    syncGenerator();
+    return box;
   }
 
   // --- the toolbar ----------------------------------------------------------------------------
@@ -1093,7 +2132,8 @@ export function createEditor(context: EditorContext): Editor {
     tools.setAttribute('role', 'group');
     tools.setAttribute('aria-label', 'Tool');
     // The tools of the registry (MP6), in their groups; the ones that are planned are in All tools.
-    for (const group of ['select', 'place', 'draw'] as const) {
+    // Every group of the registry; one with no tool this Map can use yet is not drawn.
+    for (const group of GROUPS) {
       const cluster = el('div', '', 'row-tight map-tool-group');
       cluster.setAttribute('role', 'group');
       cluster.setAttribute('aria-label', GROUP_NAMES[group]);
@@ -1137,7 +2177,11 @@ export function createEditor(context: EditorContext): Editor {
         box.append(
           el(
             'p',
-            'It is already on this Map; drawing it again replaces its drawing.',
+            brushing()
+              ? 'Its height lines are what the brush changes; a line no stroke reaches stays as it is.'
+              : toolName === 'height-line' && isHeightLines(placed.geometry as unknown as Geometry)
+                ? 'It is already on this Map as height lines; this line is added to them.'
+                : 'It is already on this Map; drawing it again replaces its drawing.',
             'status-text',
           ),
         );
@@ -1147,11 +2191,19 @@ export function createEditor(context: EditorContext): Editor {
           'p',
           toolName === 'pin'
             ? 'Click the map to place it.'
-            : toolName === 'circle'
-              ? 'Click the centre, then the edge.'
-              : toolName === 'cells'
-                ? 'Click a cell to add it and click it again to take it away. Press Enter to finish, Backspace to take back a cell, Escape to start again.'
-                : 'Click each point. Press Enter or double-click to finish, Backspace to take back a point, Escape to start again.',
+            : brushing()
+              ? 'Drag on the map to raise the land, with Shift held to lower it, or type RAISE x,y or LOWER x,y. The preview shows the lines that would be drawn, and dashed those that would go; nothing is drawn until you apply it.'
+              : generating()
+                ? 'The preview on the Map is what Apply will draw for it; nothing is drawn until then.'
+                : toolName === 'height-line'
+                  ? 'Give the height and its unit above, then click each point. Press Enter or double-click to finish, Backspace to take back a point, Escape to start again.'
+                  : toolName === 'freehand'
+                    ? 'Press and drag on the map, and let go to finish. Escape while dragging drops the stroke. The Line tool draws the same thing point by point, from the keyboard.'
+                    : toolName === 'circle'
+                      ? 'Click the centre, then the edge.'
+                      : toolName === 'cells'
+                        ? 'Click a cell to add it and click it again to take it away. Press Enter to finish, Backspace to take back a cell, Escape to start again.'
+                        : 'Click each point. Press Enter or double-click to finish, Backspace to take back a point, Escape to start again.',
           'status-text',
         ),
       );
@@ -1234,7 +2286,11 @@ export function createEditor(context: EditorContext): Editor {
     return box;
   }
 
-  function pointFields(row: Row, shape: Editable): HTMLElement {
+  function pointFields(
+    row: Row,
+    shape: Editable,
+    write: (shape: Editable) => Geometry = toGeometry,
+  ): HTMLElement {
     const box = el('div', '', 'stack-tight');
     box.append(groupTitle('h3', 'Points'));
     const inputs: HTMLInputElement[][] = [];
@@ -1252,7 +2308,7 @@ export function createEditor(context: EditorContext): Editor {
       else if (shape.kind === 'circle')
         next = { ...shape, at: at(0), r: values[1]?.[0] ?? shape.r };
       else next = { ...shape, pts: values.map((_, i) => at(i)) };
-      void saveRow(row, { geometry: toGeometry(next) });
+      void saveRow(row, { geometry: write(next) });
     };
     // One point is one group of its own: a legend and two short fields, so a screen reader says
     // "Point 2, x" and the fields stay narrow beside their buttons.
@@ -1309,7 +2365,7 @@ export function createEditor(context: EditorContext): Editor {
           say(`Tension is a number from ${TENSION.least} to ${TENSION.most}.`, true);
           return;
         }
-        void saveRow(row, { geometry: toGeometry({ ...shape, tension: typed }) });
+        void saveRow(row, { geometry: write({ ...shape, tension: typed }) });
       });
       box.append(tension.label);
     }
@@ -1322,20 +2378,110 @@ export function createEditor(context: EditorContext): Editor {
         const after = insertVertex(shape, i);
         line.append(
           small('Add', `Add a point after point ${i + 1}`, () =>
-            saveRow(row, { geometry: toGeometry(after) }),
+            saveRow(row, { geometry: write(after) }),
           ),
         );
         const without = removeVertex(shape, i);
         if (without) {
           line.append(
             small('Remove', `Remove point ${i + 1}`, () =>
-              saveRow(row, { geometry: toGeometry(without) }),
+              saveRow(row, { geometry: write(without) }),
             ),
           );
         }
         box.append(line);
       }
     }
+    return box;
+  }
+
+  /**
+   * The height a line or a curve carries, and its unit (ADR 0473): both, or neither. Emptying both
+   * takes the value away; one without the other is not written, as the API would refuse it.
+   */
+  function heightFields(
+    row: Row,
+    shape: Editable,
+    write: (shape: Editable) => Geometry = toGeometry,
+  ): HTMLElement | null {
+    if (shape.kind !== 'line' && shape.kind !== 'spline') return null;
+    const box = el('fieldset', '', 'map-point');
+    box.append(el('legend', 'Height', 'map-point-name'));
+    const value = field('Height', shape.value === undefined ? '' : String(shape.value), 'number');
+    value.input.step = 'any';
+    const unit = field('Unit', shape.unit ?? '');
+    unit.input.maxLength = 32;
+    unit.input.autocomplete = 'off';
+    const commit = () => {
+      const typedValue = value.input.value.trim();
+      const typedUnit = unit.input.value.trim();
+      if (typedValue === '' && typedUnit === '') {
+        if (shape.value === undefined) return;
+        void saveRow(row, {
+          geometry: write({ ...shape, value: undefined, unit: undefined }),
+        });
+        return;
+      }
+      if (typedValue === '' || typedUnit === '') {
+        say('A height and its unit go together: give the other too.');
+        return;
+      }
+      const nextValue = heightOf(typedValue);
+      const nextUnit = unitOf(typedUnit);
+      if (nextValue === null || nextUnit === null) {
+        say(
+          nextValue === null ? 'The height is a number.' : 'The unit is 1 to 32 characters.',
+          true,
+        );
+        return;
+      }
+      if (nextValue === shape.value && nextUnit === shape.unit) return;
+      void saveRow(row, { geometry: write({ ...shape, value: nextValue, unit: nextUnit }) });
+    };
+    value.input.addEventListener('change', commit);
+    unit.input.addEventListener('change', commit);
+    box.append(value.label, unit.label);
+    return box;
+  }
+
+  /**
+   * The parts of a placement that has several, or holes (ADR 0474): each is chosen to be changed,
+   * and can be removed, but for the last part, which is the drawing itself.
+   */
+  function partsList(row: Row, geometry: Geometry): HTMLElement {
+    const box = el('div', '', 'stack-tight map-parts');
+    box.append(groupTitle('h3', 'Parts'));
+    const list = el('ul', '', 'list');
+    for (const part of partNames(geometry)) {
+      const item = el('li', '', 'row-tight');
+      const chosen = selectedPart?.part === part.ref.part && selectedPart.ring === part.ref.ring;
+      const pick = el('button', part.name, 'place-toggle map-place grow');
+      pick.type = 'button';
+      pick.setAttribute('aria-pressed', String(chosen));
+      pick.addEventListener('click', () => {
+        selectedPart = chosen ? null : part.ref;
+        working = null;
+        render();
+        refresh();
+      });
+      item.append(pick);
+      const without = withoutPart(geometry, part.ref);
+      if (without) {
+        const remove = button(
+          'Remove',
+          async () => {
+            selectedPart = refAfterRemoval(selectedPart, part.ref);
+            await saveRow(row, { geometry: without });
+          },
+          { variant: 'secondary' },
+        );
+        remove.setAttribute('aria-label', `Remove ${part.name}`);
+        remove.classList.add('map-point-button');
+        item.append(remove);
+      }
+      list.append(item);
+    }
+    box.append(list);
     return box;
   }
 
@@ -1462,18 +2608,44 @@ export function createEditor(context: EditorContext): Editor {
     const regionCells = grid
       ? cellsOf(row.geometry as unknown as Geometry, grid, context.extent)
       : null;
-    const shape = regionCells ? null : editableOf(row.geometry as unknown as Geometry);
+    const geometry = row.geometry as unknown as Geometry;
+    const shape = regionCells ? null : editableOf(geometry);
     if (regionCells && grid) {
       box.append(cellsPanel(row, grid, regionCells));
+    } else if (hasParts(geometry)) {
+      box.append(partsList(row, geometry));
+      const focus = focusOf(row);
+      const chosen = focus.part;
+      const name = chosen
+        ? partNames(geometry).find((p) => p.ref.part === chosen.part && p.ref.ring === chosen.ring)
+        : undefined;
+      if (focus.shape && name) {
+        box.append(groupTitle('h3', name.name));
+        box.append(pointFields(row, focus.shape, focus.write));
+        const height = heightFields(row, focus.shape, focus.write);
+        if (height) box.append(height);
+      } else if (name) {
+        box.append(
+          el(
+            'p',
+            `${name.name} is a curve drawn with the API: it is shown and kept, and its points are not changed here.`,
+            'status-text',
+          ),
+        );
+      } else {
+        box.append(el('p', 'Choose a part to change its points.', 'status-text'));
+      }
     } else if (shape) {
       box.append(pointFields(row, shape));
+      const height = heightFields(row, shape);
+      if (height) box.append(height);
       const children = childrenControl(row, shape);
       if (children) box.append(children);
     } else {
       box.append(
         el(
           'p',
-          'This drawing has several parts, curves or holes: it is drawn with the API.',
+          'This drawing is a curve drawn with the API: it is shown and kept, and its points are not changed here.',
           'status-text',
         ),
       );
@@ -1492,21 +2664,101 @@ export function createEditor(context: EditorContext): Editor {
     box.setAttribute('aria-label', `Options of ${decl.name}`);
     for (const option of offered) {
       if (option.type === 'number') {
-        const line = field(option.name, String(optionValues.get(decl, option)), 'number');
-        line.input.min = String(option.least);
-        line.input.max = String(option.most);
-        line.input.step = String(option.step);
+        const now = optionValues.get(decl, option);
+        const line = field(option.name, now === null ? '' : String(now), 'number');
+        const wide = option.most - option.least > 1e9;
+        if (!wide) {
+          line.input.min = String(option.least);
+          line.input.max = String(option.most);
+        }
+        line.input.step = wide ? 'any' : String(option.step);
+        line.input.required = option.first === null;
         // As it is typed, not on leaving the field: a click on the Map must find the value set.
         line.input.addEventListener('input', () => {
-          const typed = line.input.value.trim()
-            ? numberFor(option, Number(line.input.value))
-            : null;
+          const empty = line.input.value.trim() === '';
+          const typed = empty ? null : numberFor(option, Number(line.input.value));
+          const unset = empty && option.first === null;
           line.input.setCustomValidity(
-            typed === null ? `A number from ${option.least} to ${option.most}.` : '',
+            typed !== null || unset
+              ? ''
+              : wide
+                ? 'A number.'
+                : `A number from ${option.least} to ${option.most}.`,
+          );
+          if (typed === null && !unset) return;
+          optionValues.set(decl, option, typed);
+          refresh();
+        });
+        box.append(line.label);
+        continue;
+      }
+      if (option.type === 'seed') {
+        // The first seed is the page's to draw, from the browser's own randomness; from then on
+        // it is typed, or rolled to the next (ADR 0475).
+        const line = field(option.name, String(seedNow()), 'number');
+        line.input.min = '0';
+        line.input.max = String(SEED_MOST);
+        line.input.step = '1';
+        line.input.addEventListener('input', () => {
+          const typed = seedOf(line.input.value);
+          line.input.setCustomValidity(
+            typed === null ? `A whole number from 0 to ${SEED_MOST}.` : '',
           );
           if (typed === null) return;
           optionValues.set(decl, option, typed);
           refresh();
+        });
+        const roll = button(
+          'Roll',
+          async () => {
+            setOption(option, nextSeed(seedNow()));
+          },
+          { variant: 'secondary' },
+        );
+        roll.setAttribute('aria-label', 'Roll another seed');
+        box.append(line.label, roll);
+        continue;
+      }
+      if (option.type === 'choice') {
+        const line = select(
+          option.name,
+          option.choices.map(([value, title]): [string, string] => [value, title]),
+          optionValues.get(decl, option),
+        );
+        line.input.addEventListener('change', () => {
+          optionValues.set(decl, option, line.input.value);
+        });
+        box.append(line.label);
+        continue;
+      }
+      if (option.type === 'map') {
+        // This Map first, then the Maps of the library with a grid of the same kind, once read.
+        const now = optionValues.get(decl, option);
+        const line = select(
+          option.name,
+          [
+            ['', 'This Map'],
+            ...(exampleMaps ?? []).map((map): [string, string] => [map.id, map.name]),
+          ],
+          now,
+        );
+        line.input.addEventListener('change', () => {
+          const id = line.input.value;
+          setOption(option, id);
+          void readExample(id);
+        });
+        box.append(line.label);
+        if (exampleMaps === null)
+          box.append(el('p', 'Reading the Maps of the library.', 'status-text'));
+        continue;
+      }
+      if (option.type === 'text') {
+        const line = field(option.name, optionValues.get(decl, option));
+        line.input.maxLength = option.longest;
+        line.input.required = option.first === '';
+        line.input.autocomplete = 'off';
+        line.input.addEventListener('input', () => {
+          optionValues.set(decl, option, line.input.value);
         });
         box.append(line.label);
         continue;
@@ -1521,7 +2773,7 @@ export function createEditor(context: EditorContext): Editor {
     return box;
   }
 
-  function setOption(option: ToolOption, value: boolean | number) {
+  function setOption(option: ToolOption, value: OptionValue) {
     optionValues.set(toolDecl(), option, value);
     render();
     refresh();
@@ -1531,10 +2783,13 @@ export function createEditor(context: EditorContext): Editor {
     panel.replaceChildren();
     panel.hidden = !editing;
     if (!editing) return;
+    if (brushing()) brushNow();
     const options = optionFields();
     if (options) panel.append(options);
     if (toolName !== 'select') {
-      panel.append(chooser());
+      // A fill of cells draws for the entries of its example: there is no entry to choose.
+      if (!fillsCells()) panel.append(chooser());
+      if (generating()) panel.append(generatorControls());
       return;
     }
     const row = rowOf(selectedId);
@@ -1577,6 +2832,7 @@ export function createEditor(context: EditorContext): Editor {
     placeEntry,
     editing: () => editing,
     selected(id) {
+      if (id !== selectedId) selectedPart = null;
       selectedId = id;
       working = null;
       if (editing && toolName === 'select') {

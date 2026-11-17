@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { parseCommand, parsePoint } from '../../src/lib/command-line';
-import { SNAP, TOOLS, toolById } from '../../src/lib/tools';
+import { EXAMPLE, SNAP, TOOLS, type ToolDecl, toolById } from '../../src/lib/tools';
 
 const flat = { grid: false, sphere: false };
 
@@ -40,7 +40,13 @@ describe('the command line', () => {
 
   it('takes a tool by its name, says a planned one is planned and one the Map cannot use', () => {
     expect(parseCommand('line', TOOLS, flat)).toMatchObject({ kind: 'tool' });
-    expect(parseCommand('Freehand', TOOLS, flat)).toMatchObject({ kind: 'planned' });
+    expect(parseCommand('Height brush', TOOLS, flat)).toMatchObject({ kind: 'tool' });
+    const dune = { ...(toolById('line') as ToolDecl), id: 'dune', name: 'Dune', key: 'q' };
+    expect(
+      parseCommand('dune', [...TOOLS, { ...dune, state: 'planned', reason: 'Not yet.' }], flat),
+    ).toMatchObject({ kind: 'planned' });
+    expect(parseCommand('Height line', TOOLS, flat)).toMatchObject({ kind: 'tool' });
+    expect(parseCommand('Freehand', TOOLS, flat)).toMatchObject({ kind: 'tool' });
     expect(parseCommand('Spline', TOOLS, flat)).toMatchObject({ kind: 'tool' });
     expect(parseCommand('Spline', TOOLS, { grid: false, sphere: true })).toMatchObject({
       kind: 'unavailable',
@@ -87,9 +93,69 @@ describe('the command line', () => {
         message: 'TENSION takes a number from 0 to 1.',
       });
     }
+    // A height is any number the format takes, and a unit the author's own words.
+    const heightLine = { ...flat, tool: toolById('height-line') };
+
+    expect(parseCommand('HEIGHT 250', TOOLS, heightLine)).toMatchObject({
+      kind: 'option',
+      value: 250,
+    });
+    expect(parseCommand('height -12.5', TOOLS, heightLine)).toMatchObject({ value: -12.5 });
+    expect(parseCommand('HEIGHT high', TOOLS, heightLine)).toEqual({
+      kind: 'error',
+      message: 'HEIGHT takes a number.',
+    });
+    // The tool's own name begins with an option's word, and is still the tool.
+    expect(parseCommand('Height line', TOOLS, heightLine)).toMatchObject({ kind: 'tool' });
+    expect(parseCommand('UNIT m', TOOLS, heightLine)).toMatchObject({ kind: 'option', value: 'm' });
+    expect(parseCommand('unit  days on foot ', TOOLS, heightLine)).toMatchObject({
+      value: 'days on foot',
+    });
+    for (const bad of ['UNIT', `UNIT ${'x'.repeat(33)}`]) {
+      expect(parseCommand(bad, TOOLS, heightLine)).toEqual({
+        kind: 'error',
+        message: 'UNIT takes 1 to 32 characters.',
+      });
+    }
     expect(parseCommand('TENSION 0.4', TOOLS, onGrid)).toEqual({
       kind: 'error',
       message: 'Line has no option TENSION on this Map. It has SNAP.',
+    });
+  });
+
+  it('takes the example of a fill of cells by the name of a Map, which the editor looks up', () => {
+    const collapse = {
+      grid: true,
+      sphere: false,
+      tool: toolById('wave-function-collapse'),
+    };
+
+    expect(parseCommand('EXAMPLE Old caves', TOOLS, collapse)).toEqual({
+      kind: 'option',
+      option: EXAMPLE,
+      value: 'Old caves',
+    });
+    expect(parseCommand('example this', TOOLS, collapse)).toMatchObject({ value: 'this' });
+    expect(parseCommand('EXAMPLE', TOOLS, collapse)).toEqual({
+      kind: 'error',
+      message: 'EXAMPLE takes the name of a Map, or THIS for this Map.',
+    });
+  });
+
+  it('takes a stroke of the Height brush at a point, and says what it needs', () => {
+    expect(parseCommand('RAISE 500,400', TOOLS, flat)).toEqual({
+      kind: 'brush',
+      lower: false,
+      at: [500, 400],
+    });
+    expect(parseCommand('lower 12.5, -3', TOOLS, flat)).toEqual({
+      kind: 'brush',
+      lower: true,
+      at: [12.5, -3],
+    });
+    expect(parseCommand('RAISE here', TOOLS, flat)).toEqual({
+      kind: 'error',
+      message: 'RAISE takes a point, for example RAISE 500,400.',
     });
   });
 });
