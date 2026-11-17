@@ -40,7 +40,8 @@ pointer in words, *Snap to the grid* (an option of the tools, in the Options tab
 `SNAP OFF` on the command line, [ADR 0470](../../docs/adr/0470-a-tool-declares-its-options.md)) and a
 *Cells* tool for regions of whole cells come with it
 ([ADR 0354](../../docs/adr/0354-grid-systems-square-rectangular-and-hex.md) to
-[ADR 0356](../../docs/adr/0356-authoring-on-a-grid.md)). A Map may be a *sphere*, with places given by
+[ADR 0356](../../docs/adr/0356-authoring-on-a-grid.md)); a region is written as one outline for each patch of
+cells and read back from the grid ([ADR 0481](../../docs/adr/0481-cells-as-merged-outlines-and-larger-drawings.md)). A Map may be a *sphere*, with places given by
 longitude and latitude and drawn flat, as Mercator or as a globe; a reader may choose how it is drawn
 for themselves and turn a globe, the pointer says where it is in words, and a writer draws pins, lines
 and areas on it ([ADR 0357](../../docs/adr/0357-the-sphere-system.md) to

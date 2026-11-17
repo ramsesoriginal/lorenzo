@@ -3,7 +3,7 @@ import AxeBuilder from '@axe-core/playwright';
 import { cellAt, cellCentre, type GridSpec } from '@lorenzo/map-renderer';
 import { type Browser, expect, type Page, test } from '@playwright/test';
 import { cellFill } from '../../src/lib/cell-fill.ts';
-import { cellsGeometry } from '../../src/lib/cells-edit.ts';
+import { cellsGeometry, cellsOf } from '../../src/lib/cells-edit.ts';
 import { regionOf } from '../../src/lib/generator.ts';
 import { apiAs, ok, refreshTokenFor } from './support/api.ts';
 import { REFRESH_TOKEN_KEY, SITE_URL } from './support/env.ts';
@@ -92,6 +92,14 @@ async function world() {
 }
 
 type Geometry = { parts: { shape: string; at?: number[]; rings?: number[][][] }[] };
+/** How many cells a drawing holds, read as the editor reads them (ADR 0481); 0 when it is no cells. */
+const cellsIn = (row: { geometry: unknown } | undefined, grid: unknown): number =>
+  cellsOf(
+    (row?.geometry ?? { parts: [] }) as never,
+    grid as GridSpec,
+    EXTENT as unknown as [number, number, number, number],
+  )?.length ?? 0;
+
 const geometryOf = (row: { geometry: unknown } | undefined): Geometry =>
   (row?.geometry ?? { parts: [] }) as Geometry;
 
@@ -226,26 +234,33 @@ test('on a grid the pointer says its cell, a pin snaps to a cell and the Cells t
     }
     await page.keyboard.press('Enter');
     await expect(page.getByRole('heading', { name: 'Change Marsh' })).toBeVisible();
-    const parts = geometryOf((await w.read(chart.id)).find((r) => r.name === 'Marsh')).parts;
+    const marshRow = (await w.read(chart.id)).find((r) => r.name === 'Marsh');
+    const parts = geometryOf(marshRow).parts;
 
-    expect(parts).toHaveLength(3);
-    expect(parts.every((p) => p.shape === 'polygon' && p.rings?.[0]?.length === 6)).toBe(true);
+    // Three cells, written as outlines (ADR 0481): as many parts as patches, never more than cells.
+    expect(cellsIn(marshRow, HEX)).toBe(3);
+    expect(parts.length).toBeLessThanOrEqual(3);
+    expect(parts.every((p) => p.shape === 'polygon')).toBe(true);
     // The cells are listed, one can be added by number, and one taken away.
     await expect(page.locator('.map-edit-panel').getByText(/^Column \d+, row \d+$/)).toHaveCount(3);
     await page.getByLabel('Column', { exact: true }).fill('10');
     await page.getByLabel('Row', { exact: true }).fill('7');
     await page.getByRole('button', { name: 'Add cell' }).click();
     await expect
-      .poll(
-        async () =>
-          geometryOf((await w.read(chart.id)).find((r) => r.name === 'Marsh')).parts.length,
+      .poll(async () =>
+        cellsIn(
+          (await w.read(chart.id)).find((r) => r.name === 'Marsh'),
+          HEX,
+        ),
       )
       .toBe(4);
     await page.getByRole('button', { name: 'Remove Column 10, row 7' }).click();
     await expect
-      .poll(
-        async () =>
-          geometryOf((await w.read(chart.id)).find((r) => r.name === 'Marsh')).parts.length,
+      .poll(async () =>
+        cellsIn(
+          (await w.read(chart.id)).find((r) => r.name === 'Marsh'),
+          HEX,
+        ),
       )
       .toBe(3);
     expect(keep.id && marsh.id).toBeTruthy();
@@ -470,7 +485,10 @@ for (const theme of ['light', 'dark'] as const) {
     expect(gained('Wall')).toHaveLength(8);
     expect(gained('Floor')).toHaveLength(8);
     const cellsOn = async (name: string) =>
-      geometryOf((await w.read(chart.id)).find((r) => r.name === name)).parts.length;
+      cellsIn(
+        (await w.read(chart.id)).find((r) => r.name === name),
+        grid,
+      );
 
     const page = await signedIn(browser, w.subject, theme);
     try {
@@ -639,8 +657,11 @@ for (const theme of ['light', 'dark'] as const) {
       }
       // The example is as it was.
       expect(
-        geometryOf((await w.read(pair.caves.id)).find((r) => r.name === 'Wall')).parts,
-      ).toHaveLength(8);
+        cellsIn(
+          (await w.read(pair.caves.id)).find((r) => r.name === 'Wall'),
+          pair.grid,
+        ),
+      ).toBe(8);
       await openPanel(page, 'History');
       await expect(page.locator('.map-slideover')).toContainText(
         'Filled by wave function collapse, seed 4821: 16 cells of 2 tiles in Yard',
@@ -698,6 +719,128 @@ test('a fill by wave function collapse from another Map refuses an entry drawn h
   }
 });
 
+test('a fill gives an entry far more than 256 cells, written as outlines, and undo takes it back (ADR 0481)', async ({
+  browser,
+}) => {
+  const w = await world();
+  // A hall of small squares: 40 by 32, 1,280 cells.
+  const FINE = { format: F, kind: 'square', extent: EXTENT, cell: { size: 25 } };
+  const grid = FINE as unknown as GridSpec;
+  const extent = [0, 0, 1000, 800] as const;
+  const hall = await w.makeMap('Great hall', FINE);
+  const row = (r: number): [number, number][] => [0, 1, 2, 3].map((c): [number, number] => [c, r]);
+  const stripes = { Wall: [...row(0), ...row(2)], Floor: [...row(1), ...row(3)] };
+  const put = async (name: string, cells: [number, number][]) => {
+    const entry = await w.place(name);
+    await ok(
+      w.gm.PUT('/tenants/{tenant_id}/maps/{map_id}/placements/{entry_id}', {
+        params: { path: { ...w.path, map_id: hall.id, entry_id: entry.id } },
+        body: { geometry: cellsGeometry(grid, extent, cells), z: 0 } as never,
+      }),
+    );
+    return entry;
+  };
+  const wall = await put('Wall', stripes.Wall);
+  const floor = await put('Floor', stripes.Floor);
+  const tiles = [
+    { id: wall.id, name: 'Wall', cells: stripes.Wall },
+    { id: floor.id, name: 'Floor', cells: stripes.Floor },
+  ].sort((a, b) => (a.id < b.id ? -1 : 1));
+  const expected = cellFill(
+    grid,
+    extent,
+    tiles,
+    new Map(tiles.map((tile) => [tile.id, tile.cells])),
+    regionOf(null, extent),
+    4821,
+  );
+  if (!expected.ok) throw new Error(expected.why);
+  const wallCells = expected.tiles.find((t) => t.name === 'Wall')?.cells ?? [];
+  // Far more than the 256 parts a drawing held before, as a few outlines.
+  expect(wallCells.length).toBeGreaterThan(256);
+  const cellsOn = async (name: string) =>
+    cellsIn(
+      (await w.read(hall.id)).find((r) => r.name === name),
+      grid,
+    );
+
+  const page = await signedIn(browser, w.subject);
+  try {
+    await page.goto(`/map/?tenant=${w.tenant.id}&id=${hall.id}`);
+    await expect(page.getByRole('heading', { name: 'Great hall', exact: true })).toBeVisible();
+    await page.getByRole('button', { name: 'Edit this map' }).click();
+    await page.locator('.map-stage svg').focus();
+    await page.keyboard.press('w');
+    const command = page.getByLabel('Command', { exact: true });
+    await command.fill('SEED 4821');
+    await command.press('Enter');
+    const preview = page.getByRole('group', { name: 'Preview' });
+    await expect(preview.locator('.map-generator-result')).toHaveText(
+      `${expected.count} in the whole sheet.`,
+    );
+    await preview.getByRole('button', { name: 'Apply' }).click();
+    await expect.poll(() => cellsOn('Wall')).toBe(wallCells.length);
+    const written = (await w.read(hall.id)).find((r) => r.name === 'Wall');
+    expect(written?.geometry).toEqual(cellsGeometry(grid, extent, wallCells));
+    expect(geometryOf(written).parts.length).toBeLessThan(wallCells.length);
+    // Undo puts both entries back as they were, in one step.
+    await page.getByRole('button', { name: 'Undo' }).click();
+    await expect.poll(() => cellsOn('Wall')).toBe(8);
+    expect(await cellsOn('Floor')).toBe(8);
+  } finally {
+    await page.context().close();
+  }
+});
+
+test('an area drawn along the grid lines is cells and keeps its points (ADR 0481)', async ({
+  browser,
+}) => {
+  const w = await world();
+  const chart = await w.makeMap('Rooms', SQUARE);
+  const hall = await w.place('Hall');
+  await ok(
+    w.gm.PUT('/tenants/{tenant_id}/maps/{map_id}/placements/{entry_id}', {
+      params: { path: { ...w.path, map_id: chart.id, entry_id: hall.id } },
+      body: {
+        geometry: {
+          format: 'lorenzo.geometry/1',
+          parts: [
+            {
+              shape: 'polygon',
+              rings: [
+                [
+                  [200, 100],
+                  [500, 100],
+                  [500, 300],
+                  [200, 300],
+                ],
+              ],
+            },
+          ],
+        },
+        z: 0,
+      } as never,
+    }),
+  );
+  const page = await signedIn(browser, w.subject);
+  try {
+    await page.goto(`/map/?tenant=${w.tenant.id}&id=${chart.id}`);
+    await expect(page.getByRole('heading', { name: 'Rooms', exact: true })).toBeVisible();
+    await page.getByRole('button', { name: 'Edit this map' }).click();
+    await openPanel(page, 'Places');
+    await page.locator('.map-places').getByRole('button', { name: /Hall/ }).click();
+    const panel = page.locator('.map-edit-panel');
+    // Its six cells are listed, and its four corners are points to change.
+    await expect(panel.getByRole('heading', { name: 'Cells' })).toBeVisible();
+    await expect(panel.getByText(/^Column \d+, row \d+$/)).toHaveCount(6);
+    await expect(panel.getByRole('heading', { name: 'Points' })).toBeVisible();
+    const result = await new AxeBuilder({ page }).exclude('.shell-bottom').analyze();
+    expect(result.violations.map((v) => `${v.id}: ${v.nodes[0]?.html}`)).toEqual([]);
+  } finally {
+    await page.context().close();
+  }
+});
+
 test('a fill by wave function collapse says what is missing: no example, or a tile too large', async ({
   browser,
 }) => {
@@ -723,8 +866,7 @@ test('a fill by wave function collapse says what is missing: no example, or a ti
     await preview.getByRole('button', { name: 'Discard' }).click();
 
     // One entry drawn with the Cells tool is the whole example: every cell of the sheet would be
-    // it, 80 of them, which a drawing can hold; so the fill is offered. (Two cells: a region of
-    // one cell is one area, and would itself be the region to fill.)
+    // it, 80 of them, one outline, which a drawing holds (ADR 0481); so the fill is offered.
     await page.getByRole('button', { name: 'Cells', exact: true }).click();
     await page.getByLabel('Or make a new Location, named').fill('Rock');
     await page.getByRole('button', { name: 'Draw a new Location' }).click();
@@ -732,8 +874,11 @@ test('a fill by wave function collapse says what is missing: no example, or a ti
     await clickSheet(page, 0.45, 0.25);
     await page.keyboard.press('Enter');
     await expect.poll(async () => (await w.read(chart.id)).length).toBe(1);
-    expect(geometryOf((await w.read(chart.id))[0]).parts).toHaveLength(2);
+    expect(cellsIn((await w.read(chart.id))[0], SQUARE)).toBe(2);
+    // The drawing just made is selected, and a selected area is where a fill works, never a tile
+    // of it; Escape clears the selection, so the fill works on the whole sheet.
     await page.locator('.map-stage svg').focus();
+    await page.keyboard.press('Escape');
     await page.keyboard.press('w');
     await expect(
       page.getByRole('group', { name: 'Preview' }).locator('.map-generator-result'),

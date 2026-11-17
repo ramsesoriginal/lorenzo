@@ -378,7 +378,11 @@ export function createEditor(context: EditorContext): Editor {
     write(shape: Editable): Geometry;
   } {
     const geometry = row.geometry as unknown as Geometry;
-    if (isCellsRow(row)) return { shape: null, part: null, write: () => geometry };
+    // A drawing of cells of several parts is changed by its cells; one area along the grid's
+    // lines, which reads as cells too (ADR 0481), keeps its points.
+    if (isCellsRow(row) && hasParts(geometry)) {
+      return { shape: null, part: null, write: () => geometry };
+    }
     if (!hasParts(geometry)) return { shape: editableOf(geometry), part: null, write: toGeometry };
     const ref = selectedPart;
     return {
@@ -504,7 +508,14 @@ export function createEditor(context: EditorContext): Editor {
             ? example
             : null;
       if (!source) return waiting(exampleProblem ?? 'Reading the example Map.');
-      const drawn = drawnCells(source.rows, source.grid, source.extent);
+      // The area the fill works in is its frame, never one of its tiles.
+      const drawn = drawnCells(
+        chosen === '' && region.kind !== 'sheet'
+          ? source.rows.filter((row) => row.id !== from?.id)
+          : source.rows,
+        source.grid,
+        source.extent,
+      );
       const here =
         chosen === '' ? [] : context.rows().map((row) => [row.id, row.geometry] as const);
       const key = JSON.stringify([
@@ -2621,9 +2632,15 @@ export function createEditor(context: EditorContext): Editor {
       ? cellsOf(row.geometry as unknown as Geometry, grid, context.extent)
       : null;
     const geometry = row.geometry as unknown as Geometry;
-    const shape = regionCells ? null : editableOf(geometry);
+    const shape = regionCells && hasParts(geometry) ? null : editableOf(geometry);
     if (regionCells && grid) {
       box.append(cellsPanel(row, grid, regionCells));
+      // One area along the grid's lines is cells and an area both (ADR 0481): its points stay.
+      if (shape) {
+        box.append(pointFields(row, shape));
+        const children = childrenControl(row, shape);
+        if (children) box.append(children);
+      }
     } else if (hasParts(geometry)) {
       box.append(partsList(row, geometry));
       const focus = focusOf(row);
