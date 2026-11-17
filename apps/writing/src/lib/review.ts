@@ -2,6 +2,7 @@ import { parse, render } from '@lorenzo/lorenzoscript';
 import { createEditor, type Editor } from '@lorenzo/lorenzoscript-editor';
 import { client, loadFile, unwrap } from './api';
 import { contentsNavigation } from './contents';
+import { exportControls } from './manuscript-export';
 import { numberedTitle } from './numbering';
 import { readingCount } from './word-count';
 
@@ -94,7 +95,11 @@ export async function reviewScreen(
       const byId = new Map(data.entries.map((e) => [e.id, e]));
       if (!byId.has(draft.entry))
         draft = { id: crypto.randomUUID(), entry: edition, content: '', version: undefined };
-      host.append(node('h1', data.book_name), node('p', 'Review — manuscript and private notes'));
+      host.append(
+        node('h1', data.book_name),
+        node('p', 'Review — manuscript and private notes'),
+        exportControls(tenant, edition, true),
+      );
       const passages: HTMLElement[] = [];
       const article = node('article');
       article.className = 'ls-content';
