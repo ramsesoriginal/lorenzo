@@ -182,7 +182,9 @@ def export(state: LibraryState, system_slug: str | None) -> Document:
             on=entry.slug or str(entry.id),
             stat=names[stat_id],
             kind=body["kind"],
-            **from_api({k: v for k, v in body.items() if k != "kind"}, lambda i: names[i]),
+            **from_api(
+                {k: v for k, v in body.items() if k != "kind"}, lambda i: names[i], body["kind"]
+            ),
         )
         for entry in ordered
         for (entry_id, stat_id), body in sorted(state.formulas.items(), key=str)

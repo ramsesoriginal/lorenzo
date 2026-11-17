@@ -1,0 +1,1040 @@
+# The Wrath & Glory starter (ADR 0491). Requires the neutral starter.
+# Mechanics, numbers and stat names only: no rules text, setting text or setting names. The
+# values (bounds, the traits' formulas, the dice pools) are written from the rules as the
+# maintainer reviews them; check them against your rulebook. The archetype and the talents
+# are examples to rename and fill.
+
+format = 1
+name = "wrath-and-glory"
+requires = [
+    "neutral",
+]
+group = [
+    { name = "wg_attributes", system = true },
+    { name = "wg_skills", system = true },
+    { name = "wg_traits", system = true },
+    { name = "wg_pools", system = true },
+    { name = "wg_progress", system = true },
+    { name = "wg_gear", system = true },
+    { name = "wg_features", system = true },
+]
+
+[system]
+slug = "wg"
+name = "Wrath & Glory"
+root = "wg-system"
+
+[[stat]]
+name = "wg_strength"
+group = "wg_attributes"
+type = "int"
+min = 1
+max = 12
+
+[[stat]]
+name = "wg_toughness"
+group = "wg_attributes"
+type = "int"
+min = 1
+max = 12
+
+[[stat]]
+name = "wg_agility"
+group = "wg_attributes"
+type = "int"
+min = 1
+max = 12
+
+[[stat]]
+name = "wg_initiative"
+group = "wg_attributes"
+type = "int"
+min = 1
+max = 12
+
+[[stat]]
+name = "wg_willpower"
+group = "wg_attributes"
+type = "int"
+min = 1
+max = 12
+
+[[stat]]
+name = "wg_intellect"
+group = "wg_attributes"
+type = "int"
+min = 1
+max = 12
+
+[[stat]]
+name = "wg_fellowship"
+group = "wg_attributes"
+type = "int"
+min = 1
+max = 12
+
+[[stat]]
+name = "wg_athletics"
+group = "wg_skills"
+type = "int"
+min = 0
+max = 8
+
+[[stat]]
+name = "wg_awareness"
+group = "wg_skills"
+type = "int"
+min = 0
+max = 8
+
+[[stat]]
+name = "wg_ballistic_skill"
+group = "wg_skills"
+type = "int"
+min = 0
+max = 8
+
+[[stat]]
+name = "wg_cunning"
+group = "wg_skills"
+type = "int"
+min = 0
+max = 8
+
+[[stat]]
+name = "wg_deception"
+group = "wg_skills"
+type = "int"
+min = 0
+max = 8
+
+[[stat]]
+name = "wg_insight"
+group = "wg_skills"
+type = "int"
+min = 0
+max = 8
+
+[[stat]]
+name = "wg_intimidation"
+group = "wg_skills"
+type = "int"
+min = 0
+max = 8
+
+[[stat]]
+name = "wg_investigation"
+group = "wg_skills"
+type = "int"
+min = 0
+max = 8
+
+[[stat]]
+name = "wg_leadership"
+group = "wg_skills"
+type = "int"
+min = 0
+max = 8
+
+[[stat]]
+name = "wg_medicae"
+group = "wg_skills"
+type = "int"
+min = 0
+max = 8
+
+[[stat]]
+name = "wg_persuasion"
+group = "wg_skills"
+type = "int"
+min = 0
+max = 8
+
+[[stat]]
+name = "wg_pilot"
+group = "wg_skills"
+type = "int"
+min = 0
+max = 8
+
+[[stat]]
+name = "wg_psychic_mastery"
+group = "wg_skills"
+type = "int"
+min = 0
+max = 8
+
+[[stat]]
+name = "wg_scholar"
+group = "wg_skills"
+type = "int"
+min = 0
+max = 8
+
+[[stat]]
+name = "wg_stealth"
+group = "wg_skills"
+type = "int"
+min = 0
+max = 8
+
+[[stat]]
+name = "wg_survival"
+group = "wg_skills"
+type = "int"
+min = 0
+max = 8
+
+[[stat]]
+name = "wg_tech"
+group = "wg_skills"
+type = "int"
+min = 0
+max = 8
+
+[[stat]]
+name = "wg_weapon_skill"
+group = "wg_skills"
+type = "int"
+min = 0
+max = 8
+
+[[stat]]
+name = "wg_defence"
+group = "wg_traits"
+type = "int"
+
+[[stat]]
+name = "wg_resilience"
+group = "wg_traits"
+type = "int"
+
+[[stat]]
+name = "wg_determination"
+group = "wg_traits"
+type = "int"
+
+[[stat]]
+name = "wg_max_wounds"
+group = "wg_traits"
+type = "int"
+
+[[stat]]
+name = "wg_max_shock"
+group = "wg_traits"
+type = "int"
+
+[[stat]]
+name = "wg_resolve"
+group = "wg_traits"
+type = "int"
+
+[[stat]]
+name = "wg_conviction"
+group = "wg_traits"
+type = "int"
+
+[[stat]]
+name = "wg_passive_awareness"
+group = "wg_traits"
+type = "int"
+
+[[stat]]
+name = "wg_influence"
+group = "wg_traits"
+type = "int"
+
+[[stat]]
+name = "wg_wealth"
+group = "wg_traits"
+type = "int"
+
+[[stat]]
+name = "wg_armour"
+group = "wg_traits"
+type = "int"
+
+[[stat]]
+name = "wg_speed"
+group = "wg_traits"
+type = "int"
+
+[[stat]]
+name = "wg_tier"
+group = "wg_progress"
+type = "int"
+min = 1
+max = 5
+
+[[stat]]
+name = "wg_rank"
+group = "wg_progress"
+type = "int"
+min = 1
+max = 5
+
+[[stat]]
+name = "wg_wrath"
+group = "wg_progress"
+type = "int"
+min = 0
+adjustable_in_play = true
+
+[[stat]]
+name = "wg_glory"
+group = "wg_progress"
+type = "int"
+min = 0
+adjustable_in_play = true
+
+[[stat]]
+name = "wg_corruption"
+group = "wg_progress"
+type = "int"
+min = 0
+adjustable_in_play = true
+
+[[stat]]
+name = "wg_wounds"
+group = "wg_progress"
+type = "int"
+min = 0
+max_hint = "wg_max_wounds"
+adjustable_in_play = true
+
+[[stat]]
+name = "wg_shock"
+group = "wg_progress"
+type = "int"
+min = 0
+max_hint = "wg_max_shock"
+adjustable_in_play = true
+
+[[stat]]
+name = "wg_damage"
+group = "wg_gear"
+type = "int"
+
+[[stat]]
+name = "wg_extra_damage_dice"
+group = "wg_gear"
+type = "int"
+min = 0
+
+[[stat]]
+name = "wg_extra_damage"
+group = "wg_gear"
+type = "dice"
+
+[[stat]]
+name = "wg_armour_penetration"
+group = "wg_gear"
+type = "int"
+
+[[stat]]
+name = "wg_salvo"
+group = "wg_gear"
+type = "int"
+
+[[stat]]
+name = "wg_range"
+group = "wg_gear"
+type = "int"
+unit = "m"
+
+[[stat]]
+name = "wg_armour_rating"
+group = "wg_gear"
+type = "int"
+min = 0
+
+[[stat]]
+name = "wg_uses"
+group = "wg_features"
+type = "int"
+min = 0
+adjustable_in_play = true
+
+[[stat]]
+name = "wg_pool_athletics"
+group = "wg_pools"
+type = "int"
+
+[[stat]]
+name = "wg_roll_athletics"
+group = "wg_pools"
+type = "dice"
+
+[[stat]]
+name = "wg_pool_awareness"
+group = "wg_pools"
+type = "int"
+
+[[stat]]
+name = "wg_roll_awareness"
+group = "wg_pools"
+type = "dice"
+
+[[stat]]
+name = "wg_pool_ballistic_skill"
+group = "wg_pools"
+type = "int"
+
+[[stat]]
+name = "wg_roll_ballistic_skill"
+group = "wg_pools"
+type = "dice"
+
+[[stat]]
+name = "wg_pool_cunning"
+group = "wg_pools"
+type = "int"
+
+[[stat]]
+name = "wg_roll_cunning"
+group = "wg_pools"
+type = "dice"
+
+[[stat]]
+name = "wg_pool_deception"
+group = "wg_pools"
+type = "int"
+
+[[stat]]
+name = "wg_roll_deception"
+group = "wg_pools"
+type = "dice"
+
+[[stat]]
+name = "wg_pool_insight"
+group = "wg_pools"
+type = "int"
+
+[[stat]]
+name = "wg_roll_insight"
+group = "wg_pools"
+type = "dice"
+
+[[stat]]
+name = "wg_pool_intimidation"
+group = "wg_pools"
+type = "int"
+
+[[stat]]
+name = "wg_roll_intimidation"
+group = "wg_pools"
+type = "dice"
+
+[[stat]]
+name = "wg_pool_investigation"
+group = "wg_pools"
+type = "int"
+
+[[stat]]
+name = "wg_roll_investigation"
+group = "wg_pools"
+type = "dice"
+
+[[stat]]
+name = "wg_pool_leadership"
+group = "wg_pools"
+type = "int"
+
+[[stat]]
+name = "wg_roll_leadership"
+group = "wg_pools"
+type = "dice"
+
+[[stat]]
+name = "wg_pool_medicae"
+group = "wg_pools"
+type = "int"
+
+[[stat]]
+name = "wg_roll_medicae"
+group = "wg_pools"
+type = "dice"
+
+[[stat]]
+name = "wg_pool_persuasion"
+group = "wg_pools"
+type = "int"
+
+[[stat]]
+name = "wg_roll_persuasion"
+group = "wg_pools"
+type = "dice"
+
+[[stat]]
+name = "wg_pool_pilot"
+group = "wg_pools"
+type = "int"
+
+[[stat]]
+name = "wg_roll_pilot"
+group = "wg_pools"
+type = "dice"
+
+[[stat]]
+name = "wg_pool_psychic_mastery"
+group = "wg_pools"
+type = "int"
+
+[[stat]]
+name = "wg_roll_psychic_mastery"
+group = "wg_pools"
+type = "dice"
+
+[[stat]]
+name = "wg_pool_scholar"
+group = "wg_pools"
+type = "int"
+
+[[stat]]
+name = "wg_roll_scholar"
+group = "wg_pools"
+type = "dice"
+
+[[stat]]
+name = "wg_pool_stealth"
+group = "wg_pools"
+type = "int"
+
+[[stat]]
+name = "wg_roll_stealth"
+group = "wg_pools"
+type = "dice"
+
+[[stat]]
+name = "wg_pool_survival"
+group = "wg_pools"
+type = "int"
+
+[[stat]]
+name = "wg_roll_survival"
+group = "wg_pools"
+type = "dice"
+
+[[stat]]
+name = "wg_pool_tech"
+group = "wg_pools"
+type = "int"
+
+[[stat]]
+name = "wg_roll_tech"
+group = "wg_pools"
+type = "dice"
+
+[[stat]]
+name = "wg_pool_weapon_skill"
+group = "wg_pools"
+type = "int"
+
+[[stat]]
+name = "wg_roll_weapon_skill"
+group = "wg_pools"
+type = "dice"
+
+[[entry]]
+slug = "wg-system"
+name = "Wrath & Glory"
+description = "The mechanics of Wrath & Glory: attributes, skills, the traits they give, dice pools and gear. Numbers and names of mechanics only; the rules and the setting are in the rulebook."
+
+[[entry]]
+slug = "wg-character"
+name = "Character (Wrath & Glory)"
+parents = [
+    "wg-system",
+]
+
+[entry.stats]
+wg_speed = 6
+wg_tier = 1
+wg_rank = 1
+
+[[entry]]
+slug = "wg-archetype"
+name = "Archetype (example)"
+parents = [
+    "wg-character",
+]
+
+[[entry]]
+slug = "wg-talents"
+name = "Talents"
+parents = [
+    "wg-system",
+]
+
+[[entry]]
+slug = "wg-talent-a"
+name = "Talent A (example)"
+kinds = [
+    "feature",
+]
+parents = [
+    "wg-talents",
+]
+
+[[entry]]
+slug = "wg-talent-b"
+name = "Talent B (example)"
+kinds = [
+    "feature",
+]
+parents = [
+    "wg-talents",
+]
+
+[[entry]]
+slug = "wg-weapon"
+name = "Weapon (Wrath & Glory)"
+parents = [
+    "wg-system",
+    "weapon",
+]
+
+[[entry]]
+slug = "wg-armour"
+name = "Armour (Wrath & Glory)"
+parents = [
+    "wg-system",
+    "armor",
+]
+
+[[formula]]
+on = "wg-character"
+stat = "wg_defence"
+kind = "linear"
+source = "wg_initiative"
+multiplier = 1
+offset = -1
+
+[[formula]]
+on = "wg-character"
+stat = "wg_armour"
+kind = "contents"
+source = "wg_armour_rating"
+aggregate = "max"
+only_active = true
+if_none = 0
+
+[[formula]]
+on = "wg-character"
+stat = "wg_resilience"
+kind = "sum"
+terms = [
+    "wg_toughness",
+    "wg_armour",
+]
+offset = 1
+
+[[formula]]
+on = "wg-character"
+stat = "wg_determination"
+kind = "linear"
+source = "wg_toughness"
+multiplier = 1
+
+[[formula]]
+on = "wg-character"
+stat = "wg_max_wounds"
+kind = "sum"
+terms = [
+    { stat = "wg_tier", coefficient = 2 },
+    "wg_toughness",
+]
+
+[[formula]]
+on = "wg-character"
+stat = "wg_max_shock"
+kind = "sum"
+terms = [
+    "wg_willpower",
+    "wg_tier",
+]
+
+[[formula]]
+on = "wg-character"
+stat = "wg_resolve"
+kind = "linear"
+source = "wg_willpower"
+multiplier = 1
+offset = -1
+
+[[formula]]
+on = "wg-character"
+stat = "wg_conviction"
+kind = "linear"
+source = "wg_willpower"
+multiplier = 1
+
+[[formula]]
+on = "wg-character"
+stat = "wg_passive_awareness"
+kind = "linear"
+source = "wg_pool_awareness"
+multiplier = 0.5
+round = "ceil"
+
+[[formula]]
+on = "wg-character"
+stat = "wg_influence"
+kind = "linear"
+source = "wg_fellowship"
+multiplier = 1
+offset = -1
+
+[[formula]]
+on = "wg-character"
+stat = "wg_wealth"
+kind = "linear"
+source = "wg_tier"
+multiplier = 1
+
+[[formula]]
+on = "wg-character"
+stat = "wg_pool_athletics"
+kind = "sum"
+terms = [
+    "wg_strength",
+    "wg_athletics",
+]
+
+[[formula]]
+on = "wg-character"
+stat = "wg_roll_athletics"
+kind = "dice"
+count = "wg_pool_athletics"
+sides_constant = 6
+
+[[formula]]
+on = "wg-character"
+stat = "wg_pool_awareness"
+kind = "sum"
+terms = [
+    "wg_intellect",
+    "wg_awareness",
+]
+
+[[formula]]
+on = "wg-character"
+stat = "wg_roll_awareness"
+kind = "dice"
+count = "wg_pool_awareness"
+sides_constant = 6
+
+[[formula]]
+on = "wg-character"
+stat = "wg_pool_ballistic_skill"
+kind = "sum"
+terms = [
+    "wg_agility",
+    "wg_ballistic_skill",
+]
+
+[[formula]]
+on = "wg-character"
+stat = "wg_roll_ballistic_skill"
+kind = "dice"
+count = "wg_pool_ballistic_skill"
+sides_constant = 6
+
+[[formula]]
+on = "wg-character"
+stat = "wg_pool_cunning"
+kind = "sum"
+terms = [
+    "wg_fellowship",
+    "wg_cunning",
+]
+
+[[formula]]
+on = "wg-character"
+stat = "wg_roll_cunning"
+kind = "dice"
+count = "wg_pool_cunning"
+sides_constant = 6
+
+[[formula]]
+on = "wg-character"
+stat = "wg_pool_deception"
+kind = "sum"
+terms = [
+    "wg_fellowship",
+    "wg_deception",
+]
+
+[[formula]]
+on = "wg-character"
+stat = "wg_roll_deception"
+kind = "dice"
+count = "wg_pool_deception"
+sides_constant = 6
+
+[[formula]]
+on = "wg-character"
+stat = "wg_pool_insight"
+kind = "sum"
+terms = [
+    "wg_fellowship",
+    "wg_insight",
+]
+
+[[formula]]
+on = "wg-character"
+stat = "wg_roll_insight"
+kind = "dice"
+count = "wg_pool_insight"
+sides_constant = 6
+
+[[formula]]
+on = "wg-character"
+stat = "wg_pool_intimidation"
+kind = "sum"
+terms = [
+    "wg_willpower",
+    "wg_intimidation",
+]
+
+[[formula]]
+on = "wg-character"
+stat = "wg_roll_intimidation"
+kind = "dice"
+count = "wg_pool_intimidation"
+sides_constant = 6
+
+[[formula]]
+on = "wg-character"
+stat = "wg_pool_investigation"
+kind = "sum"
+terms = [
+    "wg_intellect",
+    "wg_investigation",
+]
+
+[[formula]]
+on = "wg-character"
+stat = "wg_roll_investigation"
+kind = "dice"
+count = "wg_pool_investigation"
+sides_constant = 6
+
+[[formula]]
+on = "wg-character"
+stat = "wg_pool_leadership"
+kind = "sum"
+terms = [
+    "wg_willpower",
+    "wg_leadership",
+]
+
+[[formula]]
+on = "wg-character"
+stat = "wg_roll_leadership"
+kind = "dice"
+count = "wg_pool_leadership"
+sides_constant = 6
+
+[[formula]]
+on = "wg-character"
+stat = "wg_pool_medicae"
+kind = "sum"
+terms = [
+    "wg_intellect",
+    "wg_medicae",
+]
+
+[[formula]]
+on = "wg-character"
+stat = "wg_roll_medicae"
+kind = "dice"
+count = "wg_pool_medicae"
+sides_constant = 6
+
+[[formula]]
+on = "wg-character"
+stat = "wg_pool_persuasion"
+kind = "sum"
+terms = [
+    "wg_fellowship",
+    "wg_persuasion",
+]
+
+[[formula]]
+on = "wg-character"
+stat = "wg_roll_persuasion"
+kind = "dice"
+count = "wg_pool_persuasion"
+sides_constant = 6
+
+[[formula]]
+on = "wg-character"
+stat = "wg_pool_pilot"
+kind = "sum"
+terms = [
+    "wg_agility",
+    "wg_pilot",
+]
+
+[[formula]]
+on = "wg-character"
+stat = "wg_roll_pilot"
+kind = "dice"
+count = "wg_pool_pilot"
+sides_constant = 6
+
+[[formula]]
+on = "wg-character"
+stat = "wg_pool_psychic_mastery"
+kind = "sum"
+terms = [
+    "wg_willpower",
+    "wg_psychic_mastery",
+]
+
+[[formula]]
+on = "wg-character"
+stat = "wg_roll_psychic_mastery"
+kind = "dice"
+count = "wg_pool_psychic_mastery"
+sides_constant = 6
+
+[[formula]]
+on = "wg-character"
+stat = "wg_pool_scholar"
+kind = "sum"
+terms = [
+    "wg_intellect",
+    "wg_scholar",
+]
+
+[[formula]]
+on = "wg-character"
+stat = "wg_roll_scholar"
+kind = "dice"
+count = "wg_pool_scholar"
+sides_constant = 6
+
+[[formula]]
+on = "wg-character"
+stat = "wg_pool_stealth"
+kind = "sum"
+terms = [
+    "wg_agility",
+    "wg_stealth",
+]
+
+[[formula]]
+on = "wg-character"
+stat = "wg_roll_stealth"
+kind = "dice"
+count = "wg_pool_stealth"
+sides_constant = 6
+
+[[formula]]
+on = "wg-character"
+stat = "wg_pool_survival"
+kind = "sum"
+terms = [
+    "wg_willpower",
+    "wg_survival",
+]
+
+[[formula]]
+on = "wg-character"
+stat = "wg_roll_survival"
+kind = "dice"
+count = "wg_pool_survival"
+sides_constant = 6
+
+[[formula]]
+on = "wg-character"
+stat = "wg_pool_tech"
+kind = "sum"
+terms = [
+    "wg_intellect",
+    "wg_tech",
+]
+
+[[formula]]
+on = "wg-character"
+stat = "wg_roll_tech"
+kind = "dice"
+count = "wg_pool_tech"
+sides_constant = 6
+
+[[formula]]
+on = "wg-character"
+stat = "wg_pool_weapon_skill"
+kind = "sum"
+terms = [
+    "wg_initiative",
+    "wg_weapon_skill",
+]
+
+[[formula]]
+on = "wg-character"
+stat = "wg_roll_weapon_skill"
+kind = "dice"
+count = "wg_pool_weapon_skill"
+sides_constant = 6
+
+[[formula]]
+on = "wg-weapon"
+stat = "wg_extra_damage"
+kind = "dice"
+count = "wg_extra_damage_dice"
+sides_constant = 6
+
+[[template]]
+name = "Character sheet (Wrath & Glory)"
+system = true
+kind = "being"
+ancestor = "wg-character"
+
+[[template.slot]]
+kind = "stats"
+label = "Attributes"
+group = "wg_attributes"
+
+[[template.slot]]
+kind = "stats"
+label = "Skills"
+group = "wg_skills"
+
+[[template.slot]]
+kind = "stats"
+label = "Traits"
+group = "wg_traits"
+
+[[template.slot]]
+kind = "stats"
+label = "Progress"
+group = "wg_progress"
+
+[[template.slot]]
+kind = "features"
+label = "Talents"
+group = "wg_features"
+
+[[template.slot]]
+kind = "held"
+label = "Wargear"
+stats = [
+    "wg_damage",
+    "wg_armour_rating",
+    "weight",
+]
+held_order = "name"
+
+[[grant_rule]]
+on = "wg-archetype"
+label = "Talent"
+mode = "choose"
+min = 1
+max = 1
+options = [
+    "wg-talent-a",
+    "wg-talent-b",
+]

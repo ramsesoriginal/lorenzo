@@ -4,7 +4,7 @@ from typing import Any
 
 from lorenzo_cli.importer.draft import Ancestry, ItemDraft, draft_item
 from lorenzo_cli.importer.mapping import Mapping, load_mapping
-from lorenzo_cli.seed import load_builtin
+from lorenzo_cli.importer.vocabulary import load as load_builtin
 
 BUILTIN = load_mapping().mapping
 
@@ -54,12 +54,11 @@ def test_a_weapon_is_named_parented_and_given_its_stats() -> None:
     assert result.stats == {
         "sourcebook": "SRD 66, P 149",
         "own_weight": 3.0,
-        "damage_dice_count": 1,
-        "damage_die": 8,
-        "damage_type": "slashing",
-        "damage_versatile_die": 10,
-        "attack_ability": "Strength",
-        "ability_to_damage": True,
+        "dnd5e_damage": "1d8",
+        "dnd5e_damage_type": "slashing",
+        "dnd5e_damage_versatile": "1d10",
+        "dnd5e_attack_ability": "Strength",
+        "dnd5e_ability_to_damage": True,
     }
     assert result.description == "Versatile (1d10)"
     assert result.issues == [] and result.skip_reason is None
@@ -72,7 +71,7 @@ def test_a_thrown_weapon_is_melee_and_ranged_from_its_range_text() -> None:
     result = draft("weapons", "dagger", entry)
 
     assert result.parents == ["dnd5e-simple", "melee-weapon", "ranged-weapon"]
-    assert (result.stats["range_normal"], result.stats["range_long"]) == (20, 60)
+    assert (result.stats["dnd5e_range_normal"], result.stats["dnd5e_range_long"]) == (20, 60)
 
 
 def test_a_weapon_with_no_list_gets_its_reach_from_its_range() -> None:
@@ -173,7 +172,7 @@ def test_armour_takes_its_tier_and_keeps_its_form() -> None:
     result = draft("armour", "chain mail", entry)
 
     assert result.parents == ["armor", "dnd5e-heavy-armor"]
-    assert result.stats["armor"] == 16 and result.stats["own_weight"] == 55.0
+    assert result.stats["dnd5e_armor"] == 16 and result.stats["own_weight"] == 55.0
 
 
 def test_armour_prefers_its_inventory_name() -> None:
@@ -194,8 +193,8 @@ def test_what_the_sheet_uses_to_work_out_ac_is_not_an_item() -> None:
 def test_an_ac_formula_is_kept_as_text_since_no_number_is_right() -> None:
     result = draft("armour", "robe", {"name": "Robe", "ac": "10+Wis"})
 
-    assert "armor" not in result.stats
-    assert result.stats["armor_formula"] == "10+Wis"
+    assert "dnd5e_armor" not in result.stats
+    assert result.stats["dnd5e_armor_formula"] == "10+Wis"
 
 
 def test_a_shield_is_found_by_its_name() -> None:
@@ -218,7 +217,7 @@ def test_gear_takes_its_name_and_price_from_the_display_string_and_its_weight_ti
     result = draft("gear", "arrows (20)", entry)
 
     assert result.name == "Arrows (20)"
-    assert result.stats == {"price": 100, "own_weight": 1.0, "bundle_amount": 20}
+    assert result.stats == {"dnd5e_price": 100, "own_weight": 1.0, "bundle_amount": 20}
     assert result.parents == ["ammunition"]  # bundles of ammunition replace the gear form
 
 
@@ -267,7 +266,7 @@ def test_tools_take_their_proficiency() -> None:
     result = draft("tools", "alchemist's supplies", entry)
 
     assert result.parents == ["dnd5e-artisans-tools", "tool"]
-    assert result.stats["price"] == 5000
+    assert result.stats["dnd5e_price"] == 5000
 
 
 def test_a_tool_of_no_kind_is_just_a_tool() -> None:
@@ -296,7 +295,7 @@ def test_a_pack_has_a_price_in_its_name_and_carries_its_items() -> None:
     result = draft("packs", "explorer", entry)
 
     assert result.name == "Explorer's pack"
-    assert result.stats["price"] == 1000
+    assert result.stats["dnd5e_price"] == 1000
     assert result.pack_items == entry["items"]
     assert result.parents == ["gear"]
 

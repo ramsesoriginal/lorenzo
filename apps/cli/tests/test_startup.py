@@ -20,7 +20,6 @@ HEAVY = (
     "lorenzo_cli.client",
     "lorenzo_cli.importer",
     "lorenzo_cli.inventory",
-    "lorenzo_cli.seed",
     "lorenzo_cli.evalworker",
     "lorenzo_cli.calendar_commands",
     "lorenzo_cli.entry_commands",

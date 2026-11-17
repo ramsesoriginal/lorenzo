@@ -45,3 +45,13 @@ exists to take a layer out. Before launch there is no data to keep.
   repository, and a second system beside it without a collision.
 - The starters are content to keep correct; their numbers are reviewed like code.
 - Nothing is seeded by the API: a starter is a document a person chooses to apply.
+
+## As built (slice C10)
+
+- Three starters ship in `apps/cli/src/lorenzo_cli/starters/`: `neutral`, `dnd5e` (system `dnd5e`, root `dnd5e-system`) and
+  `wrath-and-glory` (system `wg`). `dnd5e` requires `neutral` and attaches its Economic object to the neutral forms; every D&D
+  stat is prefixed `dnd5e_`, and damage is one dice stat (`dnd5e_damage = "1d8"`) instead of a count and a die.
+- `seed`, `unseed`, the `seed/` package and its tests are gone; `tenant create` points to `lorenzo apply --starter neutral`.
+- The four published repositories are two: the equipment (`neutral` and the neutral pass) and the rules, which copy the equipment
+  and add `dnd5e` and the system pass. `repo contents` no longer counts seed layers.
+- The `wrath-and-glory` starter holds names and numbers only, marked to be checked against the book.

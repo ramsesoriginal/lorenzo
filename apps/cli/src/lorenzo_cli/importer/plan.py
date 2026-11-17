@@ -37,7 +37,7 @@ from lorenzo_cli.importer.packs import (
 from lorenzo_cli.importer.parts import Parts
 from lorenzo_cli.importer.slugs import LIST_TOKENS, assign_slugs
 from lorenzo_cli.importer.transforms import Issue
-from lorenzo_cli.seed import SeedSpec
+from lorenzo_cli.importer.vocabulary import Vocabulary as SeedSpec
 
 Status = Literal["create", "complete", "retitle", "exists", "held", "skipped", "moved"]
 # Written last: an existing item without it is one an earlier run stopped part-way through.
@@ -282,7 +282,7 @@ def _check_seeded(
     tenant_defs: dict[str, StatDefinitionOut],
     seed: SeedSpec,
 ) -> None:
-    """The import needs the seed's categories and stats to be there. Say so once, plainly."""
+    """The import needs the starters' categories and stats to be there. Say so once, plainly."""
     missing_parents = [p for p in needed_parents if p not in present_parents]
     seed_types = {d.name: (d.value_type, d.group) for d in seed.definitions}
     wanted: dict[str, tuple[str, str | None]] = {}
@@ -320,9 +320,10 @@ def _check_seeded(
     if missing_parents or missing_stats:
         shown = ", ".join([*missing_parents[:6], *missing_stats[:6]])
         plan.problems.append(
-            f"This tenant hasn't been seeded: it lacks {shown}"
+            f"This library lacks {shown}"
             f"{' and more' if len(missing_parents) + len(missing_stats) > 12 else ''}. "
-            "Run `lorenzo seed` on it first."
+            "Apply the starters first: `lorenzo apply --starter neutral` (and `--starter dnd5e` "
+            "for D&D's half), or copy a repository that holds them."
         )
 
 

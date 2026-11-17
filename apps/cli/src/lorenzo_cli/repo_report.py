@@ -19,6 +19,7 @@ from lorenzo_cli.client.models import (
     SubscriptionOut,
     UpdatesOut,
 )
+from lorenzo_cli.repo_contents import Contents
 from lorenzo_cli.repos import (
     CleanUpdates,
     OfferResult,
@@ -26,7 +27,6 @@ from lorenzo_cli.repos import (
     has_published_since,
     updates_waiting,
 )
-from lorenzo_cli.seed.contents import Contents, Part
 
 
 def when(value: datetime | None) -> str:
@@ -354,13 +354,6 @@ def print_offer_result(console: Console, state: OfferState, result: OfferResult)
         )
 
 
-def _of(part: Part) -> str:
-    return "-" if part.in_seed == 0 else f"{part.present} of {part.in_seed}"
-
-
-_HOLDS_STYLE = {"complete": "green", "partly": "yellow", "not there": "dim"}
-
-
 def contents_json(contents: Contents) -> dict[str, object]:
     """What a repository holds as plain data for `--json`."""
     tenant = contents.tenant
@@ -387,36 +380,6 @@ def contents_json(contents: Contents) -> dict[str, object]:
             "stat_definitions": contents.stat_definitions,
             "items": contents.items,
             "attachments": contents.attachments,
-        },
-        "seed": {
-            "version": contents.seed_version,
-            "layers": {
-                holding.layer: {
-                    "holds": holding.holds,
-                    "stat_groups": {
-                        "present": holding.groups.present,
-                        "in_seed": holding.groups.in_seed,
-                    },
-                    "stat_definitions": {
-                        "present": holding.definitions.present,
-                        "in_seed": holding.definitions.in_seed,
-                    },
-                    "categories": {
-                        "present": holding.categories.present,
-                        "in_seed": holding.categories.in_seed,
-                    },
-                    "attachments": {
-                        "present": holding.attachments.present,
-                        "in_seed": holding.attachments.in_seed,
-                    },
-                }
-                for holding in contents.layers
-            },
-        },
-        "beyond_seed": {
-            "stat_groups": contents.other_stat_groups,
-            "stat_definitions": contents.other_stat_definitions,
-            "items": contents.other_items,
         },
     }
 
@@ -452,28 +415,3 @@ def print_contents(console: Console, contents: Contents) -> None:
             "it takes along.",
             highlight=False,
         )
-    table = Table(
-        title=f"The seed (version {contents.seed_version})",
-        title_justify="left",
-    )
-    # A layer's name is never cut short, whatever the terminal's width: the numbers wrap instead.
-    table.add_column("layer", no_wrap=True)
-    table.add_column("holds", no_wrap=True)
-    for heading in ("stat groups", "stat definitions", "categories", "attachments"):
-        table.add_column(heading)
-    for holding in contents.layers:
-        style = _HOLDS_STYLE[holding.holds]
-        table.add_row(
-            holding.layer,
-            f"[{style}]{holding.holds}[/{style}]",
-            _of(holding.groups),
-            _of(holding.definitions),
-            _of(holding.categories),
-            _of(holding.attachments),
-        )
-    console.print(table)
-    console.print(
-        f"Beyond the seed: {contents.other_stat_groups} stat groups, "
-        f"{contents.other_stat_definitions} stat definitions and {contents.other_items} items.",
-        highlight=False,
-    )

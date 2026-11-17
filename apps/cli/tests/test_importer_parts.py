@@ -11,8 +11,8 @@ from typing import Any
 
 import httpx
 import pytest
+from item_json import item_json as _item
 from test_transport import FixedToken
-from test_unseed import _item
 
 from lorenzo_cli.client.models import TenantOut
 from lorenzo_cli.client.transport import LorenzoClient
@@ -23,7 +23,7 @@ from lorenzo_cli.importer.manifest import Manifest
 from lorenzo_cli.importer.mapping import Mapping, MappingError, load_mapping
 from lorenzo_cli.importer.parts import Parts
 from lorenzo_cli.importer.plan import ImportPlan, Options, build_plan
-from lorenzo_cli.seed import load_builtin
+from lorenzo_cli.importer.vocabulary import load as load_builtin
 
 SEED = load_builtin()
 PARTS = Parts(SEED)
@@ -84,7 +84,7 @@ def halves(item: ItemDraft) -> tuple[ItemDraft, ItemDraft]:
 
 def test_the_seeds_layers_say_whose_each_stat_and_category_is() -> None:
     assert PARTS.stat("own_weight") == "neutral" and PARTS.stat("sourcebook") == "neutral"
-    assert PARTS.stat("price") == "system" and PARTS.stat("damage_die") == "system"
+    assert PARTS.stat("dnd5e_price") == "system" and PARTS.stat("dnd5e_damage") == "system"
     assert PARTS.node("melee-weapon") == "neutral" and PARTS.node("silvered") == "neutral"
     assert PARTS.node("dnd5e-martial") == "system" and PARTS.node("dnd5e-system") == "system"
     assert PARTS.stat("flavour_text") is None and PARTS.node("hb-anything") is None
@@ -103,12 +103,11 @@ def test_a_weapon_is_a_neutral_item_and_a_system_prototype() -> None:
     assert system.namespace == "srd5e" and system.neutral_namespace == "basic"
     assert system.parents == ["dnd5e-martial", "dnd5e-versatile"]
     assert system.stats == {
-        "damage_dice_count": 1,
-        "damage_die": 8,
-        "damage_type": "slashing",
-        "damage_versatile_die": 10,
-        "attack_ability": "Strength",
-        "ability_to_damage": True,
+        "dnd5e_damage": "1d8",
+        "dnd5e_damage_type": "slashing",
+        "dnd5e_damage_versatile": "1d10",
+        "dnd5e_attack_ability": "Strength",
+        "dnd5e_ability_to_damage": True,
     }
     # The property list and the special rules are D&D's, as the RFC has them.
     assert system.description == "Versatile (1d10)"
@@ -122,8 +121,8 @@ def test_one_rule_writing_both_halves_is_divided_not_split() -> None:
 
     # A bow is ranged by being a bow, so the reach is its form's, and neutral.
     assert neutral.parents == ["bow"] and "bow" not in system.parents
-    assert "range_normal" not in neutral.stats and system.stats["range_normal"] == 150
-    assert system.stats["range_long"] == 600
+    assert "dnd5e_range_normal" not in neutral.stats and system.stats["dnd5e_range_normal"] == 150
+    assert system.stats["dnd5e_range_long"] == 600
     assert "dnd5e-heavy" in system.parents and "dnd5e-two-handed" in system.parents
 
 
@@ -133,7 +132,11 @@ def test_armour_numbers_and_tier_are_the_systems_and_its_form_is_neutral() -> No
     assert neutral.parents == ["armor"]
     assert neutral.stats == {"sourcebook": "SRD 70", "own_weight": 55.0}
     assert system.parents == ["dnd5e-heavy-armor"]
-    assert system.stats == {"armor": 16, "strength_required": 13, "stealth_disadvantage": True}
+    assert system.stats == {
+        "dnd5e_armor": 16,
+        "dnd5e_strength_required": 13,
+        "dnd5e_stealth_disadvantage": True,
+    }
 
 
 def test_a_price_is_the_systems_and_the_name_and_kind_of_gear_are_neutral() -> None:
@@ -143,7 +146,7 @@ def test_a_price_is_the_systems_and_the_name_and_kind_of_gear_are_neutral() -> N
 
     assert neutral.name == "Backpack" and neutral.parents == ["container", "gear"]
     assert neutral.stats == {"own_weight": 5.0}
-    assert system.stats == {"price": 200} and system.parents == []
+    assert system.stats == {"dnd5e_price": 200} and system.parents == []
     assert system.name == "Backpack (D&D 5e)"
 
 
@@ -264,17 +267,17 @@ def test_a_text_rule_takes_a_part_and_defaults_to_neutral() -> None:
         (
             '[attributes.weapons]\nweight = { transform = "float", stat = "own_weight", '
             'part = "system" }',
-            "whose output the seed already says",
+            "whose output the starters already say",
         ),
         ('[attributes.weapons]\nweight = { transform = "own_weight", part = "system" }', "part = "),
         (
             '[classify.weapons.type]\nfoo = { parents = ["dnd5e-martial"], part = "neutral" }',
-            "every parent is one of the seed's",
+            "every parent is one of the starters'",
         ),
         (
             '[[name_rule]]\nin_list = "weapons"\nwords = ["x"]\nparents = ["silvered"]\n'
             'part = "system"',
-            "every parent is one of the seed's",
+            "every parent is one of the starters'",
         ),
         (
             '[classify.weapons.type]\nfoo = { disposition = "skip", part = "system" }',
@@ -518,7 +521,7 @@ def test_the_neutral_pass_plans_the_item_under_its_forms() -> None:
     assert plan.part == "neutral" and plan.problems == []
     assert (item.status, item.slug) == ("create", "basic-weapons-longsword")
     assert item.draft.parents == ["blade", "melee-weapon"]
-    assert "damage_die" not in item.draft.stats
+    assert "dnd5e_damage" not in item.draft.stats
 
 
 def test_the_system_pass_plans_a_prototype_for_the_item_it_finds() -> None:
@@ -613,7 +616,7 @@ def test_without_a_part_the_plan_is_the_one_item_with_both_halves() -> None:
     item = only(plan)
     assert plan.part is None and item.slug == "basic-weapons-longsword"
     assert item.draft.parents == ["blade", "dnd5e-martial", "dnd5e-versatile", "melee-weapon"]
-    assert item.draft.stats["damage_die"] == 8 and item.draft.stats["own_weight"] == 3.0
+    assert item.draft.stats["dnd5e_damage"] == "1d8" and item.draft.stats["own_weight"] == 3.0
 
 
 # --- what the system pass writes --------------------------------------------------------------------
@@ -691,12 +694,11 @@ def test_the_system_pass_writes_a_prototype_that_is_not_public_and_attaches_it_l
     # Only the system's stats are written on the prototype, none of the neutral half.
     by_id = {str(i): name for name, i in tenant.definitions.items()}
     assert {by_id[r.url.path.rsplit("/", 1)[1]] for r in stats} == {
-        "damage_dice_count",
-        "damage_die",
-        "damage_type",
-        "damage_versatile_die",
-        "attack_ability",
-        "ability_to_damage",
+        "dnd5e_damage",
+        "dnd5e_damage_type",
+        "dnd5e_damage_versatile",
+        "dnd5e_attack_ability",
+        "dnd5e_ability_to_damage",
     }
 
 

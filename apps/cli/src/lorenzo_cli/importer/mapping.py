@@ -19,8 +19,6 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
-from lorenzo_cli.seed import load_builtin
-
 LIST_NAMES = ("weapons", "armour", "gear", "tools", "ammo", "packs")
 AXES = ("form", "proficiency", "tier", "property", "material")
 # The axes whose roots belong to a game system: a category minted there says whose it is.
@@ -349,7 +347,9 @@ def _system_label(system: dict[str, Any]) -> str:
 
 def _check_parts(mapping: Mapping) -> None:
     """A `part` only goes where no layer of the seed says whose the output is (ADR 0182)."""
-    seed = load_builtin()
+    from lorenzo_cli.importer.vocabulary import load
+
+    seed = load()
     stats = {d.name for d in seed.definitions}
     nodes = {n.slug for n in seed.nodes}
     for list_name, attribute_rules in mapping.attributes.items():
@@ -362,9 +362,9 @@ def _check_parts(mapping: Mapping) -> None:
                     continue
                 raise MappingError(
                     f"attributes.{list_name}.{attribute}: part = {rule.part!r} on "
-                    f"{rule.transform}, whose output the seed already says whose it is (a stat's "
-                    "part is its layer's). `part` goes on text rules and on stats the seed "
-                    "doesn't have."
+                    f"{rule.transform}, whose output the starters already say whose it is (a "
+                    "stat's part is its system's). `part` goes on text rules and on stats the "
+                    "starters don't have."
                 )
     for list_name, sections in mapping.classify.items():
         for attribute, rows in sections.items():
@@ -372,13 +372,13 @@ def _check_parts(mapping: Mapping) -> None:
                 if row.part and all(parent in nodes for parent in row.parents):
                     raise MappingError(
                         f"classify.{list_name}.{attribute}.{value}: part = {row.part!r}, but "
-                        "every parent is one of the seed's, whose part is its layer's."
+                        "every parent is one of the starters', whose part is its system's."
                     )
     for number, name_rule in enumerate(mapping.name_rules, start=1):
         if name_rule.part and all(parent in nodes for parent in name_rule.parents):
             raise MappingError(
                 f"name_rule {number} ({name_rule.in_list}): part = {name_rule.part!r}, but every "
-                "parent is one of the seed's, whose part is its layer's."
+                "parent is one of the starters', whose part is its system's."
             )
 
 
@@ -442,8 +442,10 @@ def _check_row(mapping: Mapping, where: str, list_name: str, row: Row) -> None:
     if row.disposition != "create-under":
         return
     assert row.axis is not None and row.slug is not None
-    if row.slug in {node.slug for node in load_builtin().nodes}:
-        raise MappingError(f"{where}: {row.slug} is already one of the seed's own categories.")
+    from lorenzo_cli.importer.vocabulary import load
+
+    if row.slug in {node.slug for node in load().nodes}:
+        raise MappingError(f"{where}: {row.slug} is already one of the starters' own categories.")
     roots = mapping.lists.get(list_name, ListSpec()).roots
     if row.axis not in roots:
         raise MappingError(f"{where}: the list {list_name} has no {row.axis} axis to create under.")

@@ -23,7 +23,8 @@ from lorenzo_cli.importer.transforms import (
     StatValue,
     apply_rule,
 )
-from lorenzo_cli.seed import SeedSpec, load_builtin
+from lorenzo_cli.importer.vocabulary import Vocabulary
+from lorenzo_cli.importer.vocabulary import load as load_vocabulary
 
 MELEE_OR_RANGED = frozenset({"melee-weapon", "ranged-weapon"})
 
@@ -88,8 +89,8 @@ class Ancestry:
     """Which taxonomy slugs are ancestors of which, so a parent that another parent already
     implies (`weapon`, when `melee-weapon` is there) can be dropped."""
 
-    def __init__(self, seed: SeedSpec) -> None:
-        self._parents = {node.slug: list(node.parents) for node in seed.nodes}
+    def __init__(self, vocabulary: Vocabulary) -> None:
+        self._parents = {node.slug: list(node.parents) for node in vocabulary.nodes}
 
     def add(self, slug: str, parent: str) -> None:
         self._parents[slug] = [parent]
@@ -113,9 +114,9 @@ _DEFAULT_PARTS: list[Parts] = []
 
 
 def default_parts() -> Parts:
-    """The parts of the built-in seed, read once."""
+    """The parts of the starters' vocabulary, read once."""
     if not _DEFAULT_PARTS:
-        _DEFAULT_PARTS.append(Parts(load_builtin()))
+        _DEFAULT_PARTS.append(Parts(load_vocabulary()))
     return _DEFAULT_PARTS[0]
 
 

@@ -1,0 +1,763 @@
+# The D&D 5e starter (ADR 0491). Requires the neutral starter.
+# This work includes material taken from the System Reference Document 5.1 ("SRD 5.1") by Wizards of the Coast LLC, available at https://dnd.wizards.com/resources/systems-reference-document. The SRD 5.1 is licensed under the Creative Commons Attribution 4.0 International License, available at https://creativecommons.org/licenses/by/4.0/legalcode.
+
+format = 1
+name = "dnd5e"
+requires = [
+    "neutral",
+]
+group = [
+    { name = "dnd5e_economic", system = true },
+    { name = "dnd5e_destroyable", system = true },
+    { name = "dnd5e_damaging", system = true },
+    { name = "dnd5e_properties", system = true },
+    { name = "dnd5e_abilities", system = true },
+    { name = "dnd5e_modifiers", system = true },
+    { name = "dnd5e_character", system = true },
+    { name = "dnd5e_features", system = true },
+]
+attach = [
+    { entry = "weapon", parent = "dnd5e-economic-object" },
+    { entry = "armor", parent = "dnd5e-economic-object" },
+    { entry = "tool", parent = "dnd5e-economic-object" },
+    { entry = "container", parent = "dnd5e-economic-object" },
+    { entry = "consumable", parent = "dnd5e-economic-object" },
+    { entry = "gear", parent = "dnd5e-economic-object" },
+]
+
+[system]
+slug = "dnd5e"
+name = "D&D 5e"
+root = "dnd5e-system"
+
+[[stat]]
+name = "dnd5e_range_normal"
+group = "dnd5e_damaging"
+type = "int"
+
+[[stat]]
+name = "dnd5e_range_long"
+group = "dnd5e_damaging"
+type = "int"
+
+[[stat]]
+name = "dnd5e_price"
+group = "dnd5e_economic"
+type = "int"
+
+[[stat]]
+name = "dnd5e_armor"
+group = "dnd5e_destroyable"
+type = "int"
+
+[[stat]]
+name = "dnd5e_armor_formula"
+group = "dnd5e_destroyable"
+type = "text"
+
+[[stat]]
+name = "dnd5e_strength_required"
+group = "dnd5e_destroyable"
+type = "int"
+
+[[stat]]
+name = "dnd5e_stealth_disadvantage"
+group = "dnd5e_destroyable"
+type = "bool"
+
+[[stat]]
+name = "dnd5e_adds_modifier"
+group = "dnd5e_destroyable"
+type = "bool"
+
+[[stat]]
+name = "dnd5e_damage"
+group = "dnd5e_damaging"
+type = "dice"
+
+[[stat]]
+name = "dnd5e_damage_type"
+group = "dnd5e_damaging"
+type = "text"
+
+[[stat]]
+name = "dnd5e_damage_versatile"
+group = "dnd5e_damaging"
+type = "dice"
+
+[[stat]]
+name = "dnd5e_attack_ability"
+group = "dnd5e_damaging"
+type = "text"
+
+[[stat]]
+name = "dnd5e_ability_to_damage"
+group = "dnd5e_damaging"
+type = "bool"
+
+[[stat]]
+name = "dnd5e_base_weapon"
+group = "dnd5e_damaging"
+type = "text"
+
+[[stat]]
+name = "dnd5e_ammo_type"
+group = "dnd5e_damaging"
+type = "text"
+
+[[stat]]
+name = "dnd5e_has_save_dc"
+group = "dnd5e_damaging"
+type = "bool"
+
+[[stat]]
+name = "dnd5e_is_finesse"
+group = "dnd5e_properties"
+type = "bool"
+
+[[stat]]
+name = "dnd5e_is_heavy"
+group = "dnd5e_properties"
+type = "bool"
+
+[[stat]]
+name = "dnd5e_is_light"
+group = "dnd5e_properties"
+type = "bool"
+
+[[stat]]
+name = "dnd5e_is_loading"
+group = "dnd5e_properties"
+type = "bool"
+
+[[stat]]
+name = "dnd5e_is_reach"
+group = "dnd5e_properties"
+type = "bool"
+
+[[stat]]
+name = "dnd5e_is_special"
+group = "dnd5e_properties"
+type = "bool"
+
+[[stat]]
+name = "dnd5e_is_throwable"
+group = "dnd5e_properties"
+type = "bool"
+
+[[stat]]
+name = "dnd5e_is_two_handed"
+group = "dnd5e_properties"
+type = "bool"
+
+[[stat]]
+name = "dnd5e_is_versatile"
+group = "dnd5e_properties"
+type = "bool"
+
+[[stat]]
+name = "dnd5e_uses_ammunition"
+group = "dnd5e_properties"
+type = "bool"
+
+[[stat]]
+name = "dnd5e_is_monk_weapon"
+group = "dnd5e_properties"
+type = "bool"
+
+[[stat]]
+name = "dnd5e_is_not_weapon"
+group = "dnd5e_properties"
+type = "bool"
+
+[[stat]]
+name = "dnd5e_affects_wild_shape"
+group = "dnd5e_properties"
+type = "bool"
+
+[[stat]]
+name = "dnd5e_strength"
+group = "dnd5e_abilities"
+type = "int"
+min = 1
+max = 30
+
+[[stat]]
+name = "dnd5e_dexterity"
+group = "dnd5e_abilities"
+type = "int"
+min = 1
+max = 30
+
+[[stat]]
+name = "dnd5e_constitution"
+group = "dnd5e_abilities"
+type = "int"
+min = 1
+max = 30
+
+[[stat]]
+name = "dnd5e_intelligence"
+group = "dnd5e_abilities"
+type = "int"
+min = 1
+max = 30
+
+[[stat]]
+name = "dnd5e_wisdom"
+group = "dnd5e_abilities"
+type = "int"
+min = 1
+max = 30
+
+[[stat]]
+name = "dnd5e_charisma"
+group = "dnd5e_abilities"
+type = "int"
+min = 1
+max = 30
+
+[[stat]]
+name = "dnd5e_strength_mod"
+group = "dnd5e_modifiers"
+type = "int"
+signed = true
+
+[[stat]]
+name = "dnd5e_dexterity_mod"
+group = "dnd5e_modifiers"
+type = "int"
+signed = true
+
+[[stat]]
+name = "dnd5e_constitution_mod"
+group = "dnd5e_modifiers"
+type = "int"
+signed = true
+
+[[stat]]
+name = "dnd5e_intelligence_mod"
+group = "dnd5e_modifiers"
+type = "int"
+signed = true
+
+[[stat]]
+name = "dnd5e_wisdom_mod"
+group = "dnd5e_modifiers"
+type = "int"
+signed = true
+
+[[stat]]
+name = "dnd5e_charisma_mod"
+group = "dnd5e_modifiers"
+type = "int"
+signed = true
+
+[[stat]]
+name = "dnd5e_level"
+group = "dnd5e_character"
+type = "int"
+min = 1
+max = 20
+
+[[stat]]
+name = "dnd5e_proficiency_bonus"
+group = "dnd5e_character"
+type = "int"
+signed = true
+
+[[stat]]
+name = "dnd5e_armor_base"
+group = "dnd5e_character"
+type = "int"
+
+[[stat]]
+name = "dnd5e_dexterity_cap"
+group = "dnd5e_character"
+type = "int"
+
+[[stat]]
+name = "dnd5e_shield_bonus"
+group = "dnd5e_character"
+type = "int"
+
+[[stat]]
+name = "dnd5e_armor_dexterity"
+group = "dnd5e_character"
+type = "int"
+signed = true
+
+[[stat]]
+name = "dnd5e_armor_class"
+group = "dnd5e_character"
+type = "int"
+
+[[stat]]
+name = "dnd5e_uses"
+group = "dnd5e_features"
+type = "int"
+min = 0
+adjustable_in_play = true
+
+[[entry]]
+slug = "dnd5e-system"
+name = "D&D 5e"
+description = """
+Everything that belongs to the D&D 5e rules: its proficiencies, tiers, properties, foci and economics descend from this, so a thing is a D&D 5e thing exactly when it has this among its ancestors.
+
+This work includes material taken from the System Reference Document 5.1 (\"SRD 5.1\") by Wizards of the Coast LLC, available at https://dnd.wizards.com/resources/systems-reference-document. The SRD 5.1 is licensed under the Creative Commons Attribution 4.0 International License, available at https://creativecommons.org/licenses/by/4.0/legalcode."""
+
+[[entry]]
+slug = "dnd5e-economic-object"
+name = "Economic object (D&D 5e)"
+parents = [
+    "dnd5e-system",
+]
+description = "Something D&D 5e gives a price: it is in copper pieces, and 0 until a more specific category or the item itself sets one."
+
+[entry.stats]
+dnd5e_price = 0
+
+[[entry]]
+slug = "dnd5e-weapon-proficiency"
+name = "Weapon proficiency (D&D 5e)"
+parents = [
+    "dnd5e-system",
+]
+
+[[entry]]
+slug = "dnd5e-simple"
+name = "Simple weapon"
+parents = [
+    "dnd5e-weapon-proficiency",
+]
+
+[[entry]]
+slug = "dnd5e-martial"
+name = "Martial weapon"
+parents = [
+    "dnd5e-weapon-proficiency",
+]
+
+[[entry]]
+slug = "dnd5e-exotic"
+name = "Exotic weapon"
+parents = [
+    "dnd5e-weapon-proficiency",
+]
+description = "A weapon that needs training of its own, beyond that for simple and martial weapons."
+
+[[entry]]
+slug = "dnd5e-improvised"
+name = "Improvised weapon"
+parents = [
+    "dnd5e-weapon-proficiency",
+]
+
+[[entry]]
+slug = "dnd5e-armor-tier"
+name = "Armor tier (D&D 5e)"
+parents = [
+    "dnd5e-system",
+]
+
+[[entry]]
+slug = "dnd5e-light-armor"
+name = "Light armor"
+parents = [
+    "dnd5e-armor-tier",
+]
+
+[[entry]]
+slug = "dnd5e-medium-armor"
+name = "Medium armor"
+parents = [
+    "dnd5e-armor-tier",
+]
+
+[[entry]]
+slug = "dnd5e-heavy-armor"
+name = "Heavy armor"
+parents = [
+    "dnd5e-armor-tier",
+]
+
+[[entry]]
+slug = "dnd5e-tool-proficiency"
+name = "Tool proficiency (D&D 5e)"
+parents = [
+    "dnd5e-system",
+]
+
+[[entry]]
+slug = "dnd5e-artisans-tools"
+name = "Artisan's tools"
+parents = [
+    "dnd5e-tool-proficiency",
+]
+
+[[entry]]
+slug = "dnd5e-gaming-set"
+name = "Gaming set"
+parents = [
+    "dnd5e-tool-proficiency",
+]
+
+[[entry]]
+slug = "dnd5e-musical-instrument"
+name = "Musical instrument"
+parents = [
+    "dnd5e-tool-proficiency",
+]
+
+[[entry]]
+slug = "dnd5e-weapon-property"
+name = "Weapon property (D&D 5e)"
+parents = [
+    "dnd5e-system",
+]
+
+[[entry]]
+slug = "dnd5e-finesse"
+name = "Finesse"
+parents = [
+    "dnd5e-weapon-property",
+]
+tags = [
+    "dnd5e_is_finesse",
+]
+description = "When attacking with a finesse weapon you may use your Strength or your Dexterity modifier for both the attack and the damage roll. Use the same one for both."
+
+[[entry]]
+slug = "dnd5e-heavy"
+name = "Heavy"
+parents = [
+    "dnd5e-weapon-property",
+]
+tags = [
+    "dnd5e_is_heavy",
+]
+description = "Small creatures have disadvantage on attack rolls with a heavy weapon: its size and bulk make it too large for them to use effectively."
+
+[[entry]]
+slug = "dnd5e-light"
+name = "Light"
+parents = [
+    "dnd5e-weapon-property",
+]
+tags = [
+    "dnd5e_is_light",
+]
+description = "A light weapon is small and easy to handle, which makes it right for fighting with a weapon in each hand."
+
+[[entry]]
+slug = "dnd5e-loading"
+name = "Loading"
+parents = [
+    "dnd5e-weapon-property",
+]
+tags = [
+    "dnd5e_is_loading",
+]
+description = "Because of the time needed to load a loading weapon, you can fire only one piece of ammunition from it when you use an action, bonus action or reaction to fire it, however many attacks you can normally make."
+
+[[entry]]
+slug = "dnd5e-reach"
+name = "Reach"
+parents = [
+    "dnd5e-weapon-property",
+]
+tags = [
+    "dnd5e_is_reach",
+]
+description = "A reach weapon adds 5 feet to your reach when you attack with it, and when you work out the reach for opportunity attacks with it."
+
+[[entry]]
+slug = "dnd5e-special"
+name = "Special"
+parents = [
+    "dnd5e-weapon-property",
+]
+tags = [
+    "dnd5e_is_special",
+]
+description = "A special weapon has unusual rules for using it. They are given with the weapon itself."
+
+[[entry]]
+slug = "dnd5e-throwable"
+name = "Throwable"
+parents = [
+    "dnd5e-weapon-property",
+]
+tags = [
+    "dnd5e_is_throwable",
+]
+description = "You can throw a throwable weapon to make a ranged attack, using the same ability modifier as for a melee attack with it. Its range is the two distances in its range."
+
+[[entry]]
+slug = "dnd5e-two-handed"
+name = "Two-handed"
+parents = [
+    "dnd5e-weapon-property",
+]
+tags = [
+    "dnd5e_is_two_handed",
+]
+description = "A two-handed weapon needs both hands to attack with."
+
+[[entry]]
+slug = "dnd5e-versatile"
+name = "Versatile"
+parents = [
+    "dnd5e-weapon-property",
+]
+tags = [
+    "dnd5e_is_versatile",
+]
+description = "A versatile weapon can be used with one hand or two. The damage in parentheses is what it does when used with two hands."
+
+[[entry]]
+slug = "dnd5e-uses-ammunition"
+name = "Uses ammunition"
+parents = [
+    "dnd5e-weapon-property",
+]
+tags = [
+    "dnd5e_uses_ammunition",
+]
+description = "You need ammunition to make a ranged attack with this weapon. Each attack uses up one piece, and you can recover about half of what you fired once the fight is over."
+
+[[entry]]
+slug = "dnd5e-spellcasting-focus"
+name = "Spellcasting focus (D&D 5e)"
+parents = [
+    "dnd5e-system",
+]
+description = "An object a spellcaster can hold in place of the material components of a spell that need none with a cost."
+
+[[entry]]
+slug = "dnd5e-arcane-focus"
+name = "Arcane focus"
+parents = [
+    "dnd5e-spellcasting-focus",
+]
+
+[[entry]]
+slug = "dnd5e-druidic-focus"
+name = "Druidic focus"
+parents = [
+    "dnd5e-spellcasting-focus",
+]
+
+[[entry]]
+slug = "dnd5e-holy-symbol"
+name = "Holy symbol"
+parents = [
+    "dnd5e-spellcasting-focus",
+]
+
+[[entry]]
+slug = "dnd5e-character"
+name = "Character (D&D 5e)"
+parents = [
+    "dnd5e-system",
+]
+
+[entry.stats]
+dnd5e_armor_base = 10
+dnd5e_dexterity_cap = 99
+dnd5e_shield_bonus = 0
+
+[[entry]]
+slug = "dnd5e-fighter"
+name = "Fighter"
+parents = [
+    "dnd5e-character",
+]
+
+[[entry]]
+slug = "dnd5e-fighting-styles"
+name = "Fighting styles"
+parents = [
+    "dnd5e-system",
+]
+
+[[entry]]
+slug = "dnd5e-archery"
+name = "Archery"
+kinds = [
+    "feature",
+]
+parents = [
+    "dnd5e-fighting-styles",
+]
+description = "You gain a +2 bonus to attack rolls you make with ranged weapons."
+
+[[entry]]
+slug = "dnd5e-defense"
+name = "Defense"
+kinds = [
+    "feature",
+]
+parents = [
+    "dnd5e-fighting-styles",
+]
+description = "While you are wearing armor, you gain a +1 bonus to AC."
+
+[[formula]]
+on = "dnd5e-character"
+stat = "dnd5e_strength_mod"
+kind = "linear"
+source = "dnd5e_strength"
+multiplier = 0.5
+offset = -5
+round = "floor"
+
+[[formula]]
+on = "dnd5e-character"
+stat = "dnd5e_dexterity_mod"
+kind = "linear"
+source = "dnd5e_dexterity"
+multiplier = 0.5
+offset = -5
+round = "floor"
+
+[[formula]]
+on = "dnd5e-character"
+stat = "dnd5e_constitution_mod"
+kind = "linear"
+source = "dnd5e_constitution"
+multiplier = 0.5
+offset = -5
+round = "floor"
+
+[[formula]]
+on = "dnd5e-character"
+stat = "dnd5e_intelligence_mod"
+kind = "linear"
+source = "dnd5e_intelligence"
+multiplier = 0.5
+offset = -5
+round = "floor"
+
+[[formula]]
+on = "dnd5e-character"
+stat = "dnd5e_wisdom_mod"
+kind = "linear"
+source = "dnd5e_wisdom"
+multiplier = 0.5
+offset = -5
+round = "floor"
+
+[[formula]]
+on = "dnd5e-character"
+stat = "dnd5e_charisma_mod"
+kind = "linear"
+source = "dnd5e_charisma"
+multiplier = 0.5
+offset = -5
+round = "floor"
+
+[[formula]]
+on = "dnd5e-character"
+stat = "dnd5e_proficiency_bonus"
+kind = "select"
+source = "dnd5e_level"
+mode = "threshold"
+steps = [
+    { from = 1, result = { number = 2 } },
+    { from = 5, result = { number = 3 } },
+    { from = 9, result = { number = 4 } },
+    { from = 13, result = { number = 5 } },
+    { from = 17, result = { number = 6 } },
+]
+
+[[formula]]
+on = "dnd5e-character"
+stat = "dnd5e_armor_dexterity"
+kind = "min"
+inputs = [
+    "dnd5e_dexterity_mod",
+    "dnd5e_dexterity_cap",
+]
+
+[[formula]]
+on = "dnd5e-character"
+stat = "dnd5e_armor_class"
+kind = "sum"
+terms = [
+    "dnd5e_armor_base",
+    "dnd5e_armor_dexterity",
+    "dnd5e_shield_bonus",
+]
+
+[[template]]
+name = "Character sheet (D&D 5e)"
+system = true
+kind = "being"
+ancestor = "dnd5e-character"
+
+[[template.slot]]
+kind = "stats"
+label = "Abilities"
+group = "dnd5e_abilities"
+
+[[template.slot]]
+kind = "stats"
+label = "Modifiers"
+group = "dnd5e_modifiers"
+
+[[template.slot]]
+kind = "stats"
+label = "Character"
+stats = [
+    "dnd5e_level",
+    "dnd5e_proficiency_bonus",
+    "dnd5e_armor_class",
+]
+
+[[template.slot]]
+kind = "features"
+label = "Features"
+group = "dnd5e_features"
+
+[[template.slot]]
+kind = "held"
+label = "Equipment"
+stats = [
+    "weight",
+    "dnd5e_price",
+]
+held_order = "name"
+
+[[template]]
+name = "Weapon (D&D 5e)"
+system = true
+kind = "item"
+ancestor = "weapon"
+
+[[template.slot]]
+kind = "stats"
+label = "Weapon"
+stats = [
+    { stat = "dnd5e_damage", label = "Damage" },
+    { stat = "dnd5e_damage_type", label = "Type" },
+    { stat = "dnd5e_range_normal", label = "Range" },
+    { stat = "dnd5e_range_long", label = "Long range" },
+    { stat = "dnd5e_price", label = "Price" },
+]
+
+[[template.slot]]
+kind = "tags"
+label = "Properties"
+
+[[grant_rule]]
+on = "dnd5e-fighter"
+label = "Fighting style"
+mode = "choose"
+min = 1
+max = 1
+options = [
+    "dnd5e-archery",
+    "dnd5e-defense",
+]

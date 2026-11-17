@@ -379,7 +379,9 @@ class _Planner:
             return
         names = {s.id: s.name for s in self.state.stats.values()}
         current = from_api(
-            {k: v for k, v in held.items() if k != "kind"}, lambda i: names.get(i, str(i))
+            {k: v for k, v in held.items() if k != "kind"},
+            lambda i: names.get(i, str(i)),
+            str(held.get("kind")),
         )
         if held.get("kind") != row.kind or canonical(row.kind, current) != canonical(
             row.kind, row.fields()

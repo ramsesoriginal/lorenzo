@@ -42,11 +42,10 @@ class Mine:
 
     def build(self) -> None:
         self.ok("tenant", "create", "Core", "--slug", self.core)
-        self.ok("seed", "--tenant", self.core, "--layer", "core", "--yes")
+        self.ok("apply", "--starter", "neutral", "-t", self.core, "--yes")
         self.ok("repo", "publish", "--tenant", self.core)
         self.ok("tenant", "create", "Equipment", "--slug", self.equipment)
         self.ok("repo", "offer", self.equipment, "--tenant", self.core, "--yes")
-        self.ok("seed", "--tenant", self.equipment, "--layer", "equipment", "--yes")
         self.ok("repo", "publish", "--tenant", self.equipment)
         self.ok("tenant", "create", "Table", "--slug", self.table, "--kind", "play")
         self.ok("repo", "offer", self.table, "--tenant", self.equipment, "--yes")

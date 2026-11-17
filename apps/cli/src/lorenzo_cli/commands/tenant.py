@@ -119,7 +119,7 @@ def tenant_create(
 ) -> None:
     """Create a tenant, a repository unless told otherwise, and become its owner.
 
-    Needs the tenant-creator role. Then `lorenzo seed --tenant <slug>` makes a repository ready
+    Needs the tenant-creator role. Then `lorenzo apply --starter neutral -t <slug>` makes it ready
     to import into.
     """
     runtime: Runtime = ctx.obj
@@ -131,7 +131,7 @@ def tenant_create(
         created = client.call(CREATE_TENANT, body=body).value
     _print_tenant(created, as_json)
     if not as_json and created.kind == TenantKind.repository:
-        _out.print(f"Next: lorenzo seed --tenant {created.slug}")
+        _out.print(f"Next: lorenzo apply --starter neutral -t {created.slug}")
 
 
 @tenant_app.command("delete")

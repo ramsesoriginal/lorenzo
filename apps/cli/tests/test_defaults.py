@@ -225,8 +225,12 @@ def test_api_says_so_for_anything_but_a_get(tmp_path: Path) -> None:
 
 def test_a_dry_run_says_nothing_where_the_same_command_would(tmp_path: Path) -> None:
     # Neither finds the tenant (the stub lists none), but the note comes before that.
-    dry = runner.invoke(app, ["seed", "--tenant", "core", "--dry-run"], obj=runtime(tmp_path))
-    real = runner.invoke(app, ["seed", "--tenant", "core", "--yes"], obj=runtime(tmp_path))
+    dry = runner.invoke(
+        app, ["apply", "--starter", "neutral", "-t", "core", "--dry-run"], obj=runtime(tmp_path)
+    )
+    real = runner.invoke(
+        app, ["apply", "--starter", "neutral", "-t", "core", "--yes"], obj=runtime(tmp_path)
+    )
 
     assert NOTE not in dry.output
     assert real.stderr.count(NOTE) == 1

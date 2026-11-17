@@ -23,6 +23,7 @@ from lorenzo_cli.client.ops import (
 )
 from lorenzo_cli.client.transport import LorenzoClient
 from lorenzo_cli.importer.tenant_view import resolve_slugs
+from lorenzo_cli.repo_contents import read_contents
 from lorenzo_cli.runtime import (
     Runtime,
     _client,
@@ -30,10 +31,6 @@ from lorenzo_cli.runtime import (
     _out,
     _reporting_errors,
     may_write,
-)
-from lorenzo_cli.seed import (
-    load_builtin,
-    read_contents,
 )
 from lorenzo_cli.self_service import (
     SelfServiceError,
@@ -376,17 +373,14 @@ def repo_libraries(
 def repo_contents(
     ctx: typer.Context, tenant: RepositoryTenant, as_json: JsonOption = False
 ) -> None:
-    """Show what a repository holds and how much of each seed layer it has.
-
-    Whether it is published and who it is granted to, which repositories it is built on, how many
-    stat groups, stat definitions and items it holds, how much of each layer of the seed is in it
-    (its categories and the attachments it has), and what the seed doesn't name.
-    """
+    """Show what a repository holds: whether it is published and who it is granted to, which
+    repositories it is built on, and how many stat groups, stat definitions, items and
+    attachments it holds."""
     runtime: Runtime = ctx.obj
     with _reporting_errors(), _client(runtime) as client:
         repository = resolve_tenant(client, tenant)
         repos.require_repository_tenant(repository, what="inspected")
-        contents = read_contents(client, repository, load_builtin())
+        contents = read_contents(client, repository)
     if as_json:
         _echo_json(repo_report.contents_json(contents))
         return

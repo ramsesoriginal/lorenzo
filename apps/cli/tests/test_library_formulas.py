@@ -91,3 +91,16 @@ def test_to_api_names_every_stat_field_by_id() -> None:
         "right_stat_definition_id": str(IDS["b"]),
         "comparator": "lt",
     }
+
+
+def test_a_required_field_is_kept_even_at_its_usual_default() -> None:
+    api = {"source_stat_definition_id": str(IDS["a"]), "multiplier": "1", "offset": "-1"}
+    back = from_api(api, NAMES.__getitem__, "linear")
+    assert back == {
+        "source": "a",
+        "multiplier": 1,
+        "offset": -1,
+    }  # linear has no default multiplier
+    check("linear", back)
+    product = {"factors": [str(IDS["a"]), str(IDS["b"])], "multiplier": "1"}
+    assert "multiplier" not in from_api(product, NAMES.__getitem__, "product")  # product has one

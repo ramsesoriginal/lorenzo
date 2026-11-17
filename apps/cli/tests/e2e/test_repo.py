@@ -24,8 +24,9 @@ class World:
         self.token = stack.creator_token(f"owner-{uuid.uuid4().hex[:8]}")
         self.repository = make_tenant(stack, self.token, "repository")
         self.target = make_tenant(stack, self.token, "play")
-        seeded = self.cli("seed", "--tenant", self.repository, "--yes")
-        assert seeded.exit_code == 0, seeded.output
+        for starter in ("neutral", "dnd5e"):
+            started = self.cli("apply", "--starter", starter, "-t", self.repository, "--yes")
+            assert started.exit_code == 0, started.output
         if published:
             published_ok = self.cli("repo", "publish", "--tenant", self.repository)
             assert published_ok.exit_code == 0, published_ok.output

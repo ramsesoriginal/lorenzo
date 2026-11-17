@@ -107,7 +107,9 @@ def to_api(fields: dict[str, Any], stat_id: Callable[[str], uuid.UUID]) -> dict[
     return out
 
 
-def from_api(body: dict[str, Any], stat_name: Callable[[uuid.UUID], str]) -> dict[str, Any]:
+def from_api(
+    body: dict[str, Any], stat_name: Callable[[uuid.UUID], str], kind: str | None = None
+) -> dict[str, Any]:
     """The API's formula as the document writes it: names for stats, numbers for decimals, and the
     fields that hold their default left out."""
     out: dict[str, Any] = {}
@@ -138,7 +140,17 @@ def from_api(body: dict[str, Any], stat_name: Callable[[uuid.UUID], str]) -> dic
             out[key] = from_api(value, stat_name)
         else:
             out[key] = _number(value) if key in NUMERIC else value
-    return {k: v for k, v in out.items() if DEFAULTS.get(k, object()) != v}
+    required = _required(kind)
+    return {k: v for k, v in out.items() if k in required or DEFAULTS.get(k, object()) != v}
+
+
+def _required(kind: str | None) -> set[str]:
+    """The fields `kind` has no default for, as a document names them: those are always written."""
+    if kind is None or kind not in KINDS:
+        return set()
+    fields = model(kind).model_fields
+    names = {"round_mode": "round"}
+    return {names.get(name, name) for name, info in fields.items() if info.is_required()}
 
 
 def stats_named(fields: dict[str, Any]) -> list[str]:

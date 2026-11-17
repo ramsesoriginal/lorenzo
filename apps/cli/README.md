@@ -1,6 +1,6 @@
 # apps/cli
 
-The `lorenzo` command-line tool: creates and seeds repositories, imports MPMB standard items, authors a library's stat vocabulary, reads items and beings, imports inventories and calendars, publishes and copies repositories, and makes any authenticated request for a script. The stack is recorded in [ADR 0137](../../docs/adr/0137-lorenzo-cli-app-python-client-and-auth.md); the importer began as [RFC 0025](../../docs/rfcs/0025-lorenzo-cli-mpmb-item-importer.md).
+The `lorenzo` command-line tool: creates repositories and applies the starters to them, imports MPMB standard items, authors a library's stat vocabulary, reads items and beings, imports inventories and calendars, publishes and copies repositories, and makes any authenticated request for a script. The stack is recorded in [ADR 0137](../../docs/adr/0137-lorenzo-cli-app-python-client-and-auth.md); the importer began as [RFC 0025](../../docs/rfcs/0025-lorenzo-cli-mpmb-item-importer.md).
 
 Python 3.14, installed for you by `uv`. Linux and macOS (WSL included) are supported; native Windows isn't.
 
@@ -34,7 +34,7 @@ lorenzo login --token   # no browser here: approve a code in the account hub; se
 lorenzo tenant list     # the tenants you belong to
 ```
 
-`login` says where it is signing in and for which API before it opens anything. A command that **writes** (creating a tenant, seeding, importing, handing out a pack, publishing, granting, copying, `lorenzo api` with anything but `GET`) prints `Using the official Lorenzo at <address>.` on stderr, once, whenever the official one is the default; reads and `whoami` stay quiet (`whoami` shows the API with `(the default)` beside it). It is a line to read, not a question.
+`login` says where it is signing in and for which API before it opens anything. A command that **writes** (creating a tenant, applying a document, importing, handing out a pack, publishing, granting, copying, `lorenzo api` with anything but `GET`) prints `Using the official Lorenzo at <address>.` on stderr, once, whenever the official one is the default; reads and `whoami` stay quiet (`whoami` shows the API with `(the default)` beside it). It is a line to read, not a question.
 
 ### Another Lorenzo
 
@@ -83,14 +83,12 @@ Or pipe a token in with `--token-stdin`. A token from the stored login is used l
 | `lorenzo --version` | Says which version is installed. Needs no login |
 | `lorenzo whoami [--json]` | Asks the API who the token you'd use belongs to, and says where the token came from: the check that a login works |
 | `lorenzo tenant list [--kind repository\|play] [--json]` | The tenants you belong to, with each one's kind and your role |
-| `lorenzo tenant create <name> [--slug S] [--description D] [--kind KIND] [--json]` | Creates a tenant and makes you its owner (a `repository`, which is what an import needs, unless `--kind play`; the kind can't be changed later). Needs the tenant-creator role. Doesn't seed: run `lorenzo seed` next |
+| `lorenzo tenant create <name> [--slug S] [--description D] [--kind KIND] [--json]` | Creates a tenant and makes you its owner (a `repository`, which is what an import needs, unless `--kind play`; the kind can't be changed later). Needs the tenant-creator role. It starts empty: `lorenzo apply --starter neutral` next |
 | `lorenzo tenant show <tenant>` | Reads one tenant (its `kind`, whether it is published) - the first call through the generated client |
 | `lorenzo tenant delete <tenant> [--yes] [--json]` | Deletes a tenant and everything in it. **It can't be undone.** Needs the tenant-creator role and being one of the tenant's owners; asks you to type the slug (`--yes` skips that, `--json` needs it). A repository other tenants still hold a grant on is refused, with how to go on ([ADR 0184](../../docs/adr/0184-deleting-a-tenant.md)) |
 | `lorenzo login --token` | Connects with a personal access token ([ADR 0269](../../docs/adr/0269-personal-access-tokens-hub-and-cli.md)): prints a code and the address of the account hub's *Connect a device* page, waits until you approve it there (naming the token and, if you like, an expiry), and stores it like any login. `whoami` then names it; `logout` forgets it here, and it works until you revoke it under your profile in the hub |
 | `lorenzo [--api-url U] login [--issuer I] [--client-id C] [--no-browser]` / `lorenzo logout` | Stores or forgets a login, and remembers what you named for it (the official Lorenzo is the default, so a plain `lorenzo login` is enough, see [Before you start](#before-you-start)) |
 | `lorenzo import mpmb inspect [--base FILE...] [FILE...]` | Shows what the JavaScript host reads from MPMB files (files, per-list counts and which file each entry came from, stubbed sheet names), without touching a tenant. Needs no login. Name files, `--base` files, or both: `--base` alone shows what the sheet ships |
-| `lorenzo seed --tenant <tenant>` / `--list` | Creates the item taxonomy, stat groups and definitions, and the weight recipe an import needs, in a repository tenant. Safe to run again; `--dry-run` first. The seed has four layers, `core`, `equipment`, `dnd5e` and `dnd5e-equipment`, chosen with `--layer` ([ADR 0181](../../docs/adr/0181-the-seeds-four-layers-and-a-system-root.md)). A tenant that holds one layer and not another needs `--layer` ([ADR 0166](../../docs/adr/0166-a-bare-seed-refuses-to-add-a-layer-to-a-tenant-that-holds-another.md)). `--list` prints what the seed makes, per layer, and needs no login or tenant ([ADR 0169](../../docs/adr/0169-seed-list-and-repo-contents.md)) |
-| `lorenzo unseed --tenant <tenant> --layer <layer>` | Takes a layer of the seed out again: its attachments, then categories, stat definitions and stat groups. Asks first; `--dry-run` shows what it would remove. See [Taking a layer out](#taking-a-layer-out) |
 | `lorenzo import mpmb plan --tenant <tenant> FILES...` | Works out what importing these MPMB files would do and changes nothing. Deterministic JSON with `--json`; exit 0 nothing to do, 2 changes pending, 1 something unresolved |
 | `lorenzo import mpmb apply --tenant <tenant> FILES... --yes [--json]` | Imports them: what is resolved, and none of what needs a decision. Safe to run again, and unattended. `--json` prints one document: the plan, what was written, what failed |
 | `lorenzo pack give <pack> --tenant <tenant> --owner <being-or-group>` | Hands an imported pack out: the API makes its containers and what is inside them, with quantities, in one go or not at all. A being takes the top of it into its hands; a group owns it with nothing in a container. `--dry-run` says what would be made; `--override` is a GM's, past what the owner can carry; `--json` prints what the API made |
@@ -101,7 +99,7 @@ Or pipe a token in with `--token-stdin`. A token from the stored login is used l
 | `lorenzo export inventory --tenant <tenant> [--owner CHARACTER] [--json] [-o FILE]` | Writes a character's inventory as a file: what they own, where it is, and what was noted, with each item's id so `import --add` reads it back as moves |
 | `lorenzo repo publish\|unpublish\|grant\|revoke\|subscribers --tenant <repository>` | The repository's own side: publish it as a release (`--label`, `--notes`, `--breaking`; again, to make the next one, [ADR 0207](../../docs/adr/0207-the-release-ledger.md); a release that removes or changes what libraries hold is refused until `--acknowledge-breaking`, [ADR 0208](../../docs/adr/0208-the-release-digest-and-the-breaking-change-detector.md)), withdraw it, give a tenant access, take it back, list who has it. Owners only |
 | `lorenzo repo list\|copy-plan\|copy\|updates --tenant <tenant>` | A tenant's side: which repositories it holds, what copying one would do, copying it, and taking what it changed since. `copy --again keep` or `purge` copies afresh a repository the tenant already copied. See [Publishing a repository](#publishing-a-repository) |
-| `lorenzo repo contents --tenant <repository>` | What a repository holds: published or a draft and who it is granted to, what it is built on, how many stat groups, stat definitions and items, how much of each seed layer it has, and what is beyond the seed ([ADR 0169](../../docs/adr/0169-seed-list-and-repo-contents.md)) |
+| `lorenzo repo contents --tenant <repository>` | What a repository holds: published or a draft and who it is granted to, what it is built on, how many stat groups, stat definitions, items and attachments ([ADR 0169](../../docs/adr/0169-seed-list-and-repo-contents.md)) |
 | `lorenzo repo libraries --tenant <repository> --entry E\|--stat S\|--stat-group G` | How many libraries have copied an entry, a stat or a stat group, never which: what deleting it would mean to them. Nothing here blocks a delete ([ADR 0386](../../docs/adr/0386-how-many-libraries-hold-what-is-deleted.md)) |
 | `lorenzo repo offer <tenant> --tenant <repository>` | Grant it, then copy it into that tenant; a copy already there is a success, so it is safe to run again; `--apply-updates` also takes the updates that need no decision |
 | `lorenzo stat-group list\|show\|create\|edit\|delete`, `lorenzo stat-definition list\|show\|create\|edit\|delete` | A library's stat vocabulary: its groups and definitions, with systems, roles, bounds, display fields and hints ([ADR 0295](../../docs/adr/0295-cli-vocabulary-sheet-settings-and-reads.md), [ADR 0485](../../docs/adr/0485-system-and-vocabulary-commands.md)). See [Authoring the stat vocabulary and reading entries](#authoring-the-stat-vocabulary-and-reading-entries) |
@@ -119,10 +117,11 @@ Or pipe a token in with `--token-stdin`. A token from the stored login is used l
 
 ## Importing MPMB items
 
-The order is: create a repository (`lorenzo tenant create "My Homebrew" --slug my-homebrew`), seed it once, then plan, then apply ([ADR 0144](../../docs/adr/0144-lorenzo-import-mapping-identity-plan-apply.md)). For something you mean to publish, seed the layers into [separate repositories](#the-seed-as-four-repositories) instead.
+The order is: create a repository (`lorenzo tenant create "My Homebrew" --slug my-homebrew`), apply the [starters](#starters) once, then plan, then apply ([ADR 0144](../../docs/adr/0144-lorenzo-import-mapping-identity-plan-apply.md)). For something you mean to publish, split it into [two repositories](#equipment-and-rules-as-two-repositories) instead.
 
 ```bash
-uv run lorenzo seed --tenant my-repository --yes
+uv run lorenzo apply --starter neutral -t my-repository --yes
+uv run lorenzo apply --starter dnd5e -t my-repository --yes
 
 # The sheet's own SRD items (its data files are GPL-3.0 and are not shipped; clone the repository):
 S=/tmp/mpmb/_variables
@@ -158,20 +157,20 @@ flavour = { transform = "text", stat = "flavour_text", group = "lore" }   # crea
 
 **Packs.** An Explorer's pack is imported as an item whose public description lists its contents (`- 5 x [Rations (1 day)](basic-gear-rations-1-day)`, nested under its container, [ADR 0145](../../docs/adr/0145-pack-contents-in-the-description.md)). It copies with a repository, and `lorenzo pack give basic-packs-explorer --tenant my-campaign --owner alice` has the API make the backpack and everything in it for Alice ([ADR 0149](../../docs/adr/0149-giving-a-pack-from-the-api.md), [ADR 0150](../../docs/adr/0150-lorenzo-pack-give-on-the-api.md)). Every line of the list links to an item, since the API refuses a pack that has one that doesn't, naming it: an entry the sheet has no gear entry for (an alms box) becomes a simple plain gear item so the pack can be given complete; a name the map does not know is made one too and reported, with a `[pack_items]` row to link it to a real item instead (`"item"` says it is a plain item; `"text"` is no longer a choice). A pack written before that with a line that doesn't link is fixed by editing its description.
 
-**Titles.** An item's displayed title is the title of its description, so `seed` and `apply` title a description with the item's name ([ADR 0165](../../docs/adr/0165-a-description-is-titled-with-its-items-name.md)). A description an older version titled "Description" is retitled by the next run: `seed --dry-run` lists it as a `retitle` action, and `plan` counts it under "to retitle" (`apply` says how many it retitled). Only that exact title is changed; one a person chose is left alone. `repo updates` doesn't carry information (ADR 0121), so a tenant that copied a repository is put right where the commands are run: `seed` there, naming each layer the tenant holds (`--layer core` for `core`; a bare `seed` there is refused, ADR 0166), and `apply` where the items were imported.
+**Titles.** An item's displayed title is the title of its description, so `apply` titles a description with the item's name ([ADR 0165](../../docs/adr/0165-a-description-is-titled-with-its-items-name.md)). A description an older version titled "Description" is retitled by the next run: `plan` counts it under "to retitle" (`apply` says how many it retitled). Only that exact title is changed; one a person chose is left alone. `repo updates` doesn't carry information (ADR 0121), so a tenant that copied a repository is put right where the items were imported, by `apply` there.
 
-Other flags: `--reconcile` re-parents items the map now files elsewhere (default is create-only, and a changed map only reports "N items would change parents"; it replaces only the parents the importer places, the seed's categories and the ones a map row mints, and leaves any other, such as a prototype attached by `--part system`); `--accept-moves` creates the items whose namespace changed; `--public-catalog` lets players list the imported items; `--part neutral|system` writes one half of each item ([below](#the-two-halves-of-an-item)); `--allow-play-tenant`, as for `seed`.
+Other flags: `--reconcile` re-parents items the map now files elsewhere (default is create-only, and a changed map only reports "N items would change parents"; it replaces only the parents the importer places, the starters' categories and the ones a map row mints, and leaves any other, such as a prototype attached by `--part system`); `--accept-moves` creates the items whose namespace changed; `--public-catalog` lets players list the imported items; `--part neutral|system` writes one half of each item ([below](#the-two-halves-of-an-item)); `--allow-play-tenant` writes into a play tenant, whose content can't be published.
 
 ### The two halves of an item
 
-Without `--part` an item is written with everything the sheet says of it, on one item. For the [four repositories](#the-seed-as-four-repositories) it is written in two passes over the same files, so each repository holds the half that is its own ([ADR 0182](../../docs/adr/0182-the-importers-two-passes-neutral-and-system.md)):
+Without `--part` an item is written with everything the sheet says of it, on one item. For the [two repositories](#equipment-and-rules-as-two-repositories) it is written in two passes over the same files, so each repository holds the half that is its own ([ADR 0182](../../docs/adr/0182-the-importers-two-passes-neutral-and-system.md)):
 
-- **`--part neutral`** is what is true anywhere: the item's name and other names, the sourcebook citation, its weight, its forms (weapon, melee, a blade), its materials, the kind of gear, a pack and its contents. It creates the item under those, and `--public-catalog` makes it public. It is for the equipment repository, and needs only the `core` and `equipment` layers.
-- **`--part system`** is D&D's: the price, damage dice, range in feet, armour class and what armour asks of its wearer, the ability, the proficiency, the properties, and a weapon's `description` (its list of properties) and `tooltip` (its special rules). For each item that has any, it finds the neutral item **by its slug in the tenant's own copy of the equipment**, creates a prototype, "Longsword (D&D 5e)" with the slug `srd5e-weapons-longsword`, that is never public, with those parents, stats and text, and then adds it to the item's parents, last. In the bridge the item is a copy, so that parent is an [attachment](../../docs/adr/0172-attachments-a-parent-a-bridge-adds-to-a-copy-travels-with-it.md) and travels with the bridge. An item with nothing of the system's (ammunition) gets no prototype, and an item the tenant doesn't have yet is held back with the way to put it there (run the neutral pass; take it with `repo copy` or `repo updates`).
+- **`--part neutral`** is what is true anywhere: the item's name and other names, the sourcebook citation, its weight, its forms (weapon, melee, a blade), its materials, the kind of gear, a pack and its contents. It creates the item under those, and `--public-catalog` makes it public. It is for the equipment repository, and needs only the `neutral` starter.
+- **`--part system`** is D&D's: the price, damage dice, range in feet, armour class and what armour asks of its wearer, the ability, the proficiency, the properties, and a weapon's `description` (its list of properties) and `tooltip` (its special rules). For each item that has any, it finds the neutral item **by its slug in the tenant's own copy of the equipment**, creates a prototype, "Longsword (D&D 5e)" with the slug `srd5e-weapons-longsword`, that is never public, with those parents, stats and text, and then adds it to the item's parents, last. In the rules repository the item is a copy, so that parent is an [attachment](../../docs/adr/0172-attachments-a-parent-a-bridge-adds-to-a-copy-travels-with-it.md) and travels with the rules. An item with nothing of the system's (ammunition) gets no prototype, and an item the tenant doesn't have yet is held back with the way to put it there (run the neutral pass; take it with `repo copy` or `repo updates`).
 
 A second run of either pass finds what the first made and attaches nothing twice. `plan` and `apply` say which half they are for, `--json` has `header.part` (`neutral`, `system` or `all`), and a held item says which pass held it: a price that can't be read holds only the system pass, a value no row knows holds both. `--public-catalog` is refused with `--part system`.
 
-What is whose is decided by the seed: a stat has the part of its definition's layer (`price` and `damage_die` are D&D's, `own_weight` is neutral), a category the part of its layer's, and a category a map row mints the part of its axis (`proficiency`, `tier` and `property` are the system's, `form` and `material` are neutral). A row says `part = "neutral"` or `"system"` only for what no layer decides: text, and a stat or a parent the seed doesn't have (neutral if it says nothing). Where the seed does decide, a `part` on the row is a map error. `[system_namespaces]` names the prototypes' namespace per file (`srd5e` for the sheet's own data, else the file's namespace and `-5e`), and `[system] label = "..."` the label in their names:
+What is whose is decided by the starters ([ADR 0490](../../docs/adr/0490-the-importers-move-under-lorenzo-import.md)): a stat is the system's when its group belongs to a system (`dnd5e_price` and `dnd5e_damage` are D&D's, `own_weight` is neutral), a category the system's when it comes from the `dnd5e` starter, and a category a map row mints the part of its axis (`proficiency`, `tier` and `property` are the system's, `form` and `material` are neutral). A row says `part = "neutral"` or `"system"` only for what no starter decides: text, and a stat or a parent the starters don't have (neutral if it says nothing). Where a starter does decide, a `part` on the row is a map error. `[system_namespaces]` names the prototypes' namespace per file (`srd5e` for the sheet's own data, else the file's namespace and `-5e`), and `[system] label = "..."` the label in their names:
 
 ```toml
 [namespaces]
@@ -186,7 +185,7 @@ lore = { transform = "information", type = "note", title = "Lore", part = "syste
 
 ## Publishing a repository
 
-A repository is a tenant of kind `repository`; other tenants draw on it by being **granted** it and **copying** it, and take its later changes as **updates** ([RFC 0024](../../docs/rfcs/0024-repositories.md)). After `tenant create`, `seed` and `apply`:
+A repository is a tenant of kind `repository`; other tenants draw on it by being **granted** it and **copying** it, and take its later changes as **updates** ([RFC 0024](../../docs/rfcs/0024-repositories.md)). After `tenant create`, `apply --starter` and `import mpmb apply`:
 
 ```bash
 lorenzo repo publish --tenant my-homebrew --label 1.0                       # until now, nobody it is granted to can see it
@@ -219,60 +218,45 @@ lorenzo repo updates my-homebrew --tenant table-one --actions mine.json   # deci
 ### What a repository holds
 
 ```bash
-lorenzo repo contents --tenant core
+lorenzo repo contents --tenant common-fantasy-eq
 ```
 
-It reads one repository tenant and says whether it is published (or a draft) and how many tenants it is granted to; which repositories it is built on, that is the ones it has copied, with the date and whether they have published since; how many stat groups, stat definitions and items it holds (categories included) and how many parents it attaches to items it copied (attachments, said only when there are some; `holds.attachments` in `--json`); and, for each layer of the seed, whether it is *complete*, *partly* there or *not there*, found by slug and name as `seed` finds things. What the seed doesn't name is counted as *beyond the seed*. `--json` prints the same as data. It only reads ([ADR 0169](../../docs/adr/0169-seed-list-and-repo-contents.md)).
+It reads one repository tenant and says whether it is published (or a draft) and how many tenants it is granted to; which repositories it is built on, that is the ones it has copied, with the date and whether they have published since; and how many stat groups, stat definitions and items it holds (categories included) and how many parents it attaches to items it copied (attachments, said only when there are some; `holds.attachments` in `--json`). `--json` prints the same as data. It only reads ([ADR 0169](../../docs/adr/0169-seed-list-and-repo-contents.md), [ADR 0492](../../docs/adr/0492-the-repository-commands-show-systems-templates-and-warnings.md)).
 
-### The seed as four repositories
+### Equipment and rules as two repositories
 
-What is meant to be published is split in four ([ADR 0162](../../docs/adr/0162-the-dnd5e-layer-is-its-own-repository-a-bridge-over-core.md), [ADR 0181](../../docs/adr/0181-the-seeds-four-layers-and-a-system-root.md), [RFC 0033](../../docs/rfcs/0033-item-repositories-common-equipment-rules-and-bridge.md)), one per layer of the seed:
+What is meant to be published is split in two, by starter ([RFC 0033](../../docs/rfcs/0033-item-repositories-common-equipment-rules-and-bridge.md), [ADR 0491](../../docs/adr/0491-starters-replace-the-seed.md)):
 
-| Layer | Holds | Built on |
+| Repository | Holds | Built on |
 | --- | --- | --- |
-| `core` | What can be said of a thing in any system: the stat groups `physical`, `sourcebook` and `tags`, ten neutral stats (weights, `bundle_amount`, `is_container`, `is_consumable`, `is_magical`, `is_silvered`, `is_adamantine`, `sourcebook`), the categories `physical-object` and `unsorted` (the placeholder for a player's own item) and the weight recipes | nothing |
-| `equipment` | The forms (weapon, armor, tool, the kinds of gear) and the materials: 32 categories with bare slugs | `core` |
-| `dnd5e` | D&D 5e's rules: its stat groups (`economic`, `damaging`, `destroyable`), 30 stat definitions (a price, an armour class, a range, the damage dice, the weapon properties) and 30 categories under one system root, `dnd5e-system` ("D&D 5e"), which is how a category says it belongs to the system. The Economic object carries a `price` of 0. Slugs start `dnd5e-` | `core` |
-| `dnd5e-equipment` | The bridge's own part: six attachments of D&D's Economic object to the equipment's forms (`weapon`, `armor`, `tool`, `container`, `consumable`, `gear`), so everything D&D prices has a price | `equipment`, `dnd5e` |
+| equipment | The `neutral` starter, and the neutral half of every item, public | nothing |
+| rules | The `dnd5e` starter, and D&D's half of every item: a prototype attached to the equipment's item | the equipment |
 
-Each is a repository, and the last is a *bridge* ([ADR 0120](../../docs/adr/0120-bridge-repositories-and-dependency-manifests.md)) over the two before it. The imported items are split between them (a longbow is a ranged weapon in the equipment and a martial one in the bridge). Another system takes `core` and `equipment` and brings its own two layers.
+The rules are a *bridge* ([ADR 0120](../../docs/adr/0120-bridge-repositories-and-dependency-manifests.md)) over the equipment: the imported items are split between them (a longbow is a ranged weapon in the equipment and a martial one in the rules). Another system takes the equipment and brings its own starter.
 
 #### Setting them up
 
-Eighteen commands, in this order: each repository is built on the ones above it, so a copy has to come before the seed that needs it, and a repository publishes once it holds what it should ([RFC 0033](../../docs/rfcs/0033-item-repositories-common-equipment-rules-and-bridge.md) §7, [ADR 0183](../../docs/adr/0183-setting-up-the-four-repositories-and-what-trying-it-showed.md); `tests/e2e/test_setup.py` runs them against the real API).
+Each repository is built on the one above it, so the copy comes before the starter that needs it, and a repository publishes once it holds what it should ([ADR 0183](../../docs/adr/0183-setting-up-the-four-repositories-and-what-trying-it-showed.md); `tests/e2e/test_setup.py` runs these commands against the real API).
 
 ```bash
 S=/tmp/mpmb/_variables    # the sheet's data, see Reading MPMB files
 BASE="--base $S/ListsSources.js --base $S/Lists.js --base $S/ListsGear.js"
 
-# core: the vocabulary, built on nothing
-lorenzo tenant create "Core" --slug core
-lorenzo seed --tenant core --layer core --yes
-lorenzo repo publish --tenant core
-
-# the equipment: a copy of core, the forms, and the neutral half of every item, public
+# the equipment: the neutral starter, and the neutral half of every item, public
 lorenzo tenant create "Common Fantasy Equipment" --slug common-fantasy-eq
-lorenzo repo offer common-fantasy-eq --tenant core --yes
-lorenzo seed --tenant common-fantasy-eq --layer equipment --yes
+lorenzo apply --starter neutral -t common-fantasy-eq --yes
 lorenzo import mpmb apply --tenant common-fantasy-eq --part neutral --public-catalog $BASE --yes
 lorenzo repo publish --tenant common-fantasy-eq
 
-# the rules: a copy of core, and D&D's stats and categories
-lorenzo tenant create "Dungeons and Dragons 5e" --slug dnd5e
-lorenzo repo offer dnd5e --tenant core --yes
-lorenzo seed --tenant dnd5e --layer dnd5e --yes
-lorenzo repo publish --tenant dnd5e
-
-# the bridge: a copy of both, the attachments, then D&D's half of every item
+# the rules: a copy of the equipment, the dnd5e starter, then D&D's half of every item
 lorenzo tenant create "Common D&D5e Equipment" --slug dnd5e-common-eq
 lorenzo repo offer dnd5e-common-eq --tenant common-fantasy-eq --yes
-lorenzo repo offer dnd5e-common-eq --tenant dnd5e --yes
-lorenzo seed --tenant dnd5e-common-eq --layer dnd5e-equipment --yes
+lorenzo apply --starter dnd5e -t dnd5e-common-eq --yes
 lorenzo import mpmb apply --tenant dnd5e-common-eq --part system $BASE --yes
 lorenzo repo publish --tenant dnd5e-common-eq
 ```
 
-`repo offer` grants a repository to a tenant and copies it in, and for a bridge it does the same for what the bridge is built on (core is copied once, however many offers ask for it). `lorenzo repo contents --tenant dnd5e-common-eq` says what it holds and what it is built on, per layer. The commands need the `tenant-creator` role and the sheet's data (see [Before you start](#before-you-start)); homebrew goes in as more files after `$BASE` in **both** `apply` lines, so the item is written in two halves. **Starting over:** `lorenzo tenant delete` takes a tenant and everything in it ([ADR 0184](../../docs/adr/0184-deleting-a-tenant.md)), from the top down: a repository that other tenants still hold a grant on is refused, so the table goes first, then the bridge, then the equipment and the rules, then core (`lorenzo tenant delete my-table --yes`, and so on). The slugs are free afterwards. That is also how a `core` or `dnd5e` from an earlier seed (version 1 had two layers, with both halves of an item together) is replaced.
+`repo offer` grants a repository to a tenant and copies it in, and for a bridge it does the same for what the bridge is built on. The commands need the `tenant-creator` role and the sheet's data (see [Before you start](#before-you-start)); homebrew goes in as more files after `$BASE` in **both** `import` lines, so the item is written in two halves. **Starting over:** `lorenzo tenant delete` takes a tenant and everything in it ([ADR 0184](../../docs/adr/0184-deleting-a-tenant.md)), from the top down: a repository that other tenants still hold a grant on is refused, so the table goes first, then the rules, then the equipment (`lorenzo tenant delete my-table --yes`, and so on). The slugs are free afterwards.
 
 #### A table takes them
 
@@ -282,7 +266,7 @@ lorenzo repo offer my-table --tenant common-fantasy-eq --yes   # the equipment a
 lorenzo repo offer my-table --tenant dnd5e-common-eq --yes     # later, D&D, on the items it already has
 ```
 
-A table needs a grant on **each** repository, since grants aren't transitive; `offer` makes them, for whoever owns them all, and a single copy brings the others in first (one offer of the bridge to a new table copies all four). Someone who owns the bridge but not what it is built on is told which command to ask their owners for. A table that took the equipment first and the bridge later keeps its Purple sword and its Weapon: the bridge's prototype is a parent it adds to the sword the table has, so that sword has D&D's dice and price afterwards (it still has one sword, not two), and the bridge's six attachments give every Weapon the Economic object and a `price` of 0. The prototypes are never public, so a player lists the neutral items and a GM, in the whole catalog, sees both.
+A table needs a grant on **each** repository, since grants aren't transitive; `offer` makes them, for whoever owns them all, and a single copy brings the others in first (one offer of the rules to a new table copies the equipment too). Someone who owns the rules but not the equipment is told which command to ask its owner for. A table that took the equipment first and the rules later keeps its Purple sword and its Weapon: the rules' prototype is a parent they add to the sword the table has, so that sword has D&D's dice and price afterwards (it still has one sword, not two), and the starter's attachments give every Weapon the Economic object and a `dnd5e_price` of 0. The prototypes are never public, so a player lists the neutral items and a GM, in the whole catalog, sees both.
 
 #### Corrections, and equipment that grows
 
@@ -293,27 +277,26 @@ lorenzo repo publish --tenant common-fantasy-eq                  # the equipment
 lorenzo repo updates common-fantasy-eq --tenant my-table --apply # each table takes it from there
 ```
 
-The bridge isn't asked, and the table's sword keeps the bridge's prototype. A correction to core or to the rules goes the same way. **Publishing again is the announcement, not the permission**: `repo updates` reads a repository as it is now, so a table sees a change before it is published, and `repo list` says "updated since" once it has been. The repositories built on the one that changed take its updates when their authors want their own copies current, and **a bridge has to before it imports D&D's half of new equipment**, since the system pass finds an item in the bridge's own copy of the equipment (an item it doesn't have is held, with the way out). A bridge that takes a correction keeps what it attached.
+The rules aren't asked, and the table's sword keeps the rules' prototype. A correction to the rules goes the same way. **Publishing again is the announcement, not the permission**: `repo updates` reads a repository as it is now, so a table sees a change before it is published, and `repo list` says "updated since" once it has been. The rules take the equipment's updates when their author wants their copy current, and **have to before they import D&D's half of new equipment**, since the system pass finds an item in the rules' own copy of the equipment (an item they don't have is held, with the way out). Rules that take a correction keep what they attached.
 
 ```bash
 lorenzo import mpmb apply --tenant common-fantasy-eq --part neutral --public-catalog $BASE more.js --yes
 lorenzo repo publish --tenant common-fantasy-eq
-lorenzo repo updates common-fantasy-eq --tenant dnd5e-common-eq --apply   # the bridge's copy of it first
+lorenzo repo updates common-fantasy-eq --tenant dnd5e-common-eq --apply   # the rules' copy of it first
 lorenzo import mpmb apply --tenant dnd5e-common-eq --part system $BASE more.js --yes
 lorenzo repo publish --tenant dnd5e-common-eq
 lorenzo repo updates common-fantasy-eq --tenant my-table --apply            # then each table: the items,
 lorenzo repo updates dnd5e-common-eq --tenant my-table --apply              # and the prototypes on them
 ```
 
-A table that takes the bridge first gets the prototypes and lets each attachment **wait** for its item (`the item it attaches to isn't here`; exit 2, nothing lost): once the equipment's items are there, name each attachment in an `--actions` file (`repo updates` lists them). A bridge's own edits to its copy of a dependency don't travel, apart from the parents it adds to its copies (attachments, above): to change how a core entity behaves under D&D, author one that inherits from it, or attach one to it.
+A table that takes the rules first gets the prototypes and lets each attachment **wait** for its item (`the item it attaches to isn't here`; exit 2, nothing lost): once the equipment's items are there, name each attachment in an `--actions` file (`repo updates` lists them). A bridge's own edits to its copy of a dependency don't travel, apart from the parents it adds to its copies (attachments, above): to change how an equipment entry behaves under D&D, author one that inherits from it, or attach one to it.
 
 #### What it doesn't do yet
 
-- **One system per tenant**, until resolution knows about systems ([RFC 0033](../../docs/rfcs/0033-item-repositories-common-equipment-rules-and-bridge.md) §9): two systems' prototypes on one item would break a tie between them arbitrarily. A campaign choosing among the systems a tenant holds is a follow-up.
-- **No way to take D&D back off a table.** Updating never takes a parent off an item; a tenant that wants to undo the bridge removes the prototype from its items itself.
+- **No way to take D&D back off a table.** Updating never takes a parent off an item; a tenant that wants to undo the rules removes the prototype from its items itself.
 - **No setup in one command**, and nothing that says on a table's item which repository each part of it came from.
 
-`lorenzo seed` without `--layer` still seeds every layer into an empty repository, in that order, which is fine for a table's own use and for trying things; it says so, and says to separate them if they are to be published. There the attachments are ordinary parents. It refuses a tenant that already holds some layers and not others, so name the layers there ([ADR 0166](../../docs/adr/0166-a-bare-seed-refuses-to-add-a-layer-to-a-tenant-that-holds-another.md)). A tenant seeded by version 1 of the seed (two layers) still seeds under version 2, since everything is found by name and slug: its parentless axis roots are reported as "exists but is not under" the system root and left, and the rest is added; starting over is cleaner.
+For a table's own use, or for trying things, one library can hold both starters: `apply --starter neutral`, `apply --starter dnd5e`, then `import mpmb apply` without `--part` writes each item with both halves on it.
 
 ## Scripting
 
@@ -331,36 +314,25 @@ lorenzo api PATCH "/tenants/$T/items/$I" -d @rename.json --if-match '"etag-from-
 
 It takes a path, never a full address, so the token only goes to the API you named. The body goes to stdout (indented; `--raw` leaves it as it came, `--include` adds the status line and headers, where an `ETag` shows). The exit code is 0 for a 2xx answer and 1 for anything else, and a refusal is still printed as the API sent it, with its status on stderr ([ADR 0161](../../docs/adr/0161-lorenzo-api-passthrough.md)).
 
-## Seeding a tenant
+## Starters
 
-An import needs somewhere to put things: item prototypes to descend from (weapon, container, martial...) and the stat definitions the values are written to. `lorenzo seed` creates them once ([ADR 0143](../../docs/adr/0143-lorenzo-seed-taxonomy-and-stats.md)):
+An import needs somewhere to put things: categories to descend from (weapon, container, martial...) and the stat definitions the values are written to. The CLI ships them as library documents, the **starters**, and nothing else seeds a library ([ADR 0491](../../docs/adr/0491-starters-replace-the-seed.md)):
 
-```bash
-uv run lorenzo seed --tenant my-repository --dry-run   # what would be created (exit 2 if anything)
-uv run lorenzo seed --tenant my-repository --yes       # create it
-```
-
-The taxonomy is a graph with multiple inheritance, so a weapon is several things at once: `longsword` descends from `blade`, `dnd5e-martial` and `dnd5e-versatile`. Weapon families (blade, axe, hammer, bow, crossbow, sling, firearm), weapon properties (finesse, heavy, light, reach, thrown, two-handed, versatile…), materials, consumables and kinds of gear (clothing, climbing, nautical…) are nodes of their own; a property carries its rules as a public description, which shows on every weapon that has it, and the property lists the weapons that do ([ADR 0146](../../docs/adr/0146-a-richer-item-taxonomy-and-keeping-what-the-sheet-says.md)). What the sheet says beyond that is kept: other names as an "Also known as" entry, a weapon's special rules as a note, and the ability, strength requirement, bundle size and flags as stats.
-
-It writes to an existing `repository` tenant. A `play` tenant is refused, because a tenant's kind can't be changed and nothing in it could ever be published; `--allow-play-tenant` writes there anyway. The seed is in `src/lorenzo_cli/seed/builtin.toml`, tagged by layer (`core`, `equipment`, `dnd5e` and `dnd5e-equipment`, chosen with `--layer`; into [separate repositories](#the-seed-as-four-repositories) if they are to be published). Stat names and types can't be changed once a tenant has them, so read that file before the first run against a tenant that matters.
-
-To see what the seed makes before running it, `lorenzo seed --list` prints every layer's stat groups, stat definitions, categories (as a tree, with the values a category carries), attachments and recipes, and `--layer dnd5e` narrows it; `--json` prints the same as data. It reads the seed file and talks to nobody, so it works before you have logged in or created a tenant, and it refuses `--dry-run`, `--yes` and `--allow-play-tenant`, which are about writing. To see what a tenant already holds of it, use [`repo contents`](#what-a-repository-holds).
-
-Without `--layer`, `seed` adds every layer the tenant is missing, which suits an empty tenant. A tenant that already holds one layer and none of another is refused instead (exit 1, dry run too), naming the layers to choose from, so a bare `seed` can't quietly add the D&D 5e layer to a repository that was meant to hold `core` and the equipment ([ADR 0166](../../docs/adr/0166-a-bare-seed-refuses-to-add-a-layer-to-a-tenant-that-holds-another.md)). Naming a layer is never refused.
-
-### Taking a layer out
+| Starter | Holds |
+| --- | --- |
+| `neutral` | What is true of a thing in any game: the stat groups `physical`, `sourcebook` and `tags`, the weights and flags (`own_weight`, `bundle_amount`, `is_container`, `is_magical`...), the weight formulas, and the forms and materials (weapon, armor, tool, the kinds of gear, blade, bow...) with bare slugs, with `physical-object` and `unsorted` (the placeholder for a player's own item) |
+| `dnd5e` | D&D 5e's rules as the system `dnd5e`: stats prefixed `dnd5e_` (abilities and their modifiers, level, proficiency bonus, armour class, price, damage as dice, range, the weapon properties), its categories under the root `dnd5e-system`, sheet templates, a class with a choice and the features group. Needs `neutral`; it attaches the Economic object, with a `dnd5e_price` of 0, to the neutral forms. Rules text from the SRD 5.1 (CC-BY-4.0) |
+| `wrath-and-glory` | Wrath & Glory as the system `wg`: attributes, skills, traits, dice pools, gear and a template. Numbers and names only, no rules text; the values are to be checked against the book |
 
 ```bash
-lorenzo unseed --tenant my-repository --layer dnd5e --dry-run   # what it would remove (exit 2 if anything)
-lorenzo unseed --tenant my-repository --layer dnd5e             # asks once, default no
+lorenzo starter list                                     # what ships, with what each needs
+lorenzo starter show dnd5e > dnd5e.toml                  # read one, or start your own from it
+lorenzo plan  --starter neutral -t my-repository         # what applying it would do
+lorenzo apply --starter neutral -t my-repository --yes
+lorenzo apply --starter dnd5e   -t my-repository --yes
 ```
 
-`unseed` removes what the built-in seed made for the layer, found by slug and name so it can only touch what the seed names: its **attachments** (the parent a layer adds to a category of another, which leaves the category itself alone: that is all `dnd5e-equipment` is made of), its **categories**, its **stat definitions**, then its **stat groups** (`core` holds three, `dnd5e` three, the others none). It needs `--layer`; there is no default. Before it writes anything it reads the tenant:
-
-- A category that something *outside* the layer inherits from (the imported items under `dnd5e-martial`, say) stops it with nothing deleted, and the output names them. Remove or re-parent those first. The seed's own attachments are the exception that has a way out: the Economic object has the equipment's forms under it in a repository that holds `dnd5e-equipment`, so `--layer dnd5e` alone is refused, and `--layer dnd5e --layer dnd5e-equipment` takes the attachments out first and then the categories.
-- Whether a stat definition is in use is known to the API, which refuses to delete one that has a value, a formula or a formula reading it. Such a definition is **kept and listed with the reason**, the rest goes on, and the exit code is 1. Fix the cause and run it again: it finds what is left.
-
-It asks once (`--yes` skips it; `--json` never asks and needs `--yes`). Stat definitions can't be restored once deleted, but `seed --layer` puts the whole layer back ([ADR 0168](../../docs/adr/0168-lorenzo-unseed.md), [ADR 0167](../../docs/adr/0167-the-api-deletes-an-unused-stat-definition-or-stat-group.md)).
+A starter is applied like any [library document](#game-systems-and-library-documents): what is there is left, what is missing is written, and a second run has nothing to do. Stat names and types can't be changed once a library has them, so read the starter before the first run against a library that matters. The MPMB importer writes to the stats and categories of `neutral` and `dnd5e`, and a library that lacks them is told to apply them first.
 
 ## Reading MPMB files
 
@@ -397,7 +369,7 @@ Environment: `LORENZO_API_URL` (the API base URL), `LORENZO_TOKEN`, `LORENZO_TEN
 
 ## Tests
 
-`mise run test` runs the unit tests, with coverage. `mise run test-e2e` runs `tests/e2e/`, which starts the real `apps/api` on a fresh database behind a fake Authgear and runs the CLI against it; it takes minutes, needs Postgres (`docker compose -f infra/docker-compose.yml up -d`, or CI's service), and skips without it. It runs on `E2E_WORKERS` parallel workers, four by default and `E2E_WORKERS=0` for one process (a single test, a debugger), each with its own API process and a database of its own, cloned from a migrated template and dropped at the end, so the Postgres user needs to be able to create databases, as the compose one can. The tests of what the importer does with a seeded tenant start from a copy of one seeded repository that the run builds once per worker; the tests of the seed itself run it. `LORENZO_REQUIRE_E2E=1` makes a missing stack a failure instead, as CI does, and `TEST_SHARD=2/3` runs one third of the test files (CI splits them over three runners, ADR 0148). `mise run check` does not include `test-e2e`, like inventory-web's.
+`mise run test` runs the unit tests, with coverage. `mise run test-e2e` runs `tests/e2e/`, which starts the real `apps/api` on a fresh database behind a fake Authgear and runs the CLI against it; it takes minutes, needs Postgres (`docker compose -f infra/docker-compose.yml up -d`, or CI's service), and skips without it. It runs on `E2E_WORKERS` parallel workers, four by default and `E2E_WORKERS=0` for one process (a single test, a debugger), each with its own API process and a database of its own, cloned from a migrated template and dropped at the end, so the Postgres user needs to be able to create databases, as the compose one can. The tests of what the importer does start from a copy of one repository holding the `neutral` and `dnd5e` starters that the run builds once per worker; the tests of the starters apply them. `LORENZO_REQUIRE_E2E=1` makes a missing stack a failure instead, as CI does, and `TEST_SHARD=2/3` runs one third of the test files (CI splits them over three runners, ADR 0148). `mise run check` does not include `test-e2e`, like inventory-web's.
 
 ## Authoring the stat vocabulary and reading entries
 
@@ -604,7 +576,7 @@ The parser is bundled in the wheel, so installing and running the CLI does not r
 
 Convert saved donjon exports offline with `lorenzo-convert donjon`, or author a
 [native calendar JSON document](../../docs/guides/calendar-file-format.md). Calendar import
-works in a library or repository; it does not seed setting data.
+works in a library or repository; it brings no setting data.
 
 ```bash
 lorenzo import calendar isles.calendar.json --tenant my-library --dry-run --json

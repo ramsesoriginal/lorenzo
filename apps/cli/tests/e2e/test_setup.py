@@ -1,10 +1,10 @@
-"""The README's setup of the four repositories, run command for command against the real API
-(RFC 0033 §7, ADR 0183), and what happens to a table's items when a repository is corrected or
-grows later (§8).
+"""The README's setup of the two repositories, run command for command against the real API
+(RFC 0033 §7, ADR 0183, ADR 0491), and what happens to a table's items when a repository is
+corrected or grows later (§8).
 
-Every repository here is made the way a person makes it: `tenant create`, `seed --layer`,
-`repo offer`, `apply --part`, `repo publish`. The tests below say what the setup left, and how a
-correction travels; the details of each step are in the files that test that step.
+Every repository here is made the way a person makes it: `tenant create`, `apply --starter`,
+`repo offer`, `import mpmb apply --part`, `repo publish`. The tests below say what the setup left,
+and how a correction travels; the details of each step are in the files that test that step.
 """
 
 from __future__ import annotations
@@ -28,7 +28,7 @@ LAMP = "basic-gear-purple-lamp"
 
 
 class Setup:
-    """RFC 0033 §7: the eighteen commands, in order. Slugs get a suffix, since one database holds
+    """The README's setup: the commands, in order. Slugs get a suffix, since one database holds
     every test's tenants."""
 
     def __init__(self, stack: Stack, work: Path) -> None:
@@ -36,35 +36,22 @@ class Setup:
         self.work = work
         self.token = stack.creator_token("setup-" + uuid.uuid4().hex[:6])
         tag = uuid.uuid4().hex[:6]
-        self.core = f"core-{tag}"
         self.equipment = f"common-fantasy-eq-{tag}"
-        self.rules = f"dnd5e-{tag}"
-        self.bridge = f"dnd5e-common-eq-{tag}"
+        self.rules = f"dnd5e-common-eq-{tag}"
         self.tables = 0
         self.tag = tag
 
-        # A0
-        self.ok("tenant", "create", "Core", "--slug", self.core)
-        self.ok("seed", "--tenant", self.core, "--layer", "core", "--yes")
-        self.ok("repo", "publish", "--tenant", self.core)
-        # A1: a copy of A0, the forms and the neutral items, public
+        # The equipment: the neutral starter, and the neutral items, public
         self.ok("tenant", "create", "Common Fantasy Equipment", "--slug", self.equipment)
-        self.ok("repo", "offer", self.equipment, "--tenant", self.core, "--yes")
-        self.ok("seed", "--tenant", self.equipment, "--layer", "equipment", "--yes")
+        self.ok("apply", "--starter", "neutral", "-t", self.equipment, "--yes")
         self.neutral(WEAPONS)
         self.ok("repo", "publish", "--tenant", self.equipment)
-        # B: a copy of A0, with the D&D layer
-        self.ok("tenant", "create", "Dungeons and Dragons 5e", "--slug", self.rules)
-        self.ok("repo", "offer", self.rules, "--tenant", self.core, "--yes")
-        self.ok("seed", "--tenant", self.rules, "--layer", "dnd5e", "--yes")
-        self.ok("repo", "publish", "--tenant", self.rules)
-        # C: copies of A1 and B, the category-level attachments, then the D&D prototypes
-        self.ok("tenant", "create", "Common D&D5e Equipment", "--slug", self.bridge)
-        self.ok("repo", "offer", self.bridge, "--tenant", self.equipment, "--yes")
-        self.ok("repo", "offer", self.bridge, "--tenant", self.rules, "--yes")
-        self.ok("seed", "--tenant", self.bridge, "--layer", "dnd5e-equipment", "--yes")
+        # The rules: a copy of the equipment, the dnd5e starter on it, then the D&D prototypes
+        self.ok("tenant", "create", "Common D&D5e Equipment", "--slug", self.rules)
+        self.ok("repo", "offer", self.rules, "--tenant", self.equipment, "--yes")
+        self.ok("apply", "--starter", "dnd5e", "-t", self.rules, "--yes")
         self.system(WEAPONS)
-        self.ok("repo", "publish", "--tenant", self.bridge)
+        self.ok("repo", "publish", "--tenant", self.rules)
 
     def neutral(self, files: list[str]) -> None:
         self.ok(
@@ -76,7 +63,7 @@ class Setup:
 
     def system(self, files: list[str]) -> None:
         self.ok(
-            "import", "mpmb", "apply", "--tenant", self.bridge, "--part", "system", *files,
+            "import", "mpmb", "apply", "--tenant", self.rules, "--part", "system", *files,
             "--review-queue", str(self.work / "review-queue.json"),
             "--proposed-map", str(self.work / "proposed.map.toml"),
             "--yes",
@@ -171,53 +158,38 @@ def names(rows: list[dict[str, Any]]) -> set[str]:
 @pytest.fixture(scope="module")
 def shared_setup(stack: Stack, tmp_path_factory: pytest.TempPathFactory) -> Setup:
     """One Setup for the two tests that only read the repositories or add a table drawing on them:
-    the eighteen commands cost about 18 s. The two that rename, import and publish in the
+    the setup's commands take a while. The two that rename, import and publish in the
     repositories change what the others see, so each builds its own."""
     return Setup(stack, tmp_path_factory.mktemp("setup"))
 
 
-def test_the_setup_leaves_four_repositories_and_the_bridge_attaches_what_it_made(
+def test_the_setup_leaves_two_repositories_and_the_rules_attach_what_they_made(
     shared_setup: Setup,
 ) -> None:
     setup = shared_setup
 
     contents = {
         name: setup.json("repo", "contents", "--tenant", slug)[1]
-        for name, slug in (
-            ("core", setup.core),
-            ("equipment", setup.equipment),
-            ("rules", setup.rules),
-            ("bridge", setup.bridge),
-        )
+        for name, slug in (("equipment", setup.equipment), ("rules", setup.rules))
     }
 
-    # Each is published, and holds the layers it is built from and no more.
+    # Each is published; the rules are built on the equipment and hold D&D's stats on top of it.
     assert all(c["tenant"]["published_at"] for c in contents.values())
-    held = {
-        name: [
-            layer for layer, found in c["seed"]["layers"].items() if found["holds"] == "complete"
-        ]
-        for name, c in contents.items()
-    }
-    assert held == {
-        "core": ["core"],
-        "equipment": ["core", "equipment"],
-        "rules": ["core", "dnd5e"],
-        "bridge": ["core", "equipment", "dnd5e", "dnd5e-equipment"],
-    }
     assert {name: {r["slug"] for r in c["built_on"]} for name, c in contents.items()} == {
-        "core": set(),
-        "equipment": {setup.core},
-        "rules": {setup.core},
-        "bridge": {setup.core, setup.equipment, setup.rules},
+        "equipment": set(),
+        "rules": {setup.equipment},
     }
-    # The bridge's own: the six forms, and a prototype for every sword, bow and dart that has
-    # something of the system's. The equipment holds the items and no prototype.
-    assert contents["bridge"]["holds"]["attachments"] > 6
+    assert (
+        contents["rules"]["holds"]["stat_definitions"]
+        > contents["equipment"]["holds"]["stat_definitions"]
+    )
+    # The rules' own: the starter's categories, and a prototype for every sword, bow and dart that
+    # has something of the system's. The equipment holds the items and no prototype.
+    assert contents["rules"]["holds"]["attachments"] > 6
     assert contents["equipment"]["holds"]["attachments"] == 0
     assert setup.entity(setup.equipment, SWORD)["prototypes"]
-    assert "price" not in own_stats(setup.entity(setup.equipment, SWORD))
-    assert parent_names(setup.entity(setup.bridge, SWORD)) == [
+    assert "dnd5e_price" not in own_stats(setup.entity(setup.equipment, SWORD))
+    assert parent_names(setup.entity(setup.rules, SWORD)) == [
         "Blade",
         "Melee weapon",
         "Purple sword (D&D 5e)",
@@ -231,55 +203,55 @@ def test_a_table_is_usable_with_the_equipment_alone_and_gets_dnd_on_the_same_ite
 
     table = setup.table(setup.equipment)
     before = setup.entity(table, SWORD)
-    setup.ok("repo", "offer", table, "--tenant", setup.bridge, "--yes")
+    setup.ok("repo", "offer", table, "--tenant", setup.rules, "--yes")
     after = setup.entity(table, SWORD)
 
     assert parent_names(before) == ["Blade", "Melee weapon"]
-    assert "damage_die" not in {s["name"] for s in before["stats"]}
+    assert "dnd5e_damage" not in {s["name"] for s in before["stats"]}
     assert before["id"] == after["id"]  # the same sword, not a second one
     assert parent_names(after) == ["Blade", "Melee weapon", "Purple sword (D&D 5e)"]
-    dice = next(s for s in after["stats"] if s["name"] == "damage_die")
-    assert dice["value"] == 8 and dice["own"] is False
+    dice = next(s for s in after["stats"] if s["name"] == "dnd5e_damage")
+    assert dice["value"] == "d8" and dice["own"] is False
 
 
 def test_a_correction_is_taken_from_the_repository_it_was_made_in_and_nothing_else_must_move(
     stack: Stack, tmp_path: Path
 ) -> None:
     setup = Setup(stack, tmp_path)
-    table = setup.table(setup.equipment, setup.bridge)
+    table = setup.table(setup.equipment, setup.rules)
 
     # The equipment corrects its Purple sword, and publishes once.
     setup.rename(setup.equipment, SWORD, "Purple sword, corrected")
     setup.ok("repo", "publish", "--tenant", setup.equipment)
 
-    # The table takes it from the equipment. The bridge has done nothing and has nothing to say.
+    # The table takes it from the equipment. The rules have done nothing and has nothing to say.
     code, updates = setup.updates(setup.equipment, table)
     assert code == 2 and names(updates["changed"]) == {"Purple sword"}
-    assert setup.updates(setup.bridge, table)[0] == 0
+    assert setup.updates(setup.rules, table)[0] == 0
     setup.take(setup.equipment, table)
     sword = setup.entity(table, SWORD)
     assert sword["name"] == "Purple sword, corrected"
     assert parent_names(sword) == ["Blade", "Melee weapon", "Purple sword (D&D 5e)"]  # D&D is kept
 
-    # A correction to the rules, or to core, goes the same way: from where it was made.
+    # A correction to the rules goes the same way: from where it was made.
     setup.rename(setup.rules, "dnd5e-martial", "Martial weapon, corrected")
     setup.ok("repo", "publish", "--tenant", setup.rules)
     setup.take(setup.rules, table)
     assert setup.entity(table, "dnd5e-martial")["name"] == "Martial weapon, corrected"
     assert "Purple sword (D&D 5e)" in parent_names(setup.entity(table, SWORD))
 
-    # The bridge keeps its own copy current when its author chooses to. It keeps what it attached,
+    # The rules keep their own copy current when their author chooses to. They keep what they attached,
     # and publishing again announces nothing to a table that has everything.
-    attached = setup.attachments(setup.bridge)
-    setup.take(setup.equipment, setup.bridge)
-    assert setup.entity(setup.bridge, SWORD)["name"] == "Purple sword, corrected"
-    assert "Purple sword (D&D 5e)" in parent_names(setup.entity(setup.bridge, SWORD))
-    assert setup.attachments(setup.bridge) == attached
-    setup.ok("repo", "publish", "--tenant", setup.bridge)
-    assert setup.updates(setup.bridge, table)[0] == 0
+    attached = setup.attachments(setup.rules)
+    setup.take(setup.equipment, setup.rules)
+    assert setup.entity(setup.rules, SWORD)["name"] == "Purple sword, corrected"
+    assert "Purple sword (D&D 5e)" in parent_names(setup.entity(setup.rules, SWORD))
+    assert setup.attachments(setup.rules) == attached
+    setup.ok("repo", "publish", "--tenant", setup.rules)
+    assert setup.updates(setup.rules, table)[0] == 0
 
     # A table that arrives after all of this has the corrected sword, with D&D on it.
-    fresh = setup.table(setup.bridge)
+    fresh = setup.table(setup.rules)
     sword = setup.entity(fresh, SWORD)
     assert sword["name"] == "Purple sword, corrected"
     assert "Purple sword (D&D 5e)" in parent_names(sword)
@@ -289,42 +261,42 @@ def test_what_the_equipment_adds_later_reaches_a_table_with_its_dnd_whichever_is
     stack: Stack, tmp_path: Path
 ) -> None:
     setup = Setup(stack, tmp_path)
-    in_order = setup.table(setup.equipment, setup.bridge)
-    wrong_order = setup.table(setup.equipment, setup.bridge)
+    in_order = setup.table(setup.equipment, setup.rules)
+    wrong_order = setup.table(setup.equipment, setup.rules)
 
-    # The equipment imports more, the bridge takes it and writes D&D's half, and each publishes.
+    # The equipment imports more, the rules take it and write D&D's half, and each publishes.
     setup.neutral(GEAR)
     assert not setup.waiting(in_order, setup.equipment)
     # A repository's changes are there to be taken as soon as they are made: publishing again
     # announces them (`repo list` says "updated since"), it isn't what lets a table see them.
     assert names(setup.updates(setup.equipment, in_order)[1]["added"]) >= {"Purple lamp"}
     setup.ok("repo", "publish", "--tenant", setup.equipment)
-    setup.take(setup.equipment, setup.bridge)  # without it the bridge has no item to attach to
+    setup.take(setup.equipment, setup.rules)  # without it the rules have no item to attach to
     setup.system(GEAR)
-    setup.ok("repo", "publish", "--tenant", setup.bridge)
-    assert setup.waiting(in_order, setup.equipment) and setup.waiting(in_order, setup.bridge)
+    setup.ok("repo", "publish", "--tenant", setup.rules)
+    assert setup.waiting(in_order, setup.equipment) and setup.waiting(in_order, setup.rules)
 
     # In order: the items, then the prototypes that attach to them.
     setup.take(setup.equipment, in_order)
-    setup.take(setup.bridge, in_order, attachments=True)
+    setup.take(setup.rules, in_order, attachments=True)
     assert parent_names(setup.entity(in_order, LAMP)) == ["Gear", "Purple lamp (D&D 5e)"]
 
     # The other way round, the prototypes arrive and wait for the item they attach to, and say so...
-    code, waiting = setup.updates(setup.bridge, wrong_order)
+    code, waiting = setup.updates(setup.rules, wrong_order)
     assert code == 2
     assert {a["reason"] for a in waiting["attachments_added"]} == {
         "the item it attaches to isn't here"
     }
     assert all(a["applicable"] is False for a in waiting["attachments_added"])
-    left = setup.cli("repo", "updates", setup.bridge, "--tenant", wrong_order, "--apply", "--yes")
+    left = setup.cli("repo", "updates", setup.rules, "--tenant", wrong_order, "--apply", "--yes")
     assert left.exit_code == 2  # what waits is left, and the exit code says so
     assert "the item it attaches to isn't here" in " ".join(left.output.split())
     assert parent_names(setup.entity(wrong_order, "srd5e-gear-purple-lamp")) == []
-    # ...and when the items come, the next run of the bridge's updates attaches them.
+    # ...and when the items come, the next run of the rules' updates attaches them.
     setup.take(setup.equipment, wrong_order)
     assert parent_names(setup.entity(wrong_order, LAMP)) == ["Gear"]
-    code, ready = setup.updates(setup.bridge, wrong_order)
+    code, ready = setup.updates(setup.rules, wrong_order)
     assert code == 2 and all(a["applicable"] for a in ready["attachments_added"])
-    setup.take(setup.bridge, wrong_order, attachments=True)
+    setup.take(setup.rules, wrong_order, attachments=True)
     assert parent_names(setup.entity(wrong_order, LAMP)) == ["Gear", "Purple lamp (D&D 5e)"]
-    assert setup.updates(setup.bridge, wrong_order)[0] == 0
+    assert setup.updates(setup.rules, wrong_order)[0] == 0

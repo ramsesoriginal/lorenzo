@@ -71,7 +71,7 @@ def statuses(document: dict[str, Any]) -> dict[str, str]:
     return {item["slug"]: item["status"] for item in document["items"] if item["slug"]}
 
 
-def test_a_tenant_that_was_not_seeded_is_told_to_run_seed(stack: Stack, tmp_path: Path) -> None:
+def test_a_library_without_the_starters_is_told_to_apply_them(stack: Stack, tmp_path: Path) -> None:
     token = stack.creator_token()
     tenant = make_tenant(stack, token)
 
@@ -81,7 +81,7 @@ def test_a_tenant_that_was_not_seeded_is_told_to_run_seed(stack: Stack, tmp_path
 
     assert result.exit_code == 1
     problems = json.loads(result.stdout)["problems"]
-    assert any("hasn't been seeded" in p and "lorenzo seed" in p for p in problems)
+    assert any("lacks" in p and "--starter neutral" in p for p in problems)
 
 
 def test_the_plan_says_what_each_item_will_be(
@@ -107,12 +107,11 @@ def test_the_plan_says_what_each_item_will_be(
     assert sword["stats"] == {
         "sourcebook": "T:W 4, P 149",
         "own_weight": 3.0,
-        "damage_dice_count": 1,
-        "damage_die": 8,
-        "damage_type": "slashing",
-        "damage_versatile_die": 10,
-        "attack_ability": "Strength",
-        "ability_to_damage": True,
+        "dnd5e_damage": "1d8",
+        "dnd5e_damage_type": "slashing",
+        "dnd5e_damage_versatile": "1d10",
+        "dnd5e_attack_ability": "Strength",
+        "dnd5e_ability_to_damage": True,
     }
     assert items["purple bow"]["parents"] == [
         "bow",
@@ -121,8 +120,8 @@ def test_the_plan_says_what_each_item_will_be(
         "dnd5e-two-handed",
         "dnd5e-uses-ammunition",
     ]
-    assert items["purple bow"]["stats"]["range_normal"] == 150
-    assert items["purple bow"]["stats"]["range_long"] == 600
+    assert items["purple bow"]["stats"]["dnd5e_range_normal"] == 150
+    assert items["purple bow"]["stats"]["dnd5e_range_long"] == 600
     # A thrown dagger-like weapon is melee and ranged, from its range text alone.
     assert items["purple dart"]["parents"] == [
         "dnd5e-finesse",
@@ -176,16 +175,19 @@ def test_apply_imports_what_is_resolved_and_leaves_the_rest_for_review(
         assert own_stats(sword) == {
             "sourcebook": "T:W 4, P 149",
             "own_weight": 3.0,
-            "damage_dice_count": 1,
-            "damage_die": 8,
-            "damage_type": "slashing",
-            "damage_versatile_die": 10,
-            "attack_ability": "Strength",
-            "ability_to_damage": True,
+            "dnd5e_damage": "d8",
+            "dnd5e_damage_type": "slashing",
+            "dnd5e_damage_versatile": "d10",
+            "dnd5e_attack_ability": "Strength",
+            "dnd5e_ability_to_damage": True,
         }
         descriptions = [i for i in sword["information"] if i["type"] == "description"]
         assert [p["content"] for d in descriptions for p in d["payloads"]] == ["Versatile (1d10)"]
-        assert {g["name"] for g in sword["stat_groups"]} >= {"physical", "damaging", "sourcebook"}
+        assert {g["name"] for g in sword["stat_groups"]} >= {
+            "physical",
+            "dnd5e_damaging",
+            "sourcebook",
+        }
         dart = by_slug(api, tid, "basic-weapons-purple-dart")
         assert parent_names(dart) == [
             "Finesse",
@@ -261,33 +263,33 @@ def test_gear_armour_tools_ammo_and_packs(stack: Stack, tmp_path: Path) -> None:
         plate = by_slug(api, tid, "basic-armour-purple-plate")
         assert parent_names(plate) == ["Armor", "Heavy armor"]
         assert own_stats(plate) == {
-            "armor": 18,
+            "dnd5e_armor": 18,
             "own_weight": 60.0,
             "sourcebook": "HB",
-            "strength_required": 15,
-            "stealth_disadvantage": True,
+            "dnd5e_strength_required": 15,
+            "dnd5e_stealth_disadvantage": True,
         }
         robe = by_slug(api, tid, "basic-armour-violet-robe")
         assert parent_names(robe) == ["Armor"]
-        assert "armor" not in own_stats(robe)  # a formula has no number to store
+        assert "dnd5e_armor" not in own_stats(robe)  # a formula has no number to store
         backpack = by_slug(api, tid, "basic-gear-backpack")
         assert parent_names(backpack) == ["Container", "Gear"]
         assert backpack["name"] == "Backpack"
-        assert own_stats(backpack)["price"] == 200
+        assert own_stats(backpack)["dnd5e_price"] == 200
         lamp = by_slug(api, tid, "basic-gear-purple-lamp")
-        assert own_stats(lamp)["price"] == 550
+        assert own_stats(lamp)["dnd5e_price"] == 550
         bullets = by_slug(api, tid, "basic-gear-violet-bullets")
         assert bullets["name"] == "Bullets, Violet (10)"
         assert parent_names(bullets) == ["Ammunition"]
         assert own_stats(bullets)["own_weight"] == 0.5  # 10 at 0.05 each
-        assert own_stats(bullets)["price"] == 50
+        assert own_stats(bullets)["dnd5e_price"] == 50
         tools = by_slug(api, tid, "basic-tools-purplemancer-s-tools")
         assert parent_names(tools) == ["Artisan's tools", "Tool"]
-        assert own_stats(tools)["price"] == 150_000  # 1,500 gp
+        assert own_stats(tools)["dnd5e_price"] == 150_000  # 1,500 gp
         arrows = by_slug(api, tid, "basic-ammo-purple-arrow")
         assert arrows["name"] == "Arrows, purple"
         assert parent_names(arrows) == ["Ammunition"]
         pack = by_slug(api, tid, "basic-packs-purple-pack")
         assert pack["name"] == "Purple pack"
-        assert own_stats(pack)["price"] == 1000
+        assert own_stats(pack)["dnd5e_price"] == 1000
         assert parent_names(pack) == ["Gear"]

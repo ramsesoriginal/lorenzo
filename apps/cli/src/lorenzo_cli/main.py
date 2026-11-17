@@ -38,8 +38,6 @@ COMMANDS: dict[str, Entry] = {
     ),
     "character": Entry(f"{_C}catalog", "character_app", "List characters."),
     "pack": Entry(f"{_C}pack", "app", "Hand out an imported pack."),
-    "seed": Entry(f"{_C}seeding", "app", "Create the item taxonomy and stats in a tenant.", "seed"),
-    "unseed": Entry(f"{_C}seeding", "app", "Take a layer of the seed out of a tenant.", "unseed"),
     "plan": Entry(
         f"{_C}library", "app", "Work out what applying a library document would do.", "plan"
     ),

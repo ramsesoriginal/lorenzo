@@ -316,7 +316,7 @@ def test_tenant_create_makes_a_repository_unless_told_otherwise(tmp_path: Path) 
         "kind": "repository",
     }
     assert "repository" in result.output
-    assert "lorenzo seed --tenant my-homebrew" in result.output
+    assert "lorenzo apply --starter neutral -t my-homebrew" in result.output
 
 
 def test_tenant_create_can_make_a_play_tenant_and_prints_json(tmp_path: Path) -> None:

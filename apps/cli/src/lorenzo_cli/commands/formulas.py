@@ -322,7 +322,7 @@ def formula_show(
     assert found is not None
     source, formula = found
     kind = str(formula.pop("kind"))
-    fields = from_api(formula, lambda i: library.names.get(i, str(i)))
+    fields = from_api(formula, lambda i: library.names.get(i, str(i)), kind)
     if as_json:
         console.emit(
             {"entry": entry.slug, "stat": stat, "from": source.slug, "kind": kind, "fields": fields}
@@ -422,7 +422,7 @@ def formula_tree(
                 return here
             source, formula = found
             kind = str(formula.pop("kind"))
-            fields = from_api(formula, lambda i: library.names.get(i, str(i)))
+            fields = from_api(formula, lambda i: library.names.get(i, str(i)), kind)
             here |= {"kind": kind, "from": source.slug}
             here["inputs"] = [node(n, (*seen, name)) for n in stats_named(fields)]
             return here

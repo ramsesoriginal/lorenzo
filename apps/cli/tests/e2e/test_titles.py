@@ -108,37 +108,6 @@ def plan_weapons(stack: Stack, token: str, tmp_path: Path, tenant: str) -> Any:
     )
 
 
-def test_seed_retitles_a_description_the_old_seed_titled_description(
-    stack: Stack, tmp_path: Path
-) -> None:
-    token = stack.creator_token()
-    tenant = seeded(stack, token, tmp_path)
-    with stack.api(token) as api:
-        tid = tenant_id(api, tenant)
-        set_description_title(api, tid, "firearm", "Description")
-        set_description_title(api, tid, "dnd5e-spellcasting-focus", "A focus, my way")
-
-    dry = run_cli(stack, token, tmp_path, "seed", "--tenant", tenant, "--dry-run", "--json")
-
-    assert dry.exit_code == 2, dry.output
-    actions = json.loads(dry.stdout)["actions"]
-    assert [(a["kind"], a["name"], a["detail"]) for a in actions] == [
-        ("retitle", "firearm", "Firearm")
-    ]
-    with stack.api(token) as api:
-        assert shown_title(api, tid, "firearm") == "Description"  # a dry run writes nothing
-
-    applied = run_cli(stack, token, tmp_path, "seed", "--tenant", tenant, "--yes")
-
-    assert applied.exit_code == 0, applied.output
-    with stack.api(token) as api:
-        assert shown_title(api, tid, "firearm") == "Firearm"
-        # A title somebody chose is theirs.
-        assert shown_title(api, tid, "dnd5e-spellcasting-focus") == "A focus, my way"
-    again = run_cli(stack, token, tmp_path, "seed", "--tenant", tenant, "--dry-run")
-    assert again.exit_code == 0, again.output
-
-
 def test_apply_retitles_an_imported_item_and_a_second_run_finds_nothing(
     stack: Stack, tmp_path: Path
 ) -> None:

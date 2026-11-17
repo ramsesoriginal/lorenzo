@@ -1,0 +1,288 @@
+# The neutral starter (ADR 0491): what is true of a thing in any game. Physical stats with
+# their roles, the weight recipe, the forms and materials of equipment, and the placeholder
+# for a player's own item. Apply it to a repository, publish it, and let libraries copy it.
+
+format = 1
+name = "neutral"
+group = [
+    { name = "physical", role = "physical" },
+    { name = "tags", role = "tags" },
+    { name = "sourcebook" },
+]
+stat = [
+    { name = "own_weight", group = "physical", type = "float" },
+    { name = "weight", group = "physical", type = "float", role = "weight" },
+    { name = "contents_weight", group = "physical", type = "float" },
+    { name = "height", group = "physical", type = "float", role = "height" },
+    { name = "bundle_amount", group = "physical", type = "int" },
+    { name = "is_container", group = "tags", type = "bool", role = "is_container" },
+    { name = "is_consumable", group = "tags", type = "bool" },
+    { name = "is_magical", group = "tags", type = "bool" },
+    { name = "is_silvered", group = "tags", type = "bool" },
+    { name = "is_adamantine", group = "tags", type = "bool" },
+    { name = "sourcebook", group = "sourcebook", type = "text" },
+]
+
+[[entry]]
+slug = "physical-object"
+name = "Physical object"
+
+[[entry]]
+slug = "unsorted"
+name = "Unsorted item"
+public = true
+description = "A stand-in for something the catalog does not have yet. The name and notes are the player's own, and a GM will match it to an item or make one for it."
+
+[[entry]]
+slug = "weapon"
+name = "Weapon"
+parents = [
+    "physical-object",
+]
+
+[[entry]]
+slug = "melee-weapon"
+name = "Melee weapon"
+parents = [
+    "weapon",
+]
+
+[[entry]]
+slug = "ranged-weapon"
+name = "Ranged weapon"
+parents = [
+    "weapon",
+]
+
+[[entry]]
+slug = "blade"
+name = "Blade"
+parents = [
+    "weapon",
+]
+
+[[entry]]
+slug = "axe"
+name = "Axe"
+parents = [
+    "weapon",
+]
+
+[[entry]]
+slug = "hammer"
+name = "Hammer"
+parents = [
+    "weapon",
+]
+
+[[entry]]
+slug = "bludgeon"
+name = "Bludgeon"
+parents = [
+    "weapon",
+]
+description = "A club, mace, flail or staff: a weapon that hits with weight rather than an edge."
+
+[[entry]]
+slug = "spear"
+name = "Spear"
+parents = [
+    "weapon",
+]
+
+[[entry]]
+slug = "polearm"
+name = "Polearm"
+parents = [
+    "weapon",
+]
+description = "A long shaft with a head at the end: a glaive, halberd, pike or lance."
+
+[[entry]]
+slug = "whip"
+name = "Whip"
+parents = [
+    "weapon",
+]
+
+[[entry]]
+slug = "bow"
+name = "Bow"
+parents = [
+    "ranged-weapon",
+]
+
+[[entry]]
+slug = "crossbow"
+name = "Crossbow"
+parents = [
+    "ranged-weapon",
+]
+
+[[entry]]
+slug = "sling"
+name = "Sling"
+parents = [
+    "ranged-weapon",
+]
+
+[[entry]]
+slug = "firearm"
+name = "Firearm"
+parents = [
+    "ranged-weapon",
+]
+description = "A ranged weapon that fires its ammunition with gunpowder."
+
+[[entry]]
+slug = "armor"
+name = "Armor"
+parents = [
+    "physical-object",
+]
+
+[[entry]]
+slug = "shield"
+name = "Shield"
+parents = [
+    "armor",
+]
+
+[[entry]]
+slug = "tool"
+name = "Tool"
+parents = [
+    "physical-object",
+]
+
+[[entry]]
+slug = "container"
+name = "Container"
+parents = [
+    "physical-object",
+]
+tags = [
+    "is_container",
+]
+
+[[entry]]
+slug = "consumable"
+name = "Consumable"
+parents = [
+    "physical-object",
+]
+tags = [
+    "is_consumable",
+]
+description = "Used up by using it: a potion, a day's rations, a flask of oil, an arrow."
+
+[[entry]]
+slug = "ammunition"
+name = "Ammunition"
+parents = [
+    "consumable",
+]
+
+[[entry]]
+slug = "gear"
+name = "Gear"
+parents = [
+    "physical-object",
+]
+
+[[entry]]
+slug = "clothing"
+name = "Clothing"
+parents = [
+    "gear",
+]
+
+[[entry]]
+slug = "climbing"
+name = "Climbing gear"
+parents = [
+    "gear",
+]
+
+[[entry]]
+slug = "nautical"
+name = "Nautical gear"
+parents = [
+    "gear",
+]
+
+[[entry]]
+slug = "lighting"
+name = "Lighting"
+parents = [
+    "gear",
+]
+
+[[entry]]
+slug = "writing"
+name = "Writing and reading"
+parents = [
+    "gear",
+]
+
+[[entry]]
+slug = "camping"
+name = "Camping gear"
+parents = [
+    "gear",
+]
+
+[[entry]]
+slug = "tack"
+name = "Tack and riding gear"
+parents = [
+    "gear",
+]
+
+[[entry]]
+slug = "medicine"
+name = "Medicine"
+parents = [
+    "gear",
+]
+
+[[entry]]
+slug = "material"
+name = "Material"
+
+[[entry]]
+slug = "silvered"
+name = "Silvered"
+parents = [
+    "material",
+]
+tags = [
+    "is_silvered",
+]
+description = "Coated or edged in silver, so that it harms creatures that ordinary weapons hurt little or not at all, such as werewolves."
+
+[[entry]]
+slug = "adamantine"
+name = "Adamantine"
+parents = [
+    "material",
+]
+tags = [
+    "is_adamantine",
+]
+description = "Made of adamantine, an extremely hard metal. Weapons of it are especially good at breaking objects."
+
+[[formula]]
+on = "physical-object"
+stat = "contents_weight"
+kind = "contents"
+source = "weight"
+
+[[formula]]
+on = "physical-object"
+stat = "weight"
+kind = "sum"
+terms = [
+    "own_weight",
+    "contents_weight",
+]

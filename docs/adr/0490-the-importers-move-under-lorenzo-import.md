@@ -32,3 +32,13 @@ values to stats named before the prefix rule and the dice type.
 
 - `lorenzo plan` and `apply` mean one thing, the document; importing is one group with one habit.
 - Which half of an item a value belongs to follows the library's systems, so a second system's importer needs no layer of its own.
+
+## As built (slice C10)
+
+- The MPMB importer reads its vocabulary from the `neutral` and `dnd5e` starters (`importer/vocabulary.py`) instead of the seed:
+  a stat is the system's part when its group has a system, a category when it comes from the `dnd5e` document. The review queue
+  records a digest of the two starters as its version.
+- `builtin_map.toml` writes the `dnd5e_` stats; a versatile weapon's two-handed damage is a dice value (`1d10`).
+- A library without the starters' stats is refused with the commands that add them.
+- Found while building it: a validation error from the API now names its fields in the message, and a formula read back keeps the
+  fields its kind requires (a linear formula's multiplier of 1 was dropped, from slice C6).
