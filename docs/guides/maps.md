@@ -52,6 +52,7 @@ Choose **Edit this map**. The **Tool** choices are:
 | Height line | A line with a height and a unit, such as 250 m. Both are yours to give and neither is assumed; the pair you last used on a Map is offered again in this browser. The Map writes the height at the middle of the line. Not on a sphere. |
 | Area | A region of three or more points. |
 | Cave system | Caves drawn for you from a **Seed**: the same seed and options always give the same caves. It works in the area or circle that is selected when you choose it, or in the whole sheet. The Map shows a preview that is not saved; **Compare** splits the view to show the Map as it is beside it, **Roll** tries the next seed, **Apply** draws it for the entry you chose and **Discard** drops it. Not on a sphere. |
+| Fill by marching squares | Areas drawn for you from a **Seed**, where smooth noise is above a **Level**: a few large shapes at a small **Scale**, many small ones at a large one. **Height lines** adds that many lines inside the areas; give the **First height**, the **Step** between lines and their **Unit**, which are never assumed. It previews, compares and applies as Cave system does. Not on a sphere. |
 | Cells | A region made of whole cells, on a grid. |
 
 Each drawing is a **placement** of an entry on this Map. Give it a **Role** and a drawing order (−100 to 100, higher on top). **Place the children** of a Location drawn as an area spreads what is inside it within the shape, and **Remove from this map** takes a drawing off without touching the entry. A line or a curve may carry a **Height** and a **Unit**, set in the panel: give both, or empty both to take the height away. A drawing of several parts, or an area with holes, lists its **Parts**: choose one in the list or press on it in the Map to change its points, and **Remove** takes a part or a hole away (the last part goes with **Remove from this map**). Drawing a Height line for an entry that is already height lines adds the line to them. **Undo** and **Redo** step through your changes, and **Stop editing** ends the session. On a grid, **Snap to the grid** keeps points on the grid. On a sphere you draw by longitude and latitude.
@@ -86,7 +87,7 @@ Authors, GMs, and Owners and Organizers who can see everything can add, rename, 
 ## What Maps does not do
 
 - It has no drawing on a phone (reading and small changes only) and no offline mode.
-- Height brush and the two Fill generators are listed among the tools as planned, and do nothing yet.
+- Height brush and Fill by wave function collapse are listed among the tools as planned, and do nothing yet.
 - A curve drawn through the API that is not a spline is shown and kept, and cannot be changed by its points here.
 - It does not join or split drawings, or move a part of one drawing to another entry.
 - It does not turn the part-of tree into containment, and the tree never decides who can reach what.
