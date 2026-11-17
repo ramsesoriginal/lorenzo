@@ -14,6 +14,12 @@ A tournament table is laid out so both sides meet the same ground: what stands i
 - **Where:** in the Selected panel, for any drawing, on a Map that is not a sphere; and on the command line, `MIRROR ACROSS`, `MIRROR DOWN`, `TURN` for the selected drawing, and `COPY TO name`, `COPY ACROSS TO name`, `COPY DOWN TO name`, `COPY TURNED TO name`, where a name no entry has makes a new Location.
 - **The pure parts** are in `apps/maps/src/lib`: the three transforms of a geometry about a sheet, and whether a drawing of cells lands on cells.
 
+## Built
+
+- **Whether cells land is worked out, not foreseen.** The moved drawing is read as cells again ([ADR 0481](0481-cells-as-merged-outlines-and-larger-drawings.md)); where it is not, the action is refused as "Mirrored down, its cells would not land on whole cells of this grid. Nothing was changed." On pointed-top hexes a mirror across can land where the sheet allows it, while a mirror down or a half turn meets the offset rows; on flat-topped hexes the other way round.
+- **A command typed while a change is being written waits for it** and is then carried out; before, the Map dropped it unsaid. This holds for every command, not only these.
+- The controls are in the Options tab of the Map panel, under the selected drawing's own, as "Mirror and copy".
+
 ## Validation and delivery
 
 Unit tests: each transform of every shape, twice is the original, values kept; cells that land and cells that do not, on each kind of grid; the commands and their refusals. Browser tests against the real API: a drawing mirrored and turned in place, undone; copied turned to a new Location and to a found entry, with the original's role and order; an entry already here refused; cells on hexes refused; axe in light and dark with the controls shown.
