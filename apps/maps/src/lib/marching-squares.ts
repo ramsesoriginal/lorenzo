@@ -14,12 +14,18 @@ type Pt = readonly [number, number];
  * closes; a field that breaks this throws. No number may equal the level exactly where a ring
  * passes, or two rings could meet in a point: the caller picks a level its numbers cannot take.
  * A square whose corners alternate is decided by the mean of the four.
+ *
+ * With `steps`, a crossing is put on the nearest of that many equal steps along its edge, and
+ * never on an end of it. A field of arbitrary numbers can put two crossings a hair apart; kept to
+ * steps, any two points of the rings are at least a step of an edge apart, so rounding them to the
+ * sheet's decimals cannot fold a ring onto itself.
  */
 export function outlines(
   field: ArrayLike<number>,
   cols: number,
   rows: number,
   level: number,
+  steps?: number,
 ): Pt[][] {
   if (field.length !== cols * rows) throw new RangeError('the field is not cols by rows');
 
@@ -109,21 +115,21 @@ export function outlines(
     }
   }
 
+  const along = (from: number, to: number): number => {
+    const t = (level - from) / (to - from);
+
+    return steps === undefined
+      ? t
+      : Math.max(1, Math.min(steps - 1, Math.round(t * steps))) / steps;
+  };
   const point = (key: number): Pt => {
     const place = key >> 1;
     const i = place % cols;
     const j = (place - i) / cols;
-    const from = at(i, j);
 
-    if (key % 2 === 0) {
-      const to = at(i + 1, j);
-
-      return [i + (level - from) / (to - from), j];
-    }
-
-    const to = at(i, j + 1);
-
-    return [i, j + (level - from) / (to - from)];
+    return key % 2 === 0
+      ? [i + along(at(i, j), at(i + 1, j)), j]
+      : [i, j + along(at(i, j), at(i, j + 1))];
   };
 
   const rings: Pt[][] = [];

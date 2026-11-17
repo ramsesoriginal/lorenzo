@@ -27,6 +27,7 @@ GOLDEN = Path(__file__).parents[1] / "golden"
 GEOMETRY = json.loads((GOLDEN / "geometry.json").read_text(encoding="utf-8"))
 SYSTEM = json.loads((GOLDEN / "system.json").read_text(encoding="utf-8"))
 CAVES = json.loads((GOLDEN / "caves.json").read_text(encoding="utf-8"))
+FILLS = json.loads((GOLDEN / "fills.json").read_text(encoding="utf-8"))
 
 
 @pytest.mark.parametrize("case", GEOMETRY["accepted"], ids=lambda c: c["name"])
@@ -49,6 +50,23 @@ def test_what_the_cave_generator_draws_is_accepted(case):
     assert checked.geometry == case["output"]
     assert len(case["output"]["parts"]) == case["caves"]
     assert all(part["shape"] == "polygon" for part in case["output"]["parts"])
+
+
+@pytest.mark.parametrize(
+    "case", [c for c in FILLS["cases"] if c["output"] is not None], ids=lambda c: c["name"]
+)
+def test_what_the_fill_generator_draws_is_accepted(case):
+    """Areas and, after them, height lines that go round (ADR 0477)."""
+    checked = validate_geometry(case["output"])
+    assert checked.geometry == case["output"]
+    parts = case["output"]["parts"]
+    assert [part["shape"] for part in parts] == ["polygon"] * case["areas"] + ["polyline"] * (
+        case["lines"]
+    )
+    for line in parts[case["areas"] :]:
+        assert line["pts"][0] == line["pts"][-1]
+        # A line carries its height and unit, unless they were still to be given.
+        assert ("value" in line and "unit" in line) != case["needsHeights"]
 
 
 def test_the_cave_vectors_cover_no_cave_at_all():

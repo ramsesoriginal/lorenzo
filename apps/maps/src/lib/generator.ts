@@ -142,6 +142,10 @@ export function fits(geometry: Geometry | null, hints: Hints): Fit {
     };
   }
 
+  if (checked.why.includes('a value') || checked.why.includes('a unit')) {
+    return { ok: false, why: 'A height is larger than the Map can hold, or its unit is too long.' };
+  }
+
   if (checked.why.includes('too large')) {
     return { ok: false, why: `This is larger than a drawing may be. ${hints.bytes}` };
   }

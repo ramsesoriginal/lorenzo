@@ -242,8 +242,10 @@ describe('the Cave system generator (ADR 0476)', () => {
     expect(decl).toMatchObject({ state: 'ready', generator: true, notOnSphere: true });
     expect(def?.what).toBe('a cave system');
 
-    const number = (set: Partial<Record<string, number>>) => (option: NumberOption) =>
-      set[option.id] ?? (option.first as number);
+    const number = (set: Partial<Record<string, number>>) => ({
+      number: (option: NumberOption) => set[option.id] ?? (option.first as number),
+      text: () => '',
+    });
     const usual = def?.run(whole, 4821, number({}));
 
     expect(usual?.count).toMatch(/^\d+ caves?$/);

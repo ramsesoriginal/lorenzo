@@ -47,6 +47,11 @@ test('a search finds a tool by name, group or key', () => {
   expect(searchTools('cave').map((t) => t.id)).toEqual(['cave-system']);
   expect(searchTools('terrain').map((t) => t.id)).toEqual(['height-line', 'height-brush']);
   expect(searchTools('fill wave').map((t) => t.id)).toEqual(['wave-function-collapse']);
+  expect(toolById('marching-squares')).toMatchObject({ state: 'ready', generator: true });
+  expect(TOOLS.filter((t) => t.state === 'planned').map((t) => t.id)).toEqual([
+    'height-brush',
+    'wave-function-collapse',
+  ]);
   expect(searchTools('nothing like it')).toEqual([]);
 });
 

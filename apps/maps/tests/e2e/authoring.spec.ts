@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import AxeBuilder from '@axe-core/playwright';
 import { type Browser, expect, type Page, test } from '@playwright/test';
 import { caveSystem } from '../../src/lib/cave.ts';
+import { fill as fillOf } from '../../src/lib/fill.ts';
 import { regionOf } from '../../src/lib/generator.ts';
 import { apiAs, ok, refreshTokenFor } from './support/api.ts';
 import { REFRESH_TOKEN_KEY, SITE_URL } from './support/env.ts';
@@ -442,6 +443,18 @@ for (const theme of ['light', 'dark'] as const) {
       await expect(page.getByLabel('Divider')).toBeVisible();
       const generator = await new AxeBuilder({ page }).exclude('.shell-bottom').analyze();
       expect(generator.violations.map((v) => `${v.id}: ${v.nodes[0]?.html}`)).toEqual([]);
+      // The fill, with height lines asked for and their heights still to be given.
+      await page
+        .getByRole('group', { name: 'Generate', exact: true })
+        .getByRole('button', { name: 'Fill by marching squares', exact: true })
+        .click();
+      await page
+        .getByRole('group', { name: 'Options of Fill by marching squares' })
+        .getByLabel('Height lines')
+        .fill('2');
+      await expect(page.getByText(/Height lines need a first height/)).toBeVisible();
+      const filled = await new AxeBuilder({ page }).exclude('.shell-bottom').analyze();
+      expect(filled.violations.map((v) => `${v.id}: ${v.nodes[0]?.html}`)).toEqual([]);
     } finally {
       await page.context().close();
     }
@@ -484,12 +497,12 @@ test('the toolbox is drawn from the tool registry: groups, one key a tool, and p
     await expect(page.getByText(/Height brush is planned\./)).toBeVisible();
     // All tools lists every tool, finds one by a few words and says which are planned.
     await page.getByRole('button', { name: 'All tools' }).click();
-    await page.getByLabel('Find a tool').fill('marching');
-    const fill = page.getByRole('button', { name: 'Fill by marching squares', exact: true });
+    await page.getByLabel('Find a tool').fill('wave');
+    const fill = page.getByRole('button', { name: 'Fill by wave function collapse', exact: true });
     await expect(fill).toHaveAttribute('aria-disabled', 'true');
     await expect(page.locator('.map-all-tools-list')).toContainText('planned');
     await fill.click({ force: true });
-    await expect(page.getByText(/Fill by marching squares is planned\./)).toBeVisible();
+    await expect(page.getByText(/Fill by wave function collapse is planned\./)).toBeVisible();
     // A key typed into a field is the field's.
     await page.getByLabel('Find a tool').fill('');
     await page.getByLabel('Find a tool').press('p');
@@ -1298,6 +1311,103 @@ test('a cave system chosen with an area or a circle selected stays inside it', a
     expect((await w.read()).find((r) => r.name === 'Pond')?.geometry).toMatchObject({
       parts: [{ shape: 'circle', at: [500, 400], r: 300 }],
     });
+  } finally {
+    await page.context().close();
+  }
+});
+
+test('a fill is previewed with height lines, which need their heights, and applied as one step', async ({
+  browser,
+}) => {
+  const w = await world();
+  const page = await signedIn(browser, w.subject);
+  // What the generator makes of the sheet for these options: the page must write exactly this.
+  const expected = fillOf(
+    regionOf(null, [0, 0, 1000, 800]),
+    { scale: 3, level: 0.5, smallest: 4, lines: 2, first: 100, step: 50, unit: 'm' },
+    12,
+  );
+  const count = `${expected.areas} areas and ${expected.lines} height lines`;
+  try {
+    expect(expected.areas).toBeGreaterThan(1);
+    expect(expected.lines).toBeGreaterThan(1);
+    await page.goto(`/map/?tenant=${w.tenant.id}&id=${w.chart.id}`);
+    await expect(page.getByRole('heading', { name: 'Sword Coast', exact: true })).toBeVisible();
+    await page.getByRole('button', { name: 'Edit this map' }).click();
+    await page.locator('.map-stage svg').focus();
+    await page.keyboard.press('m');
+    const tool = page
+      .getByRole('group', { name: 'Generate', exact: true })
+      .getByRole('button', { name: 'Fill by marching squares', exact: true });
+    await expect(tool).toHaveAttribute('aria-pressed', 'true');
+    const options = page.getByRole('group', { name: 'Options of Fill by marching squares' });
+    await expect(options.getByLabel('Scale')).toHaveValue('8');
+    await expect(options.getByLabel('Level')).toHaveValue('0.5');
+    await expect(options.getByLabel('Height lines')).toHaveValue('0');
+    // Nothing is assumed of a height.
+    await expect(options.getByLabel('First height')).toHaveValue('');
+    await expect(options.getByLabel('Step')).toHaveValue('');
+    await expect(options.getByLabel('Unit')).toHaveValue('');
+    const result = page.getByRole('group', { name: 'Preview' }).locator('.map-generator-result');
+    await expect(result).toHaveText(/^\d+ areas? in the whole sheet\.$/);
+    await page.getByLabel('Or make a new Location, named').fill('High ground');
+    await page.getByRole('button', { name: 'Draw a new Location' }).click();
+    const apply = page
+      .getByRole('group', { name: 'Preview' })
+      .getByRole('button', { name: 'Apply' });
+    await expect(apply).toBeEnabled();
+
+    // Height lines asked for: they are previewed, and cannot be written without their heights.
+    const command = page.getByLabel('Command', { exact: true });
+    const answer = page.locator('.map-command-answer');
+    for (const line of ['SEED 12', 'SCALE 3', 'LINES 2']) {
+      await command.fill(line);
+      await command.press('Enter');
+    }
+    await expect(answer).toHaveText('Height lines is 2.');
+    await expect(result).toHaveText(
+      'Height lines need a first height, a step and a unit: give all three, or set Height lines to 0.',
+    );
+    await expect(page.locator('.map-stage .m-ov-area')).toHaveCount(expected.areas);
+    await expect(page.locator('.map-stage .m-ov-line')).toHaveCount(expected.lines);
+    await expect(apply).toBeDisabled();
+    await command.fill('APPLY');
+    await command.press('Enter');
+    await expect(answer).toContainText('Height lines need a first height');
+    expect(await w.read()).toHaveLength(0);
+    // Given in a field and by command, and the preview can be applied.
+    await options.getByLabel('First height').fill('100');
+    await command.fill('STEP 50');
+    await command.press('Enter');
+    await command.fill('UNIT m');
+    await command.press('Enter');
+    await expect(result).toHaveText(`${count} in the whole sheet.`);
+    await command.fill('ROLE relief');
+    await command.press('Enter');
+    await command.fill('APPLY');
+    await command.press('Enter');
+    await expect(page.getByRole('heading', { name: 'Change High ground' })).toBeVisible();
+    const rows = await w.read();
+    expect(rows.map((r) => [r.name, r.role])).toEqual([['High ground', 'relief']]);
+    expect(rows[0]?.geometry).toEqual(expected.geometry);
+    // The Map says each line's height, and the parts are listed for changing.
+    await expect(page.locator('.map-stage text.m-lbl-value')).toHaveCount(expected.lines);
+    await expect(page.locator('.map-stage text.m-lbl-value').first()).toHaveText(/^(100|150) m$/);
+    await expect(page.locator('.map-parts button[aria-pressed]')).toHaveCount(
+      (expected.geometry?.parts ?? []).reduce(
+        (sum, part) => sum + (part.shape === 'polygon' ? part.rings.length : 1),
+        0,
+      ),
+    );
+    await expect(
+      page.locator('.map-parts').getByRole('button', { name: 'Height line 1, 100 m', exact: true }),
+    ).toBeVisible();
+    await openPanel(page, 'History');
+    await expect(page.locator('.map-slideover')).toContainText(
+      `Drew a fill, seed 12: ${count} in the whole sheet`,
+    );
+    await page.getByRole('button', { name: 'Undo' }).click();
+    await expect.poll(async () => (await w.read()).length).toBe(0);
   } finally {
     await page.context().close();
   }

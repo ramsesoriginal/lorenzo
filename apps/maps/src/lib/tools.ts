@@ -187,6 +187,74 @@ export const CAVE_SMALLEST: NumberOption = {
   step: 1,
 };
 
+/** The options of the Fill by marching squares (ADR 0477). */
+export const FILL_SCALE: NumberOption = {
+  id: 'scale',
+  name: 'Scale',
+  word: 'scale',
+  type: 'number',
+  first: 8,
+  least: 2,
+  most: 20,
+  step: 1,
+};
+
+export const FILL_LEVEL: NumberOption = {
+  id: 'level',
+  name: 'Level',
+  word: 'level',
+  type: 'number',
+  first: 0.5,
+  least: 0.2,
+  most: 0.8,
+  step: 0.01,
+};
+
+export const FILL_SMALLEST: NumberOption = {
+  id: 'smallest',
+  name: 'Smallest area (cells)',
+  word: 'smallest',
+  type: 'number',
+  first: 4,
+  least: 1,
+  most: 60,
+  step: 1,
+};
+
+export const FILL_LINES: NumberOption = {
+  id: 'lines',
+  name: 'Height lines',
+  word: 'lines',
+  type: 'number',
+  first: 0,
+  least: 0,
+  most: 8,
+  step: 1,
+};
+
+/** The height of the first line and of each next one more: never assumed (ADR 0473). */
+export const FILL_FIRST: NumberOption = {
+  id: 'first',
+  name: 'First height',
+  word: 'first',
+  type: 'number',
+  first: null,
+  least: -1_000_000_000_000,
+  most: 1_000_000_000_000,
+  step: 0.000001,
+};
+
+export const FILL_STEP: NumberOption = {
+  id: 'step',
+  name: 'Step',
+  word: 'step',
+  type: 'number',
+  first: null,
+  least: -1_000_000_000_000,
+  most: 1_000_000_000_000,
+  step: 0.000001,
+};
+
 /** The height a height line carries (ADR 0473): never assumed, so it starts empty. */
 export const HEIGHT: NumberOption = {
   id: 'height',
@@ -373,8 +441,20 @@ export const TOOLS: ToolDecl[] = [
     key: 'm',
     input: 'a region and a seed',
     output: 'areas and contour lines',
-    state: 'planned',
-    reason: later,
+    state: 'ready',
+    notOnSphere: true,
+    generator: true,
+    options: [
+      FILL_SCALE,
+      FILL_LEVEL,
+      FILL_SMALLEST,
+      FILL_LINES,
+      FILL_FIRST,
+      FILL_STEP,
+      UNIT,
+      ROLE,
+      SEED,
+    ],
   },
   {
     id: 'wave-function-collapse',

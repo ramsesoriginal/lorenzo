@@ -89,7 +89,6 @@ import {
   GROUP_NAMES,
   GROUPS,
   HEIGHT,
-  type NumberOption,
   numberFor,
   type OptionValue,
   optionsOf,
@@ -153,7 +152,8 @@ type ToolName =
   | 'area'
   | 'cells'
   | 'height-line'
-  | 'cave-system';
+  | 'cave-system'
+  | 'marching-squares';
 
 const TOOLS: [ToolName, string][] = [
   ['select', 'Select'],
@@ -164,6 +164,7 @@ const TOOLS: [ToolName, string][] = [
   ['freehand', 'Freehand'],
   ['height-line', 'Height line'],
   ['cave-system', 'Cave system'],
+  ['marching-squares', 'Fill by marching squares'],
   ['area', 'Area'],
   ['cells', 'Cells'],
 ];
@@ -332,21 +333,31 @@ export function createEditor(context: EditorContext): Editor {
     const decl = toolDecl();
     const from = rowOf(regionId);
     const seed = seedNow();
-    const numbers = (decl.options ?? []).flatMap((option) =>
-      option.type === 'number' ? [optionValues.get(decl, option)] : [],
+    // Every option but the role, which changes what is written and not what is drawn.
+    const set = (decl.options ?? []).map((option) =>
+      option.id === ROLE.id ? null : optionValues.get(decl, option),
     );
-    const key = JSON.stringify([toolName, seed, numbers, from?.id ?? null, from?.geometry ?? null]);
+    const key = JSON.stringify([toolName, seed, set, from?.id ?? null, from?.geometry ?? null]);
     if (made?.key === key) return made;
     const region = regionOf(
       from ? { name: from.name, geometry: from.geometry as unknown as Geometry } : null,
       context.extent,
     );
-    const result = def.run(
+    const result = def.run(region, seed, {
+      number: (option) => optionValues.get(decl, option),
+      text: (option) => optionValues.get(decl, option),
+    });
+    made = {
+      key,
       region,
-      seed,
-      (option: NumberOption) => optionValues.get(decl, option) ?? 0,
-    );
-    made = { key, region, ...result, fit: fits(result.geometry, def.hints) };
+      geometry: result.geometry,
+      count: result.count,
+      // What a person must still give comes before any limit: it is theirs to answer first.
+      fit:
+        result.needs && result.geometry
+          ? { ok: false, why: result.needs }
+          : fits(result.geometry, def.hints),
+    };
     return made;
   }
 
@@ -640,6 +651,7 @@ export function createEditor(context: EditorContext): Editor {
       case 'freehand':
         return 'Drag on the map to draw. The Line tool takes typed points.';
       case 'cave-system':
+      case 'marching-squares':
         return 'Set the options, then APPLY or DISCARD.';
       case 'line':
       case 'height-line':
