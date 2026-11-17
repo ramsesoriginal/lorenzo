@@ -360,6 +360,9 @@ test('a long manuscript keeps the caret and saves without replacing the editor',
     );
     await page.reload();
     await expect(text).toHaveValue(source);
+    await page.getByText('Word count', { exact: true }).click();
+    await page.getByText('Writing session', { exact: true }).click();
+    await page.getByRole('button', { name: 'Start session', exact: true }).click();
     await text.focus();
     await text.press('Control+End');
     await text.press('a');
@@ -369,6 +372,7 @@ test('a long manuscript keeps the caret and saves without replacing the editor',
     });
     await expect(text).toBeFocused();
     expect(await text.evaluate((el) => (el as HTMLTextAreaElement).selectionStart)).toBe(before);
+    await expect(page.getByText('Session progress · +1 word', { exact: true })).toBeVisible();
     await page.screenshot({ path: testInfo.outputPath('writing-desktop.png'), fullPage: false });
     await page.setViewportSize({ width: 390, height: 844 });
     await page.screenshot({ path: testInfo.outputPath('writing-phone.png'), fullPage: false });
@@ -677,6 +681,9 @@ test('extract complete prose and a child into a Chapter without changing the rea
     await page.getByRole('link', { name: 'The crossing', exact: true }).click();
     await manuscript.fill('The boat reached the shore.');
     await expect(page.getByRole('status', { name: 'Save status' })).toHaveText('Saved');
+    await page.getByText('Word count', { exact: true }).click();
+    await page.getByText('Writing session', { exact: true }).click();
+    await page.getByRole('button', { name: 'Start session', exact: true }).click();
     await page.goto(`/?tenant=${tenant.id}&entry=${edition}&view=outline`);
     await page.getByText('Extract a Chapter', { exact: true }).click();
     await page.getByLabel('First element', { exact: true }).selectOption('0');
@@ -698,6 +705,9 @@ test('extract complete prose and a child into a Chapter without changing the rea
     await page.getByRole('link', { name: 'Outline', exact: true }).click();
     await page.getByRole('link', { name: 'At sea', exact: true }).click();
     await expect(manuscript).toHaveValue(prose);
+    await page.getByText('Word count', { exact: true }).click();
+    await page.getByText('Writing session', { exact: true }).click();
+    await expect(page.getByText('Session progress · 0 words', { exact: true })).toBeVisible();
     await page.getByRole('link', { name: 'Outline', exact: true }).click();
     await expect(page.getByRole('link', { name: 'The crossing', exact: true })).toBeVisible();
   } finally {
@@ -1394,6 +1404,929 @@ test('personal targets persist independently for the draft and assembled reading
       true,
     );
     expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  } finally {
+    await context.close();
+  }
+});
+
+test('personal timer pauses, resumes, survives reload and stays separate from another account', async ({
+  browser,
+}) => {
+  test.setTimeout(120000);
+  const { page, context, tenant, owner } = await world(browser);
+  try {
+    const now = new Date();
+    await page.clock.install({ time: now });
+    await page.clock.pauseAt(now);
+    const openTimer = async () => {
+      await page.getByText('Word count', { exact: true }).click();
+      await page.getByText('Writing timer', { exact: true }).click();
+    };
+    await openTimer();
+    await page.getByLabel('Minutes', { exact: true }).fill('1');
+    await page.getByRole('button', { name: 'Start timer', exact: true }).click();
+    await page.clock.runFor(10_000);
+    await expect(page.getByRole('timer')).toHaveText('0:50');
+    await page.getByRole('button', { name: 'Pause timer', exact: true }).click();
+    await page.clock.runFor(15_000);
+    await expect(page.getByRole('timer')).toHaveText('0:50');
+    await page.reload();
+    await openTimer();
+    await expect(page.getByRole('timer')).toHaveText('0:50');
+    await page.getByRole('link', { name: 'Your writing', exact: true }).click();
+    await page.getByLabel('New draft title').fill('Another passage');
+    await page.getByRole('button', { name: 'Start writing', exact: true }).click();
+    await expect(page.getByRole('textbox', { name: 'Manuscript', exact: true })).toBeVisible();
+    await openTimer();
+    await expect(page.getByRole('timer')).toHaveText('0:50');
+    await page.getByRole('button', { name: 'Resume timer', exact: true }).click();
+    await page.clock.runFor(10_000);
+    await page.reload();
+    await openTimer();
+    await expect(page.getByRole('timer')).toHaveText('0:40');
+    const manuscript = page.getByRole('textbox', { name: 'Manuscript', exact: true });
+    await manuscript.focus();
+    await page.clock.runFor(40_000);
+    await expect(page.getByText('Time elapsed.', { exact: true })).toBeVisible();
+    await expect(manuscript).toBeFocused();
+    await page.getByRole('button', { name: 'Reset timer', exact: true }).click();
+    await expect(page.getByRole('timer')).toHaveText('1:00');
+    await page.clock.resume();
+    await page.setViewportSize({ width: 390, height: 844 });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
+      true,
+    );
+    expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+    // A second Author in the same tab must get their own default timer.
+    const subject = `timer-other-${randomUUID()}`;
+    const api = await apiAs(subject);
+    const user = await ok(api.GET('/me'));
+    await ok(
+      owner.POST('/tenants/{tenant_id}/memberships', {
+        params: { path: { tenant_id: tenant.id } },
+        body: { user_id: user.id, role: 'author' },
+      }),
+    );
+    const token = await refreshTokenFor(subject);
+    await page.evaluate(({ key, token }) => localStorage.setItem(key, token), {
+      key: REFRESH_TOKEN_KEY,
+      token,
+    });
+    await page.reload();
+    await openTimer();
+    await expect(page.getByRole('timer')).toHaveText('25:00');
+  } finally {
+    await context.close();
+  }
+});
+
+test('a timer remains usable when tab storage is unavailable', async ({ browser }) => {
+  const { page, context } = await world(browser);
+  try {
+    await page.addInitScript(() => {
+      const get = Storage.prototype.getItem;
+      const set = Storage.prototype.setItem;
+      Storage.prototype.getItem = function (key) {
+        if (key.startsWith('lorenzo:writing-timer:')) throw new Error('Storage blocked');
+        return get.call(this, key);
+      };
+      Storage.prototype.setItem = function (key, value) {
+        if (key.startsWith('lorenzo:writing-timer:')) throw new Error('Storage blocked');
+        return set.call(this, key, value);
+      };
+    });
+    await page.reload();
+    await page.getByText('Word count', { exact: true }).click();
+    await page.getByText('Writing timer', { exact: true }).click();
+    await expect(
+      page.getByText('This timer works here, but cannot be restored after reloading this tab.'),
+    ).toBeVisible();
+    await page.getByRole('button', { name: 'Start timer', exact: true }).click();
+    await expect(page.getByRole('button', { name: 'Pause timer', exact: true })).toBeVisible();
+  } finally {
+    await context.close();
+  }
+});
+
+test('session goals count signed editing changes and rebase loaded revisions', async ({
+  browser,
+}) => {
+  test.setTimeout(120000);
+  const { page, context } = await world(browser);
+  try {
+    const manuscript = page.getByRole('textbox', { name: 'Manuscript', exact: true });
+    await manuscript.fill('The river remembers.');
+    await expect(page.getByRole('status', { name: 'Save status' })).toHaveText('Saved');
+    const open = async () => {
+      await page.getByText('Word count', { exact: true }).click();
+      await page.getByText('Writing session', { exact: true }).click();
+    };
+    await open();
+    await page.getByLabel('Session word target').fill('2');
+    await page.getByRole('button', { name: 'Start session', exact: true }).click();
+    await page.route(`${API_URL}/tenants/**/payloads/*`, (route) =>
+      route.request().method() === 'PATCH' ? route.abort() : route.continue(),
+    );
+    await manuscript.fill('The river remembers every crossing.');
+    await expect(page.getByText('Session progress · +2 words', { exact: true })).toBeVisible();
+    await expect(page.getByText('Session target reached.', { exact: true })).toBeVisible();
+    await expect(manuscript).toBeFocused();
+    await expect(page.getByRole('status', { name: 'Save status' })).toContainText(
+      'Use Save now to retry',
+    );
+    await page.unroute(`${API_URL}/tenants/**/payloads/*`);
+    await page.getByRole('button', { name: 'Save now', exact: true }).click();
+    await expect(page.getByRole('status', { name: 'Save status' })).toHaveText('Saved');
+    await expect(page.getByText('Session progress · +2 words', { exact: true })).toBeVisible();
+    await manuscript.fill('The river.');
+    await expect(page.getByText('Session progress · -1 word', { exact: true })).toBeVisible();
+    await expect(page.getByRole('status', { name: 'Save status' })).toHaveText('Saved');
+    await page.reload();
+    await open();
+    await expect(page.getByText('Session progress · -1 word', { exact: true })).toBeVisible();
+    await page.getByText('Saved revisions', { exact: true }).click();
+    await page
+      .locator('details')
+      .filter({ has: page.getByText('Saved revisions', { exact: true }) })
+      .getByRole('button')
+      .first()
+      .click();
+    await page.getByRole('button', { name: 'Load this revision as a draft' }).click();
+    await expect(manuscript).toHaveValue('The river remembers every crossing.');
+    await expect(page.getByText('Session progress · -1 word', { exact: true })).toBeVisible();
+    await page.getByRole('button', { name: 'Save now', exact: true }).click();
+    await expect(page.getByRole('status', { name: 'Save status' })).toHaveText('Saved');
+    await expect(page.getByText('Session progress · -1 word', { exact: true })).toBeVisible();
+    await page.getByRole('button', { name: 'Finish session', exact: true }).click();
+    await manuscript.fill('An ending.');
+    await expect(page.getByRole('status', { name: 'Save status' })).toHaveText('Saved');
+    await expect(page.getByText('Session progress · -1 word', { exact: true })).toBeVisible();
+    await page.getByRole('button', { name: 'Start new session', exact: true }).click();
+    await manuscript.fill('An ending follows here.');
+    await expect(page.getByText('Session progress · +2 words', { exact: true })).toBeVisible();
+    await page.setViewportSize({ width: 390, height: 844 });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
+      true,
+    );
+    expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  } finally {
+    await context.close();
+  }
+});
+
+test('session progress does not credit another version or leak to another account', async ({
+  browser,
+}) => {
+  const { page, context, api, owner, tenant } = await world(browser);
+  try {
+    const open = async () => {
+      await page.getByText('Word count', { exact: true }).click();
+      await page.getByText('Writing session', { exact: true }).click();
+    };
+    await open();
+    await page.getByRole('button', { name: 'Start session', exact: true }).click();
+    const entry = new URL(page.url()).searchParams.get('entry') as string;
+    const entity = await ok(
+      api.GET('/tenants/{tenant_id}/entities/{entity_id}', {
+        params: { path: { tenant_id: tenant.id, entity_id: entry } },
+      }),
+    );
+    const payload = entity.information.find((i) => i.type === 'manuscript')?.payloads[0];
+    if (!payload) throw new Error('No manuscript');
+    await ok(
+      api.PATCH('/tenants/{tenant_id}/payloads/{payload_id}', {
+        params: {
+          path: { tenant_id: tenant.id, payload_id: payload.id },
+          header: { 'if-match': `W/"${payload.updated_at}"` },
+        },
+        body: { content: 'Written elsewhere with many more words.' },
+      }),
+    );
+    await page.getByRole('textbox', { name: 'Manuscript', exact: true }).fill('My words.');
+    await expect(page.getByRole('status', { name: 'Save status' })).toContainText(
+      'changed elsewhere',
+    );
+    await page.getByRole('button', { name: 'Use saved manuscript', exact: true }).click();
+    await expect(page.getByRole('textbox', { name: 'Manuscript', exact: true })).toHaveValue(
+      'Written elsewhere with many more words.',
+    );
+    await expect(page.getByText('Session progress · +2 words', { exact: true })).toBeVisible();
+    const subject = `session-other-${randomUUID()}`;
+    const other = await apiAs(subject);
+    const user = await ok(other.GET('/me'));
+    await ok(
+      owner.POST('/tenants/{tenant_id}/memberships', {
+        params: { path: { tenant_id: tenant.id } },
+        body: { user_id: user.id, role: 'author' },
+      }),
+    );
+    await page.evaluate(({ key, token }) => localStorage.setItem(key, token), {
+      key: REFRESH_TOKEN_KEY,
+      token: await refreshTokenFor(subject),
+    });
+    await page.reload();
+    await open();
+    await expect(page.getByRole('button', { name: 'Start session', exact: true })).toBeVisible();
+    await expect(page.getByText('Session progress · +2 words', { exact: true })).toHaveCount(0);
+  } finally {
+    await context.close();
+  }
+});
+
+test('session progress stays usable when local recovery is blocked', async ({ browser }) => {
+  const { page, context } = await world(browser);
+  try {
+    await page.addInitScript(() => {
+      const get = Storage.prototype.getItem;
+      const set = Storage.prototype.setItem;
+      Storage.prototype.getItem = function (key) {
+        if (key.startsWith('lorenzo:writing-session:')) throw new Error('Storage blocked');
+        return get.call(this, key);
+      };
+      Storage.prototype.setItem = function (key, value) {
+        if (key.startsWith('lorenzo:writing-session:')) throw new Error('Storage blocked');
+        return set.call(this, key, value);
+      };
+    });
+    await page.reload();
+    await page.getByText('Word count', { exact: true }).click();
+    await page.getByText('Writing session', { exact: true }).click();
+    await expect(
+      page.getByText(
+        'Session progress works here, but cannot be restored after reloading this tab.',
+      ),
+    ).toBeVisible();
+    await page.getByRole('button', { name: 'Start session', exact: true }).click();
+    await page.getByRole('textbox', { name: 'Manuscript', exact: true }).fill('One');
+    await expect(page.getByText('Session progress · +1 word', { exact: true })).toBeVisible();
+  } finally {
+    await context.close();
+  }
+});
+
+test('an author reviews Being names before adding a private Scene reference', async ({
+  browser,
+}) => {
+  test.setTimeout(120000);
+  const { page, context, api, owner, tenant } = await world(browser);
+  try {
+    const scene = new URL(page.url()).searchParams.get('entry') as string;
+    const biography = (name: string) =>
+      ok(
+        api.POST('/tenants/{tenant_id}/writing/biographies', {
+          params: { path: { tenant_id: tenant.id } },
+          body: { name },
+        }),
+      );
+    const eira = await biography('Eira Vale');
+    const other = await biography('Rowan');
+    for (const name of ['Ash', 'Ash', 'Codebird', 'North Bank']) await biography(name);
+    const elsewhere = await ok(owner.POST('/tenants', { body: { name: 'Other shelves' } }));
+    await ok(
+      owner.POST('/tenants/{tenant_id}/writing/biographies', {
+        params: { path: { tenant_id: elsewhere.id } },
+        body: { name: 'Eira Vale' },
+      }),
+    );
+    const path = { tenant_id: tenant.id, source_kind: 'scenes' as const, source_id: scene };
+    const refs = () =>
+      api.GET('/tenants/{tenant_id}/{source_kind}/{source_id}/references', { params: { path } });
+    const draft = page.getByRole('textbox', { name: 'Manuscript', exact: true });
+    const source = 'Ei**ra** Vale meets Ash. `Codebird` rests.\n\nNorth\n\nBank';
+    await draft.fill(source);
+    await page.getByText('Details', { exact: true }).click();
+    await page.getByText('Suggested Being references', { exact: true }).click();
+    const check = page.getByRole('button', { name: 'Check names', exact: true });
+    const add = page.getByRole('button', { name: 'Add reference to Eira Vale', exact: true });
+    await check.click();
+    await expect(add).toBeVisible();
+    await expect(page.getByText(/Several Beings share the name Ash/)).toBeVisible();
+    for (const name of ['Codebird', 'North Bank', 'Ash'])
+      await expect(
+        page.getByRole('button', { name: `Add reference to ${name}`, exact: true }),
+      ).toHaveCount(0);
+    expect(await ok(refs())).toEqual([]);
+    const edited = `${source} The bell rings.`;
+    await draft.fill(edited);
+    await add.click();
+    await expect(page.getByText('The draft changed. Check names again.')).toBeVisible();
+    expect(await ok(refs())).toEqual([]);
+    await check.click();
+    const before = await refs();
+    await ok(
+      api.PUT('/tenants/{tenant_id}/{source_kind}/{source_id}/references/{kind}/{target_id}', {
+        params: {
+          path: { ...path, kind: 'beings', target_id: other.id },
+          header: { 'if-match': before.response.headers.get('etag') as string },
+        },
+        body: { is_shared: false },
+      }),
+    );
+    await add.click();
+    await expect(page.getByText('The references changed. Check names again.')).toBeVisible();
+    expect((await ok(refs())).map((ref) => ref.id)).toEqual([other.id]);
+    await check.click();
+    await add.click();
+    await expect(page.getByText('Eira Vale (beings)', { exact: false })).toBeVisible();
+    const saved = await ok(refs());
+    expect(saved.find((ref) => ref.id === eira.id)?.is_shared).toBe(false);
+    await expect(draft).toHaveValue(edited);
+    await page.getByText('Suggested Being references', { exact: true }).click();
+    await check.click();
+    await expect(page.getByText(/Several Beings share the name Ash/)).toBeVisible();
+    await expect(add).toHaveCount(0);
+    await page.setViewportSize({ width: 390, height: 844 });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
+      true,
+    );
+    expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  } finally {
+    await context.close();
+  }
+});
+
+test('reviewed manuscript links preserve the selected wording, undo and saved backlink', async ({
+  browser,
+}) => {
+  test.setTimeout(120000);
+  const { page, context, api, owner, tenant } = await world(browser);
+  try {
+    const scene = new URL(page.url()).searchParams.get('entry') as string;
+    const create = async (slug: string) => {
+      const entry = await ok(
+        api.POST('/tenants/{tenant_id}/writing/biographies', {
+          params: { path: { tenant_id: tenant.id } },
+          body: { name: 'Eira Vale' },
+        }),
+      );
+      await ok(
+        owner.PUT('/tenants/{tenant_id}/entities/{entity_id}/slug', {
+          params: { path: { tenant_id: tenant.id, entity_id: entry.id } },
+          body: { slug },
+        }),
+      );
+      return entry.id;
+    };
+    const writer = await create('harbour-scribe');
+    const guide = await create('north-guide');
+    const other = await ok(owner.POST('/tenants', { body: { name: 'Other library' } }));
+    await ok(
+      owner.POST('/tenants/{tenant_id}/entities', {
+        params: { path: { tenant_id: other.id } },
+        body: { name: 'Eira Vale', slug: 'other-eira', kinds: ['being'], parents: [] },
+      }),
+    );
+    const draft = page.getByRole('textbox', { name: 'Manuscript', exact: true });
+    const source = 'eIRA Vale met Eira Vale.';
+    await draft.fill(source);
+    const select = async (start: number) =>
+      draft.evaluate((el, from) => {
+        const area = el as HTMLTextAreaElement;
+        area.focus();
+        area.setSelectionRange(from, from + 9);
+      }, start);
+    await select(0);
+    await page.getByRole('button', { name: 'Link to an entity', exact: true }).click();
+    const find = page.getByRole('button', { name: 'Find matching entries', exact: true });
+    const choice = page.getByRole('button', { name: 'Eira Vale (harbour-scribe)', exact: true });
+    await expect(choice).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Eira Vale (north-guide)', exact: true }),
+    ).toBeVisible();
+    await expect(page.getByText(/other-eira/)).toHaveCount(0);
+    await expect(draft).toHaveValue(source);
+    await select(14);
+    await choice.click();
+    await expect(
+      page.getByText('The selection changed. Select the name and search again.'),
+    ).toBeVisible();
+    await select(0);
+    await find.click();
+    const guideChoice = page.getByRole('button', { name: 'Eira Vale (north-guide)', exact: true });
+    await expect(guideChoice).toBeVisible();
+    await ok(
+      owner.PUT('/tenants/{tenant_id}/entities/{entity_id}/slug', {
+        params: { path: { tenant_id: tenant.id, entity_id: guide } },
+        body: { slug: 'hill-guide' },
+      }),
+    );
+    await guideChoice.click();
+    await expect(page.getByText('The entry changed. Find matching entries again.')).toBeVisible();
+    await find.click();
+    await choice.click();
+    const linked = '[[harbour-scribe|eIRA Vale]] met Eira Vale.';
+    await expect(draft).toHaveValue(linked);
+    await expect(draft).toBeFocused();
+    await expect(page.getByRole('status', { name: 'Save status' })).toHaveText('Saved');
+    const backlinks = () =>
+      ok(
+        api.GET('/tenants/{tenant_id}/entities/{entity_id}/backlinks', {
+          params: { path: { tenant_id: tenant.id, entity_id: writer } },
+        }),
+      );
+    expect((await backlinks()).items.map((item) => item.entity_id)).toContain(scene);
+    await page.getByRole('button', { name: 'Undo', exact: true }).click();
+    await expect(draft).toHaveValue(source);
+    await expect(page.getByRole('status', { name: 'Save status' })).toHaveText('Saved');
+    expect((await backlinks()).items).toHaveLength(0);
+    await select(0);
+    await page.getByRole('button', { name: 'Link to an entity', exact: true }).click();
+    await expect(choice).toBeVisible();
+    await page.setViewportSize({ width: 390, height: 844 });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
+      true,
+    );
+    expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+    await choice.click();
+    await expect(draft).toHaveValue(linked);
+    await expect(page.getByRole('status', { name: 'Save status' })).toHaveText('Saved');
+    await page.reload();
+    await expect(draft).toHaveValue(linked);
+  } finally {
+    await context.close();
+  }
+});
+test('an author reviews existing calendar dates before setting a Scene period', async ({
+  browser,
+}) => {
+  test.setTimeout(120000);
+  const { page, context, api, owner, tenant } = await world(browser);
+  try {
+    const scene = new URL(page.url()).searchParams.get('entry') as string;
+    const path = { tenant_id: tenant.id, scene_id: scene };
+    const calendar = async (name: string, tenantId = tenant.id) =>
+      ok(
+        owner.POST('/tenants/{tenant_id}/calendars', {
+          params: { path: { tenant_id: tenantId } },
+          body: {
+            name,
+            is_public: true,
+            definition: {
+              format: 'lorenzo.calendar/1',
+              moons: [],
+              segments: [{ key: 'frost', name: 'Frost', days: 30, kind: 'month', in_week: true }],
+            },
+          },
+        }),
+      );
+    const first = await calendar('Coast reckoning');
+    const second = await calendar('Mountain reckoning');
+    const period = (calendarId: string, day: number, tenantId = tenant.id) =>
+      ok(
+        owner.POST('/tenants/{tenant_id}/calendars/{calendar_id}/periods', {
+          params: { path: { tenant_id: tenantId, calendar_id: calendarId } },
+          body: { year: 42, segment: 'frost', day, is_public: true },
+        }),
+      );
+    const chosen = await period(first.entity_id, 3);
+    await period(first.entity_id, 4);
+    await period(second.entity_id, 4);
+    await period(first.entity_id, 5);
+    const elsewhere = await ok(owner.POST('/tenants', { body: { name: 'Other dates' } }));
+    const foreign = await calendar('Foreign calendar', elsewhere.id);
+    await period(foreign.entity_id, 3, elsewhere.id);
+    const getScene = () => api.GET('/tenants/{tenant_id}/scenes/{scene_id}', { params: { path } });
+    const setPeriod = async (period_entity_id: string | null) => {
+      const current = await getScene();
+      await ok(
+        api.PATCH('/tenants/{tenant_id}/scenes/{scene_id}', {
+          params: { path, header: { 'if-match': current.response.headers.get('etag') as string } },
+          body: { period_entity_id },
+        }),
+      );
+    };
+    const periods = () =>
+      ok(
+        api.GET('/tenants/{tenant_id}/calendar-periods', {
+          params: { path: { tenant_id: tenant.id } },
+        }),
+      );
+    const count = (await periods()).total;
+    const draft = page.getByRole('textbox', { name: 'Manuscript', exact: true });
+    const source = 'On 3 **Frost** 42 she recalled 4 Frost 42. `5 Frost 42`';
+    await draft.fill(source);
+    await page.getByText('Details', { exact: true }).click();
+    await page.getByText('Suggested period', { exact: true }).click();
+    const check = page.getByRole('button', { name: 'Check dates', exact: true });
+    const add = page.getByRole('button', {
+      name: 'Set period to 3 Frost 42 (Coast reckoning)',
+      exact: true,
+    });
+    await check.click();
+    await expect(add).toBeVisible();
+    await expect(page.getByText(/Several periods share the name 4 Frost 42/)).toBeVisible();
+    await expect(page.getByRole('button', { name: /Set period to 5 Frost/ })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: /Foreign calendar/ })).toHaveCount(0);
+    expect((await ok(getScene())).period_entity_id).toBeNull();
+    expect((await periods()).total).toBe(count);
+    await draft.fill(`${source} Tomorrow.`);
+    await add.click();
+    await expect(page.getByText('The draft changed. Check dates again.')).toBeVisible();
+    await check.click();
+    await setPeriod(chosen.entity_id);
+    await add.click();
+    await expect(page.getByText('The Scene changed. Check dates again.')).toBeVisible();
+    await check.click();
+    await expect(
+      page.getByText('This Scene already has a period. Use Period to change it.'),
+    ).toBeVisible();
+    await expect(add).toHaveCount(0);
+    await setPeriod(null);
+    await check.click();
+    await page.setViewportSize({ width: 390, height: 844 });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
+      true,
+    );
+    expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+    await add.click();
+    await expect(page.getByText('Period: 3 Frost 42', { exact: true })).toBeVisible();
+    expect((await ok(getScene())).period_entity_id).toBe(chosen.entity_id);
+    await expect(draft).toHaveValue(`${source} Tomorrow.`);
+    await expect(page.getByText('Saved', { exact: true })).toBeVisible();
+    await page.reload();
+    await page.getByText('Details', { exact: true }).click();
+    await expect(page.getByText('Period: 3 Frost 42', { exact: true })).toBeVisible();
+    await page.getByRole('button', { name: 'Clear period', exact: true }).click();
+    await expect(page.getByText('Period: 3 Frost 42', { exact: true })).toHaveCount(0);
+    expect((await ok(getScene())).period_entity_id).toBeNull();
+    expect((await periods()).total).toBe(count);
+  } finally {
+    await context.close();
+  }
+});
+for (const variant of ['draft', 'placed', 'nested', 'parent']) {
+  const depth = variant === 'draft' ? 0 : variant === 'placed' ? 1 : 3;
+  const placed = depth > 0;
+  const hasChildren = variant === 'parent';
+  test(`copied manuscripts review updates (${variant}), protect unsaved drafts and preserve session credit`, async ({
+    browser,
+  }) => {
+    test.setTimeout(120000);
+    const { owner, api, tenant, page, context } = await world(browser);
+    try {
+      const repository = await ok(
+        owner.POST('/tenants', { body: { name: 'River stories', kind: 'repository' } }),
+      );
+      const chapter = await ok(
+        owner.POST('/tenants/{tenant_id}/writing/chapters', {
+          params: { path: { tenant_id: repository.id } },
+          body: { name: 'Copied crossing' },
+        }),
+      );
+      await ok(
+        owner.POST('/tenants/{tenant_id}/entities/{entity_id}/information', {
+          params: { path: { tenant_id: repository.id, entity_id: chapter.id } },
+          body: {
+            title: 'Manuscript',
+            type: 'manuscript',
+            content: 'The original crossing.',
+            locale: 'en',
+            is_public: true,
+          },
+        }),
+      );
+      if (placed) {
+        const book = await ok(
+          owner.POST('/tenants/{tenant_id}/writing/books', {
+            params: { path: { tenant_id: repository.id } },
+            body: { name: 'Collected crossings' },
+          }),
+        );
+        let edition = await ok(
+          owner.GET('/tenants/{tenant_id}/writing/entries/{id}', {
+            params: { path: { tenant_id: repository.id, id: book.editions[0].id } },
+          }),
+        );
+        for (let level = 1; level < depth; level++) {
+          const parent = await ok(
+            owner.POST('/tenants/{tenant_id}/writing/chapters', {
+              params: { path: { tenant_id: repository.id } },
+              body: { name: `Part ${level}` },
+            }),
+          );
+          await ok(
+            owner.PUT('/tenants/{tenant_id}/writing/entries/{id}/composition', {
+              params: {
+                path: { tenant_id: repository.id, id: edition.id },
+                header: { 'if-match': edition.version },
+              },
+              body: { elements: [parent.id] },
+            }),
+          );
+          edition = parent;
+        }
+        await ok(
+          owner.PUT('/tenants/{tenant_id}/writing/entries/{id}/composition', {
+            params: {
+              path: { tenant_id: repository.id, id: edition.id },
+              header: { 'if-match': edition.version },
+            },
+            body: { elements: [chapter.id] },
+          }),
+        );
+      }
+      if (hasChildren) {
+        const child = await ok(
+          owner.POST('/tenants/{tenant_id}/writing/chapters', {
+            params: { path: { tenant_id: repository.id } },
+            body: { name: 'Child passage' },
+          }),
+        );
+        await ok(
+          owner.POST('/tenants/{tenant_id}/entities/{entity_id}/information', {
+            params: { path: { tenant_id: repository.id, entity_id: child.id } },
+            body: {
+              title: 'Manuscript',
+              type: 'manuscript',
+              content: 'Child stays here.',
+              locale: 'en',
+              is_public: true,
+            },
+          }),
+        );
+        const parent = await ok(
+          owner.GET('/tenants/{tenant_id}/writing/entries/{id}', {
+            params: { path: { tenant_id: repository.id, id: chapter.id } },
+          }),
+        );
+        await ok(
+          owner.PUT('/tenants/{tenant_id}/writing/entries/{id}/composition', {
+            params: {
+              path: { tenant_id: repository.id, id: chapter.id },
+              header: { 'if-match': parent.version },
+            },
+            body: { elements: [...parent.elements.map((item) => item.id), child.id] },
+          }),
+        );
+      }
+      await ok(
+        owner.PUT('/tenants/{tenant_id}/subscribers/{subscriber_tenant_id}', {
+          params: { path: { tenant_id: repository.id, subscriber_tenant_id: tenant.id } },
+        }),
+      );
+      await ok(
+        owner.PUT('/tenants/{tenant_id}/published', {
+          params: { path: { tenant_id: repository.id } },
+        }),
+      );
+      await ok(
+        owner.POST('/tenants/{tenant_id}/repositories/{repository_id}/copy', {
+          params: { path: { tenant_id: tenant.id, repository_id: repository.id } },
+        }),
+      );
+      const entries = await ok(
+        api.GET('/tenants/{tenant_id}/entities', {
+          params: { path: { tenant_id: tenant.id }, query: { q: 'Copied crossing' } },
+        }),
+      );
+      const local = entries.items[0].id;
+      await page.goto(`/?tenant=${tenant.id}&entry=${local}`);
+      const draft = page.getByRole('textbox', { name: 'Manuscript', exact: true });
+      await expect(draft).toHaveValue('The original crossing.', { timeout: 15000 });
+      await page.getByText('Details', { exact: true }).click();
+      await page.getByText('Repository comparison', { exact: true }).click();
+      const compare = page.getByRole('button', { name: 'Compare saved writing', exact: true });
+      await compare.click();
+      await expect(
+        page.getByText('The saved writing still matches the original copy.'),
+      ).toBeVisible();
+      const source = await ok(
+        owner.GET('/tenants/{tenant_id}/entities/{entity_id}', {
+          params: { path: { tenant_id: repository.id, entity_id: chapter.id } },
+        }),
+      );
+      const payload = source.information.find((i) => i.type === 'manuscript')?.payloads[0];
+      if (!payload) throw new Error('No source manuscript');
+      await ok(
+        owner.PATCH('/tenants/{tenant_id}/payloads/{payload_id}', {
+          params: {
+            path: { tenant_id: repository.id, payload_id: payload.id },
+            header: { 'if-match': `W/"${payload.updated_at}"` },
+          },
+          body: { content: '<img src=x onerror=alert(1)> Upstream crossing.' },
+        }),
+      );
+      await draft.fill('My saved crossing.');
+      await expect(page.getByRole('status', { name: 'Save status' })).toHaveText('Saved');
+      await compare.click();
+      await expect(page.getByText('Both versions changed differently.')).toBeVisible();
+      const review = page.locator('.repo-review-values');
+      await expect(review).toContainText('The original crossing.');
+      await expect(review).toContainText('My saved crossing.');
+      await expect(review).toContainText('<img src=x onerror=alert(1)> Upstream crossing.');
+      await expect(review.locator('img')).toHaveCount(0);
+      const take = page.getByRole('button', {
+        name: 'Take the update, and replace yours',
+        exact: true,
+      });
+      await expect(take).toBeVisible();
+      await expect(draft).toHaveValue('My saved crossing.');
+      await page.setViewportSize({ width: 390, height: 844 });
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
+        true,
+      );
+      expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+      await page.screenshot({
+        path: test.info().outputPath('comparison-phone.png'),
+        fullPage: true,
+      });
+      await page.route('**/payloads/*', (route) =>
+        route.request().method() === 'PATCH' ? route.abort() : route.continue(),
+      );
+      await draft.fill('My unsaved crossing.');
+      await take.click();
+      await expect(
+        page.getByText('Save your draft and resolve any conflicts before accepting an update.'),
+      ).toBeVisible();
+      await expect(draft).toHaveValue('My unsaved crossing.');
+      await expect(page.getByRole('status', { name: 'Save status' })).toContainText(
+        'Use Save now to retry.',
+      );
+      await page.unroute('**/payloads/*');
+      await page.getByRole('button', { name: 'Save now', exact: true }).click();
+      await expect(page.getByRole('status', { name: 'Save status' })).toHaveText('Saved');
+      await compare.click();
+      await page.getByText('Word count', { exact: true }).click();
+      await page.getByText('Writing session', { exact: true }).click();
+      await page.getByLabel('Session word target').fill('100');
+      await page.getByRole('button', { name: 'Start session', exact: true }).click();
+      await expect(page.getByText('Session progress · 0 words', { exact: true })).toBeVisible();
+      await take.click();
+      await expect(page.getByText('Repository writing saved.', { exact: true })).toBeVisible();
+      await expect(draft).toHaveValue('<img src=x onerror=alert(1)> Upstream crossing.');
+      await expect(page.getByText('Session progress · 0 words', { exact: true })).toBeVisible();
+      await compare.click();
+      await expect(
+        page.getByText('The saved writing still matches the original copy.'),
+      ).toBeVisible();
+      await expect(take).toHaveCount(0);
+      await page.reload();
+      await expect(draft).toHaveValue('<img src=x onerror=alert(1)> Upstream crossing.');
+      if (placed) {
+        const saved = await ok(
+          api.GET('/tenants/{tenant_id}/writing/entries/{id}', {
+            params: { path: { tenant_id: tenant.id, id: local } },
+          }),
+        );
+        expect(saved.parent_id).toBeTruthy();
+        let root = saved;
+        while (root.parent_id) {
+          root = await ok(
+            api.GET('/tenants/{tenant_id}/writing/entries/{id}', {
+              params: { path: { tenant_id: tenant.id, id: root.parent_id } },
+            }),
+          );
+        }
+        await page.goto(`/?tenant=${tenant.id}&entry=${root.id}&view=read`);
+        // Continuous reading fetches each nested entry before its manuscript.
+        await expect(page.locator('article')).toContainText('Upstream crossing.', {
+          timeout: 15000,
+        });
+        await expect(page.locator('article')).toContainText('Copied crossing');
+        if (hasChildren)
+          await expect(page.locator('article')).toHaveText(/Upstream crossing.*Child stays here/s);
+      }
+    } finally {
+      await context.close();
+    }
+  });
+}
+
+test("composition updates preserve stable elements and protect another tab's draft", async ({
+  browser,
+}) => {
+  test.setTimeout(180000);
+  const { owner, api, tenant, page, context } = await world(browser);
+  try {
+    const repository = await ok(
+      owner.POST('/tenants', { body: { name: 'Collected stories', kind: 'repository' } }),
+    );
+    const chapter = await ok(
+      owner.POST('/tenants/{tenant_id}/writing/chapters', {
+        params: { path: { tenant_id: repository.id } },
+        body: { name: 'Collected passage' },
+      }),
+    );
+    const info = await ok(
+      owner.POST('/tenants/{tenant_id}/entities/{entity_id}/information', {
+        params: { path: { tenant_id: repository.id, entity_id: chapter.id } },
+        body: {
+          type: 'manuscript',
+          title: 'Writing',
+          content: 'A passage to extract.',
+          locale: 'en',
+          is_public: false,
+        },
+      }),
+    );
+    await ok(
+      owner.PUT('/tenants/{tenant_id}/subscribers/{subscriber_tenant_id}', {
+        params: { path: { tenant_id: repository.id, subscriber_tenant_id: tenant.id } },
+      }),
+    );
+    await ok(
+      owner.PUT('/tenants/{tenant_id}/published', {
+        params: { path: { tenant_id: repository.id } },
+      }),
+    );
+    await ok(
+      owner.POST('/tenants/{tenant_id}/repositories/{repository_id}/copy', {
+        params: { path: { tenant_id: tenant.id, repository_id: repository.id } },
+      }),
+    );
+    const entries = await ok(
+      api.GET('/tenants/{tenant_id}/entities', {
+        params: { path: { tenant_id: tenant.id }, query: { q: 'Collected passage' } },
+      }),
+    );
+    const local = entries.items[0].id;
+    const before = await ok(
+      api.GET('/tenants/{tenant_id}/writing/entries/{id}', {
+        params: { path: { tenant_id: tenant.id, id: local } },
+      }),
+    );
+    const originalElement = before.elements[0].id;
+    const outline = await ok(
+      owner.GET('/tenants/{tenant_id}/writing/entries/{id}', {
+        params: { path: { tenant_id: repository.id, id: chapter.id } },
+      }),
+    );
+    await ok(
+      owner.POST('/tenants/{tenant_id}/writing/entries/{id}/extractions/{operation_id}', {
+        params: {
+          path: { tenant_id: repository.id, id: chapter.id, operation_id: randomUUID() },
+          header: { 'if-match': outline.version },
+        },
+        body: {
+          chapter_id: randomUUID(),
+          name: 'Extracted passage',
+          elements: [info.payloads[0].id],
+        },
+      }),
+    );
+    await page.goto(`/?tenant=${tenant.id}&entry=${local}`);
+    const draft = page.getByRole('textbox', { name: 'Manuscript', exact: true });
+    await expect(draft).toHaveValue('A passage to extract.', { timeout: 15000 });
+    await page.route('**/payloads/*', (route) =>
+      route.request().method() === 'PATCH' ? route.abort() : route.continue(),
+    );
+    await draft.fill('An unsent local passage.');
+    await expect(page.getByRole('status', { name: 'Save status' })).toContainText(
+      'Use Save now to retry.',
+    );
+    const reviewPage = await context.newPage();
+    await reviewPage.goto(`/?tenant=${tenant.id}&entry=${local}&view=outline`);
+    await reviewPage.getByText('Composition updates', { exact: true }).click();
+    const compare = reviewPage.getByRole('button', { name: 'Review composition updates' });
+    await compare.click();
+    await expect(reviewPage.locator('.repo-review')).toContainText('Extracted passage', {
+      timeout: 15000,
+    });
+    for (const radio of await reviewPage.locator('.repo-review input[value="theirs"]').all())
+      await radio.check();
+    await reviewPage.getByRole('button', { name: 'Apply selected updates' }).click();
+    await expect(
+      reviewPage.getByText(
+        'There is unsaved writing in this composition. Save or recover it before accepting updates.',
+      ),
+    ).toBeVisible();
+    await expect(draft).toHaveValue('An unsent local passage.');
+    await page.unroute('**/payloads/*');
+    await page.getByRole('button', { name: 'Save now', exact: true }).click();
+    await expect(page.getByRole('status', { name: 'Save status' })).toHaveText('Saved');
+    await compare.click();
+    await expect(reviewPage.locator('.repo-review')).toContainText('An unsent local passage.');
+    for (const radio of await reviewPage.locator('.repo-review input[value="theirs"]').all())
+      await radio.check();
+    await reviewPage.setViewportSize({ width: 390, height: 844 });
+    expect(
+      await reviewPage.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
+    ).toBe(true);
+    expect((await new AxeBuilder({ page: reviewPage }).analyze()).violations).toEqual([]);
+    await reviewPage.screenshot({
+      path: test.info().outputPath('composition-review-phone.png'),
+      fullPage: true,
+    });
+    await reviewPage.getByRole('button', { name: 'Apply selected updates' }).click();
+    await expect(
+      reviewPage.getByRole('link', { name: 'Extracted passage', exact: true }),
+    ).toBeVisible({ timeout: 15000 });
+    const after = await ok(
+      api.GET('/tenants/{tenant_id}/writing/entries/{id}', {
+        params: { path: { tenant_id: tenant.id, id: local } },
+      }),
+    );
+    const extracted = await ok(
+      api.GET('/tenants/{tenant_id}/writing/entries/{id}', {
+        params: { path: { tenant_id: tenant.id, id: after.elements[0].id } },
+      }),
+    );
+    expect(extracted.elements[0].id).toBe(originalElement);
+    await reviewPage.goto(`/?tenant=${tenant.id}&entry=${extracted.id}`);
+    await expect(reviewPage.getByRole('textbox', { name: 'Manuscript', exact: true })).toHaveValue(
+      'A passage to extract.',
+      { timeout: 15000 },
+    );
   } finally {
     await context.close();
   }

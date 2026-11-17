@@ -7,6 +7,8 @@ export type Tool = ActionName | 'undo' | 'redo' | '|';
 
 export type EditorOptions = {
   textarea: HTMLTextAreaElement;
+  /** Open a host-provided review when the entity tool is used with a selection. */
+  reviewEntitySelection?: () => void;
   /** Action names in order, `'|'` for a divider. */
   toolbar?: Tool[];
   /** Preview beside the text (stacked on narrow screens), or behind a Write/Preview tab. */
@@ -18,7 +20,12 @@ export type EditorOptions = {
   delay?: number;
 };
 
-export type Editor = { element: HTMLElement; refresh: () => Promise<void>; destroy: () => void };
+export type Editor = {
+  replaceSelection: (replacement: string) => void;
+  element: HTMLElement;
+  refresh: () => Promise<void>;
+  destroy: () => void;
+};
 
 // biome-ignore format: one toolbar group per line
 export const DEFAULT_TOOLBAR: Tool[] = [
@@ -100,6 +107,12 @@ export function createEditor(options: EditorOptions): Editor {
       if (tool === 'undo' || tool === 'redo') {
         textarea.focus();
         doc.execCommand(tool);
+      } else if (
+        tool === 'entity' &&
+        options.reviewEntitySelection &&
+        textarea.selectionStart !== textarea.selectionEnd
+      ) {
+        options.reviewEntitySelection();
       } else apply(ACTIONS[tool].run(state()));
     });
     bar.append(button);
@@ -175,6 +188,15 @@ export function createEditor(options: EditorOptions): Editor {
 
   return {
     element: root,
+    replaceSelection(replacement) {
+      const current = state();
+      const end = current.start + replacement.length;
+      apply({
+        text: current.text.slice(0, current.start) + replacement + current.text.slice(current.end),
+        start: end,
+        end,
+      });
+    },
     refresh,
     destroy() {
       clearTimeout(timer);

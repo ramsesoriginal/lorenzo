@@ -1,5 +1,9 @@
 import { client, unwrap } from './api';
 import { outlineOf, writingAddress } from './composition';
+import { compositionReview } from './composition-review';
+import { type ApplyRepositoryUpdate, repositoryComparison } from './repository-comparison';
+import { suggestedBeings } from './suggested-beings';
+import { suggestedPeriods } from './suggested-periods';
 
 const node = <K extends keyof HTMLElementTagNameMap>(tag: K, text = '') => {
   const el = document.createElement(tag);
@@ -12,11 +16,19 @@ export async function writingDetails(
   tenant: string,
   id: string,
   onTellingChanged?: (version: string) => void,
+  sources?: () => string[],
+  applyRepositoryUpdate?: ApplyRepositoryUpdate,
 ) {
+  const refresh = () =>
+    writingDetails(host, tenant, id, onTellingChanged, sources, applyRepositoryUpdate);
   const current = await outlineOf(tenant, id);
   const status = node('p');
   status.setAttribute('role', 'status');
-  host.replaceChildren(status);
+  host.replaceChildren(
+    status,
+    repositoryComparison(tenant, id, applyRepositoryUpdate),
+    compositionReview(tenant, id, applyRepositoryUpdate),
+  );
   const action = (label: string, run: () => Promise<void>) => {
     const button = node('button', label);
     button.type = 'button';
@@ -62,7 +74,7 @@ export async function writingDetails(
           results.append(
             action(entry.name, async () => {
               await selected(entry.id);
-              await writingDetails(host, tenant, id, onTellingChanged);
+              await refresh();
             }),
           );
         if (!found.items.length) results.append(node('p', 'No matching entries.'));
@@ -95,7 +107,7 @@ export async function writingDetails(
       host.append(
         action('Clear viewpoint', async () => {
           await setViewpoint(null);
-          await writingDetails(host, tenant, id, onTellingChanged);
+          await refresh();
         }),
       );
   }
@@ -131,13 +143,18 @@ export async function writingDetails(
               },
             ),
           );
-          await writingDetails(host, tenant, id, onTellingChanged);
+          await refresh();
         }),
       );
     }
     list.append(item);
   }
   if (!version) return;
+  if (current.kind === 'scene' && sources)
+    host.append(
+      suggestedBeings(tenant, scene, sources, refresh),
+      suggestedPeriods(tenant, scene, sources, refresh),
+    );
   for (const [label, kind, plural] of [
     ['Being', 'being', 'beings'],
     ['Fact', 'fact', 'facts'],
@@ -183,7 +200,7 @@ export async function writingDetails(
       node('p', `Period: ${period.name}`),
       action('Clear period', async () => {
         await setPeriod(null);
-        await writingDetails(host, tenant, id, onTellingChanged);
+        await refresh();
       }),
     );
   }
