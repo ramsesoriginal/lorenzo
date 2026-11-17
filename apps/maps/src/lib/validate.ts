@@ -21,6 +21,9 @@ export const GEOMETRY_FORMAT = 'lorenzo.geometry/1';
 
 /** Millionths: six decimals. */
 const SCALE = 1_000_000;
+/** How far a number may lie from its nearest six decimals: a few units of its last place. */
+const PRECISION = 2 ** -50;
+const TINY = 1e-12;
 
 type IntPoint = readonly [number, number];
 type Ring = readonly IntPoint[];
@@ -41,10 +44,12 @@ function quantise(value: unknown, bound: number, what: string): number {
   if (!Number.isFinite(value)) return refuse(`${what} must be a finite number`);
   if (Math.abs(value) > bound) return refuse(`${what} is too large`);
 
-  const scaled = value * SCALE;
-  const whole = Math.round(scaled);
+  const whole = Math.round(value * SCALE);
 
-  if (Math.abs(scaled - whole) > 1e-4) return refuse(`${what} has more than six decimals`);
+  // As the engine does (#1255): the nearest six decimals, compared in the number's own scale.
+  if (Math.abs(value - whole / SCALE) > Math.max(TINY, Math.abs(value) * PRECISION)) {
+    return refuse(`${what} has more than six decimals`);
+  }
 
   return whole;
 }

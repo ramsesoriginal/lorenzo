@@ -13,7 +13,10 @@
     {"name": "a polygon with two holes", "document": {"format": "lorenzo.geometry/1", "parts": [{"shape": "polygon", "rings": [[[0, 0], [30, 0], [30, 20], [0, 20]], [[2, 2], [10, 2], [10, 18], [2, 18]], [[15, 2], [28, 2], [28, 18], [15, 18]]]}]}},
     {"name": "several parts of several shapes", "document": {"format": "lorenzo.geometry/1", "parts": [{"shape": "point", "at": [1, 1]}, {"shape": "circle", "at": [5, 5], "r": 2}, {"shape": "polyline", "pts": [[0, 0], [1, 1]]}]}},
     {"name": "six decimals and large coordinates", "document": {"format": "lorenzo.geometry/1", "parts": [{"shape": "point", "at": [0.000001, -9999999.999999]}]}},
-    {"name": "a zero value", "document": {"format": "lorenzo.geometry/1", "parts": [{"shape": "point", "at": [0, 0], "value": 0, "unit": "m"}]}}
+    {"name": "a zero value", "document": {"format": "lorenzo.geometry/1", "parts": [{"shape": "point", "at": [0, 0], "value": 0, "unit": "m"}]}},
+    {"name": "two decimals beyond a million (#1255)", "document": {"format": "lorenzo.geometry/1", "parts": [{"shape": "polyline", "pts": [[1071839.17, 1096102.61], [1072521.59, 1078781.68]]}]}},
+    {"name": "six decimals near the coordinate limit (#1255)", "document": {"format": "lorenzo.geometry/1", "parts": [{"shape": "polyline", "pts": [[8779460.783762, 8446009.146213], [2162649.204218, 4344295.225747]]}]}},
+    {"name": "the noise of float arithmetic is read as the six decimals it stands for", "document": {"format": "lorenzo.geometry/1", "parts": [{"shape": "point", "at": [0.30000000000000004, 1048576.3]}]}}
   ],
   "refused": [
     {"name": "no format", "document": {"parts": [{"shape": "point", "at": [0, 0]}]}, "reason": "format"},
@@ -48,6 +51,8 @@
     {"name": "a unit without a value", "document": {"format": "lorenzo.geometry/1", "parts": [{"shape": "point", "at": [0, 0], "unit": "m"}]}, "reason": "value and unit"},
     {"name": "an empty unit", "document": {"format": "lorenzo.geometry/1", "parts": [{"shape": "point", "at": [0, 0], "value": 1, "unit": "  "}]}, "reason": "unit"},
     {"name": "a unit of thirty-three characters", "document": {"format": "lorenzo.geometry/1", "parts": [{"shape": "point", "at": [0, 0], "value": 1, "unit": "aaaaaaaaaabbbbbbbbbbccccccccccddd"}]}, "reason": "unit"},
-    {"name": "not an object", "document": [], "reason": "shape"}
+    {"name": "not an object", "document": [], "reason": "shape"},
+    {"name": "seven decimals beyond a million", "document": {"format": "lorenzo.geometry/1", "parts": [{"shape": "point", "at": [5402000.0000005, 10]}]}, "reason": "decimals"},
+    {"name": "a ten-millionth", "document": {"format": "lorenzo.geometry/1", "parts": [{"shape": "point", "at": [1e-07, 10]}]}, "reason": "decimals"}
   ]
 }
