@@ -34,8 +34,8 @@ describe only groups, stats, categories, two formula kinds and attachments. The 
   not name is left as the library has it. **It never deletes.** `--prune` removes the rows of the document's system (or, for a document
   without one, the rows it made, by name and slug) that the document no longer names, after showing them and the number of libraries
   that copied each (ADR 0386).
-- **`lorenzo export SYSTEM | --neutral -t LIBRARY [-o FILE]`** writes a document: for a system, its row, its groups and their stats,
-  the entries under its root, the formulas, grant rules and prerequisites on those entries and its templates; for `--neutral`, the
+- **`lorenzo export SYSTEM | neutral -t LIBRARY [-o FILE]`** (`export system SLUG` in full) writes a document: for a system, its row, its groups and their stats,
+  the entries under its root, the formulas, grant rules and prerequisites on those entries and its templates; for `neutral`, the
   groups of no system, their stats and the entries outside every system's root that carry their values. `requires` names the documents
   the export refers to that it does not contain. Applying an export to an empty library and exporting again gives the same document.
 - **`--starter NAME`** stands for a document that ships with the CLI ([ADR 0491](0491-starters-replace-the-seed.md)); `lorenzo starter
@@ -54,3 +54,14 @@ Formula notation (RFC 0016), unit conversion, documents in another format, a mer
 - A system is a file to read, review, keep in a repository's history and apply again; editors validate it from the schema.
 - The planner is the one place that knows how a row is found and written.
 - Applying is additive by default, so a document applied to a library with its own additions keeps them.
+
+## As built (slice C5)
+
+- `export` is a group (it also exports an inventory and a calendar), so the neutral document is `lorenzo export neutral`, and
+  `lorenzo export SLUG` stands for `lorenzo export system SLUG`.
+- The entries a document holds are its vocabulary: an entry under the system's root (or under no root, for `neutral`) is exported,
+  and pruned, only when it is a feature or something inherits from it; a leaf item imported under a root is content.
+- `--prune` is refused for a document without a `[system]`: nothing tells a neutral row a document made from one the library made.
+- A description is created when an entry has none; one whose text differs is reported, not rewritten.
+- A library is read with the entry export (ADR 0262) in pages of 500. Writes to one row run in turn, different rows four at a
+  time: two values written to one entry at once both add its stat group, and the API refuses the second.

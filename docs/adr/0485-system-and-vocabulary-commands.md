@@ -30,3 +30,9 @@ Extends [ADR 0295](0295-cli-vocabulary-sheet-settings-and-reads.md).
 
 - Every field the API has for a group, a stat and a system can be set from the command line, one row at a time or by document.
 - A library's vocabulary reads as a table that says which system each row belongs to and which role it holds.
+
+## As built (slice C5)
+
+`system create` is a plan of one row through the planner. The stat group and stat writes call the API directly, because an edit
+can clear a field and a document cannot say "none"; they run the planner's own checks first (the `<slug>_` prefix, a role only on
+a row of no system, bounds only on a number, no unit on dice).

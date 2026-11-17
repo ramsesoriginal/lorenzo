@@ -90,6 +90,8 @@ class VocabularyWorld(World):
             return httpx.Response(200, json=page(self.groups))
         if path == base + "/stat-definitions":
             return httpx.Response(200, json=page(self.stats))
+        if path == base + "/systems":
+            return httpx.Response(200, json=page([]))
         return super().handler(request)
 
 
@@ -204,6 +206,7 @@ def test_settings_set_clear_and_read_are_one_document(tmp_path):
         "being_stat_group_id": None,
         "weapon_stat_group_id": str(G),
         "ability_information_type": "ability",
+        "controllers_award_features": False,
     }
     result = invoke(
         world,

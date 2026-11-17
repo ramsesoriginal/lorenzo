@@ -38,12 +38,23 @@ COMMANDS: dict[str, Entry] = {
     "pack": Entry(f"{_C}pack", "app", "Hand out an imported pack."),
     "seed": Entry(f"{_C}seeding", "app", "Create the item taxonomy and stats in a tenant.", "seed"),
     "unseed": Entry(f"{_C}seeding", "app", "Take a layer of the seed out of a tenant.", "unseed"),
+    "plan": Entry(
+        f"{_C}library", "app", "Work out what applying a library document would do.", "plan"
+    ),
+    "apply": Entry(f"{_C}library", "app", "Apply a library document to a library.", "apply"),
+    "starter": Entry(f"{_C}library", "starter_app", "The documents that ship with the CLI."),
+    "system": Entry(f"{_C}systems", "app", "List, read, create, edit or delete a game system."),
     "import": Entry(
         f"{_C}transfer", "import_app", "Import MPMB items, an inventory or a calendar."
     ),
-    "export": Entry(f"{_C}transfer", "export_app", "Export an inventory or a calendar."),
+    "export": Entry(
+        f"{_C}transfer",
+        "export_app",
+        "Export a system, the neutral vocabulary, an inventory or a calendar.",
+    ),
     "repo": Entry(f"{_C}repo", "app", "Publish, grant, copy and update repositories."),
     "api": Entry(f"{_C}api", "app", "Make one authenticated request to the API.", "api"),
+    "schema": Entry(f"{_C}schema", "app", "JSON Schemas: the library document, and --json output."),
 }
 
 

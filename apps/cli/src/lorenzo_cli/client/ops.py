@@ -35,6 +35,7 @@ if TYPE_CHECKING:
         DiceFormulaBody,
         DiceValueFormulaBody,
         EntityDetailOut,
+        EntityExportPage,
         EntityStatWriteOut,
         FeatureColumnsOut,
         GrantRuleOut,
@@ -777,7 +778,24 @@ CHECK_VOCABULARY: Op[PageFindingOut] = Op(
 )
 
 
+# --- The library document (RFC 0057 C5) ---
+
+EXPORT_ENTITIES: Op[EntityExportPage] = Op(
+    "export_entities", "GET", f"{_TENANT}/entities/export", response_type="EntityExportPage"
+)
+REPLACE_ENTITY_PARENTS: Op[EntityDetailOut] = Op(
+    "replace_entity_parents",
+    "PUT",
+    f"{_TENANT}/entities/{{entity_id}}/parents",
+    request_type="EntityParentsRequest",
+    response_type="EntityDetailOut",
+)
+DELETE_ENTITY: Op[None] = Op("delete_entity", "DELETE", f"{_TENANT}/entities/{{entity_id}}")
+
 ALL_OPS: tuple[Op[Any], ...] = (
+    EXPORT_ENTITIES,
+    REPLACE_ENTITY_PARENTS,
+    DELETE_ENTITY,
     PLAN_CALENDAR_IMPORT,
     APPLY_CALENDAR_IMPORT,
     EXPORT_CALENDAR_IMPORT,

@@ -104,7 +104,10 @@ Or pipe a token in with `--token-stdin`. A token from the stored login is used l
 | `lorenzo repo contents --tenant <repository>` | What a repository holds: published or a draft and who it is granted to, what it is built on, how many stat groups, stat definitions and items, how much of each seed layer it has, and what is beyond the seed ([ADR 0169](../../docs/adr/0169-seed-list-and-repo-contents.md)) |
 | `lorenzo repo libraries --tenant <repository> --entry E\|--stat S\|--stat-group G` | How many libraries have copied an entry, a stat or a stat group, never which: what deleting it would mean to them. Nothing here blocks a delete ([ADR 0386](../../docs/adr/0386-how-many-libraries-hold-what-is-deleted.md)) |
 | `lorenzo repo offer <tenant> --tenant <repository>` | Grant it, then copy it into that tenant; a copy already there is a success, so it is safe to run again; `--apply-updates` also takes the updates that need no decision |
-| `lorenzo stat-group list\|create\|edit`, `lorenzo stat-definition list\|create\|edit` | A library's stat vocabulary: its groups and definitions, with display fields and hints ([ADR 0295](../../docs/adr/0295-cli-vocabulary-sheet-settings-and-reads.md)). See [Authoring the stat vocabulary and reading entries](#authoring-the-stat-vocabulary-and-reading-entries) |
+| `lorenzo stat-group list\|show\|create\|edit\|delete`, `lorenzo stat-definition list\|show\|create\|edit\|delete` | A library's stat vocabulary: its groups and definitions, with systems, roles, bounds, display fields and hints ([ADR 0295](../../docs/adr/0295-cli-vocabulary-sheet-settings-and-reads.md), [ADR 0485](../../docs/adr/0485-system-and-vocabulary-commands.md)). See [Authoring the stat vocabulary and reading entries](#authoring-the-stat-vocabulary-and-reading-entries) |
+| `lorenzo system list\|show\|create\|edit\|delete` | A library's game systems. See [Game systems and library documents](#game-systems-and-library-documents) |
+| `lorenzo plan\|apply FILE\|--starter NAME -t LIBRARY [--prune]`, `lorenzo export SLUG\|neutral -t LIBRARY` | A system or the neutral vocabulary as one document: what applying it would do, applying it, and writing it back ([ADR 0484](../../docs/adr/0484-the-library-document.md)) |
+| `lorenzo starter list\|show`, `lorenzo schema document\|output COMMAND` | The documents that ship with the CLI, and the JSON Schemas of the document and of each command's `--json` output. Need no login |
 | `lorenzo tenant sheet-settings <tenant> [--being-stat-group G] [--weapon-stat-group G] [--ability-information-type T] [--clear-...] [--json]` | Reads a library's sheet settings, or changes only the ones named; each `--clear-...` unsets one |
 | `lorenzo item show <item>`, `lorenzo item-instance show <instance>`, `lorenzo being show <being>` `--tenant <tenant> [--json]` | Reads an item, an instance or a being by id, link name or exact name: resolved stats, inheritance, containment and notes, and for a being its equipped weapons and abilities |
 | `lorenzo import calendar FILE --tenant <tenant> [--choices F] [--review-notes] [--accept-warnings] [--dry-run] [--plan-out F] [--apply-plan F] [--timeout S] [--yes] [--json]`, `lorenzo export calendar <source-key> --tenant <tenant> [-O FILE]` | Imports an authored calendar document and exports the current managed source. See [Calendar files](#calendar-files) |
@@ -406,9 +409,71 @@ lorenzo stat-definition edit stress -t my-library --unit points --no-pin --posit
 lorenzo stat-definition list -t my-library --json
 ```
 
-A new definition takes `--type int|float|text|bool|enum`, a required `--group`, and, for an enum, repeated `--enum-value` options. Its optional display fields are `--unit`, `--adjustable-in-play`, `--pin`, `--signed` and `--position`. Hints are `--max-hint`, `--min-hint` and `--resolved-hint`, naming another definition of the same tenant. A maximum or minimum hint must be numeric; hints are clues, not limits on values.
+A new definition takes `--type int|float|text|bool|enum|dice`, a required `--group`, and, for an enum, repeated `--enum-value` options. Its optional display fields are `--unit` (not for dice), `--adjustable-in-play`, `--pin`, `--signed` and `--position`. Hints are `--max-hint`, `--min-hint` and `--resolved-hint`, naming another definition of the same tenant. A maximum or minimum hint must be numeric; hints are clues, not limits on values. `--min` and `--max` are bounds an int or a float holds to ([ADR 0403](../../docs/adr/0403-stat-scales.md)), and `--role` says what the API reads it for (`weight`, `price`, `armor`...; [ADR 0449](../../docs/adr/0449-roles-the-api-reads-a-stat-by-what-it-is-for.md)).
 
-`edit` changes only the options you name. Boolean flags have negative forms (`--no-pin`, `--no-signed`, `--no-adjustable-in-play`, and a group's `--no-mandatory`). Use `--clear-unit`, `--clear-max-hint`, `--clear-min-hint` or `--clear-resolved-hint` to clear a nullable field; setting and clearing it together is refused. A definition's name, type and group cannot be edited by the API. Groups can edit their name, priority, mandatory flag and position. Priority decides inheritance ties; position decides display order. Vocabulary writes require the API's administrator permissions.
+A group takes `--system SLUG` to belong to a game system; every stat in it is then named `<slug>_something` (`wg_strength`), and the CLI says so before it asks ([ADR 0448](../../docs/adr/0448-a-game-system-as-a-row.md)). A role (`--role physical|economic|destroyable|damaging|tags` for a group) is held by one row of no system per library. Lists are tables with each row's system, role and bounds; `--system SLUG` keeps that system's rows and the neutral ones, `--neutral` only the neutral ones, and `stat-definition list --group G` one group's. `show` reads one row, `delete` removes one nothing uses (the API refuses otherwise).
+
+`edit` changes only the options you name. Boolean flags have negative forms (`--no-pin`, `--no-signed`, `--no-adjustable-in-play`, and a group's `--no-mandatory`). Use `--clear-unit`, `--clear-max-hint`, `--clear-min-hint`, `--clear-resolved-hint`, `--clear-role`, `--clear-min` or `--clear-max` to clear a nullable field, and a group's `--no-system` to make it neutral; setting and clearing it together is refused. A definition's name, type and group cannot be edited by the API. Groups can edit their name, priority, mandatory flag, position, system and role. Priority decides inheritance ties; position decides display order. Vocabulary writes require the API's administrator permissions.
+
+## Game systems and library documents
+
+A game system is a row with a slug (`ds`, `wg`): the prefix of its stats, what a campaign plays, and the entry its content descends from ([ADR 0448](../../docs/adr/0448-a-game-system-as-a-row.md)).
+
+```bash
+lorenzo system create ds "Dust and Sun" -t my-library
+lorenzo system list -t my-library
+lorenzo system show ds -t my-library          # its groups, templates and campaigns
+lorenzo system edit ds -t my-library --root ds-root
+```
+
+A whole system, or the neutral vocabulary, is one TOML document ([ADR 0484](../../docs/adr/0484-the-library-document.md)): the system, its stat groups and stats (with roles, bounds and dice), entries with parents, values, tags and a description, and parents added to entries another document owns. Everything is named by name or slug, never by id, so one document applies to any library and a second apply finds what the first made.
+
+```toml
+format = 1
+name = "ds"
+requires = ["neutral"]
+
+[system]
+slug = "ds"
+name = "Dust and Sun"
+root = "ds-root"
+
+[[group]]
+name = "ds_vitals"
+system = true
+
+[[stat]]
+name = "ds_stamina"
+group = "ds_vitals"
+type = "int"
+min = 0
+max = 20
+
+[[stat]]
+name = "ds_bite"
+group = "ds_vitals"
+type = "dice"
+
+[[entry]]
+slug = "ds-root"
+name = "Dust and Sun"
+description = "Everything of Dust and Sun descends from this."
+
+[[entry]]
+slug = "ds-hunter"
+name = "Hunter"
+parents = ["ds-root"]
+stats = { ds_stamina = 12, ds_bite = "1d6" }
+```
+
+```bash
+lorenzo plan ds.toml -t my-library            # what it would do; exit 0 nothing, 2 changes, 1 refused
+lorenzo apply ds.toml -t my-library --yes     # write it, four requests at a time, in dependency order
+lorenzo export ds -t my-library -o ds.toml    # a system back as a document (export neutral for the rest)
+lorenzo schema document > lorenzo-document.schema.json   # for an editor to check the file
+```
+
+`apply` sets what the document names and leaves what it does not; it never deletes. `--prune` also removes what the document's system no longer names, shown first: its stat groups and stats, and the entries under its root that are features or that others inherit from (a leaf item imported under the root is content and stays). It is refused for a document without a `[system]`. A description is created when an entry has none; one that differs is reported, not rewritten. `lorenzo starter list|show` names and prints the documents that ship with the CLI, and `--starter NAME` on `plan` and `apply` stands for one. `lorenzo schema output COMMAND` prints the shape of a command's `--json` output.
 
 The library's being stat group, weapon stat group and ability information type use one command. With no setting options it reads them; with options it changes only those named. The ability type is free text, not a separately created vocabulary row.
 

@@ -16,7 +16,7 @@ values to stats named before the prefix rule and the dice type.
 
 - **Commands**: `lorenzo import mpmb plan|apply|inspect`, `lorenzo import inventory FILE`, `lorenzo import calendar FILE`,
   `lorenzo export inventory`, `lorenzo export calendar SOURCE`. Their options and exit codes stay, under the write contract
-  ([ADR 0482](0482-one-write-contract-for-every-cli-command.md)). `lorenzo export SYSTEM | --neutral` is the document's.
+  ([ADR 0482](0482-one-write-contract-for-every-cli-command.md)). `lorenzo export SYSTEM | neutral` is the document's.
 - **Parts by system, not by layer.** A stat is the system half's when its group has a system, and neutral otherwise; a category is the
   system half's when it is under a system's root. `--part neutral|system` stays; `--system SLUG` names the system the system pass writes
   for and is required with `--part system` when the library has more than one. A map row's `part` is allowed only where the library does

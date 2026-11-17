@@ -45,7 +45,7 @@ its layers, `unseed`, the importers' commands, flags and walkthroughs change or 
 
 ```text
 lorenzo plan|apply  FILE | --starter NAME  -t LIBRARY  [--prune] [--yes] [--json]
-lorenzo export      SYSTEM | --neutral     -t LIBRARY  [-o FILE]
+lorenzo export      SYSTEM | neutral       -t LIBRARY  [-o FILE]
 lorenzo starter     list | show NAME
 lorenzo schema      [document | output COMMAND]
 
