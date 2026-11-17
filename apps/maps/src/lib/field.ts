@@ -147,3 +147,38 @@ export function onSheet(
     })
     .filter((ring) => ring.length >= 3);
 }
+
+/**
+ * Open paths in the field's own coordinates as paths on the sheet, kept to the same decimals as
+ * rings are: a point equal to the one before it is dropped, and a path of fewer than two points
+ * with it.
+ */
+export function pathsOnSheet(
+  field: Field,
+  paths: readonly (readonly Pt[])[],
+  decimals = decimalsFor(field),
+): Pt[][] {
+  let scale = 1;
+
+  for (let d = 0; d < decimals; d += 1) scale *= 10;
+
+  const rounded = (n: number): number => Math.round(n * scale) / scale;
+
+  return paths
+    .map((path) => {
+      const pts: Pt[] = [];
+
+      for (const [fx, fy] of path) {
+        const p: Pt = [
+          rounded(field.x0 + (fx + 0.5) * field.cell),
+          rounded(field.y0 + (fy + 0.5) * field.cell),
+        ];
+        const last = pts[pts.length - 1];
+
+        if (!last || last[0] !== p[0] || last[1] !== p[1]) pts.push(p);
+      }
+
+      return pts;
+    })
+    .filter((path) => path.length >= 2);
+}

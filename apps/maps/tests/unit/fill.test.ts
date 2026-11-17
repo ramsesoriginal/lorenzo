@@ -187,7 +187,7 @@ describe('the Fill by marching squares generator (ADR 0477)', () => {
     );
   });
 
-  it('writes height lines that go round, each level a step higher, after the areas', () => {
+  it('writes height lines after the areas, each level a step higher', () => {
     const made = fill(whole, { ...first, scale: 3, lines: 3, ...heights }, 12);
     const parts = made.geometry?.parts ?? [];
     const lines = parts.slice(made.areas);
@@ -198,7 +198,7 @@ describe('the Fill by marching squares generator (ADR 0477)', () => {
     for (const line of lines) {
       if (line.shape !== 'polyline') throw new Error('a height line is a polyline');
 
-      expect(line.pts[0]).toEqual(line.pts[line.pts.length - 1]);
+      expect(line.pts.length).toBeGreaterThanOrEqual(2);
       expect(line.unit).toBe('m');
       expect([100, 150, 200]).toContain(line.value);
     }
@@ -213,6 +213,55 @@ describe('the Fill by marching squares generator (ADR 0477)', () => {
     // does not reach has no line.
     expect(oddValues).toContain(0.3);
     expect(oddValues.every((value) => [0.1, 0.3, 0.5].includes(value as number))).toBe(true);
+  });
+
+  it('ends a height line at the edge of its region, and never runs one along it', () => {
+    // A sheet of whole cells, 64 by 48: the cells that take part begin two and a half cells in
+    // from each side, and a line the edge cuts ends between there and one cell nearer the side.
+    const cell = 1000 / FILL_COLS;
+    const even = regionOf(null, [0, 0, 1000, 750]);
+    const fromSide = ([x, y]: readonly [number, number]) => Math.min(x, y, 1000 - x, 750 - y);
+    let closed = 0;
+    let open = 0;
+
+    for (let seed = 0; seed < 40; seed += 1) {
+      const made = fill(even, { ...first, scale: 3, level: 0.4, lines: 3, ...heights }, seed);
+
+      for (const line of (made.geometry?.parts ?? []).slice(made.areas)) {
+        if (line.shape !== 'polyline') throw new Error('a height line is a polyline');
+
+        const ends = [line.pts[0], line.pts[line.pts.length - 1]] as [
+          readonly [number, number],
+          readonly [number, number],
+        ];
+
+        const near = (p: readonly [number, number]) => fromSide(p) < 2.5 * cell - 0.01;
+
+        // No stretch of any line runs along the side: of two points one after the other, at most
+        // one is at the edge.
+        for (let k = 1; k < line.pts.length; k += 1) {
+          const a = line.pts[k - 1] as readonly [number, number];
+          const b = line.pts[k] as readonly [number, number];
+
+          expect(near(a) && near(b) && (a[0] !== b[0] || a[1] !== b[1])).toBe(false);
+        }
+        // And none comes nearer the side than the cells that take part allow.
+        for (const p of line.pts) expect(fromSide(p)).toBeGreaterThan(1.5 * cell - 0.01);
+
+        if (ends[0][0] === ends[1][0] && ends[0][1] === ends[1][1]) {
+          // It goes round: inside, or touching the edge in the one point it begins and ends at.
+          closed += 1;
+          continue;
+        }
+
+        // The edge cut it: it ends at the edge, both ways.
+        open += 1;
+        for (const end of ends) expect(near(end)).toBe(true);
+      }
+    }
+
+    expect(closed).toBeGreaterThan(5);
+    expect(open).toBeGreaterThan(5);
   });
 
   it('previews height lines without their heights, and says they are needed', () => {

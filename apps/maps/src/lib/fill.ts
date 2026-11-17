@@ -3,7 +3,7 @@
 // the options and the seed (ADR 0475): no `Math.random`, no clock, and only whole-number hashing,
 // the four operations and comparisons.
 import { type Geometry, type Part, seeded } from '@lorenzo/map-renderer';
-import { decimalsFor, type Field, fieldOver, onSheet } from './field';
+import { decimalsFor, type Field, fieldOver, onSheet, pathsOnSheet } from './field';
 import type { Region } from './generator';
 import { nested, outlines, ringArea } from './marching-squares';
 
@@ -25,7 +25,10 @@ export type FillOptions = {
 };
 
 export type Fill = {
-  /** A polygon part an area, then a closed polyline a height line; null when there is nothing. */
+  /**
+   * A polygon part an area, then a polyline a height line: closed, or ending at the region's edge.
+   * Null when there is nothing.
+   */
   geometry: Geometry | null;
   areas: number;
   lines: number;
@@ -99,6 +102,60 @@ function traced(field: Field, values: Float64Array, level: number, smallest: num
   );
 }
 
+/** Whether a point of a ring lies between a cell that takes no part and one that does. */
+function atEdge(field: Field, [x, y]: Pt): boolean {
+  // A crossing lies on the edge between two neighbouring cells: across when y is whole, down when
+  // x is, and never on a cell's middle.
+  const across = Number.isInteger(y);
+  const i = Math.floor(x);
+  const j = Math.floor(y);
+  const one = j * field.cols + i;
+  const other = across ? one + 1 : one + field.cols;
+
+  return field.wall[one] === 1 || field.wall[other] === 1;
+}
+
+/**
+ * The height lines of a field at a level, on the sheet. A line that stays inside the region goes
+ * round and ends where it began. Where the region's edge cuts one, the stretch that would run
+ * along the edge is left out: the line ends at the edge, and goes on where it leaves it again.
+ */
+function heightLines(field: Field, values: Float64Array, level: number, smallest: number): Pt[][] {
+  const apart = values.map((value) => (value === level ? value - 1e-9 : value));
+  const paths: Pt[][] = [];
+
+  for (const ring of outlines(apart, field.cols, field.rows, level, STEPS)) {
+    if (ringArea(ring) < smallest) continue;
+
+    const edge = ring.map((p) => atEdge(field, p));
+    const start = edge.indexOf(true);
+
+    if (start < 0) {
+      paths.push([...ring, ring[0] as Pt]);
+      continue;
+    }
+
+    // From a point at the edge, round the ring: each run of points inside the region is a line,
+    // with the edge point before it and the one after it as its ends.
+    let run: Pt[] = [ring[start] as Pt];
+
+    for (let k = 1; k <= ring.length; k += 1) {
+      const at = (start + k) % ring.length;
+      const p = ring[at] as Pt;
+
+      run.push(p);
+
+      if (edge[at]) {
+        if (run.length > 2) paths.push(run);
+
+        run = [p];
+      }
+    }
+  }
+
+  return pathsOnSheet(field, paths, decimalsFor(field, STEPS));
+}
+
 export function fill(region: Region, options: FillOptions, seed: number): Fill {
   const none: Fill = { geometry: null, areas: 0, lines: 0, needsHeights: false };
   const field = fieldOver(region, FILL_COLS);
@@ -124,11 +181,10 @@ export function fill(region: Region, options: FillOptions, seed: number): Fill {
   for (let k = 1; k <= count; k += 1) {
     const level = options.level + ((1 - options.level) * k) / (count + 1);
 
-    for (const ring of traced(field, values, level, options.smallest)) {
+    for (const pts of heightLines(field, values, level, options.smallest)) {
       lines.push({
         shape: 'polyline',
-        // A height line goes round: it ends where it began.
-        pts: [...ring, ring[0] as Pt],
+        pts,
         ...(heights
           ? {
               value: Math.round(((first as number) + (k - 1) * (step as number)) * 1e6) / 1e6,
