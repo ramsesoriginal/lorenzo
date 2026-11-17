@@ -4,6 +4,14 @@ import { type Browser, expect, type Page, test } from '@playwright/test';
 import { caveSystem } from '../../src/lib/cave.ts';
 import { fill as fillOf } from '../../src/lib/fill.ts';
 import { regionOf } from '../../src/lib/generator.ts';
+import {
+  brushField,
+  entryLines,
+  redraw,
+  redrawWords,
+  strokeOf,
+  withStroke,
+} from '../../src/lib/height-field.ts';
 import { apiAs, ok, refreshTokenFor } from './support/api.ts';
 import { REFRESH_TOKEN_KEY, SITE_URL } from './support/env.ts';
 import { openControl, openPanel, stageBox } from './support/map-ui.ts';
@@ -461,7 +469,7 @@ for (const theme of ['light', 'dark'] as const) {
   });
 }
 
-test('the toolbox is drawn from the tool registry: groups, one key a tool, and planned tools that say so', async ({
+test('the toolbox is drawn from the tool registry: groups, one key a tool, and tools this Map cannot use say so', async ({
   browser,
 }) => {
   const w = await world();
@@ -470,13 +478,17 @@ test('the toolbox is drawn from the tool registry: groups, one key a tool, and p
     await page.goto(`/map/?tenant=${w.tenant.id}&id=${w.chart.id}`);
     await expect(page.getByRole('heading', { name: 'Sword Coast', exact: true })).toBeVisible();
     await page.getByRole('button', { name: 'Edit this map' }).click();
-    // The tools are in their groups; Cells waits for a grid, and the planned ones are in All tools.
+    // The tools are in their groups; Cells waits for a grid.
     const place = page.getByRole('group', { name: 'Place', exact: true });
     await expect(place.getByRole('button', { name: 'Pin', exact: true })).toBeVisible();
     await expect(place.getByRole('button', { name: 'Circle', exact: true })).toBeVisible();
     await expect(page.getByRole('group', { name: 'Draw', exact: true })).toContainText('Area');
     await expect(page.getByRole('button', { name: 'Cells', exact: true })).toHaveCount(0);
-    await expect(page.getByRole('button', { name: 'Height brush', exact: true })).toHaveCount(0);
+    await expect(
+      page
+        .getByRole('group', { name: 'Terrain', exact: true })
+        .getByRole('button', { name: 'Height brush', exact: true }),
+    ).toBeVisible();
     // One key a tool, while the drawing has the focus; the page's own keys do not see them.
     await page.locator('.map-stage svg').focus();
     await page.keyboard.press('p');
@@ -494,15 +506,15 @@ test('the toolbox is drawn from the tool registry: groups, one key a tool, and p
     await expect(page.getByText('Cells is not available on this Map.')).toBeVisible();
     expect(page.url()).toBe(address);
     await page.keyboard.press('h');
-    await expect(page.getByText(/Height brush is planned\./)).toBeVisible();
-    // All tools lists every tool, finds one by a few words and says which are planned.
+    await expect(page.getByRole('button', { name: 'Height brush', exact: true })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    // All tools lists every tool and finds one by a few words; none is planned any more.
     await page.getByRole('button', { name: 'All tools' }).click();
     await page.getByLabel('Find a tool').fill('brush');
-    const brush = page.getByRole('button', { name: 'Height brush', exact: true });
-    await expect(brush).toHaveAttribute('aria-disabled', 'true');
-    await expect(page.locator('.map-all-tools-list')).toContainText('planned');
-    await brush.click({ force: true });
-    await expect(page.getByText(/Height brush is planned\./)).toBeVisible();
+    await expect(page.locator('.map-all-tools-list')).toContainText('Height brush');
+    await expect(page.locator('.map-all-tools-list')).not.toContainText('planned');
     // A tool for a grid is not planned, and says it is not for this Map.
     await page.getByLabel('Find a tool').fill('wave');
     const collapse = page.getByRole('button', {
@@ -596,7 +608,7 @@ test('the command line takes a tool by name, places a place by a typed point and
     await expect(answer).toHaveText('Line is the tool.');
     await command.fill('Height brush');
     await command.press('Enter');
-    await expect(answer).toContainText('Height brush is planned');
+    await expect(answer).toHaveText('Height brush is the tool.');
     await command.fill('dance');
     await command.press('Enter');
     await expect(answer).toContainText('not a command');
@@ -1157,6 +1169,203 @@ test('a height line is added to an entry already drawn as height lines', async (
     // Undo takes the new line away and leaves the first.
     await page.getByRole('button', { name: 'Undo' }).click();
     await expect.poll(async () => (await drawn()).parts.length).toBe(1);
+  } finally {
+    await page.context().close();
+  }
+});
+
+/** A ring of points round a middle, closed on its first point, as a height line is drawn. */
+const ringAround = (cx: number, cy: number, r: number): [number, number][] =>
+  Array.from({ length: 33 }, (_, k): [number, number] => {
+    const a = (2 * Math.PI * (k % 32)) / 32;
+    return [
+      Math.round((cx + r * Math.cos(a)) * 100) / 100,
+      Math.round((cy + r * Math.sin(a)) * 100) / 100,
+    ];
+  });
+
+for (const theme of ['light', 'dark'] as const) {
+  test(`the height brush raises a hill and redraws only the lines it changed, in ${theme}`, async ({
+    browser,
+  }) => {
+    const w = await world();
+    const hills = await w.place('Hills');
+    const drawnFirst = {
+      format: 'lorenzo.geometry/1',
+      parts: [
+        { shape: 'polyline', pts: ringAround(500, 400, 300), value: 100, unit: 'm' },
+        { shape: 'polyline', pts: ringAround(500, 400, 150), value: 200, unit: 'm' },
+      ],
+    };
+    await ok(
+      w.gm.PUT('/tenants/{tenant_id}/maps/{map_id}/placements/{entry_id}', {
+        params: { path: { ...w.path, map_id: w.chart.id, entry_id: hills.id } },
+        body: { geometry: drawnFirst, role: 'isoline', z: 3 } as never,
+      }),
+    );
+    // What the brush makes of one stroke at the middle, 1.5 steps strong and 200 units wide.
+    const sheet = [0, 0, 1000, 800] as const;
+    const read = entryLines('Hills', drawnFirst as never);
+    if (!read.ok) throw new Error(read.why);
+    const field = brushField(sheet, read.lines, 0);
+    const raised = withStroke(
+      new Float64Array(field.cols * field.rows),
+      strokeOf(field, [[500, 400]], 200),
+      1.5,
+    );
+    const expected = redraw(field, read.lines, raised, 100, 0, sheet);
+    if (!expected.ok) throw new Error(expected.why);
+    const words = redrawWords(expected);
+    expect(words).toBe('1 line redrawn, 1 new');
+    const drawn = async () => ((await w.read())[0]?.geometry ?? { parts: [] }) as Parts;
+
+    const page = await signedIn(browser, w.subject, theme);
+    try {
+      await page.goto(`/map/?tenant=${w.tenant.id}&id=${w.chart.id}`);
+      await expect(page.getByRole('heading', { name: 'Sword Coast', exact: true })).toBeVisible();
+      await page.getByRole('button', { name: 'Edit this map' }).click();
+      await page.getByRole('button', { name: 'Height brush', exact: true }).click();
+      await page.getByLabel('Find an entry by name').fill('Hills');
+      await page
+        .locator('.map-edit-panel')
+        .getByRole('button', { name: /^Hills location$/ })
+        .click();
+      // The step and the unit start from the entry's own lines.
+      const options = page.getByRole('group', { name: 'Options of Height brush' });
+      await expect(options.getByLabel('Step', { exact: true })).toHaveValue('100');
+      await expect(options.getByLabel('Unit', { exact: true })).toHaveValue('m');
+      const preview = page.getByRole('group', { name: 'Preview' });
+      await expect(preview.locator('.map-generator-result')).toHaveText(
+        'Drag on the Map to raise the land, with Shift held to lower it.',
+      );
+      const command = page.getByLabel('Command', { exact: true });
+      for (const line of ['STRENGTH 1.5', 'RADIUS 20', 'RAISE 500,400']) {
+        await command.fill(line);
+        await command.press('Enter');
+      }
+      await expect(preview.locator('.map-generator-result')).toHaveText(`${words} on Hills.`);
+      // The new lines drawn over the Map, the one that goes dashed.
+      await expect(page.locator('.map-stage .m-ov-line.m-ov-preview')).toHaveCount(1);
+      const result = await new AxeBuilder({ page }).exclude('.shell-bottom').analyze();
+      expect(result.violations.map((v) => `${v.id}: ${v.nodes[0]?.html}`)).toEqual([]);
+
+      await preview.getByRole('button', { name: 'Apply' }).click();
+      await expect.poll(async () => (await drawn()).parts.length).toBe(3);
+      const rows = await w.read();
+      // The foot of the hill is kept as it was drawn; the top redrawn; a line at 300 m is new.
+      expect(rows[0]?.geometry).toEqual({
+        format: 'lorenzo.geometry/1',
+        parts: [
+          drawnFirst.parts[0],
+          ...expected.add.map((line) => ({
+            shape: 'polyline',
+            pts: line.pts,
+            value: line.value,
+            unit: 'm',
+          })),
+        ],
+      });
+      expect(rows[0]?.role).toBe('isoline');
+      expect(rows[0]?.z).toBe(3);
+      await openPanel(page, 'History');
+      await expect(page.locator('.map-slideover')).toContainText(`Height brush on Hills: ${words}`);
+      await page.getByRole('button', { name: 'Undo' }).click();
+      await expect.poll(async () => (await drawn()).parts.length).toBe(2);
+      expect(await drawn()).toEqual(drawnFirst);
+    } finally {
+      await page.context().close();
+    }
+  });
+}
+
+test('the height brush asks for what it needs, refuses other drawings, and raises a new hill', async ({
+  browser,
+}) => {
+  const w = await world();
+  const lake = await w.place('Lake');
+  await ok(
+    w.gm.PUT('/tenants/{tenant_id}/maps/{map_id}/placements/{entry_id}', {
+      params: { path: { ...w.path, map_id: w.chart.id, entry_id: lake.id } },
+      body: {
+        geometry: {
+          format: 'lorenzo.geometry/1',
+          parts: [
+            {
+              shape: 'polygon',
+              rings: [
+                [
+                  [100, 100],
+                  [300, 100],
+                  [200, 250],
+                ],
+              ],
+            },
+          ],
+        },
+        z: 0,
+      } as never,
+    }),
+  );
+  const page = await signedIn(browser, w.subject);
+  try {
+    await page.goto(`/map/?tenant=${w.tenant.id}&id=${w.chart.id}`);
+    await expect(page.getByRole('heading', { name: 'Sword Coast', exact: true })).toBeVisible();
+    await page.getByRole('button', { name: 'Edit this map' }).click();
+    await page.locator('.map-stage svg').focus();
+    await page.keyboard.press('h');
+    const preview = page.getByRole('group', { name: 'Preview' });
+    await expect(preview.locator('.map-generator-result')).toHaveText(
+      'Choose the entry whose height lines you are changing.',
+    );
+    // An entry drawn as an area is not the brush's.
+    await page.getByLabel('Find an entry by name').fill('Lake');
+    await page
+      .locator('.map-edit-panel')
+      .getByRole('button', { name: /^Lake location$/ })
+      .click();
+    await expect(preview.locator('.map-generator-result')).toHaveText(
+      'Lake is drawn on this Map as something else than height lines, and the brush changes height lines only.',
+    );
+    await expect(preview.getByRole('button', { name: 'Apply' })).toBeDisabled();
+
+    // A new Location has no line: its step, unit and first height are the person's to give.
+    await page.getByRole('button', { name: 'Choose another' }).click();
+    await page.getByLabel('Or make a new Location, named').fill('Mound');
+    await page.getByRole('button', { name: 'Draw a new Location' }).click();
+    await expect(preview.locator('.map-generator-result')).toHaveText(
+      'Give the Step, the Unit and the First height first: they are never assumed.',
+    );
+    const command = page.getByLabel('Command', { exact: true });
+    const answer = page.locator('.map-command-answer');
+    for (const line of ['STEP 10', 'UNIT m', 'FIRST 0', 'STRENGTH 3', 'RADIUS 20']) {
+      await command.fill(line);
+      await command.press('Enter');
+    }
+    await command.fill('RAISE 500,400');
+    await command.press('Enter');
+    // The ground about the hill is flat at the first height: a line there, and one each step up.
+    await expect(answer).toHaveText('3 new on Mound.');
+    await command.fill('ROLL');
+    await command.press('Enter');
+    await expect(answer).toHaveText('Height brush has no seed to roll.');
+    // A drag with Shift held lowers what the stroke raised.
+    const box = await stageBox(page);
+    if (!box) throw new Error('no box');
+    await page.keyboard.down('Shift');
+    await page.mouse.move(box.x + box.width * 0.5, box.y + box.height * 0.5);
+    await page.mouse.down();
+    await page.mouse.move(box.x + box.width * 0.52, box.y + box.height * 0.5, { steps: 4 });
+    await page.mouse.up();
+    await page.keyboard.up('Shift');
+    await expect(preview.locator('.map-generator-result')).not.toHaveText('3 new on Mound.');
+    await command.fill('APPLY');
+    await command.press('Enter');
+    await expect.poll(async () => (await w.read()).length).toBe(2);
+    const mound = (await w.read()).find((row) => row.name === 'Mound');
+    expect(mound?.role).toBe('isoline');
+    expect(
+      ((mound?.geometry ?? { parts: [] }) as Parts).parts.every((part) => part.unit === 'm'),
+    ).toBe(true);
   } finally {
     await page.context().close();
   }

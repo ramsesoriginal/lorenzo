@@ -122,7 +122,9 @@ renderer knows nothing of what the editor does with either.
 An overlay may also hold a filled `area` (an outline and its holes), which is how a generator shows what
 it would draw before anything is written. `setOverlayDivide(fraction)` splits the view at that fraction of
 its width: overlay shapes marked `clipped` are drawn to the right of it only, with a divider line, so the
-Map as it is shows on the left ([ADR 0475](../../docs/adr/0475-the-generator-contract.md)). An `area` may
+Map as it is shows on the left ([ADR 0475](../../docs/adr/0475-the-generator-contract.md)). `bezierPoints(part)` gives the points
+a curve is drawn through, so an editor reads a curved line as it is drawn
+([ADR 0480](../../docs/adr/0480-the-height-brush.md)). An `area` may
 carry a `tone`, one of `OVERLAY_TONES` (six) strengths of the overlay's colour, so a preview of several kinds
 of thing tells them apart; the tone is never the only sign, and whoever sets it names the kinds beside the
 Map ([ADR 0479](../../docs/adr/0479-the-fill-by-wave-function-collapse-generator.md)).

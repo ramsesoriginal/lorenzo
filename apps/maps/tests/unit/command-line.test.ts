@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { parseCommand, parsePoint } from '../../src/lib/command-line';
-import { EXAMPLE, SNAP, TOOLS, toolById } from '../../src/lib/tools';
+import { EXAMPLE, SNAP, TOOLS, type ToolDecl, toolById } from '../../src/lib/tools';
 
 const flat = { grid: false, sphere: false };
 
@@ -40,7 +40,11 @@ describe('the command line', () => {
 
   it('takes a tool by its name, says a planned one is planned and one the Map cannot use', () => {
     expect(parseCommand('line', TOOLS, flat)).toMatchObject({ kind: 'tool' });
-    expect(parseCommand('Height brush', TOOLS, flat)).toMatchObject({ kind: 'planned' });
+    expect(parseCommand('Height brush', TOOLS, flat)).toMatchObject({ kind: 'tool' });
+    const dune = { ...(toolById('line') as ToolDecl), id: 'dune', name: 'Dune', key: 'q' };
+    expect(
+      parseCommand('dune', [...TOOLS, { ...dune, state: 'planned', reason: 'Not yet.' }], flat),
+    ).toMatchObject({ kind: 'planned' });
     expect(parseCommand('Height line', TOOLS, flat)).toMatchObject({ kind: 'tool' });
     expect(parseCommand('Freehand', TOOLS, flat)).toMatchObject({ kind: 'tool' });
     expect(parseCommand('Spline', TOOLS, flat)).toMatchObject({ kind: 'tool' });
@@ -135,6 +139,23 @@ describe('the command line', () => {
     expect(parseCommand('EXAMPLE', TOOLS, collapse)).toEqual({
       kind: 'error',
       message: 'EXAMPLE takes the name of a Map, or THIS for this Map.',
+    });
+  });
+
+  it('takes a stroke of the Height brush at a point, and says what it needs', () => {
+    expect(parseCommand('RAISE 500,400', TOOLS, flat)).toEqual({
+      kind: 'brush',
+      lower: false,
+      at: [500, 400],
+    });
+    expect(parseCommand('lower 12.5, -3', TOOLS, flat)).toEqual({
+      kind: 'brush',
+      lower: true,
+      at: [12.5, -3],
+    });
+    expect(parseCommand('RAISE here', TOOLS, flat)).toEqual({
+      kind: 'error',
+      message: 'RAISE takes a point, for example RAISE 500,400.',
     });
   });
 });

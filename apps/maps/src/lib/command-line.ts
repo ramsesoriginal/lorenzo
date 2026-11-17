@@ -31,6 +31,8 @@ export type Command =
   | { kind: 'apply' }
   | { kind: 'discard' }
   | { kind: 'compare'; on: boolean }
+  /** A stroke of the Height brush at one point (ADR 0480). */
+  | { kind: 'brush'; lower: boolean; at: [number, number] }
   | { kind: 'error'; message: string };
 
 export const HELP = [
@@ -40,6 +42,7 @@ export const HELP = [
   'x,y: the next point of what is being drawn; DONE finishes a line, an area or cells.',
   'An option of the tool by its name, for example SNAP OFF, TENSION 0.4 or UNIT m.',
   'For a generator: SEED n, ROLL, COMPARE ON or OFF, APPLY, DISCARD.',
+  'For the Height brush: RAISE x,y or LOWER x,y, then APPLY or DISCARD.',
   'UNDO, REDO, FIT (frame the whole sheet), HELP.',
 ].join(' ');
 
@@ -76,6 +79,16 @@ export function parseCommand(
       return { kind: 'help' };
     case 'roll':
       return { kind: 'roll' };
+    case 'raise':
+    case 'lower': {
+      const at = parsePoint(rest);
+      return at
+        ? { kind: 'brush', lower: word === 'lower', at }
+        : {
+            kind: 'error',
+            message: `${word.toUpperCase()} takes a point, for example ${word.toUpperCase()} 500,400.`,
+          };
+    }
     case 'apply':
       return { kind: 'apply' };
     case 'discard':

@@ -50,6 +50,7 @@ Choose **Edit this map**. The **Tool** choices are:
 | Spline | A smooth curve through two or more points. **Tension** says how round it is: 0 the roundest, 1 straight. Not on a sphere. |
 | Freehand | A line drawn by pressing, dragging and letting go. **Tolerance** says how much of the hand's wobble is smoothed away, in screen pixels. Escape while dragging drops the stroke. Not on a sphere; Line draws the same thing from the keyboard. |
 | Height line | A line with a height and a unit, such as 250 m. Both are yours to give and neither is assumed; the pair you last used on a Map is offered again in this browser. The Map writes the height at the middle of the line. Not on a sphere. |
+| Height brush | Raises the land of an entry's height lines where you drag, and lowers it with Shift held (or `RAISE x,y`, `LOWER x,y`). **Radius** is how far a stroke reaches, in hundredths of the sheet's width, and **Strength** how far it moves the land at its middle, in steps. The **Step** and **Unit** start from the entry's lines; for an entry with no lines, give them and the **First height** of the flat ground. The preview shows the lines that would be drawn, and dashed those that would go: only the lines a stroke reaches are redrawn, and a line at each step the land now reaches is added. **Apply** writes them as one step. Not on a sphere. |
 | Area | A region of three or more points. |
 | Cave system | Caves drawn for you from a **Seed**: the same seed and options always give the same caves. It works in the area or circle that is selected when you choose it, or in the whole sheet. The Map shows a preview that is not saved; **Compare** splits the view to show the Map as it is beside it, **Roll** tries the next seed, **Apply** draws it for the entry you chose and **Discard** drops it. Not on a sphere. |
 | Fill by marching squares | Areas drawn for you from a **Seed**, where smooth noise is above a **Level**: a few large shapes at a small **Scale**, many small ones at a large one. **Height lines** adds that many lines inside the areas; give the **First height**, the **Step** between lines and their **Unit**, which are never assumed. It previews, compares and applies as Cave system does. Not on a sphere. |
@@ -88,7 +89,6 @@ Authors, GMs, and Owners and Organizers who can see everything can add, rename, 
 ## What Maps does not do
 
 - It has no drawing on a phone (reading and small changes only) and no offline mode.
-- Height brush is listed among the tools as planned, and does nothing yet.
 - A curve drawn through the API that is not a spline is shown and kept, and cannot be changed by its points here.
 - It does not join or split drawings, or move a part of one drawing to another entry.
 - It does not turn the part-of tree into containment, and the tree never decides who can reach what.

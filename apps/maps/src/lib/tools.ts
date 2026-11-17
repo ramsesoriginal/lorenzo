@@ -161,6 +161,9 @@ export const ROLE: ChoiceOption = {
   ],
 };
 
+/** The role of a placement the Height brush writes for an entry not yet on the Map: an isoline. */
+export const BRUSH_ROLE: ChoiceOption = { ...ROLE, first: 'isoline' };
+
 /** The options of the Cave system (ADR 0476). */
 export const CAVE_SIZE: NumberOption = {
   id: 'size',
@@ -274,6 +277,45 @@ export const FILL_STEP: NumberOption = {
   step: 0.000001,
 };
 
+/**
+ * The options of the Height brush (ADR 0480). The step between its lines, more than nothing: at
+ * first the smallest gap between the heights of the entry's lines, and given when there is none.
+ */
+export const BRUSH_STEP: NumberOption = {
+  id: 'step',
+  name: 'Step',
+  word: 'step',
+  type: 'number',
+  first: null,
+  least: 0.000001,
+  most: 1_000_000_000_000,
+  step: 0.000001,
+};
+
+/** How far a stroke reaches, in hundredths of the sheet's width. */
+export const RADIUS: NumberOption = {
+  id: 'radius',
+  name: 'Radius (hundredths of the sheet)',
+  word: 'radius',
+  type: 'number',
+  first: 5,
+  least: 1,
+  most: 50,
+  step: 1,
+};
+
+/** How far a stroke moves the land at its middle, in steps. */
+export const STRENGTH: NumberOption = {
+  id: 'strength',
+  name: 'Strength (steps)',
+  word: 'strength',
+  type: 'number',
+  first: 1,
+  least: 0.1,
+  most: 3,
+  step: 0.1,
+};
+
 /** The height a height line carries (ADR 0473): never assumed, so it starts empty. */
 export const HEIGHT: NumberOption = {
   id: 'height',
@@ -322,6 +364,11 @@ export type ToolDecl = {
    * (ADR 0479): it has no entry to choose.
    */
   cells?: boolean;
+  /**
+   * The Height brush (ADR 0480): it previews and applies as a generator does, from strokes
+   * rather than a seed.
+   */
+  brush?: boolean;
   /** What a person can set for it (ADR 0470). */
   options?: ToolOption[];
 };
@@ -437,10 +484,13 @@ export const TOOLS: ToolDecl[] = [
     group: 'terrain',
     icon: 'edit',
     key: 'h',
-    input: 'a brush',
-    output: 'a heightmap',
-    state: 'planned',
-    reason: `A heightmap is a raster, which a Map does not hold. It needs its own decision first.`,
+    input: 'strokes over the land',
+    output: 'height lines',
+    state: 'ready',
+    notOnSphere: true,
+    generator: true,
+    brush: true,
+    options: [BRUSH_STEP, UNIT, FILL_FIRST, RADIUS, STRENGTH, BRUSH_ROLE],
   },
   {
     id: 'cave-system',

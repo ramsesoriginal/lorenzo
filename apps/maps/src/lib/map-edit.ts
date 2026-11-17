@@ -42,6 +42,7 @@ import { strokeLine, unitsPerPixel } from './freehand';
 import {
   type Fit,
   fits,
+  type Hints,
   nextSeed,
   type Region,
   regionOf,
@@ -65,6 +66,18 @@ import {
   translate,
 } from './geometry-edit';
 import { heightOf, rememberedHeight, rememberHeight, unitOf } from './height';
+import {
+  type BrushField,
+  brushField,
+  type EntryLine,
+  entryLines,
+  type Redraw,
+  redraw,
+  redrawWords,
+  stepOf,
+  strokeOf,
+  withStroke,
+} from './height-field';
 import { type Change, createHistory, type Step, writeFor } from './history';
 import { createKeyMap } from './keymap';
 import {
@@ -95,18 +108,23 @@ import {
 } from './parts-edit';
 import { SPLINE_MAX_POINTS, splineCurve } from './spline';
 import {
+  BRUSH_ROLE,
+  BRUSH_STEP,
   createOptionValues,
   TOOLS as DECLARED,
   EXAMPLE,
+  FILL_FIRST,
   GROUP_NAMES,
   GROUPS,
   HEIGHT,
   numberFor,
   type OptionValue,
   optionsOf,
+  RADIUS,
   ROLE,
   SEED,
   SNAP,
+  STRENGTH,
   searchTools,
   TENSION,
   TOLERANCE,
@@ -154,6 +172,14 @@ export type Editor = {
   destroy(): void;
 };
 
+/** What the Height brush says to change when its lines are over a limit (ADR 0480). */
+const BRUSH_HINTS: Hints = {
+  vertices: 'Use a larger Step, or brush a smaller place.',
+  parts: 'Use a larger Step.',
+  bytes: 'Use a larger Step, or brush a smaller place.',
+  shape: 'Brush it again.',
+};
+
 type ToolName =
   | 'select'
   | 'pin'
@@ -164,6 +190,7 @@ type ToolName =
   | 'area'
   | 'cells'
   | 'height-line'
+  | 'height-brush'
   | 'cave-system'
   | 'marching-squares'
   | 'wave-function-collapse';
@@ -176,6 +203,7 @@ const TOOLS: [ToolName, string][] = [
   ['spline', 'Spline'],
   ['freehand', 'Freehand'],
   ['height-line', 'Height line'],
+  ['height-brush', 'Height brush'],
   ['cave-system', 'Cave system'],
   ['marching-squares', 'Fill by marching squares'],
   ['wave-function-collapse', 'Fill by wave function collapse'],
@@ -261,7 +289,21 @@ export function createEditor(context: EditorContext): Editor {
     fit: Fit;
     /** For a fill of cells (ADR 0479): what each tile entry gains and has afterwards. */
     cells?: CellFill;
+    /** For the Height brush (ADR 0480): which lines go and which are drawn. */
+    brush?: Extract<Redraw, { ok: true }>;
   } | null = null;
+  // The Height brush (ADR 0480): the field of the entry being brushed and what the strokes have
+  // moved it by, in steps; the stroke under way; and where the pointer is.
+  let brush: {
+    key: string;
+    flat: number;
+    lines: EntryLine[];
+    field: BrushField;
+    raised: Float64Array;
+    strokes: number;
+  } | null = null;
+  let brushStroke: { pts: Pt[]; lower: boolean } | null = null;
+  let brushAt: Pt | null = null;
   let syncGenerator: () => void = () => {};
   // The Maps a fill of cells may learn from (ADR 0479), read once the tool is first chosen, and
   // the example Map read for it when it is not this one.
@@ -340,6 +382,71 @@ export function createEditor(context: EditorContext): Editor {
 
   /** Whether the tool previews and applies (ADR 0475). */
   const generating = () => toolDecl().generator === true;
+  /** Whether it is the Height brush, which previews from strokes rather than a seed (ADR 0480). */
+  const brushing = () => toolDecl().brush === true;
+  /** How far a stroke of the brush reaches, in drawing units. */
+  const radiusNow = () =>
+    ((optionValues.get(toolDecl(), RADIUS) ?? RADIUS.first ?? 5) / 100) *
+    (context.extent[2] - context.extent[0]);
+
+  /**
+   * The field of the entry the brush is for, made again when the entry or its drawing changes; its
+   * Step and Unit start from the entry's lines. Refused for an entry drawn as anything else.
+   */
+  function brushNow():
+    | { ok: true; brush: NonNullable<typeof brush> }
+    | { ok: false; why: string }
+    | null {
+    if (!target) return null;
+    const row = target.id ? rowOf(target.id) : undefined;
+    const geometry = row ? (row.geometry as unknown as Geometry) : null;
+    const read = entryLines(target.name, geometry);
+    if (!read.ok) return read;
+    const decl = toolDecl();
+    const flat = optionValues.get(decl, FILL_FIRST) ?? 0;
+    const key = JSON.stringify([target.id ?? target.name, geometry]);
+    if (brush?.key !== key) {
+      const field = brushField(context.extent, read.lines, flat);
+      brush = {
+        key,
+        flat,
+        lines: read.lines,
+        field,
+        raised: new Float64Array(field.cols * field.rows),
+        strokes: 0,
+      };
+      const step = stepOf(read.lines);
+      if (step !== null) optionValues.set(decl, BRUSH_STEP, step);
+      if (read.unit) optionValues.set(decl, UNIT, read.unit);
+    } else if (read.lines.length === 0 && brush.flat !== flat) {
+      // Flat ground at another first height: what the strokes moved stays.
+      brush.field = brushField(context.extent, [], flat);
+      brush.flat = flat;
+    }
+    return { ok: true, brush };
+  }
+
+  /** One stroke of the brush through some points: it raises, or lowers with Shift. */
+  function brushStrokeAt(pts: readonly Pt[], lower: boolean): boolean {
+    const now = brushNow();
+    if (!now) {
+      say('Choose the entry whose height lines you are changing first.', true);
+      return false;
+    }
+    if (!now.ok) {
+      say(now.why, true);
+      return false;
+    }
+    const amount = (optionValues.get(toolDecl(), STRENGTH) ?? 1) * (lower ? -1 : 1);
+    now.brush.raised = withStroke(
+      now.brush.raised,
+      strokeOf(now.brush.field, pts, radiusNow()),
+      amount,
+    );
+    now.brush.strokes += 1;
+    refresh();
+    return true;
+  }
   /** Whether it is the one that writes cells for the entries of an example (ADR 0479). */
   const fillsCells = () => toolDecl().cells === true;
 
@@ -363,6 +470,7 @@ export function createEditor(context: EditorContext): Editor {
   function generated() {
     if (!generating()) return null;
     const decl = toolDecl();
+    if (brushing()) return brushed();
     const from = rowOf(regionId);
     const seed = seedNow();
     if (fillsCells()) {
@@ -455,6 +563,73 @@ export function createEditor(context: EditorContext): Editor {
     return made;
   }
 
+  /** What the Height brush would draw (ADR 0480): the entry's lines, some kept, some drawn anew. */
+  function brushed() {
+    const decl = toolDecl();
+    const region = regionOf(null, context.extent);
+    const refused = (why: string) => {
+      const key = JSON.stringify(['brush', 'refused', why]);
+      if (made?.key !== key)
+        made = { key, region, geometry: null, count: '', fit: { ok: false, why } };
+      return made;
+    };
+    const now = brushNow();
+    if (!now) return refused('Choose the entry whose height lines you are changing.');
+    if (!now.ok) return refused(now.why);
+    const b = now.brush;
+    const step = optionValues.get(decl, BRUSH_STEP);
+    const unit = optionValues.get(decl, UNIT);
+    const first = optionValues.get(decl, FILL_FIRST);
+    const missing = [
+      ...(step === null ? ['the Step'] : []),
+      ...(unit === '' ? ['the Unit'] : []),
+      ...(b.lines.length === 0 && first === null ? ['the First height'] : []),
+    ];
+    if (missing.length > 0) {
+      const words =
+        missing.length === 1
+          ? missing[0]
+          : `${missing.slice(0, -1).join(', ')} and ${missing[missing.length - 1]}`;
+      return refused(`Give ${words} first: they are never assumed.`);
+    }
+    if (b.strokes === 0) {
+      return refused('Drag on the Map to raise the land, with Shift held to lower it.');
+    }
+    const key = JSON.stringify(['brush', b.key, b.strokes, step, unit, first]);
+    if (made?.key === key) return made;
+    const result = redraw(b.field, b.lines, b.raised, step as number, first ?? 0, context.extent);
+    if (!result.ok) return refused(result.why);
+    const row = target?.id ? rowOf(target.id) : undefined;
+    const before = row ? (row.geometry as unknown as Geometry) : null;
+    const parts = [
+      ...result.keep.map((part) => before?.parts[part]).filter((part) => part !== undefined),
+      ...result.add.map((line) => ({
+        shape: 'polyline' as const,
+        pts: line.pts,
+        value: line.value,
+        unit,
+      })),
+    ];
+    if (parts.length === 0) {
+      return refused(
+        `This would leave ${target?.name ?? 'the entry'} with no line. Remove from this map takes it off the Map.`,
+      );
+    }
+    const geometry: Geometry = { format: 'lorenzo.geometry/1', parts };
+    made = {
+      key,
+      region,
+      geometry,
+      count: redrawWords(result),
+      fit:
+        result.redrawn + result.fresh + result.gone === 0
+          ? { ok: false, why: 'The strokes change no line yet. Go on, or use a larger Strength.' }
+          : fits(geometry, BRUSH_HINTS),
+      brush: result,
+    };
+    return made;
+  }
+
   // --- what is drawn over the map -------------------------------------------------------------
 
   function shapeOverlay(shape: Editable, id: string, handles: boolean, active?: string): Overlay {
@@ -505,6 +680,31 @@ export function createEditor(context: EditorContext): Editor {
               },
             ],
       );
+    }
+    if (brushing()) {
+      // The lines that would go, dashed; those that would be drawn; the stroke; the brush itself.
+      const out: Overlay[number][] = [];
+      const now = generated();
+      for (const part of now?.brush?.drop ?? []) {
+        const line = brush?.lines.find((one) => one.part === part);
+        if (line)
+          out.push({
+            id: `gone${part}`,
+            kind: 'line',
+            pts: line.pts,
+            preview: true,
+            clipped: true,
+          });
+      }
+      (now?.brush?.add ?? []).forEach((line, i) => {
+        out.push({ id: `new${i}`, kind: 'line', pts: line.pts, clipped: true });
+      });
+      if (brushStroke && brushStroke.pts.length > 1) {
+        out.push({ id: 'stroke', kind: 'line', pts: brushStroke.pts, preview: true });
+      }
+      if (brushAt)
+        out.push({ id: 'brush', kind: 'disc', at: brushAt, r: radiusNow(), preview: true });
+      return out;
     }
     if (generating()) {
       // The preview: what Apply would write, drawn over the Map and never stored.
@@ -762,6 +962,8 @@ export function createEditor(context: EditorContext): Editor {
         return draft.length === 0 ? 'Type the centre, x,y.' : 'Type a point on the edge, x,y.';
       case 'freehand':
         return 'Drag on the map to draw. The Line tool takes typed points.';
+      case 'height-brush':
+        return 'Drag on the map, or type RAISE x,y or LOWER x,y; then APPLY or DISCARD.';
       case 'cave-system':
       case 'marching-squares':
       case 'wave-function-collapse':
@@ -821,6 +1023,10 @@ export function createEditor(context: EditorContext): Editor {
           answer('That is a command of a generator, and no generator is the tool.', true);
           return;
         }
+        if (command.kind === 'roll' && !optionsOf(toolDecl(), here()).includes(SEED)) {
+          answer(`${toolDecl().name} has no seed to roll.`, true);
+          return;
+        }
         if (command.kind === 'roll') {
           setOption(SEED, nextSeed(seedNow()));
           answer(`Seed ${seedNow()}: ${generatedWords()}`);
@@ -835,6 +1041,14 @@ export function createEditor(context: EditorContext): Editor {
         } else {
           answer(await applyGenerator());
         }
+        return;
+      case 'brush':
+        if (!editing || !brushing()) {
+          answer('RAISE and LOWER are commands of the Height brush, and it is not the tool.', true);
+          return;
+        }
+        if (brushStrokeAt([command.at], command.lower)) answer(generatedWords());
+        else answer(status.textContent ?? '', true);
         return;
       case 'planned':
       case 'unavailable':
@@ -1150,6 +1364,13 @@ export function createEditor(context: EditorContext): Editor {
   const drawTool: Tool = {
     cursor: 'crosshair',
     down(event: ToolEvent) {
+      if (brushing()) {
+        const p: Pt = [event.point[0], event.point[1]];
+        brushStroke = { pts: inSheet(p) ? [p] : [], lower: event.shift };
+        brushAt = p;
+        refresh();
+        return true;
+      }
       if (toolName !== 'freehand') return false;
       if (!target) {
         say('Choose what you are drawing first.', true);
@@ -1160,6 +1381,13 @@ export function createEditor(context: EditorContext): Editor {
       return true;
     },
     drag(event: ToolEvent) {
+      if (brushStroke) {
+        const p: Pt = [event.point[0], event.point[1]];
+        brushAt = p;
+        if (inSheet(p)) brushStroke.pts.push(p);
+        refresh();
+        return;
+      }
       if (!stroke) return;
       const p: Pt = [event.point[0], event.point[1]];
       // A stroke that leaves the sheet goes on where it comes back.
@@ -1167,6 +1395,13 @@ export function createEditor(context: EditorContext): Editor {
       refresh();
     },
     up() {
+      if (brushStroke) {
+        const done = brushStroke;
+        brushStroke = null;
+        if (done.pts.length > 0) brushStrokeAt(done.pts, done.lower);
+        else refresh();
+        return;
+      }
       if (toolName === 'freehand') finishStroke();
     },
     click(event: ToolEvent) {
@@ -1241,11 +1476,22 @@ export function createEditor(context: EditorContext): Editor {
       return true;
     },
     move(event: ToolEvent) {
+      if (brushing()) {
+        brushAt = [event.point[0], event.point[1]];
+        refresh();
+        return;
+      }
       if (draft.length === 0) return;
       rubber = event.point;
       refresh();
     },
     key(event: KeyboardEvent) {
+      if (brushStroke && event.key === 'Escape') {
+        brushStroke = null;
+        refresh();
+        say('The stroke was dropped.');
+        return true;
+      }
       if (toolName === 'freehand' && stroke && event.key === 'Escape') {
         stroke = null;
         refresh();
@@ -1301,6 +1547,13 @@ export function createEditor(context: EditorContext): Editor {
     // A generator works in the placement that is selected when it is chosen (ADR 0475).
     regionId = toolById(next)?.generator ? selectedId : null;
     toolName = next;
+    if (next === 'height-brush') {
+      // The brush is for the entry that is selected when it is height lines (ADR 0480).
+      const chosen = rowOf(selectedId);
+      if (chosen && isHeightLines(chosen.geometry as unknown as Geometry)) {
+        target = { id: chosen.id, name: chosen.name };
+      }
+    }
     draft = [];
     cells = [];
     rubber = null;
@@ -1410,6 +1663,9 @@ export function createEditor(context: EditorContext): Editor {
   /** The view is whole again and nothing of a preview is kept. */
   function leaveGenerator() {
     made = null;
+    brush = null;
+    brushStroke = null;
+    brushAt = null;
     syncGenerator = () => {};
     if (compare) {
       compare = false;
@@ -1427,7 +1683,10 @@ export function createEditor(context: EditorContext): Editor {
   function generatedWords(): string {
     const now = generated();
     if (!now) return '';
-    return now.fit.ok ? `${now.count} in ${now.region.words}.` : now.fit.why;
+    if (!now.fit.ok) return now.fit.why;
+    return brushing()
+      ? `${now.count} on ${target?.name ?? 'the entry'}.`
+      : `${now.count} in ${now.region.words}.`;
   }
 
   function discardGenerator() {
@@ -1438,6 +1697,7 @@ export function createEditor(context: EditorContext): Editor {
   /** Writes what is previewed as one placement and one history step; answers what happened. */
   async function applyGenerator(): Promise<string> {
     if (fillsCells()) return applyCells();
+    if (brushing()) return applyBrush();
     const def = generator();
     const now = generated();
     if (!def || !now) return '';
@@ -1523,6 +1783,56 @@ export function createEditor(context: EditorContext): Editor {
     return (
       exampleMaps?.find((map) => map.id === chosen)?.name ?? example?.name ?? 'the example Map'
     );
+  }
+
+  /**
+   * Writes the brushed lines as the entry's one placement and one history step (ADR 0480): a
+   * placement already here keeps its role, line and drawing order; a new one takes the Role option.
+   */
+  async function applyBrush(): Promise<string> {
+    const now = generated();
+    const chosen = target;
+    if (!now || !chosen) return '';
+    if (!now.fit.ok || !now.geometry) {
+      say(now.fit.ok ? 'There is nothing to draw.' : now.fit.why, true);
+      return status.textContent ?? '';
+    }
+    const geometry = now.geometry;
+    const count = now.count;
+    await guarded(async () => {
+      let id = chosen.id;
+      if (!id && chosen.create) {
+        const created = await makeLocation(context.tenant, chosen.name, chosen.create.isPublic);
+        id = created.id;
+        // The Location exists now: a retry must not make another.
+        target = { id, name: created.name };
+      }
+      if (!id) return;
+      const row = rowOf(id);
+      const before = row ? rowState(row) : null;
+      const saved = await putPlacement(
+        context.tenant,
+        context.mapId,
+        id,
+        before
+          ? { ...before, geometry }
+          : {
+              geometry,
+              role: optionValues.get(toolDecl(), BRUSH_ROLE) || null,
+              style: null,
+              z: 0,
+            },
+      );
+      history.record(
+        [{ entry: id, before, after: rowState(saved) }],
+        `Height brush on ${saved.name}: ${count}`,
+      );
+      context.setRows(upsert(saved));
+      setTool('select');
+      context.select(id);
+      say(`${saved.name}: ${count}.`);
+    });
+    return status.textContent ?? '';
   }
 
   /** The preview's line, Compare with its divider, and Apply and Discard. */
@@ -1867,9 +2177,11 @@ export function createEditor(context: EditorContext): Editor {
         box.append(
           el(
             'p',
-            toolName === 'height-line' && isHeightLines(placed.geometry as unknown as Geometry)
-              ? 'It is already on this Map as height lines; this line is added to them.'
-              : 'It is already on this Map; drawing it again replaces its drawing.',
+            brushing()
+              ? 'Its height lines are what the brush changes; a line no stroke reaches stays as it is.'
+              : toolName === 'height-line' && isHeightLines(placed.geometry as unknown as Geometry)
+                ? 'It is already on this Map as height lines; this line is added to them.'
+                : 'It is already on this Map; drawing it again replaces its drawing.',
             'status-text',
           ),
         );
@@ -1879,17 +2191,19 @@ export function createEditor(context: EditorContext): Editor {
           'p',
           toolName === 'pin'
             ? 'Click the map to place it.'
-            : generating()
-              ? 'The preview on the Map is what Apply will draw for it; nothing is drawn until then.'
-              : toolName === 'height-line'
-                ? 'Give the height and its unit above, then click each point. Press Enter or double-click to finish, Backspace to take back a point, Escape to start again.'
-                : toolName === 'freehand'
-                  ? 'Press and drag on the map, and let go to finish. Escape while dragging drops the stroke. The Line tool draws the same thing point by point, from the keyboard.'
-                  : toolName === 'circle'
-                    ? 'Click the centre, then the edge.'
-                    : toolName === 'cells'
-                      ? 'Click a cell to add it and click it again to take it away. Press Enter to finish, Backspace to take back a cell, Escape to start again.'
-                      : 'Click each point. Press Enter or double-click to finish, Backspace to take back a point, Escape to start again.',
+            : brushing()
+              ? 'Drag on the map to raise the land, with Shift held to lower it, or type RAISE x,y or LOWER x,y. The preview shows the lines that would be drawn, and dashed those that would go; nothing is drawn until you apply it.'
+              : generating()
+                ? 'The preview on the Map is what Apply will draw for it; nothing is drawn until then.'
+                : toolName === 'height-line'
+                  ? 'Give the height and its unit above, then click each point. Press Enter or double-click to finish, Backspace to take back a point, Escape to start again.'
+                  : toolName === 'freehand'
+                    ? 'Press and drag on the map, and let go to finish. Escape while dragging drops the stroke. The Line tool draws the same thing point by point, from the keyboard.'
+                    : toolName === 'circle'
+                      ? 'Click the centre, then the edge.'
+                      : toolName === 'cells'
+                        ? 'Click a cell to add it and click it again to take it away. Press Enter to finish, Backspace to take back a cell, Escape to start again.'
+                        : 'Click each point. Press Enter or double-click to finish, Backspace to take back a point, Escape to start again.',
           'status-text',
         ),
       );
@@ -2469,6 +2783,7 @@ export function createEditor(context: EditorContext): Editor {
     panel.replaceChildren();
     panel.hidden = !editing;
     if (!editing) return;
+    if (brushing()) brushNow();
     const options = optionFields();
     if (options) panel.append(options);
     if (toolName !== 'select') {

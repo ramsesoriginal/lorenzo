@@ -22,7 +22,9 @@ roads and names can be switched off, the drawing zooms and pans, and selecting a
 `/map/` *Edit this map* with Pin, Circle, Line, Spline (a curve through its points, written as one
 bezier part, [ADR 0471](../../docs/adr/0471-the-spline-tool.md)), Freehand (a dragged stroke simplified into a
 line, [ADR 0472](../../docs/adr/0472-the-freehand-tool.md)), Height line (a line with a height and a unit, which
-the Map writes beside it, [ADR 0473](../../docs/adr/0473-the-height-line-tool.md)) and Area tools; a drawing of
+the Map writes beside it, [ADR 0473](../../docs/adr/0473-the-height-line-tool.md)), Height brush (strokes that raise
+and lower the land of an entry's height lines, redrawing only the lines they reach, from a field that lives
+in the page, [ADR 0480](../../docs/adr/0480-the-height-brush.md)) and Area tools; a drawing of
 several parts, or an area with holes, is changed a part at a time
 ([ADR 0474](../../docs/adr/0474-editing-the-parts-of-a-placement.md)). A generator previews what it would draw,
 from a seed, and applies it as one step ([ADR 0475](../../docs/adr/0475-the-generator-contract.md)); Cave system is

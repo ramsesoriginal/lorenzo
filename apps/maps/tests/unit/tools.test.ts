@@ -1,13 +1,18 @@
 import { expect, test } from 'vitest';
 import {
+  BRUSH_ROLE,
+  BRUSH_STEP,
   createOptionValues,
   EXAMPLE,
+  FILL_FIRST,
   GROUPS,
   HEIGHT,
   numberFor,
   optionsOf,
+  RADIUS,
   SEED,
   SNAP,
+  STRENGTH,
   searchTools,
   TENSION,
   TOLERANCE,
@@ -50,7 +55,8 @@ test('a search finds a tool by name, group or key', () => {
   expect(searchTools('terrain').map((t) => t.id)).toEqual(['height-line', 'height-brush']);
   expect(searchTools('fill wave').map((t) => t.id)).toEqual(['wave-function-collapse']);
   expect(toolById('marching-squares')).toMatchObject({ state: 'ready', generator: true });
-  expect(TOOLS.filter((t) => t.state === 'planned').map((t) => t.id)).toEqual(['height-brush']);
+  // Every tool of the design is built (ADR 0480 the last).
+  expect(TOOLS.filter((t) => t.state === 'planned')).toEqual([]);
   // The fill of cells is for a Map with a grid, and never a sphere.
   const collapse = toolById('wave-function-collapse') as ToolDecl;
 
@@ -64,7 +70,14 @@ test('a search finds a tool by name, group or key', () => {
 
 test('a planned tool is never usable, and a grid tool needs a grid and a circle no sphere', () => {
   const plain = { grid: false, sphere: false };
-  expect(usable(toolByKey('h') as never, plain)).toBe(false);
+  const planned = {
+    ...(toolByKey('h') as ToolDecl),
+    state: 'planned' as const,
+    reason: 'Not yet.',
+  };
+  expect(usable(planned, plain)).toBe(false);
+  expect(usable(toolByKey('h') as never, plain)).toBe(true);
+  expect(usable(toolByKey('h') as never, { grid: false, sphere: true })).toBe(false);
   expect(usable(toolByKey('t') as never, plain)).toBe(true);
   expect(usable(toolByKey('t') as never, { grid: false, sphere: true })).toBe(false);
   expect(usable(toolByKey('f') as never, plain)).toBe(true);
@@ -86,7 +99,16 @@ test('lists the options of a tool, and offers one that needs a grid only with a 
   expect(optionsOf(spline, { grid: false })).toEqual([TENSION]);
   expect(optionsOf(toolById('freehand') as ToolDecl, { grid: true })).toEqual([TOLERANCE]);
   expect(optionsOf(toolById('height-line') as ToolDecl, { grid: false })).toEqual([HEIGHT, UNIT]);
-  expect(optionsOf(toolById('height-brush') as ToolDecl, { grid: true })).toEqual([]);
+  expect(optionsOf(toolById('height-brush') as ToolDecl, { grid: false })).toEqual([
+    BRUSH_STEP,
+    UNIT,
+    FILL_FIRST,
+    RADIUS,
+    STRENGTH,
+    BRUSH_ROLE,
+  ]);
+  // A placement the brush writes for an entry new to the Map is an isoline at first.
+  expect(BRUSH_ROLE.first).toBe('isoline');
 
   const words = TOOLS.flatMap((tool) => (tool.options ?? []).map((o) => `${tool.id} ${o.word}`));
 

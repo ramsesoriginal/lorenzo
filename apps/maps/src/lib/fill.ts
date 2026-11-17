@@ -120,7 +120,12 @@ function atEdge(field: Field, [x, y]: Pt): boolean {
  * round and ends where it began. Where the region's edge cuts one, the stretch that would run
  * along the edge is left out: the line ends at the edge, and goes on where it leaves it again.
  */
-function heightLines(field: Field, values: Float64Array, level: number, smallest: number): Pt[][] {
+export function heightLines(
+  field: Field,
+  values: Float64Array,
+  level: number,
+  smallest: number,
+): Pt[][] {
   const apart = values.map((value) => (value === level ? value - 1e-9 : value));
   const paths: Pt[][] = [];
 
