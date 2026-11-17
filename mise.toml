@@ -5,7 +5,7 @@ config_roots = ["apps/account-hub", "apps/api", "apps/beings", "apps/calendars",
 
 [tools]
 node = "26"
-uv = "0.12.3"
+uv = "0.13.9"
 
 # Python itself is deliberately not listed here - it's controlled by uv
 # (see apps/api/.python-version), not mise. mise still provides uv itself.
