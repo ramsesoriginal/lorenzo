@@ -9,8 +9,8 @@ Descriptions and notes stay separate. See [RFC 0047](../../docs/rfcs/0047-lorenz
 The outline offers explicit up/down ordering and placing unassigned Chapters; removing a Chapter
 from an outline keeps its text and subchapters. Edition copying starts private, without copying
 notes or history. All editing retains conditional autosave, per-account browser recovery and
-saved prose revisions. Personal length goals ([ADR 0383](../../docs/adr/0383-personal-manuscript-length-goals.md)) are decided and not built;
-timers, suggestions, repository updates of manuscripts and export remain in [the accepted proposal](../../docs/rfcs/0047-lorenzo-writing.md).
+saved prose revisions. Personal length goals, session goals and timers, reviewed name/date
+suggestions and manuscript repository updates are available; their details appear below.
 
 Scene reuse creates a separate telling each time. A shared telling reads the Scene manuscript;
 Make independent copies its current prose and pictures before editing. Viewpoints and world
@@ -174,3 +174,24 @@ payloads and copied composition ([ADR 0398](../../docs/adr/0398-copied-manuscrip
 [ADR 0430](../../docs/adr/0430-placed-chapter-text-updates.md),
 [ADR 0435](../../docs/adr/0435-nested-chapter-text-updates.md), and
 [ADR 0436](../../docs/adr/0436-parent-chapter-text-updates.md)).
+
+## Exporting saved writing
+
+**Export** opens a preview of saved writing from the editor, assembled reading or Edition review.
+It leaves unsent editor changes alone. **Download LorenzoScript** saves a ZIP containing exact
+UTF-8 text, original picture bytes and a `lorenzo-writing/1` manifest. The manifest retains stable
+entry/payload IDs, reading order, repeated Carrier coverage, shared tellings, source locales and
+numbering/contents settings. It describes the selected authorized composition, not a library backup;
+there is no import/restore operation. Notes, history and unrelated world references are omitted.
+
+**Print / Save as PDF** opens the browser print dialog. Choose Save as PDF and turn off browser
+headers and footers for a clean manuscript. The printable document uses LorenzoScript headings,
+tables, local footnotes, pictures, Chapter numbering and contents, with self-hosted brand fonts.
+Repeated passages have distinct local link targets. Pagination follows the browser's paper settings;
+advanced publishing and other formats remain deferred.
+
+Both outputs recheck access and the preview's version. If saved writing changes, refresh the preview.
+Review exports remain limited to the granted Edition. Exports over 5,000 distinct entries, 20,000
+reading occurrences or 50 MiB of text/pictures ask for a smaller section rather than truncating it.
+See [ADR 0478](../../docs/adr/0478-manuscript-export-snapshots.md) and
+[the source archive format](../../docs/reference/writing-source-archive.md).

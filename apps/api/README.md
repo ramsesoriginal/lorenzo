@@ -180,3 +180,9 @@ Chapters with subchapters may accept their own text updates when the copied dire
 also remain unchanged ([ADR 0436](../../docs/adr/0436-parent-chapter-text-updates.md)). Child prose
 and placements are never changed by accepting a parent update. Older parent copies without this
 context, tellings and structural changes remain comparison-only.
+
+Writing export previews and conditional source downloads use a dedicated restricted-role
+REPEATABLE READ snapshot, ordinary entry/Information visibility or the scoped Edition review
+grant, and private/no-store responses. Source download requires the preview ETag in `If-Match`.
+No export table or job is created. See [ADR 0478](../../docs/adr/0478-manuscript-export-snapshots.md)
+and [the source archive format](../../docs/reference/writing-source-archive.md).

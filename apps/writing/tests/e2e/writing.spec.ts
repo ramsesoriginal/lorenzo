@@ -2331,3 +2331,276 @@ test("composition updates preserve stable elements and protect another tab's dra
     await context.close();
   }
 });
+
+test('saved export preview downloads source and prepares a clean printable manuscript', async ({
+  browser,
+}) => {
+  test.setTimeout(90000);
+  const { page, context } = await world(browser);
+  try {
+    const manuscript = page.getByRole('textbox', { name: 'Manuscript', exact: true });
+    await manuscript.fill(
+      '# The crossing\n\nThe river remembers.\n\n' +
+        Array.from(
+          { length: 55 },
+          (_, index) =>
+            `Passage ${index + 1}. The ferryman waited beside the water. The boat carried stories from one bank to the other.`,
+        ).join('\n\n'),
+    );
+    await expect(page.getByRole('status', { name: 'Save status' })).toHaveText('Saved');
+    await page.getByText('Export', { exact: true }).click();
+    const controls = page
+      .locator('details')
+      .filter({ has: page.locator('summary').filter({ hasText: /^Export$/ }) });
+    await controls.getByRole('button', { name: 'Preview saved writing' }).click();
+    await expect(controls.locator('article')).toContainText('The river remembers.');
+    const downloading = page.waitForEvent('download');
+    await controls.getByRole('button', { name: 'Download LorenzoScript' }).click();
+    const download = await downloading;
+    expect(download.suggestedFilename()).toBe('lorenzo-writing.zip');
+    expect(await download.failure()).toBeNull();
+    await page.evaluate(() => {
+      const observer = new MutationObserver(() => {
+        const frame = document.querySelector<HTMLIFrameElement>(
+          'iframe[title="Printable manuscript"]',
+        );
+        if (!frame?.contentWindow) return;
+        observer.disconnect();
+        frame.contentWindow.print = () => {
+          document.documentElement.dataset.printed =
+            frame.contentDocument?.documentElement.outerHTML;
+          frame.contentWindow?.dispatchEvent(new Event('afterprint'));
+        };
+      });
+      observer.observe(document.body, { childList: true });
+    });
+    await controls.getByRole('button', { name: 'Print / Save as PDF' }).click();
+    await expect(page.locator('html')).toHaveAttribute('data-printed', /The river remembers/);
+    const html = await page.locator('html').getAttribute('data-printed');
+    expect(html).not.toContain('Preview saved writing');
+    expect(html).not.toContain('<textarea');
+    const printed = await context.newPage();
+    await printed.goto(`${SITE_URL}/branding/fonts.css`);
+    await printed.setContent(html ?? '');
+    await printed.evaluate(() => document.fonts.ready);
+    if (process.env.E2E_EXPORT_PDF)
+      await printed.pdf({ path: process.env.E2E_EXPORT_PDF, format: 'A4', printBackground: true });
+    await printed.close();
+    await page.setViewportSize({ width: 390, height: 844 });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
+      true,
+    );
+    expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+    await manuscript.fill('Changed after preview.');
+    await expect(page.getByRole('status', { name: 'Save status' })).toHaveText('Saved');
+    await controls.getByRole('button', { name: 'Download LorenzoScript' }).click();
+    await expect(controls.getByRole('status')).toContainText('Refresh the export preview');
+    await expect(controls.locator('article')).toHaveCount(0);
+    await page.route(`${API_URL}/tenants/**/payloads/*`, (route) =>
+      route.request().method() === 'PATCH' ? route.abort() : route.continue(),
+    );
+    await manuscript.fill('UNSENT writing must stay out of the export.');
+    await controls.getByRole('button', { name: 'Preview saved writing' }).click();
+    await expect(controls.locator('article')).toContainText('Changed after preview.');
+    await expect(controls.locator('article')).not.toContainText('UNSENT');
+    await expect(manuscript).toHaveValue('UNSENT writing must stay out of the export.');
+  } finally {
+    await context.close();
+  }
+});
+
+test('export repeats composition with distinct footnotes, contents and original pictures', async ({
+  browser,
+}) => {
+  test.setTimeout(90000);
+  const { page, context, tenant, api } = await world(browser);
+  try {
+    const scene = new URL(page.url()).searchParams.get('entry');
+    if (!scene) throw new Error('Scene did not open');
+    await page
+      .getByRole('textbox', { name: 'Manuscript', exact: true })
+      .fill(
+        '# At the river\n\n{{TOC}}\n\nThe ferryman remembers.[^note]\n\n' +
+          Array.from(
+            { length: 12 },
+            (_, index) =>
+              `Crossing ${index + 1}. The boats carried books, letters and unfinished stories. On the opposite bank, another reader waited.`,
+          ).join('\n\n') +
+          '\n\n| Cargo | Count |\n| --- | --- |\n| Books | 12 |\n\n[^note]: A local note about the crossing.',
+      );
+    await expect(page.getByRole('status', { name: 'Save status' })).toHaveText('Saved');
+    const image = await page.evaluate(() => {
+      const canvas = document.createElement('canvas');
+      canvas.width = 600;
+      canvas.height = 140;
+      const context = canvas.getContext('2d');
+      if (!context) throw new Error('Canvas unavailable');
+      context.fillStyle = '#edf4f6';
+      context.fillRect(0, 0, 600, 140);
+      context.strokeStyle = '#48788a';
+      context.lineWidth = 16;
+      context.beginPath();
+      context.moveTo(0, 70);
+      context.bezierCurveTo(150, 10, 450, 130, 600, 70);
+      context.stroke();
+      context.fillStyle = '#70553c';
+      context.beginPath();
+      context.moveTo(240, 45);
+      context.lineTo(360, 45);
+      context.lineTo(330, 80);
+      context.lineTo(270, 80);
+      context.fill();
+      return canvas.toDataURL('image/png').split(',')[1];
+    });
+    await page.locator('input[type=file]').setInputFiles({
+      name: 'river.png',
+      mimeType: 'image/png',
+      buffer: Buffer.from(image, 'base64'),
+    });
+    await expect(page.getByRole('button', { name: 'Remove picture' })).toBeVisible();
+    await expect(page.getByRole('status', { name: 'Save status' })).toHaveText('Saved');
+    const book = await ok(
+      api.POST('/tenants/{tenant_id}/writing/books', {
+        params: { path: { tenant_id: tenant.id } },
+        body: { name: 'River stories' },
+      }),
+    );
+    const edition = book.editions[0].id;
+    const chapters: string[] = [];
+    const arrange = async (id: string, elements: string[]) => {
+      const current = await ok(
+        api.GET('/tenants/{tenant_id}/writing/entries/{id}', {
+          params: { path: { tenant_id: tenant.id, id } },
+        }),
+      );
+      await ok(
+        api.PUT('/tenants/{tenant_id}/writing/entries/{id}/composition', {
+          params: { path: { tenant_id: tenant.id, id }, header: { 'if-match': current.version } },
+          body: { elements },
+        }),
+      );
+    };
+    for (const name of ['Departure', 'Return']) {
+      const chapter = await ok(
+        api.POST('/tenants/{tenant_id}/writing/chapters', {
+          params: { path: { tenant_id: tenant.id } },
+          body: { name },
+        }),
+      );
+      const telling = await ok(
+        api.POST('/tenants/{tenant_id}/writing/tellings', {
+          params: { path: { tenant_id: tenant.id } },
+          body: { name: 'The ferryman', scene_id: scene, uses_scene_manuscript: true },
+        }),
+      );
+      await arrange(chapter.id, [telling.id]);
+      chapters.push(chapter.id);
+    }
+    await arrange(edition, chapters);
+    const numbering = await ok(
+      api.GET('/tenants/{tenant_id}/writing/entries/{id}/numbering', {
+        params: { path: { tenant_id: tenant.id, id: edition } },
+      }),
+    );
+    await ok(
+      api.PUT('/tenants/{tenant_id}/writing/entries/{id}/numbering', {
+        params: {
+          path: { tenant_id: tenant.id, id: edition },
+          header: { 'if-match': numbering.version },
+        },
+        body: { ...numbering.settings, enabled: true },
+      }),
+    );
+    const contents = await ok(
+      api.GET('/tenants/{tenant_id}/writing/entries/{id}/contents', {
+        params: { path: { tenant_id: tenant.id, id: edition } },
+      }),
+    );
+    await ok(
+      api.PUT('/tenants/{tenant_id}/writing/entries/{id}/contents', {
+        params: {
+          path: { tenant_id: tenant.id, id: edition },
+          header: { 'if-match': contents.version },
+        },
+        body: { ...contents.settings, enabled: true },
+      }),
+    );
+    const carrier = await ok(
+      api.POST('/tenants/{tenant_id}/writing/carriers', {
+        params: { path: { tenant_id: tenant.id } },
+        body: { name: 'Collected river stories' },
+      }),
+    );
+    await ok(
+      api.PUT('/tenants/{tenant_id}/writing/carriers/{id}/coverage', {
+        params: {
+          path: { tenant_id: tenant.id, id: carrier.id },
+          header: { 'if-match': carrier.version },
+        },
+        body: {
+          elements: [
+            { id: randomUUID(), target_entity_id: edition },
+            { id: randomUUID(), target_entity_id: edition },
+          ],
+        },
+      }),
+    );
+    await page.goto(`/?tenant=${tenant.id}&entry=${carrier.id}&view=read`);
+    await page.getByText('Export', { exact: true }).click();
+    const controls = page
+      .locator('details')
+      .filter({ has: page.locator('summary').filter({ hasText: /^Export$/ }) });
+    await controls.getByRole('button', { name: 'Preview saved writing' }).click();
+    const article = controls.locator('article');
+    await expect(article.locator('img')).toHaveCount(4);
+    await expect(article.locator('.ls-footnotes')).toHaveCount(4);
+    expect(
+      await article.evaluate((el) => {
+        const ids = [...el.querySelectorAll('[id]')].map((node) => node.id);
+        return (
+          new Set(ids).size === ids.length &&
+          [...el.querySelectorAll('a[href^="#"]')].every((link) => {
+            const id = link.getAttribute('href')?.slice(1);
+            const target = id ? document.getElementById(id) : null;
+            return target && el.contains(target);
+          })
+        );
+      }),
+    ).toBe(true);
+    const contentsNav = article.getByRole('navigation', { name: 'Contents', exact: true });
+    await expect(contentsNav).toHaveCount(2);
+    expect(await contentsNav.nth(0).getByRole('link').first().getAttribute('href')).not.toBe(
+      await contentsNav.nth(1).getByRole('link').first().getAttribute('href'),
+    );
+    await page.evaluate(() => {
+      const observer = new MutationObserver(() => {
+        const frame = document.querySelector<HTMLIFrameElement>(
+          'iframe[title="Printable manuscript"]',
+        );
+        if (!frame?.contentWindow) return;
+        observer.disconnect();
+        frame.contentWindow.print = () => {
+          document.documentElement.dataset.printed =
+            frame.contentDocument?.documentElement.outerHTML;
+          frame.contentWindow?.dispatchEvent(new Event('afterprint'));
+        };
+      });
+      observer.observe(document.body, { childList: true });
+    });
+    await controls.getByRole('button', { name: 'Print / Save as PDF' }).click();
+    await expect(page.locator('html')).toHaveAttribute('data-printed', /A local note/);
+    if (process.env.E2E_EXPORT_PDF) {
+      const printed = await context.newPage();
+      await printed.goto(`${SITE_URL}/branding/fonts.css`);
+      await printed.setContent((await page.locator('html').getAttribute('data-printed')) ?? '');
+      await printed.evaluate(async () => {
+        await document.fonts.ready;
+        await Promise.all([...document.images].map((image) => image.decode()));
+      });
+      await printed.pdf({ path: process.env.E2E_EXPORT_PDF, format: 'A4', printBackground: true });
+      await printed.close();
+    }
+  } finally {
+    await context.close();
+  }
+});
