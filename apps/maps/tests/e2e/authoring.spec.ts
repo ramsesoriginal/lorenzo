@@ -12,6 +12,7 @@ import {
   strokeOf,
   withStroke,
 } from '../../src/lib/height-field.ts';
+import { transformed } from '../../src/lib/transform.ts';
 import { apiAs, ok, refreshTokenFor } from './support/api.ts';
 import { REFRESH_TOKEN_KEY, SITE_URL } from './support/env.ts';
 import { openControl, openPanel, stageBox } from './support/map-ui.ts';
@@ -1510,6 +1511,91 @@ test('a split of more parts than one batch writes is refused before anything is 
     await page.context().close();
   }
 });
+
+for (const theme of ['light', 'dark'] as const) {
+  test(`a drawing is mirrored and turned in place, and copied to another entry (ADR 0490), in ${theme}`, async ({
+    browser,
+  }) => {
+    const w = await world();
+    const ruin = await w.place('Ruin');
+    const tower = await w.place('Tower');
+    const sheet = [0, 0, 1000, 800] as const;
+    const first = {
+      format: 'lorenzo.geometry/1',
+      parts: [
+        {
+          shape: 'polygon',
+          rings: [
+            [
+              [100, 100],
+              [250, 100],
+              [250, 180],
+              [100, 220],
+            ],
+          ],
+        },
+      ],
+    };
+    await ok(
+      w.gm.PUT('/tenants/{tenant_id}/maps/{map_id}/placements/{entry_id}', {
+        params: { path: { ...w.path, map_id: w.chart.id, entry_id: ruin.id } },
+        body: { geometry: first, role: 'built-up', z: 2 } as never,
+      }),
+    );
+    const rowOf = async (name: string) => (await w.read()).find((r) => r.name === name);
+    const page = await signedIn(browser, w.subject, theme);
+    try {
+      await page.goto(`/map/?tenant=${w.tenant.id}&id=${w.chart.id}`);
+      await expect(page.getByRole('heading', { name: 'Sword Coast', exact: true })).toBeVisible();
+      await page.getByRole('button', { name: 'Edit this map' }).click();
+      await openPanel(page, 'Places');
+      await page.locator('.map-places').getByRole('button', { name: /Ruin/ }).click();
+      const moves = page.getByRole('group', { name: 'Mirror and copy' });
+      await expect(moves).toBeVisible();
+      const result = await new AxeBuilder({ page }).exclude('.shell-bottom').analyze();
+      expect(result.violations.map((v) => `${v.id}: ${v.nodes[0]?.html}`)).toEqual([]);
+
+      // In place: mirrored across about the sheet's middle, as one step that undo takes back.
+      await moves.getByRole('button', { name: 'Mirror across' }).click();
+      await expect
+        .poll(async () => (await rowOf('Ruin'))?.geometry)
+        .toEqual(transformed('across', sheet, first as never));
+      await openPanel(page, 'History');
+      await expect(page.locator('.map-slideover')).toContainText('Mirrored Ruin across');
+      await page.getByRole('button', { name: 'Undo' }).click();
+      await expect.poll(async () => (await rowOf('Ruin'))?.geometry).toEqual(first);
+
+      // From the command line: turned 180°, then copied mirrored to an entry not yet on the Map.
+      const command = page.getByLabel('Command', { exact: true });
+      await command.fill('TURN');
+      await command.press('Enter');
+      const turned = transformed('turn', sheet, first as never);
+      await expect.poll(async () => (await rowOf('Ruin'))?.geometry).toEqual(turned);
+      await command.fill('COPY ACROSS TO Tower');
+      await command.press('Enter');
+      await expect
+        .poll(async () => (await rowOf('Tower'))?.geometry)
+        .toEqual(transformed('across', sheet, turned));
+      expect((await rowOf('Tower'))?.role).toBe('built-up');
+      expect((await rowOf('Tower'))?.z).toBe(2);
+      // Again: Tower is on the Map now, and a Map holds one drawing for an entry.
+      await command.fill('COPY TO Tower');
+      await command.press('Enter');
+      await expect(page.locator('.map-command-answer')).toHaveText(
+        'Tower is already on this Map, and a Map holds one drawing for an entry. Choose another, or a new Location.',
+      );
+
+      // From the panel: a copy as it is, to a new Location. Ruin is still the one selected.
+      await openPanel(page, 'Options');
+      await moves.getByLabel('Copy to, by name').fill('Ruin (east)');
+      await moves.getByRole('button', { name: 'Copy to a new Location named Ruin (east)' }).click();
+      await expect.poll(async () => (await rowOf('Ruin (east)'))?.geometry).toEqual(turned);
+      expect(tower.id).toBeTruthy();
+    } finally {
+      await page.context().close();
+    }
+  });
+}
 
 test('a cave system is previewed, compared, rolled, discarded and applied as one step', async ({
   browser,

@@ -12,6 +12,7 @@ import {
   type ToolOption,
   usable,
 } from './tools';
+import type { Transform } from './transform';
 
 export type Command =
   | { kind: 'tool'; tool: ToolDecl }
@@ -31,6 +32,10 @@ export type Command =
   | { kind: 'apply' }
   | { kind: 'discard' }
   | { kind: 'compare'; on: boolean }
+  /** The selected drawing mirrored or turned in place (ADR 0490). */
+  | { kind: 'transform'; how: Transform }
+  /** The selected drawing copied, as it is or moved, to an entry by name (ADR 0490). */
+  | { kind: 'copy'; how: Transform | null; name: string }
   /** A stroke of the Height brush at one point (ADR 0480). */
   | { kind: 'brush'; lower: boolean; at: [number, number] }
   | { kind: 'error'; message: string };
@@ -43,6 +48,7 @@ export const HELP = [
   'An option of the tool by its name, for example SNAP OFF, TENSION 0.4 or UNIT m.',
   'For a generator: SEED n, ROLL, COMPARE ON or OFF, APPLY, DISCARD.',
   'For the Height brush: RAISE x,y or LOWER x,y, then APPLY or DISCARD.',
+  'For the selected drawing: MIRROR ACROSS, MIRROR DOWN, TURN, or COPY TO name (COPY TURNED TO name and so on).',
   'UNDO, REDO, FIT (frame the whole sheet), HELP.',
 ].join(' ');
 
@@ -79,6 +85,34 @@ export function parseCommand(
       return { kind: 'help' };
     case 'roll':
       return { kind: 'roll' };
+    case 'mirror': {
+      const way = rest.toLowerCase();
+      return way === 'across' || way === 'down'
+        ? { kind: 'transform', how: way }
+        : { kind: 'error', message: 'MIRROR takes ACROSS or DOWN.' };
+    }
+    case 'turn':
+      return rest === '' || rest === '180'
+        ? { kind: 'transform', how: 'turn' }
+        : {
+            kind: 'error',
+            message: 'TURN turns the selected drawing 180°, and takes nothing more.',
+          };
+    case 'copy': {
+      const found = /^(?:(across|down|turned)\s+)?to\s+(.+)$/i.exec(rest);
+      if (!found) {
+        return {
+          kind: 'error',
+          message: 'COPY takes TO and a name, for example COPY TURNED TO Ruin (east).',
+        };
+      }
+      const way = found[1]?.toLowerCase();
+      return {
+        kind: 'copy',
+        how: way === 'turned' ? 'turn' : way === 'across' || way === 'down' ? way : null,
+        name: (found[2] as string).trim(),
+      };
+    }
     case 'raise':
     case 'lower': {
       const at = parsePoint(rest);

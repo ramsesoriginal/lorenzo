@@ -137,6 +137,7 @@ import {
   UNIT,
   usable,
 } from './tools';
+import { moved, TRANSFORM_WORDS, type Transform } from './transform';
 
 export type EditorContext = {
   tenant: string;
@@ -782,9 +783,16 @@ export function createEditor(context: EditorContext): Editor {
       : [...rows, row];
   };
 
+  // The write on its way, so a command typed meanwhile waits for it rather than being dropped.
+  let writing: Promise<void> = Promise.resolve();
+
   async function guarded(action: () => Promise<void>) {
     if (busy) return;
     busy = true;
+    let done: () => void = () => {};
+    writing = new Promise((resolve) => {
+      done = resolve;
+    });
     // While a write is on its way the panel takes no press: one made then would be dropped, and
     // would have been made against a drawing that is about to change.
     panel.inert = true;
@@ -795,6 +803,7 @@ export function createEditor(context: EditorContext): Editor {
       say(asText(error), true);
     } finally {
       busy = false;
+      done();
       panel.inert = false;
       panel.removeAttribute('aria-busy');
       renderToolbar();
@@ -1000,6 +1009,8 @@ export function createEditor(context: EditorContext): Editor {
   }
 
   async function runCommand(line: string) {
+    // A command typed while a change is being written is carried out once it is written.
+    await writing;
     const command = parseCommand(line, DECLARED, {
       ...here(),
       tool: editing ? toolDecl() : undefined,
@@ -1063,6 +1074,39 @@ export function createEditor(context: EditorContext): Editor {
           answer(await applyGenerator());
         }
         return;
+      case 'transform':
+      case 'copy': {
+        const row = editing ? rowOf(selectedId) : undefined;
+        if (!row) {
+          answer('Select a drawing first.', true);
+          return;
+        }
+        if (context.sphere) {
+          answer('A drawing on a sphere is not mirrored, turned or copied here.', true);
+          return;
+        }
+        if (command.kind === 'transform') {
+          const said = await moveRow(row, command.how);
+          answer(said, status.classList.contains('error-text'));
+          return;
+        }
+        // A name one entry has exactly is that entry; any other is a new Location.
+        const found = (await findEntries(context.tenant, command.name)).filter(
+          (entry) => entry.name.toLowerCase() === command.name.toLowerCase(),
+        );
+        if (found.length > 1) {
+          answer(`Several entries are called ${command.name}; choose one in the panel.`, true);
+          return;
+        }
+        const one = found[0];
+        const said = await copyRow(
+          row,
+          command.how,
+          one ? { id: one.id, name: one.name } : { name: command.name },
+        );
+        answer(said, status.classList.contains('error-text'));
+        return;
+      }
       case 'brush':
         if (!editing || !brushing()) {
           answer('RAISE and LOWER are commands of the Height brush, and it is not the tool.', true);
@@ -2758,7 +2802,157 @@ export function createEditor(context: EditorContext): Editor {
         ),
       );
     }
+    const moves = moveControls(row);
+    if (moves) box.append(moves);
     box.append(button('Remove from this map', () => removeRow(row), { variant: 'danger' }));
+    return box;
+  }
+
+  /** The words of a drawing moved in place: "Mirrored Ruin across", "Turned Ruin 180°". */
+  const movedName = (name: string, how: Transform) =>
+    how === 'turn' ? `Turned ${name} 180°` : `Mirrored ${name} ${how}`;
+
+  /** Mirrors or turns a drawing about the sheet's middle, in place, as one step (ADR 0490). */
+  async function moveRow(row: Row, how: Transform): Promise<string> {
+    const result = moved(how, context.extent, row.geometry as unknown as Geometry, gridNow());
+    if (!result.ok) {
+      say(result.why, true);
+      return result.why;
+    }
+    await guarded(async () => {
+      const before = rowState(row);
+      const saved = await putPlacement(context.tenant, context.mapId, row.id, {
+        ...before,
+        geometry: result.geometry as unknown as Record<string, unknown>,
+      });
+      history.record([{ entry: row.id, before, after: rowState(saved) }], movedName(row.name, how));
+      context.setRows(upsert(saved));
+      say(`${movedName(row.name, how)}.`);
+      render();
+      refresh();
+    });
+    return status.textContent ?? '';
+  }
+
+  /**
+   * Copies a drawing, as it is or moved, to an entry not on this Map or to a new Location, with the
+   * original's role, line and drawing order, as one step (ADR 0490).
+   */
+  async function copyRow(
+    row: Row,
+    how: Transform | null,
+    to: { id?: string; name: string },
+  ): Promise<string> {
+    if (to.id && rowOf(to.id)) {
+      const why = `${to.name} is already on this Map, and a Map holds one drawing for an entry. Choose another, or a new Location.`;
+      say(why, true);
+      return why;
+    }
+    const geometry = row.geometry as unknown as Geometry;
+    const result = how
+      ? moved(how, context.extent, geometry, gridNow())
+      : { ok: true as const, geometry };
+    if (!result.ok) {
+      say(result.why, true);
+      return result.why;
+    }
+    await guarded(async () => {
+      const id = to.id ?? (await makeLocation(context.tenant, to.name, context.mapIsPublic)).id;
+      const saved = await putPlacement(context.tenant, context.mapId, id, {
+        ...rowState(row),
+        geometry: result.geometry as unknown as Record<string, unknown>,
+      });
+      const name = `Copied ${row.name} to ${saved.name}${how ? `, ${TRANSFORM_WORDS[how]}` : ''}`;
+      history.record([{ entry: id, before: null, after: rowState(saved) }], name);
+      context.setRows(upsert(saved));
+      say(`${name}.`);
+      render();
+      refresh();
+    });
+    return status.textContent ?? '';
+  }
+
+  /** Mirror, turn and copy for the selected drawing (ADR 0490); not on a sphere. */
+  function moveControls(row: Row): HTMLElement | null {
+    if (context.sphere) return null;
+    const box = el('div', '', 'stack-tight map-move');
+    box.setAttribute('role', 'group');
+    box.setAttribute('aria-label', 'Mirror and copy');
+    box.append(groupTitle('h3', 'Mirror and copy'));
+    const actions = el('div', '', 'row-tight');
+    actions.append(
+      button(
+        'Mirror across',
+        async () => {
+          await moveRow(row, 'across');
+        },
+        { variant: 'secondary' },
+      ),
+      button(
+        'Mirror down',
+        async () => {
+          await moveRow(row, 'down');
+        },
+        { variant: 'secondary' },
+      ),
+      button(
+        'Turn 180°',
+        async () => {
+          await moveRow(row, 'turn');
+        },
+        { variant: 'secondary' },
+      ),
+    );
+    const how = select('Copy it', [
+      ['', 'As it is'],
+      ['across', 'Mirrored across'],
+      ['down', 'Mirrored down'],
+      ['turn', 'Turned 180°'],
+    ]);
+    const to = field('Copy to, by name');
+    to.input.autocomplete = 'off';
+    const results = el('ul', '', 'list map-copy-results');
+    const chosenHow = () => (how.input.value || null) as Transform | null;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let sequence = 0;
+    to.input.addEventListener('input', () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        const mine = ++sequence;
+        const query = to.input.value.trim();
+        if (!query) {
+          results.replaceChildren();
+          return;
+        }
+        void findEntries(context.tenant, query).then((found) => {
+          if (mine !== sequence) return;
+          const offers = found
+            .filter((entry) => entry.id !== row.id)
+            .map((entry) => {
+              const item = el('li');
+              item.append(
+                button(
+                  `Copy to ${entry.name}`,
+                  async () =>
+                    void (await copyRow(row, chosenHow(), { id: entry.id, name: entry.name })),
+                  { variant: 'secondary' },
+                ),
+              );
+              return item;
+            });
+          const fresh = el('li');
+          fresh.append(
+            button(
+              `Copy to a new Location named ${query}`,
+              async () => void (await copyRow(row, chosenHow(), { name: query })),
+              { variant: 'secondary' },
+            ),
+          );
+          results.replaceChildren(...offers, fresh);
+        });
+      }, 200);
+    });
+    box.append(actions, how.label, to.label, results);
     return box;
   }
 

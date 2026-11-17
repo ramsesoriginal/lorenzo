@@ -158,4 +158,37 @@ describe('the command line', () => {
       message: 'RAISE takes a point, for example RAISE 500,400.',
     });
   });
+
+  it('mirrors, turns and copies the selected drawing (ADR 0490)', () => {
+    expect(parseCommand('MIRROR ACROSS', TOOLS, flat)).toEqual({
+      kind: 'transform',
+      how: 'across',
+    });
+    expect(parseCommand('mirror down', TOOLS, flat)).toEqual({ kind: 'transform', how: 'down' });
+    expect(parseCommand('TURN', TOOLS, flat)).toEqual({ kind: 'transform', how: 'turn' });
+    expect(parseCommand('turn 180', TOOLS, flat)).toEqual({ kind: 'transform', how: 'turn' });
+    expect(parseCommand('MIRROR', TOOLS, flat)).toEqual({
+      kind: 'error',
+      message: 'MIRROR takes ACROSS or DOWN.',
+    });
+    expect(parseCommand('TURN 90', TOOLS, flat)).toEqual({
+      kind: 'error',
+      message: 'TURN turns the selected drawing 180°, and takes nothing more.',
+    });
+    expect(parseCommand('COPY TO Ruin (east)', TOOLS, flat)).toEqual({
+      kind: 'copy',
+      how: null,
+      name: 'Ruin (east)',
+    });
+    expect(parseCommand('copy turned to  Ruin 2 ', TOOLS, flat)).toEqual({
+      kind: 'copy',
+      how: 'turn',
+      name: 'Ruin 2',
+    });
+    expect(parseCommand('COPY ACROSS TO West', TOOLS, flat)).toMatchObject({ how: 'across' });
+    expect(parseCommand('COPY Ruin', TOOLS, flat)).toEqual({
+      kind: 'error',
+      message: 'COPY takes TO and a name, for example COPY TURNED TO Ruin (east).',
+    });
+  });
 });

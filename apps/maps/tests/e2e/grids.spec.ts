@@ -888,6 +888,48 @@ test('a fill by wave function collapse says what is missing: no example, or a ti
   }
 });
 
+test('cells that would not land on cells of the grid are not moved, and the Map says why (ADR 0490)', async ({
+  browser,
+}) => {
+  const w = await world();
+  const chart = await w.makeMap('Hexes', HEX);
+  const grid = HEX as unknown as GridSpec;
+  const marsh = await w.place('Marsh');
+  const drawn = cellsGeometry(
+    grid,
+    [0, 0, 1000, 800],
+    [
+      [1, 1],
+      [2, 1],
+      [2, 2],
+    ],
+  );
+  await ok(
+    w.gm.PUT('/tenants/{tenant_id}/maps/{map_id}/placements/{entry_id}', {
+      params: { path: { ...w.path, map_id: chart.id, entry_id: marsh.id } },
+      body: { geometry: drawn, z: 0 } as never,
+    }),
+  );
+  const page = await signedIn(browser, w.subject);
+  try {
+    await page.goto(`/map/?tenant=${w.tenant.id}&id=${chart.id}`);
+    await expect(page.getByRole('heading', { name: 'Hexes', exact: true })).toBeVisible();
+    await page.getByRole('button', { name: 'Edit this map' }).click();
+    await openPanel(page, 'Places');
+    await page.locator('.map-places').getByRole('button', { name: /Marsh/ }).click();
+    const command = page.getByLabel('Command', { exact: true });
+    // Mirrored down, the offset rows of pointed-top hexes would not meet whole cells.
+    await command.fill('MIRROR DOWN');
+    await command.press('Enter');
+    await expect(page.locator('.map-command-answer')).toHaveText(
+      'Mirrored down, its cells would not land on whole cells of this grid. Nothing was changed.',
+    );
+    expect((await w.read(chart.id))[0]?.geometry).toEqual(drawn);
+  } finally {
+    await page.context().close();
+  }
+});
+
 test('a player sees the grid and the cell words and none of the tools', async ({ browser }) => {
   const w = await world();
   const chart = await w.makeMap('Squares', SQUARE);
