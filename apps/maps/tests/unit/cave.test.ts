@@ -135,6 +135,44 @@ describe('the Cave system generator (ADR 0476)', () => {
     expect(drawn).toBeGreaterThan(300);
   });
 
+  it('draws what the API will take on a very small sheet and on a very large or far one', () => {
+    // A sheet half a unit wide needs more than two decimals to keep its points apart; one that
+    // reaches past a million units is drawn in whole units, where decimals are not always taken.
+    const sheets: Sheet[] = [
+      [0, 0, 0.5, 0.4],
+      [0, 0, 9_000_000, 7_000_000],
+      [-9_999_000, -9_999_000, 9_999_000, 9_999_000],
+      [1_048_576, 1_048_576, 1_049_576, 1_049_376],
+    ];
+
+    for (const bounds of sheets) {
+      let drawn = 0;
+
+      for (let seed = 0; seed < 60; seed += 1) {
+        const made = caveSystem(
+          regionOf(null, bounds),
+          { ...first, size: 16 + (seed % 60), passes: seed % 6, smallest: 1 + (seed % 9) },
+          seed,
+        );
+
+        if (!made.geometry) continue;
+
+        drawn += 1;
+
+        const checked = checkGeometry(made.geometry);
+
+        if (!checked.ok) expect(`${bounds}: ${checked.why}`).toMatch(/vertices|too large|parts/);
+      }
+
+      expect(drawn).toBeGreaterThan(40);
+    }
+
+    const far = points(caveSystem(regionOf(null, [0, 0, 9_000_000, 7_000_000]), first, 3).geometry);
+
+    expect(far.length).toBeGreaterThan(0);
+    expect(far.every(([x, y]) => Number.isInteger(x) && Number.isInteger(y))).toBe(true);
+  });
+
   it('keeps every cave inside its region', () => {
     const [x0, y0, x1, y1] = sheet;
 

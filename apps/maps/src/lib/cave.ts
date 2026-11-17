@@ -3,10 +3,9 @@
 // options and the seed (ADR 0475): no `Math.random`, no clock, and only whole-number hashing, the
 // four operations and comparisons, so every browser draws the same caves.
 import { type Geometry, type Part, seeded } from '@lorenzo/map-renderer';
+import { decimalsFor, fieldOver, onSheet } from './field';
 import type { Region } from './generator';
 import { nested, outlines } from './marching-squares';
-
-type Pt = readonly [number, number];
 
 export type CaveOptions = {
   /** The cells across the box around the region. */
@@ -24,11 +23,6 @@ export type Caves = {
   geometry: Geometry | null;
   caves: number;
 };
-
-/** The fewest rows a field has, so a very wide region still has room for a cave. */
-const MIN_ROWS = 4;
-
-const round2 = (n: number): number => Math.round(n * 100) / 100;
 
 /** The groups of touching cells (by their sides) that `wanted` picks, each a list of places. */
 function groups(cols: number, rows: number, wanted: (place: number) => boolean): number[][] {
@@ -66,52 +60,22 @@ function groups(cols: number, rows: number, wanted: (place: number) => boolean):
   return found;
 }
 
+/**
+ * The softened field holds ninths, so a crossing of the half-way level lies at one of a few
+ * fractions of a cell's edge, no two of them nearer than a seventy-second of it: what the sheet's
+ * decimals must keep apart.
+ */
+const APART = 72;
+
 export function caveSystem(region: Region, options: CaveOptions, seed: number): Caves {
-  const [x0, y0, x1, y1] = region.bounds;
-  const cols = Math.round(options.size);
-  const cell = (x1 - x0) / cols;
+  // 1. The field, and the rock that never changes: its edge, a cell outside the region, and a
+  // cell beside one, so that an outline between two cells stays within the region.
+  const field = fieldOver(region, Math.round(options.size));
 
-  if (!(cell > 0) || !(y1 > y0) || cols < 3) return { geometry: null, caves: 0 };
+  if (!field) return { geometry: null, caves: 0 };
 
-  const rows = Math.max(MIN_ROWS, Math.ceil((y1 - y0) / cell));
+  const { cols, rows, wall } = field;
   const count = cols * rows;
-  const middle = (place: number): Pt => {
-    const i = place % cols;
-
-    return [x0 + (i + 0.5) * cell, y0 + ((place - i) / cols + 0.5) * cell];
-  };
-
-  // 1. Rock that never changes: the edge of the field, a cell outside the region, and a cell
-  // beside one, so that an outline between two cells stays within the region.
-  const outside = new Uint8Array(count);
-
-  for (let place = 0; place < count; place += 1) {
-    const i = place % cols;
-    const j = (place - i) / cols;
-
-    if (i === 0 || j === 0 || i === cols - 1 || j === rows - 1 || !region.contains(middle(place))) {
-      outside[place] = 1;
-    }
-  }
-
-  const wall = new Uint8Array(count);
-
-  for (let place = 0; place < count; place += 1) {
-    const i = place % cols;
-    const j = (place - i) / cols;
-
-    for (let dj = -1; dj <= 1 && !wall[place]; dj += 1) {
-      for (let di = -1; di <= 1; di += 1) {
-        const oi = i + di;
-        const oj = j + dj;
-
-        if (oi < 0 || oj < 0 || oi >= cols || oj >= rows || outside[oj * cols + oi]) {
-          wall[place] = 1;
-          break;
-        }
-      }
-    }
-  }
 
   // 2. Every other cell is rock with the chance Density, drawn in order from the seed.
   const next = seeded(`cave:${seed}`);
@@ -158,7 +122,7 @@ export function caveSystem(region: Region, options: CaveOptions, seed: number): 
 
   // 5. Softened once, so an outline is no staircase: a cell is the share of open ground among its
   // nine. The level 0.5 is none of the ninths, so no outline passes through a cell's middle.
-  const field = new Float64Array(count);
+  const soft = new Float64Array(count);
 
   for (let place = 0; place < count; place += 1) {
     if (wall[place]) continue;
@@ -171,30 +135,11 @@ export function caveSystem(region: Region, options: CaveOptions, seed: number): 
         open += 1 - (rock[place + dj * cols + i + di - i] as number);
     }
 
-    field[place] = open / 9;
+    soft[place] = open / 9;
   }
 
   // 6. Traced, put on the sheet to two decimals, and nested: a pillar in the cave that holds it.
-  const rings = outlines(field, cols, rows, 0.5)
-    .map((ring) => {
-      const pts: Pt[] = [];
-
-      for (const [fx, fy] of ring) {
-        const p: Pt = [round2(x0 + (fx + 0.5) * cell), round2(y0 + (fy + 0.5) * cell)];
-        const last = pts[pts.length - 1];
-
-        if (!last || last[0] !== p[0] || last[1] !== p[1]) pts.push(p);
-      }
-
-      const first = pts[0];
-      const last = pts[pts.length - 1];
-
-      if (pts.length > 1 && first && last && first[0] === last[0] && first[1] === last[1])
-        pts.pop();
-
-      return pts;
-    })
-    .filter((ring) => ring.length >= 3);
+  const rings = onSheet(field, outlines(soft, cols, rows, 0.5), decimalsFor(field, APART));
   const parts = nested(rings).map((area): Part => ({ shape: 'polygon', rings: area }));
 
   return parts.length === 0
