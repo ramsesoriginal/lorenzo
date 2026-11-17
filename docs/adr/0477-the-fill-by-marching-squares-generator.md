@@ -5,7 +5,7 @@ Status: accepted, decided with the maintainer on 2026-11-16. Part of [RFC 0050](
 ## Decision
 
 - **The tool.** Fill by marching squares (group Generate, key M). It works on the region ADR 0475 names, previews, and on Apply writes one entry's placement. Not on a sphere.
-- **Its output is areas and, when asked for, height lines,** all parts of the one placement: a `polygon` part for each area with its holes, and a `polyline` part that carries a `value` and a `unit` for each height line, closed by ending where it began. What the areas are (a wood, a lake, high ground) is the person's to say with the role and the entry's name.
+- **Its output is areas and, when asked for, height lines,** all parts of the one placement: a `polygon` part for each area with its holes, and a `polyline` part that carries a `value` and a `unit` for each height line. A height line that stays inside the region goes round and ends where it began; one that the region's edge cuts ends at the edge. What the areas are (a wood, a lake, high ground) is the person's to say with the role and the entry's name.
 - **The algorithm:**
   1. A field of 64 cells across is laid over the box around the region. A cell at the edge of the field, outside the region, or beside one that is, holds 0.
   2. Every other cell holds smooth noise from the seed, between 0 and 1: random values on a coarser lattice, **Scale** cells of it across, joined smoothly, and half as much again of the same at twice the fineness.
@@ -24,7 +24,7 @@ As decided, with these details, each found by measuring:
 - **The decimals follow the field** (`field.ts`, shared with the caves): two as the editor keeps, more for a field so fine that two would merge points a sixteenth of a cell apart, up to the format's six, and none for a field that reaches past a million units (see below).
 - **Measured** after that over 12,000 runs (sheets from half a unit to 5,000 units wide, Scale 2 to 20, 0 to 8 height lines, 400 seeds each) and 2,100 more on sheets up to 20 million units wide and far from the origin: no result was a shape the validator refuses. As first offered a result has about 450 to 700 points. Eight height lines at Scale 20 are over a placement's 2,000 points on most sheets and are refused with their sentence. A run takes a few milliseconds.
 - **Height lines without their heights** are previewed, the preview says what is missing, and Apply is off; the words of the tool come before any limit.
-- **An area ends at the edge of its region** in a straight side, and so does a height line there: the field holds 0 outside.
+- **An area ends at the edge of its region** in a straight side: the field holds 0 outside. **A height line does not run along that edge:** the stretch that would is left out, so the line ends at the edge and goes on where it leaves it again, as a contour cut by the edge of a sheet does. One ring of the field can so become several lines of the same height.
 
 Found on the way, and not this tool's to change: the validator checks a number to a ten-thousandth of a millionth, and from 1,048,576 on some numbers of two decimals cannot be held that exactly and are refused as having "more than six decimals" (about 4 in 100 of them between two and ten million). A generator draws in whole units out there. A point clicked or typed by hand on so large a sheet can meet the same refusal.
 
