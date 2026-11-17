@@ -20,13 +20,13 @@
   },
   "dependencies": {
     "@lorenzo/brand": "workspace:*",
-    "astro": "^7.4.5"
+    "astro": "^7.4.12"
   },
   "devDependencies": {
     "@astrojs/check": "^0.9.12",
-    "@biomejs/biome": "^2.6.4",
+    "@biomejs/biome": "^2.6.7",
     "@types/node": "^26.6.6",
-    "prettier": "^3.9.10",
+    "prettier": "^3.10.1",
     "prettier-plugin-astro": "^1.1.2",
     "typescript": "^6.0.3",
     "vitest": "^5.1.0"
