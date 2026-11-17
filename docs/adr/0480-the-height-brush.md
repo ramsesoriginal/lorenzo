@@ -18,6 +18,16 @@ The prototype paints a heightmap, a raster of heights. A Map holds no raster, an
 - **The limits** are the placement's (ADR 0337): 256 parts, 2,000 points a part, 64 KiB. A result over one is refused in the preview with the limit named, as the generators do.
 - **The pure parts** are in `apps/maps/src/lib`: the field from the lines, the stroke, and the lines to keep and to draw. The renderer exports the points of a curve it already works out (`bezierPoints`), so a curved line is read as it is drawn.
 
+## Built
+
+- **A place beyond its last line rises or falls only when it is closed**: one that reaches the sheet's edge stays flat at that line's height. So a stroke on open ground makes a hill out of flat land, and a line at the first height goes round its foot, where the land leaves the flat; the same holds for an entry with no lines.
+- **A line a stroke passes over whose height the land there no longer has is gone**, and counted as such ("1 gone"), even when the stroke moved the land past every step.
+- **Strokes that change no line yet** keep Apply off: "The strokes change no line yet. Go on, or use a larger Strength."
+- **A result with no line left** is refused: Remove from this map takes an entry off the Map.
+- **The entry is preselected** when the selected entry is height lines; the chooser says its lines are what the brush changes.
+- **ROLL** is refused by name, as the brush has no seed.
+- **The tool's options** are kept as the Fill by marching squares' First height and the Height line's Unit are, per tool; the Step is its own, more than nothing.
+
 ## Validation and delivery
 
 Unit tests: a field from lines reproduces those lines at their heights; a summit and a hollow beyond their last lines; an empty entry; a stroke raises by Strength steps at its middle and not beyond Radius, and once per stroke; Shift lowers; only the lines near a change are redrawn, the rest kept part for part; a new height above the highest line; a result over a limit, and lines of two units, refused with their sentences. Browser tests against the real API: lines drawn with the Height line tool, a stroke, the preview, Apply writing one placement, undo; a stroke from the command line; an entry drawn as an area refused; axe in light and dark with the preview on.
