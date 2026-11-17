@@ -1,4 +1,4 @@
-import type { Geometry } from '@lorenzo/map-renderer';
+import { bezierPoints, type Geometry } from '@lorenzo/map-renderer';
 import { describe, expect, it } from 'vitest';
 import {
   BRUSH_COLS,
@@ -10,10 +10,12 @@ import {
   MAX_LEVELS,
   redraw,
   redrawWords,
+  smoothLine,
   stepOf,
   strokeOf,
   withStroke,
 } from '../../src/lib/height-field';
+import { checkGeometry } from '../../src/lib/validate';
 
 type Pt = readonly [number, number];
 const FORMAT = 'lorenzo.geometry/1';
@@ -310,5 +312,82 @@ describe('what the brush redraws', () => {
         `^The strokes reach \\d+ heights, and a drawing holds ${MAX_LEVELS} lines\\. Use a larger Step\\.$`,
       ),
     );
+  });
+});
+
+describe('the lines the brush draws are smooth curves (ADR 0491)', () => {
+  const near = (p: readonly number[], q: readonly number[], d: number) =>
+    Math.hypot((p[0] as number) - (q[0] as number), (p[1] as number) - (q[1] as number)) <= d;
+  const toSegment = (p: Pt, a: Pt, b: Pt) => {
+    const dx = b[0] - a[0];
+    const dy = b[1] - a[1];
+    const t = Math.max(
+      0,
+      Math.min(1, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / (dx * dx + dy * dy || 1)),
+    );
+    return Math.hypot(p[0] - (a[0] + t * dx), p[1] - (a[1] + t * dy));
+  };
+
+  it('writes each new line as a bezier through its points, a closed one closing smoothly', () => {
+    const field = brushField(extent, [], 10);
+    const raised = withStroke(zero(field), strokeOf(field, [[500, 400]], 200), 3);
+    const result = redraw(field, [], raised, 5, 10, extent);
+    if (!result.ok) throw new Error(result.why);
+
+    for (const line of result.add) {
+      const curve = line.curve;
+      expect(curve.shape).toBe('bezier');
+      expect(curve.closed).toBeUndefined();
+      // Through every point it was traced to, and back to its first.
+      const ends = [curve.start, ...curve.segs.map((seg) => seg[2])];
+      expect(ends.length).toBe(line.pts.length);
+      expect(ends.every((p, i) => near(p, line.pts[i] as Pt, 0.011))).toBe(true);
+      expect(near(curve.start, curve.segs.at(-1)?.[2] as Pt, 0.011)).toBe(true);
+      // Smooth where it meets itself: the controls on either side of the start are in one line.
+      const into = curve.segs.at(-1)?.[1] as Pt;
+      const out = curve.segs[0]?.[0] as Pt;
+      const cross =
+        (curve.start[0] - into[0]) * (out[1] - curve.start[1]) -
+        (curve.start[1] - into[1]) * (out[0] - curve.start[0]);
+      expect(Math.abs(cross)).toBeLessThan(1);
+      // Every point of the curve within a sample of the traced line.
+      for (const p of bezierPoints(curve)) {
+        let best = Number.POSITIVE_INFINITY;
+        for (let k = 0; k + 1 < line.pts.length; k += 1) {
+          best = Math.min(best, toSegment(p as Pt, line.pts[k] as Pt, line.pts[k + 1] as Pt));
+        }
+        expect(best).toBeLessThanOrEqual(field.cell);
+      }
+    }
+  });
+
+  it('writes an open line, one cut by the sheet, as an open curve through its ends', () => {
+    const open = smoothLine(
+      [
+        [0, 100],
+        [100, 150],
+        [200, 120],
+        [300, 200],
+      ],
+      (n) => Math.round(n * 100) / 100,
+    );
+
+    expect(open.start).toEqual([0, 100]);
+    expect(open.segs.at(-1)?.[2]).toEqual([300, 200]);
+    expect(open.segs).toHaveLength(3);
+  });
+
+  it("keeps a brushed hill within a drawing's limits", () => {
+    const hill = [line(0, 100, ring(500, 400, 300)), line(1, 200, ring(500, 400, 150))];
+    const field = brushField(extent, hill, 0);
+    const raised = withStroke(zero(field), strokeOf(field, [[500, 400]], 250), 3);
+    const result = redraw(field, hill, raised, 100, 0, extent);
+    if (!result.ok) throw new Error(result.why);
+    const geometry = {
+      format: FORMAT,
+      parts: result.add.map((one) => ({ ...one.curve, value: one.value, unit: 'm' })),
+    };
+
+    expect(checkGeometry(geometry)).toMatchObject({ ok: true });
   });
 });

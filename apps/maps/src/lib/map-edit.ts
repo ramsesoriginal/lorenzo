@@ -2,6 +2,7 @@
 // panel for what is being drawn or what is selected, and every write. The renderer draws; this
 // decides what a click means and asks the API. Nothing here is shown to those who may not write.
 import {
+  bezierPoints,
   type Cell,
   cellPolygon,
   type Geometry,
@@ -625,12 +626,8 @@ export function createEditor(context: EditorContext): Editor {
     const before = row ? (row.geometry as unknown as Geometry) : null;
     const parts = [
       ...result.keep.map((part) => before?.parts[part]).filter((part) => part !== undefined),
-      ...result.add.map((line) => ({
-        shape: 'polyline' as const,
-        pts: line.pts,
-        value: line.value,
-        unit,
-      })),
+      // Each line a smooth curve through its points (ADR 0491).
+      ...result.add.map((line) => ({ ...line.curve, value: line.value, unit })),
     ];
     if (parts.length === 0) {
       return refused(
@@ -719,7 +716,7 @@ export function createEditor(context: EditorContext): Editor {
           });
       }
       (now?.brush?.add ?? []).forEach((line, i) => {
-        out.push({ id: `new${i}`, kind: 'line', pts: line.pts, clipped: true });
+        out.push({ id: `new${i}`, kind: 'line', pts: bezierPoints(line.curve), clipped: true });
       });
       if (brushStroke && brushStroke.pts.length > 1) {
         out.push({ id: 'stroke', kind: 'line', pts: brushStroke.pts, preview: true });

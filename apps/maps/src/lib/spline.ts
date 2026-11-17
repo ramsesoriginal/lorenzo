@@ -48,19 +48,60 @@ function controls(pts: readonly Pt[], tension: number): [Pt, Pt][] {
   return out;
 }
 
-/** The bezier part of a spline through at least two points, to two decimals. */
-export function splinePart(pts: readonly Pt[], tension: number): Bezier {
-  const at = pts.map((p): Pt => [round2(p[0]), round2(p[1])]);
+/**
+ * The bezier part of a spline through at least two points, to two decimals unless `round` says
+ * otherwise.
+ */
+export function splinePart(
+  pts: readonly Pt[],
+  tension: number,
+  round: (n: number) => number = round2,
+): Bezier {
+  const at = pts.map((p): Pt => [round(p[0]), round(p[1])]);
   const start = at[0] as Pt;
 
   return {
     shape: 'bezier',
     start,
     segs: controls(at, tension).map(([c1, c2], i) => [
-      [round2(c1[0]), round2(c1[1])],
-      [round2(c2[0]), round2(c2[1])],
+      [round(c1[0]), round(c1[1])],
+      [round(c2[0]), round(c2[1])],
       at[i + 1] as Pt,
     ]),
+  };
+}
+
+/**
+ * The bezier part of a spline through the points of a ring, back to its first (ADR 0491): an open
+ * part whose last point is its first, smooth where it meets itself, as a curve that goes round.
+ */
+export function closedSplinePart(
+  ring: readonly Pt[],
+  tension: number,
+  round: (n: number) => number = round2,
+): Bezier {
+  const at = ring.map((p): Pt => [round(p[0]), round(p[1])]);
+  const n = at.length;
+  const k = (1 - tension) / 6;
+  const lean = (i: number): Pt => {
+    const before = at[(i - 1 + n) % n] as Pt;
+    const after = at[(i + 1) % n] as Pt;
+    return [(after[0] - before[0]) * k, (after[1] - before[1]) * k];
+  };
+
+  return {
+    shape: 'bezier',
+    start: at[0] as Pt,
+    segs: at.map((a, i) => {
+      const b = at[(i + 1) % n] as Pt;
+      const la = lean(i);
+      const lb = lean((i + 1) % n);
+      return [
+        [round(a[0] + la[0]), round(a[1] + la[1])],
+        [round(b[0] - lb[0]), round(b[1] - lb[1])],
+        b,
+      ] as const;
+    }),
   };
 }
 

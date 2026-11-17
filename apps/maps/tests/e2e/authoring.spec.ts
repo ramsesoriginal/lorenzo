@@ -1266,12 +1266,8 @@ for (const theme of ['light', 'dark'] as const) {
         format: 'lorenzo.geometry/1',
         parts: [
           drawnFirst.parts[0],
-          ...expected.add.map((line) => ({
-            shape: 'polyline',
-            pts: line.pts,
-            value: line.value,
-            unit: 'm',
-          })),
+          // Each a smooth curve through its points (ADR 0491).
+          ...expected.add.map((line) => ({ ...line.curve, value: line.value, unit: 'm' })),
         ],
       });
       expect(rows[0]?.role).toBe('isoline');
@@ -1373,7 +1369,9 @@ test('the height brush asks for what it needs, refuses other drawings, and raise
     const mound = (await w.read()).find((row) => row.name === 'Mound');
     expect(mound?.role).toBe('isoline');
     expect(
-      ((mound?.geometry ?? { parts: [] }) as Parts).parts.every((part) => part.unit === 'm'),
+      ((mound?.geometry ?? { parts: [] }) as Parts).parts.every(
+        (part) => part.unit === 'm' && part.shape === 'bezier',
+      ),
     ).toBe(true);
   } finally {
     await page.context().close();
