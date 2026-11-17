@@ -44,7 +44,7 @@ stats_app = typer.Typer(
 def session(
     ctx: typer.Context, tenant: str, *, writes: bool = False
 ) -> Iterator[tuple[LorenzoClient, UUID]]:
-    from lorenzo_cli.main import _client, _reporting_errors
+    from lorenzo_cli.runtime import _client, _reporting_errors
 
     with _reporting_errors(), _client(ctx.obj, writes=writes) as client:
         try:
@@ -84,7 +84,7 @@ def resolve(rows: list[Any], reference: str, kind: str) -> UUID:
 
 
 def output(value: BaseModel | list[Any], as_json: bool) -> None:
-    from lorenzo_cli.main import _out
+    from lorenzo_cli.runtime import _out
 
     if as_json:
         typer.echo(
@@ -348,7 +348,7 @@ def sheet_settings(
                 )
             )
         else:
-            from lorenzo_cli.main import _out
+            from lorenzo_cli.runtime import _out
 
             _out.print(
                 Text(
@@ -357,9 +357,3 @@ def sheet_settings(
                     f"Ability information type: {found.ability_information_type or 'not set'}"
                 )
             )
-
-
-def register(app: typer.Typer, tenant_app: typer.Typer) -> None:
-    app.add_typer(groups_app, name="stat-group")
-    app.add_typer(stats_app, name="stat-definition")
-    tenant_app.command("sheet-settings")(sheet_settings)

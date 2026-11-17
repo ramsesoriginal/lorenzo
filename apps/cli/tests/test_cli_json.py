@@ -16,8 +16,8 @@ from test_importer_give import ALICE, PACK, answer
 from test_importer_review import VALUE, item, make_plan
 from typer.testing import CliRunner
 
-from lorenzo_cli import main as main_module
 from lorenzo_cli.auth.store import CredentialsFile
+from lorenzo_cli.commands import mpmb as main_module
 from lorenzo_cli.importer.apply import ApplyReport
 from lorenzo_cli.importer.plan import ImportPlan
 from lorenzo_cli.importer.review import plan_json

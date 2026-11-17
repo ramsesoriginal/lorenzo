@@ -10,9 +10,9 @@ import httpx
 import pytest
 from typer.testing import CliRunner
 
-from lorenzo_cli import main as main_module
 from lorenzo_cli.auth.login import LoginError
 from lorenzo_cli.auth.store import CredentialsFile, StoredLogin
+from lorenzo_cli.commands import account as main_module
 from lorenzo_cli.config import ConfigError, Settings, SettingsFile, load_settings
 from lorenzo_cli.defaults import OFFICIAL_API_URL, OFFICIAL_CLIENT_ID, OFFICIAL_ISSUER
 from lorenzo_cli.main import Runtime, app

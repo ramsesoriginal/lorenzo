@@ -108,7 +108,7 @@ def references(
 
 
 def show(ctx: typer.Context, tenant: str, ref: str, kind: Kind, as_json: bool) -> None:
-    from lorenzo_cli.main import _out
+    from lorenzo_cli.runtime import _out
 
     with session(ctx, tenant) as (client, tid):
         eid = entry_id(client, tid, ref, kind)
@@ -235,7 +235,7 @@ def show(ctx: typer.Context, tenant: str, ref: str, kind: Kind, as_json: bool) -
 
 
 def print_sheet(sheet: SheetOut, definitions: dict[str, Any]) -> None:
-    from lorenzo_cli.main import _out
+    from lorenzo_cli.runtime import _out
 
     if not sheet.weapons_configured:
         _out.print(Text("Weapon stat group is not set.", style="dim"))
@@ -276,9 +276,3 @@ def instance_show(ctx: typer.Context, instance: str, tenant: Tenant, as_json: Js
 def being_show(ctx: typer.Context, being: str, tenant: Tenant, as_json: Json = False) -> None:
     """Read a being by id, link name or exact name, with equipped weapons and abilities."""
     show(ctx, tenant, being, "being", as_json)
-
-
-def register(app: typer.Typer, item_app: typer.Typer) -> None:
-    app.add_typer(instance_app, name="item-instance")
-    app.add_typer(being_app, name="being")
-    item_app.command("show")(item_show)

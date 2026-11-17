@@ -246,7 +246,7 @@ def test_calendar_wait_must_be_positive(tmp_path):
 def test_terminal_import_renders_activity_and_keeps_receipt_readable(tmp_path, monkeypatch):
     from rich.console import Console
 
-    from lorenzo_cli import main
+    from lorenzo_cli import runtime as main
 
     terminal = io.StringIO()
     monkeypatch.setattr(main, "_err", Console(file=terminal, force_terminal=True, width=120))

@@ -29,7 +29,7 @@ app = typer.Typer(help="Import and export authored calendar documents.", no_args
 @contextmanager
 def activity(description: str, *, as_json: bool) -> Iterator[None]:
     """The API applies one transaction; show elapsed activity, never invented note progress."""
-    from lorenzo_cli.main import _err
+    from lorenzo_cli.runtime import _err
 
     if _err.is_terminal and not as_json:
         with Progress(
@@ -176,7 +176,7 @@ def calendar_import(
     ] = False,
     as_json: Json = False,
 ) -> None:
-    from lorenzo_cli.main import _reporting_errors
+    from lorenzo_cli.runtime import _reporting_errors
 
     with _reporting_errors():
         try:
