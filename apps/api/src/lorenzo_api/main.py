@@ -11,6 +11,7 @@ from prometheus_fastapi_instrumentator import Instrumentator
 from lorenzo_api.compression import GzipForPathsMiddleware
 from lorenzo_api.config import get_settings
 from lorenzo_api.db import engine
+from lorenzo_api.decimal_schema import install as install_decimal_schema
 from lorenzo_api.errors import register_error_handlers
 from lorenzo_api.forwarded_scheme import ForwardedSchemeMiddleware
 from lorenzo_api.logging import configure_logging
@@ -104,6 +105,7 @@ from lorenzo_api.routers.writing_reviews import router as writing_reviews_router
 
 install_repository_quotas()
 install_placement()
+install_decimal_schema()
 
 
 @asynccontextmanager

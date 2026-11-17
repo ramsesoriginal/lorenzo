@@ -155,6 +155,16 @@ export const STORAGE_KEYS: StorageEntry[] = [
     ],
   },
   {
+    key: 'lorenzo:maps:height:*',
+    store: 'localStorage',
+    purpose: bi(
+      'Merkt sich für jede Karte die zuletzt gezeichnete Höhe und ihre Einheit, um sie beim nächsten Zeichnen wieder anzubieten. Bleibt in Ihrem Browser und wird nirgendwohin gesendet.',
+      'Remembers, for each map, the height and unit you drew last, to offer them again the next time you draw. It stays in your browser and is sent nowhere.',
+    ),
+    lasts: bi('Bis zum Löschen der Browserdaten', 'Until browser data is cleared'),
+    files: ['apps/maps/src/lib/height.ts'],
+  },
+  {
     key: 'bench:workspace, bench:explorer-order, bench:welcomed, bench:repo:*, lorenzo:palette-recent',
     store: 'localStorage',
     purpose: bi(

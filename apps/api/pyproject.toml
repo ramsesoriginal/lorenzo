@@ -3,7 +3,7 @@ name = "lorenzo-api"
 version = "1.0.0"
 description = "Lorenzo backend REST API"
 readme = "README.md"
-requires-python = ">=3.14,<3.15"
+requires-python = ">=3.15,<3.16"
 dependencies = [
   "lorenzo-calendar",
   "lorenzo-map",
@@ -35,7 +35,7 @@ dev = [
 ]
 
 [tool.ruff]
-target-version = "py314"
+target-version = "py315"
 line-length = 100
 src = ["src"]
 
@@ -49,7 +49,7 @@ select = ["E", "F", "I", "UP", "B", "SIM"]
 extend-immutable-calls = ["fastapi.Depends", "fastapi.Header"]
 
 [tool.mypy]
-python_version = "3.14"
+python_version = "3.15"
 plugins = ["pydantic.mypy"]
 strict = true
 files = ["src"]
