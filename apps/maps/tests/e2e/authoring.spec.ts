@@ -552,6 +552,14 @@ test('the command line takes a tool by name, places a place by a typed point and
     await command.fill('Line');
     await command.press('Enter');
     await expect(answer).toHaveText('Line is the tool.');
+    // The answer sits under the line: however long it is, the line keeps its width.
+    await command.fill('HELP');
+    await command.press('Enter');
+    await expect(answer).toContainText('UNDO, REDO');
+    const line = await command.boundingBox();
+    const said = await answer.boundingBox();
+    expect(line?.width).toBeGreaterThan(200);
+    expect(said?.y).toBeGreaterThanOrEqual((line?.y ?? 0) + (line?.height ?? 0) - 1);
     await command.fill('Height line');
     await command.press('Enter');
     await expect(answer).toContainText('Height line is planned');
