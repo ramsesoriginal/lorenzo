@@ -38,3 +38,6 @@ No notes, history, grants, personal goals, unsent browser drafts or inaccessible
 included. File names use UUIDs, never authored titles. `README.txt` identifies the format and
 its limits. The JSON preview embeds text and base64 picture bytes; the ZIP replaces those fields
 with file paths. Both use the same version and authorization checks.
+
+The 50 MiB text/picture limit counts repeated occurrences in the assembled reading, even though
+the archive stores a reused payload once. This also bounds preview and print expansion.

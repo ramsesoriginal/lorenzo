@@ -572,6 +572,19 @@ test('an invited reviewer reads one Edition, writes private notes and loses acce
     await expect(
       reviewPage.getByText('Could the bridge appear in Chapter one?', { exact: true }).first(),
     ).toBeVisible();
+    await reviewPage.getByText('Export', { exact: true }).focus();
+    await reviewPage.getByText('Export', { exact: true }).press('Enter');
+    const exportPanel = reviewPage.locator('details').filter({
+      has: reviewPage.locator('summary').filter({ hasText: /^Export$/ }),
+    });
+    await exportPanel.getByRole('button', { name: 'Preview saved writing' }).click();
+    await expect(exportPanel.locator('article')).toContainText(
+      'The river remembers the old bridge.',
+    );
+    await expect(exportPanel.locator('article')).not.toContainText('Could the bridge');
+    const exported = reviewPage.waitForEvent('download');
+    await exportPanel.getByRole('button', { name: 'Download LorenzoScript' }).click();
+    expect(await (await exported).failure()).toBeNull();
     await reviewPage.screenshot({
       path: test.info().outputPath('review-desktop.png'),
       fullPage: true,
@@ -2391,6 +2404,7 @@ test('saved export preview downloads source and prepares a clean printable manus
       true,
     );
     expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+    await controls.screenshot({ path: test.info().outputPath('export-phone.png') });
     await manuscript.fill('Changed after preview.');
     await expect(page.getByRole('status', { name: 'Save status' })).toHaveText('Saved');
     await controls.getByRole('button', { name: 'Download LorenzoScript' }).click();

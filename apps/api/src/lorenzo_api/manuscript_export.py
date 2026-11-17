@@ -210,11 +210,12 @@ async def review_entries(
     return entries
 
 
-def check_occurrences(snapshot: ExportSnapshot) -> None:
+def check_occurrences(snapshot: ExportSnapshot) -> dict[uuid.UUID, int]:
     entries = {entry.id: entry for entry in snapshot.entries}
     path: set[uuid.UUID] = set()
     tasks: list[tuple[uuid.UUID, uuid.UUID | None, bool]] = [(snapshot.root_id, None, False)]
     count = 0
+    payload_counts: dict[uuid.UUID, int] = {}
     while tasks:
         id, payload, leaving = tasks.pop()
         if leaving:
@@ -233,6 +234,7 @@ def check_occurrences(snapshot: ExportSnapshot) -> None:
             if payload is not None and element.id != payload:
                 continue
             if element.kind == "payload":
+                payload_counts[element.id] = payload_counts.get(element.id, 0) + 1
                 count += 1
                 if count > MAX_OCCURRENCES:
                     raise too_large()
@@ -241,13 +243,15 @@ def check_occurrences(snapshot: ExportSnapshot) -> None:
             elif element.kind in {"chapter", "scene_telling"}:
                 tasks.append((element.id, None, False))
 
+    return payload_counts
+
 
 async def assemble(
     session: AsyncSession, tenant: uuid.UUID, root: uuid.UUID, user: CurrentUser, *, review: bool
 ) -> ExportSnapshot:
     entries = await (review_entries if review else ordinary_entries)(session, tenant, root, user)
     snapshot = ExportSnapshot(root_id=root, entries=entries)
-    check_occurrences(snapshot)
+    occurrences = check_occurrences(snapshot)
     entry_ids = {entry.id for entry in entries}
     payload_ids = {el.id for entry in entries for el in entry.elements if el.kind == "payload"}
     for model, field in (
@@ -265,19 +269,18 @@ async def assemble(
         for entry in entries:
             setattr(entry, field, settings.get(entry.id))
     # Refuse oversized binary/text data before transferring it from PostgreSQL.
-    total = await session.scalar(
+    sizes = await session.execute(
         select(
-            func.sum(
-                func.coalesce(func.octet_length(PayloadDescription.content), 0)
-                + func.coalesce(func.octet_length(PayloadPicture.data), 0)
-            )
+            Payload.id,
+            func.coalesce(func.octet_length(PayloadDescription.content), 0)
+            + func.coalesce(func.octet_length(PayloadPicture.data), 0),
         )
         .select_from(Payload)
         .outerjoin(PayloadDescription, PayloadDescription.payload_id == Payload.id)
         .outerjoin(PayloadPicture, PayloadPicture.payload_id == Payload.id)
         .where(Payload.tenant_id == tenant, Payload.id.in_(payload_ids))
     )
-    if (total or 0) > MAX_BYTES:
+    if sum(size * occurrences[id] for id, size in sizes) > MAX_BYTES:
         raise too_large()
     size = 0
     rows = await session.execute(
@@ -316,7 +319,7 @@ async def assemble(
             )
         else:
             raise ManuscriptExportError(detail="This manuscript contains an unsupported element.")
-        size += len(raw)
+        size += len(raw) * occurrences[payload.id]
         if size > MAX_BYTES:
             raise too_large()
         snapshot.payloads.append(item)

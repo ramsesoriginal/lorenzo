@@ -195,7 +195,7 @@ async def test_export_repeatable_read_and_byte_bound(
 
 
 async def test_carrier_partial_repeated_and_independent_visibility(
-    raw_client: AsyncClient, fake_jwks_server: FakeJwksServer
+    raw_client: AsyncClient, fake_jwks_server: FakeJwksServer, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     from conftest import make_campaign
 
@@ -236,6 +236,12 @@ async def test_carrier_partial_repeated_and_independent_visibility(
         assert saved.status_code == 200, saved.text
         assert len(saved.json()["payloads"]) == 1
         assert picture.json()["id"] not in saved.text
+        from lorenzo_api import manuscript_export
+
+        with monkeypatch.context() as limits:
+            limits.setattr(manuscript_export, "MAX_BYTES", len(b"Selected prose.") + 1)
+            assert (await actor.get(url)).status_code == 422
+
         root = next(entry for entry in saved.json()["entries"] if entry["id"] == carrier["id"])
         assert [element["id"] for element in root["elements"]] == [ref["id"] for ref in refs]
         async with admin_session_factory() as session:
