@@ -21,6 +21,12 @@ The prototype fills a grid from built-in tile sets ("coast", "caves"). Nothing i
 - **The history step** is "Filled by wave function collapse, seed 4821: 120 cells of 3 tiles in the whole sheet", and it holds the change to every entry, so undo puts all of them back in one batch.
 - **The pure parts** are `collapse.ts` (learning and solving) and `cell-neighbours.ts` in `apps/maps/src/lib`. Golden vectors are in `packages/map-engine/golden/collapse.json`: the TypeScript tests reproduce each result, and the Python tests check with the engine's own cell functions that every cell of it is a cell of the grid.
 
+## Differences from the prototype, on purpose
+
+- The prototype's tile sets are built in; here the tiles are the entries a person drew, and the rules are read from that drawing.
+- The prototype fills the whole grid; here the fill is held to a region, to 256 cells for an entry and to 10,000 cells in all.
+- A placement of a single cell that is selected is an area like any other, so the fill then covers that one cell.
+
 ## Validation and delivery
 
 In two slices: the tool with this Map as its example, then the Example option for another Map.
