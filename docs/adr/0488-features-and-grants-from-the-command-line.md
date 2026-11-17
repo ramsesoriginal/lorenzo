@@ -33,3 +33,12 @@ maximum) and options; a feature has prerequisites. `grants/apply` takes picks, `
 
 - A character's features can be granted, chosen and inspected from a terminal or a script, with the same rules as the apps.
 - A GM's override is never silent.
+
+## As built (slice C8)
+
+- `--override` prints one warning that prerequisites and counts were not held to: the apply's answer does not list what was
+  passed over, so naming each would need an API change.
+- A grant rule is found by its entry and its `label`, so a rule in a document has a label. `grant-rule create --from FILE` creates
+  one, or replaces the one with that entry and label.
+- At a terminal `grants apply` asks each open choice `--pick` left; with `--yes`, `--json` or no terminal it asks nothing, and an
+  open choice is left open (exit 2).

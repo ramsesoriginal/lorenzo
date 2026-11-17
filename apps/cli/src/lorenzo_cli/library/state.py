@@ -11,6 +11,7 @@ from uuid import UUID
 from lorenzo_cli.client import ops
 from lorenzo_cli.client.models import (
     EntityExportPage,
+    GrantRuleOut,
     InformationOut,
     StatDefinitionOut,
     StatGroupOut,
@@ -21,6 +22,7 @@ from lorenzo_cli.client.models import (
 )
 from lorenzo_cli.client.paging import all_items
 from lorenzo_cli.client.transport import LorenzoClient
+from lorenzo_cli.library.document import Comparison
 
 EXPORT_PAGE = 500
 
@@ -51,6 +53,9 @@ class LibraryState:
     formulas: dict[tuple[UUID, UUID], dict[str, Any]] = field(default_factory=dict)
     formulas_read: set[UUID] = field(default_factory=set)
     templates: dict[str, TemplateOut] = field(default_factory=dict)
+    grant_rules: list[GrantRuleOut] = field(default_factory=list)
+    # A feature's prerequisites, read only for the features asked for.
+    prerequisites: dict[UUID, list[Comparison]] = field(default_factory=dict)
 
     def system_of(self, group: StatGroupOut) -> SystemOut | None:
         return next((s for s in self.systems.values() if s.id == group.system_id), None)
@@ -97,6 +102,7 @@ def read(client: LorenzoClient, tenant: TenantOut) -> LibraryState:
         state.groups[group.name] = group
     for stat in all_items(client, ops.LIST_STAT_DEFINITIONS, path=path, of=StatDefinitionOut):
         state.stats[stat.name] = stat
+    state.grant_rules = list(all_items(client, ops.LIST_GRANT_RULES, path=path, of=GrantRuleOut))
     for summary in all_items(client, ops.LIST_TEMPLATES, path=path, of=TemplateSummaryOut):
         state.templates[summary.name] = client.call(
             ops.GET_TEMPLATE, path={**path, "template_id": summary.id}
@@ -146,3 +152,17 @@ def description_text(information: InformationOut) -> str:
         if dumped.get("kind") == "description":
             parts.append(str(dumped.get("content", "")))
     return "\n\n".join(parts)
+
+
+def read_prerequisites(client: LorenzoClient, state: LibraryState, feature_ids: set[UUID]) -> None:
+    """The prerequisites of these features, one request each."""
+    from lorenzo_cli.library.grants import comparison_from_api
+
+    for feature_id in sorted(feature_ids):
+        if feature_id in state.prerequisites:
+            continue
+        found = client.call(
+            ops.GET_PREREQUISITES,
+            path={"tenant_id": state.tenant.id, "feature_id": feature_id},
+        ).value
+        state.prerequisites[feature_id] = [comparison_from_api(p) for p in found.prerequisites]

@@ -13,12 +13,13 @@ from dataclasses import dataclass, field
 from typing import Any, Literal
 from uuid import UUID
 
-from lorenzo_cli.client.models import TenantOut
-from lorenzo_cli.library import templates
+from lorenzo_cli.client.models import GrantRuleOut, TenantOut
+from lorenzo_cli.library import grants, templates
 from lorenzo_cli.library.document import (
     Document,
     EntryRow,
     FormulaRow,
+    GrantRuleRow,
     GroupRow,
     StatRow,
     TemplateRow,
@@ -435,6 +436,66 @@ class _Planner:
             if held.system == system_slug and name not in named:
                 self.add("remove", "template", name, REMOVE)
 
+    def prerequisites(self, row: EntryRow) -> None:
+        if row.prerequisites is None:
+            return
+        where = f"entry {row.slug}"
+        if "feature" not in row.kinds:
+            self.problem(f"{where}: only a feature has prerequisites.")
+            return
+        for comparison in row.prerequisites:
+            for name in filter(None, (comparison.stat, comparison.right)):
+                if not self.has_stat(name):
+                    self.missing("stat", name, f"{where}'s prerequisites")
+        existing = self.state.entry(row.slug)
+        held = self.state.prerequisites.get(existing.id) if existing else None
+        if existing is None or held is None:
+            if row.prerequisites:
+                self.add(
+                    "create", "prerequisites", row.slug, AFTER_ENTRIES, f"{len(row.prerequisites)}"
+                )
+            return
+        if [c.model_dump() for c in held] != [c.model_dump() for c in row.prerequisites]:
+            self.add(
+                "change", "prerequisites", row.slug, AFTER_ENTRIES, f"{len(row.prerequisites)}"
+            )
+
+    def rule_held(self, on: str, label: str) -> GrantRuleOut | None:
+        return next(
+            (
+                r
+                for r in self.state.grant_rules
+                if r.label == label and self.state.slug_of(r.entry_id) == on
+            ),
+            None,
+        )
+
+    def grant_rule(self, row: GrantRuleRow) -> None:
+        where = f"grant rule {row.label} on {row.on}"
+        for slug in [row.on, *row.options, *filter(None, [row.option_category])]:
+            if not self.has_entry(slug):
+                self.missing("entry", slug, where)
+        for name in grants.stats_named(row):
+            if not self.has_stat(name):
+                self.missing("stat", name, where)
+        if row.mode == "choose" and not row.options and row.option_category is None:
+            self.problem(f"{where}: a choice needs `options` or an `option_category`.")
+        key = f"{row.on}: {row.label}"
+        existing = self.rule_held(row.on, row.label)
+        if existing is None:
+            self.add("create", "grant rule", key, AFTER_ENTRIES, row.mode)
+            return
+        current = grants.rule_from_out(existing, lambda i: self.state.slug_of(i) or str(i))
+        if not grants.same_rule(current, row):
+            self.add("change", "grant rule", key, AFTER_ENTRIES, row.mode)
+
+    def prune_rules(self, under: set[UUID]) -> None:
+        named = {(r.on, r.label) for r in self.doc.grant_rule}
+        for rule in self.state.grant_rules:
+            slug = self.state.slug_of(rule.entry_id)
+            if rule.entry_id in under and (slug, rule.label) not in named:
+                self.add("remove", "grant rule", f"{slug}: {rule.label}", REMOVE)
+
     def attach(self) -> None:
         for row in self.doc.attach:
             where = f"attach {row.entry} to {row.parent}"
@@ -477,6 +538,7 @@ class _Planner:
         under = self.state.descendants(system.root_entry_id)
         system_stats = {s.id for s in self.state.stats.values() if s.stat_group_id in group_ids}
         self.prune_formulas(under, system_stats)
+        self.prune_rules(under)
         going = {
             e
             for e in under
@@ -527,6 +589,10 @@ def make_plan(doc: Document, state: LibraryState, *, prune: bool = False) -> Pla
         planner.formula(formula)
     for template in doc.template:
         planner.template(template)
+    for entry in doc.entry:
+        planner.prerequisites(entry)
+    for rule in doc.grant_rule:
+        planner.grant_rule(rule)
     planner.attach()
     if prune:
         planner.prune()

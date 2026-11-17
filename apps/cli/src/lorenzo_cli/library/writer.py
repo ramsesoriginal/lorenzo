@@ -18,6 +18,7 @@ from lorenzo_cli.client.models import (
     EntityCreate,
     EntityParentsRequest,
     InformationCreate,
+    PrerequisitesIn,
     SetEntityStatRequest,
     StatDefinitionCreate,
     StatDefinitionUpdate,
@@ -28,7 +29,7 @@ from lorenzo_cli.client.models import (
     SystemUpdate,
 )
 from lorenzo_cli.client.transport import LorenzoClient
-from lorenzo_cli.library import formulas, templates
+from lorenzo_cli.library import formulas, grants, templates
 from lorenzo_cli.library.document import Document
 from lorenzo_cli.library.planner import Action, Plan
 from lorenzo_cli.library.state import LibraryState
@@ -60,6 +61,7 @@ class _Ids:
         self.stats = {name: s.id for name, s in state.stats.items()}
         self.entries = {e.slug: e.id for e in state.entries.values() if e.slug}
         self.templates = {name: t.id for name, t in state.templates.items()}
+        self.rules = {f"{state.slug_of(r.entry_id)}: {r.label}": r.id for r in state.grant_rules}
 
     def put(self, table: str, key: str, value: UUID) -> None:
         with self._lock:
@@ -74,7 +76,8 @@ class _Writer:
         self.ids = _Ids(state)
 
     def run(self, action: Action) -> None:
-        getattr(self, f"_{action.verb}_{action.kind}")(action, dict(action.fields))
+        kind = action.kind.replace(" ", "_")
+        getattr(self, f"_{action.verb}_{kind}")(action, dict(action.fields))
 
     # --- systems --------------------------------------------------------------------------
 
@@ -314,6 +317,55 @@ class _Writer:
         self.client.call(
             ops.DELETE_TEMPLATE,
             path={**self.path, "template_id": self.ids.templates[action.key]},
+        )
+
+    # --- features and grant rules -------------------------------------------------------------
+
+    def _set_prerequisites(self, action: Action) -> None:
+        row = next(e for e in self.doc.entry if e.slug == action.key)
+        self.client.call(
+            ops.PUT_PREREQUISITES,
+            path={**self.path, "feature_id": self.ids.entries[row.slug]},
+            body=PrerequisitesIn(
+                prerequisites=[
+                    grants.comparison_to_api(c, lambda name: self.ids.stats[name])
+                    for c in row.prerequisites or []
+                ]
+            ),
+        )
+
+    def _create_prerequisites(self, action: Action, _: dict[str, Any]) -> None:
+        self._set_prerequisites(action)
+
+    def _change_prerequisites(self, action: Action, _: dict[str, Any]) -> None:
+        self._set_prerequisites(action)
+
+    def _rule(self, action: Action, *, creating: bool) -> Any:
+        on, label = action.key.split(": ", 1)
+        row = next(r for r in self.doc.grant_rule if r.on == on and r.label == label)
+        return grants.rule_body(
+            row,
+            entry_id=lambda slug: self.ids.entries[slug],
+            stat_id=lambda name: self.ids.stats[name],
+            creating=creating,
+        )
+
+    def _create_grant_rule(self, action: Action, _: dict[str, Any]) -> None:
+        made = self.client.call(
+            ops.CREATE_GRANT_RULE, path=self.path, body=self._rule(action, creating=True)
+        ).value
+        self.ids.put("rules", action.key, made.id)
+
+    def _change_grant_rule(self, action: Action, _: dict[str, Any]) -> None:
+        self.client.call(
+            ops.REPLACE_GRANT_RULE,
+            path={**self.path, "rule_id": self.ids.rules[action.key]},
+            body=self._rule(action, creating=False),
+        )
+
+    def _remove_grant_rule(self, action: Action, _: dict[str, Any]) -> None:
+        self.client.call(
+            ops.DELETE_GRANT_RULE, path={**self.path, "rule_id": self.ids.rules[action.key]}
         )
 
     # --- pruning ---------------------------------------------------------------------------

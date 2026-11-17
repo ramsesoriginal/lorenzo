@@ -98,6 +98,9 @@ class EntryRow(_Row):
     description: str | None = Field(None, description="Its public description.")
     repeatable: bool | None = None
     starts_inactive: bool | None = None
+    prerequisites: list[Comparison] | None = Field(
+        None, description="A feature's prerequisites, as a whole list."
+    )
 
 
 class FormulaRow(BaseModel):
@@ -162,6 +165,49 @@ class TemplateRow(_Row):
     slot: list[SlotRow] = Field(default_factory=list, max_length=50)
 
 
+Comparator = Literal["lt", "le", "eq", "ne", "ge", "gt"]
+
+
+class Comparison(_Row):
+    """A stat compared with a number (`value`) or with another stat (`right`)."""
+
+    stat: str
+    comparator: Comparator
+    value: float | None = None
+    right: str | None = None
+
+    @model_validator(mode="after")
+    def _one_right_side(self) -> Comparison:
+        if (self.value is None) == (self.right is None):
+            raise ValueError(
+                f"{self.stat} {self.comparator}: compare with a `value` or a `right` stat"
+            )
+        return self
+
+
+class Condition(Comparison):
+    """A grant rule's condition: on the holder (the default) or on the source."""
+
+    subject: Literal["holder", "source"] = "holder"
+
+
+class GrantRuleRow(_Row):
+    """A grant rule (ADR 0455): on an entry, what it gives whoever has it, all or by choice."""
+
+    on: str = Field(pattern=ENTRY_SLUG, max_length=100)
+    label: str = Field(min_length=1, description="With `on`, what the rule is found by.")
+    position: int | None = None
+    mode: Literal["all", "choose"]
+    min: int | None = Field(None, ge=0)
+    max: int | None = Field(None, ge=1)
+    count: str | None = Field(None, description="A stat whose value is how many may be chosen.")
+    options: list[str] = Field(default_factory=list, description="Features, by slug.")
+    option_category: str | None = Field(None, description="Or every feature under this entry.")
+    lasts: Literal["while_source", "permanent"] = "while_source"
+    changeable: bool = False
+    conditions: list[Condition] = Field(default_factory=list)
+
+
 class AttachRow(_Row):
     """A parent added to an entry another document owns (ADR 0172)."""
 
@@ -179,6 +225,7 @@ class Document(_Row):
     entry: list[EntryRow] = Field(default_factory=list)
     formula: list[FormulaRow] = Field(default_factory=list)
     template: list[TemplateRow] = Field(default_factory=list)
+    grant_rule: list[GrantRuleRow] = Field(default_factory=list)
     attach: list[AttachRow] = Field(default_factory=list)
 
     @model_validator(mode="after")
@@ -189,6 +236,7 @@ class Document(_Row):
             ("entry", [e.slug for e in self.entry]),
             ("formula", [f"{f.stat} on {f.on}" for f in self.formula]),
             ("template", [t.name for t in self.template]),
+            ("grant rule", [f"{r.label} on {r.on}" for r in self.grant_rule]),
         ):
             twice = sorted(k for k, n in Counter(keys).items() if n > 1)
             if twice:
@@ -261,3 +309,7 @@ def json_schema() -> dict[str, object]:
     schema["$schema"] = "https://json-schema.org/draft/2020-12/schema"
     schema["title"] = "Lorenzo library document"
     return schema
+
+
+# Rows defined above the tables they use are completed once everything is defined.
+EntryRow.model_rebuild()

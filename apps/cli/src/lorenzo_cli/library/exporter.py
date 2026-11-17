@@ -12,7 +12,7 @@ from typing import Any
 from uuid import UUID
 
 from lorenzo_cli.client.models import StatDefinitionOut, StatGroupOut
-from lorenzo_cli.library import templates
+from lorenzo_cli.library import grants, templates
 from lorenzo_cli.library.document import (
     Document,
     EntryRow,
@@ -84,6 +84,7 @@ def _entry_row(entry: EntryState, state: LibraryState) -> EntryRow:
         else:
             stats[stat.name] = value
     held = entry.description()
+    prerequisites = state.prerequisites.get(entry.id) if "feature" in entry.kinds else None
     return EntryRow(
         slug=entry.slug or str(entry.id),
         name=entry.name,
@@ -93,6 +94,7 @@ def _entry_row(entry: EntryState, state: LibraryState) -> EntryRow:
         stats=dict(sorted(stats.items())),
         tags=sorted(tags),
         description=description_text(held) if held is not None else None,
+        prerequisites=prerequisites or None,
     )
 
 
@@ -173,6 +175,7 @@ def export(state: LibraryState, system_slug: str | None) -> Document:
     by_group = {g.id: g for g in groups}
     ordered = _ordered(entries, state)
     doc_entries = [_entry_row(e, state) for e in ordered]
+    exported = {e.id for e in ordered}
     names = {s.id: s.name for s in state.stats.values()}
     doc_formulas = [
         FormulaRow(
@@ -220,6 +223,11 @@ def export(state: LibraryState, system_slug: str | None) -> Document:
         entry=doc_entries,
         formula=doc_formulas,
         template=doc_templates,
+        grant_rule=[
+            grants.rule_from_out(rule, lambda i: state.slug_of(i) or str(i))
+            for rule in state.grant_rules
+            if rule.entry_id in exported
+        ],
     )
 
 

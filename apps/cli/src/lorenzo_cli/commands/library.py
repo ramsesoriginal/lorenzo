@@ -17,7 +17,7 @@ from lorenzo_cli.library.document import Document, DocumentError
 from lorenzo_cli.library.exporter import ExportError, chosen, export, to_toml
 from lorenzo_cli.library.planner import Plan, make_plan
 from lorenzo_cli.library.render import counts_line, plan_json, print_plan, print_result
-from lorenzo_cli.library.state import LibraryState, read, read_formulas
+from lorenzo_cli.library.state import LibraryState, read, read_formulas, read_prerequisites
 from lorenzo_cli.library.writer import apply as write_plan
 from lorenzo_cli.runtime import Runtime, _client, _reporting_errors, may_write
 from lorenzo_cli.self_service import SelfServiceError
@@ -62,6 +62,12 @@ def read_formulas_for(
     if prune and doc.system is not None and doc.system.slug in state.systems:
         wanted |= {e.id for e in chosen(state, doc.system.slug)}
     read_formulas(client, state, wanted)
+    features = {
+        e.id
+        for row in doc.entry
+        if row.prerequisites is not None and (e := state.entry(row.slug)) is not None
+    }
+    read_prerequisites(client, state, features)
 
 
 def _planned(
@@ -153,7 +159,9 @@ def _export(ctx: typer.Context, tenant: str, system: str | None, output: Path | 
         with console.waiting(f"Reading {target.slug}"):
             state = read(client, target)
         try:
-            read_formulas(client, state, {e.id for e in chosen(state, system)})
+            entries = chosen(state, system)
+            read_formulas(client, state, {e.id for e in entries})
+            read_prerequisites(client, state, {e.id for e in entries if "feature" in e.kinds})
             text = to_toml(export(state, system))
         except ExportError as exc:
             raise SelfServiceError(str(exc)) from exc

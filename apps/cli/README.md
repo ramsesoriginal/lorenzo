@@ -109,6 +109,7 @@ Or pipe a token in with `--token-stdin`. A token from the stored login is used l
 | `lorenzo plan\|apply FILE\|--starter NAME -t LIBRARY [--prune]`, `lorenzo export SLUG\|neutral -t LIBRARY` | A system or the neutral vocabulary as one document: what applying it would do, applying it, and writing it back ([ADR 0484](../../docs/adr/0484-the-library-document.md)) |
 | `lorenzo formula set|show|preview|tree|delete` | Formulas of every kind, one at a time ([ADR 0486](../../docs/adr/0486-formulas-from-the-command-line.md)) |
 | `lorenzo template list|show|create|delete|matching|view`, `lorenzo campaign list|create|set-system`, `lorenzo being create|show` | Templates, the system a campaign plays, and beings ([ADR 0487](../../docs/adr/0487-templates-campaigns-and-beings-from-the-command-line.md)) |
+| `lorenzo feature list|show|award|activate|deactivate|remove`, `lorenzo grant-rule list|show|create|delete`, `lorenzo grants show|apply` | Features, the rules that grant them, and applying them with choices ([ADR 0488](../../docs/adr/0488-features-and-grants-from-the-command-line.md)) |
 | `lorenzo starter list\|show`, `lorenzo schema document\|output COMMAND` | The documents that ship with the CLI, and the JSON Schemas of the document and of each command's `--json` output. Need no login |
 | `lorenzo tenant sheet-settings <tenant> [--being-stat-group G] [--weapon-stat-group G] [--ability-information-type T] [--clear-...] [--json]` | Reads a library's sheet settings, or changes only the ones named; each `--clear-...` unsets one |
 | `lorenzo item show <item>`, `lorenzo item-instance show <instance>`, `lorenzo being show <being>` `--tenant <tenant> [--json]` | Reads an item, an instance or a being by id, link name or exact name: resolved stats, inheritance, containment and notes, and for a being its equipped weapons and abilities |
@@ -506,6 +507,33 @@ lorenzo being show hale -t lib --campaign league       # the sheet as the campai
 ```
 
 `item show`, `item-instance show` and `being show` take `--system SLUG` to read an entry as one system shows it.
+
+### Features and grants
+
+A feature is an entry of kind `feature`; an entry holds one when it is awarded, granted by a rule on something it inherits from or holds, or picked from a rule's choice ([ADR 0488](../../docs/adr/0488-features-and-grants-from-the-command-line.md)). In a document a feature has `prerequisites`, and a `[[grant_rule]]` sits `on` an entry with a `label`, a `mode` (`all`, or `choose` with `min` and `max`), its `options` (or an `option_category`) and its `conditions`:
+
+```toml
+[[grant_rule]]
+on = "ft-fighter"
+label = "Fighting style"
+mode = "choose"
+min = 1
+max = 1
+options = ["ft-archery", "ft-defence"]
+```
+
+```bash
+lorenzo grants show hero -t lib                                   # held, due, open choices, orphaned
+lorenzo grants apply hero -t lib                                  # a dry run first; asks each choice at a terminal
+lorenzo grants apply hero -t lib --pick "Fighting style=Archery" --yes   # a script answers with --pick
+lorenzo feature award ft-defence --to hero -t lib
+lorenzo feature deactivate ft-defence --on hero -t lib
+lorenzo feature remove ft-defence --from hero -t lib
+lorenzo grant-rule list --on ft-fighter -t lib
+lorenzo grant-rule create --from rule.toml -t lib
+```
+
+`grants apply` exits 2 when a choice is left open or nothing was applied, and a GM's `--override` passes prerequisites and counts by, said in a warning.
 
 ### Formulas
 

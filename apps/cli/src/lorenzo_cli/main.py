@@ -48,6 +48,13 @@ COMMANDS: dict[str, Entry] = {
     "system": Entry(f"{_C}systems", "app", "List, read, create, edit or delete a game system."),
     "formula": Entry(f"{_C}formulas", "app", "Set, show, preview, trace or delete a formula."),
     "template": Entry(f"{_C}templates", "app", "Templates, and an entry read through one."),
+    "feature": Entry(
+        f"{_C}features", "feature_app", "Features: list, read, award, switch, remove."
+    ),
+    "grant-rule": Entry(f"{_C}features", "rule_app", "Grant rules: list, read, create, delete."),
+    "grants": Entry(
+        f"{_C}features", "grants_app", "What an entry holds and is due, and applying it."
+    ),
     "campaign": Entry(f"{_C}campaigns", "app", "List or create campaigns, and set their system."),
     "import": Entry(
         f"{_C}transfer", "import_app", "Import MPMB items, an inventory or a calendar."
