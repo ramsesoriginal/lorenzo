@@ -3,7 +3,7 @@
 
 from datetime import date as date_aliased
 from enum import StrEnum
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 from uuid import UUID
 
 from pydantic import (
@@ -3428,6 +3428,15 @@ class RepositoryEntityOut(BaseModel):
     prototype_ids: list[UUID] = Field(..., title="Prototype Ids")
 
 
+type Credits = Annotated[list[CreditIn], Field(max_length=20, title="Credits")]
+
+
+type Tags = Annotated[list[str], Field(max_length=100, title="Tags")]
+
+
+type Languages = Annotated[list[str], Field(max_length=100, title="Languages")]
+
+
 class RepositorySummaryOut(BaseModel):
     id: UUID = Field(..., title="Id")
     name: str = Field(..., title="Name")
@@ -5794,10 +5803,10 @@ class RepositoryProfileUpdate(BaseModel):
     listed: bool | None = Field(None, title="Listed")
     summary: constr(max_length=2000) | None = Field(None, title="Summary")
     licence: LicenceIn | None = None
-    credits: list[CreditIn] | None = Field(None, title="Credits")
-    tags: list[str] | None = Field(None, title="Tags")
+    credits: Credits | None = Field(None, title="Credits")
+    tags: Tags | None = Field(None, title="Tags")
     system: constr(max_length=2000) | None = Field(None, title="System")
-    languages: list[str] | None = Field(None, title="Languages")
+    languages: Languages | None = Field(None, title="Languages")
     terms: TermsIn | None = None
 
 
