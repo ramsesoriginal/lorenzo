@@ -46,9 +46,9 @@ validator owns them, the write routes and the repository planner call it.
 
 | Limit | Value |
 | --- | --- |
-| bytes of one placement's geometry | 64 KiB |
-| vertices in one placement, controls included | 2,000 |
-| parts in one placement | 256 |
+| bytes of one placement's geometry | 64 KiB (256 KiB since [ADR 0481](0481-cells-as-merged-outlines-and-larger-drawings.md)) |
+| vertices in one placement, controls included | 2,000 (8,000 since ADR 0481) |
+| parts in one placement | 256 (1,024 since ADR 0481) |
 | coordinate magnitude | 1e7 |
 | placements on one Map | 5,000 |
 | Maps in one library | 500 |
