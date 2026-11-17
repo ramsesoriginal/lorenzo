@@ -133,10 +133,6 @@ export const TOLERANCE: NumberOption = {
 /** The seed of a generator (ADR 0475): each generator lists it, and each keeps its own. */
 export const SEED: SeedOption = { id: 'seed', name: 'Seed', word: 'seed', type: 'seed' };
 
-/**
- * The role of what a generator draws (ADR 0475): the person's to choose, and none at first. The
- * list is the renderer's closed list of roles (ADR 0337).
- */
 /** The Map a fill of cells learns from (ADR 0479): this one at first. */
 export const EXAMPLE: MapOption = {
   id: 'example',
@@ -146,6 +142,10 @@ export const EXAMPLE: MapOption = {
   first: '',
 };
 
+/**
+ * The role of what a generator draws (ADR 0475): the person's to choose, and none at first. The
+ * list is the renderer's closed list of roles (ADR 0337).
+ */
 export const ROLE: ChoiceOption = {
   id: 'role',
   name: 'Role',
