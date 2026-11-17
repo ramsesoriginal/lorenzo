@@ -12,6 +12,11 @@ The Height brush traces a line from a field of 128 samples across the sheet and 
 - **It is a height line as any other** ([ADR 0473](0473-the-height-line-tool.md)): the bezier carries its height and unit, is read back by the brush as it is drawn, and its points can be changed as a spline's.
 - The height lines of Fill by marching squares are not changed.
 
+## Built
+
+- The curve is kept to the decimals of the traced line, two as a rule and more on a sheet so small that two would merge its points ([ADR 0477](0477-the-fill-by-marching-squares-generator.md)); a hill brushed on a sheet of 1000 by 800 stays well within a drawing's limits.
+- The preview draws each new line as the curve that will be written.
+
 ## Validation and delivery
 
 Unit tests: an open and a closed line through their points, smooth where a closed one meets itself, every point of the curve within a sample of the traced line, within the placement's limits. The browser test of the Height brush checks the parts written are bezier height lines.
