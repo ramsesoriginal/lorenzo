@@ -25,6 +25,7 @@ As decided, with these details:
 - **Rock that never changes** is the edge of the field, a cell outside the region and a cell beside one, so an outline, which runs between the middles of two cells, stays inside the region.
 - **Measured** over 4,000 runs (sheets of 1000 by 800, 100 by 64, 10 by 8 and 5000 by 5000; Size 16, 32, 48, 64 and 96; 200 seeds each, the other options as first offered): no result was a shape the validator refuses. At Size 48 a result has about 300 to 600 points and two or three caves; at 96 about 1,300 to 2,200, which is over a placement's 2,000 on a large square sheet and is then refused with its sentence. A run takes under 10 milliseconds, so the preview is worked out as an option is typed.
 - **The editor's part of ADR 0475 comes with this tool:** the preview as filled areas of the overlay, Compare as a checkbox with a Divider slider in the panel, Apply (off until a result fits and an entry is chosen) and Discard, and the commands. The region is the placement selected when the tool is chosen.
+- **The decimals follow the field,** as [ADR 0477](0477-the-fill-by-marching-squares-generator.md) says: two as a rule, more on a sheet so small that two would merge an outline's points (on a sheet half a unit wide four in ten results were refused before), and whole units on a field that reaches past a million.
 - **Options gain the `choice` type** for the role, written `ROLE water` or `ROLE none` on the command line.
 - **The renderer exports its seeded source,** which the generators draw from.
 

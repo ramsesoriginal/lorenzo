@@ -16,6 +16,18 @@ Status: accepted, decided with the maintainer on 2026-11-16. Part of [RFC 0050](
 - **The history step** is "Drew a fill, seed 4821: 3 areas and 6 height lines in the whole sheet".
 - **The pure parts** are `fill.ts` and, shared with the caves, `field.ts` (a field over a region) in `apps/maps/src/lib`. Golden vectors are in `packages/map-engine/golden/fills.json`, read by both languages as the caves' are.
 
+## Built
+
+As decided, with these details, each found by measuring:
+
+- **A crossing is put on a sixteenth of a cell's edge,** never on its end. Noise can put two crossings a hair apart, and rounding then folded a ring onto itself: on a sheet 10 units wide about one result in ten was a shape the validator refuses, and one in 150 at the finest Scale on a sheet of 1000. On sixteenths no two points of a result are nearer than a sixteenth of a cell.
+- **The decimals follow the field** (`field.ts`, shared with the caves): two as the editor keeps, more for a field so fine that two would merge points a sixteenth of a cell apart, up to the format's six, and none for a field that reaches past a million units (see below).
+- **Measured** after that over 12,000 runs (sheets from half a unit to 5,000 units wide, Scale 2 to 20, 0 to 8 height lines, 400 seeds each) and 2,100 more on sheets up to 20 million units wide and far from the origin: no result was a shape the validator refuses. As first offered a result has about 450 to 700 points. Eight height lines at Scale 20 are over a placement's 2,000 points on most sheets and are refused with their sentence. A run takes a few milliseconds.
+- **Height lines without their heights** are previewed, the preview says what is missing, and Apply is off; the words of the tool come before any limit.
+- **An area ends at the edge of its region** in a straight side, and so does a height line there: the field holds 0 outside.
+
+Found on the way, and not this tool's to change: the validator checks a number to a ten-thousandth of a millionth, and from 1,048,576 on some numbers of two decimals cannot be held that exactly and are refused as having "more than six decimals" (about 4 in 100 of them between two and ten million). A generator draws in whole units out there. A point clicked or typed by hand on so large a sheet can meet the same refusal.
+
 ## Validation and delivery
 
 Unit tests: the golden vectors; the same seed and options twice; another seed differs; areas and lines inside the region; every result passes the mirrored validator across many seeds; Level, Scale and Smallest area do what they say; height lines carry their values and close; a result over a limit, and height lines without their heights, are refused with their sentences. Browser tests against the real API: the preview, height lines asked for without and with their heights, Apply writing exactly what the function gives, the values on the Map, undo; axe in light and dark with the preview on.
