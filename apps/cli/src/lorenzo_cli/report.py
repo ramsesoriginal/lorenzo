@@ -17,7 +17,7 @@ from lorenzo_cli.seed.spec import NodeSpec, RecipeSpec
 def print_evaluation(console: Console, result: EvalResult) -> None:
     files = Table("file", "role", "result", title="Files", title_justify="left")
     for file in result.files:
-        status = "[green]ok[/green]" if file.status == "ok" else f"[red]{file.error}[/red]"
+        status = "[green]ok[/green]" if file.status == "ok" else f"[red]✗ {file.error}[/red]"
         files.add_row(file.name, file.role, status)
     console.print(files)
 
@@ -43,7 +43,7 @@ def print_evaluation(console: Console, result: EvalResult) -> None:
         )
     if result.stubs_in_data:
         console.print(
-            f"[yellow]{len(result.stubs_in_data)} value(s) came from a stubbed sheet call and "
+            f"[yellow]⚠ {len(result.stubs_in_data)} value(s) came from a stubbed sheet call and "
             "are unknown; the first is "
             f"{result.stubs_in_data[0].path}.[/yellow]"
         )
@@ -91,9 +91,9 @@ def print_seed_plan(console: Console, plan: SeedPlan, *, applied: bool = False) 
         console.print(table)
     console.print(f"Already there: {plan.existing}. To create: {len(plan.actions)}.")
     for warning in plan.warnings:
-        console.print(f"[yellow]{warning}[/yellow]")
+        console.print(f"[yellow]⚠ {warning}[/yellow]")
     for problem in plan.problems:
-        console.print(f"[red]{problem}[/red]")
+        console.print(f"[red]✗ {problem}[/red]")
 
 
 def unseed_plan_json(plan: UnseedPlan) -> dict[str, object]:
@@ -156,7 +156,7 @@ def print_unseed_plan(console: Console, plan: UnseedPlan) -> None:
         console.print(table)
     console.print(f"To remove: {unseed_counts(plan)}.")
     for problem in plan.problems:
-        console.print(f"[red]{problem}[/red]")
+        console.print(f"[red]✗ {problem}[/red]")
 
 
 def print_unseed_result(console: Console, result: UnseedResult) -> None:
@@ -165,7 +165,7 @@ def print_unseed_result(console: Console, result: UnseedResult) -> None:
         + (f"; kept {len(result.kept)}." if result.kept else ". Run it again to check.")
     )
     for kept in result.kept:
-        console.print(f"[red]Kept {kept.kind} {kept.name}: {kept.reason}[/red]")
+        console.print(f"[red]✗ Kept {kept.kind} {kept.name}: {kept.reason}[/red]")
 
 
 def import_exit_code(plan: ImportPlan, *, strict: bool, reconcile: bool) -> int:
@@ -215,7 +215,7 @@ def print_import_plan(console: Console, plan: ImportPlan, *, strict: bool) -> No
             table.add_row(label, str(count))
     console.print(table)
     for line in plan.file_errors:
-        console.print(f"[red]A file stopped part-way: {line}[/red]")
+        console.print(f"[red]✗ A file stopped part-way: {line}[/red]")
     for override in plan.overrides:
         console.print(
             f"{override['list']} {override['key']!r}: {override['by_file']} replaces "
@@ -238,7 +238,7 @@ def print_import_plan(console: Console, plan: ImportPlan, *, strict: bool) -> No
             + f"[/{style}]"
         )
     for problem in plan.problems:
-        console.print(f"[red]{problem}[/red]")
+        console.print(f"[red]✗ {problem}[/red]")
     held: dict[tuple[str, str, str], int] = {}
     for item in plan.items:
         if item.status == "held":
@@ -246,7 +246,7 @@ def print_import_plan(console: Console, plan: ImportPlan, *, strict: bool) -> No
                 held_key = (item.draft.list_name, issue.attribute or issue.kind, issue.reason)
                 held[held_key] = held.get(held_key, 0) + 1
     for (list_name, attribute, reason), count in sorted(held.items()):
-        console.print(f"[red]{count} x {list_name}.{attribute}: {reason}[/red]")
+        console.print(f"[red]✗ {count} x {list_name}.{attribute}: {reason}[/red]")
 
 
 def _recipe_text(recipe: RecipeSpec) -> str:

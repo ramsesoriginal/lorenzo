@@ -71,8 +71,8 @@ def test_unseed_takes_layers_out_and_seed_can_put_them_back(stack: Stack, tmp_pa
     declined = run_cli(
         stack, token, tmp_path, *["unseed", "--tenant", tenant, *RULES], answers="n\n"
     )
-    assert declined.exit_code == 1, declined.output
-    assert "Nothing was deleted" in said(declined)
+    assert declined.exit_code == 2, declined.output
+    assert "nothing was written" in said(declined)
     with stack.api(token) as api:
         assert len(definitions(api, tid)) == 40
 
@@ -260,7 +260,7 @@ def test_unseed_needs_yes_without_a_terminal_and_json_never_asks(
         stack, token, tmp_path, "unseed", "--tenant", tenant, "--layer", "dnd5e", "--json"
     )
 
-    assert quiet.exit_code == as_json.exit_code == 1
+    assert quiet.exit_code == as_json.exit_code == 2
     assert "run again with --yes" in said(quiet) and "run again with --yes" in said(as_json)
     with stack.api(token) as api:
         assert len(definitions(api, tenant_id(api, tenant))) == 40

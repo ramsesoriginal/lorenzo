@@ -40,6 +40,8 @@ def serving(
 
 
 def invoke(tmp_path: Path, args: list[str], transport: httpx.MockTransport, stdin: str = ""):  # noqa: ANN201
+    if args and args[0].upper() != "GET" and "--yes" not in args:
+        args = [*args, "--yes"]  # a request that writes is given --yes (ADR 0482)
     return runner.invoke(app, ["api", *args], obj=runtime(tmp_path, transport, stdin=stdin))
 
 

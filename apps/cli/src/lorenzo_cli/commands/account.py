@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 from typing import Annotated
 from urllib.parse import urlsplit
 
@@ -10,6 +9,7 @@ import httpx
 import typer
 from rich.table import Table
 
+from lorenzo_cli import console
 from lorenzo_cli.auth.device import run_device_login
 from lorenzo_cli.auth.login import run_login
 from lorenzo_cli.client.errors import (
@@ -190,7 +190,7 @@ def legal(
         name: address for name, address in rows.items() if isinstance(address, str) and address
     }
     if as_json:
-        typer.echo(json.dumps(found, indent=2, ensure_ascii=False))
+        console.emit(found)
         return
     if not any(name != "support" for name in found):
         _err.print(f"{base_url} has not published a legal notice or a privacy policy.")
@@ -224,7 +224,7 @@ def whoami(
                 ) from exc
             raise
     if as_json:
-        typer.echo(me.model_dump_json(indent=2))
+        console.emit(me.model_dump(mode="json"))
         return
     table = Table(show_header=False, box=None)
     table.add_row("user", str(me.id))

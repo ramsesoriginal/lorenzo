@@ -51,6 +51,8 @@ def said(result: object) -> str:
 
 
 def run(tmp_path: Path, world: World, *args: str, interactive: bool | None = None, **kw: object):  # noqa: ANN201
+    if args[:1] in (("publish",), ("unpublish",), ("grant",), ("revoke",)) and "--yes" not in args:
+        args = (*args, "--yes")  # writes, given --yes (ADR 0482)
     return runner.invoke(
         app, ["repo", *args], obj=runtime(tmp_path, world, interactive=interactive), **kw
     )
@@ -264,7 +266,7 @@ def test_subscribers_say_how_many_copied_it_by_themselves_and_never_who(tmp_path
 def test_subscribers_json_is_an_array(tmp_path: Path) -> None:
     result = run(tmp_path, World(granted=True), "subscribers", "-t", "sunken-vale", "--json")
 
-    assert [row["slug"] for row in json.loads(result.stdout)] == ["table-one"]
+    assert [row["slug"] for row in json.loads(result.stdout)["subscribers"]] == ["table-one"]
 
 
 # --- list ----------------------------------------------------------------------------
@@ -290,7 +292,7 @@ def test_list_with_nothing_says_so(tmp_path: Path) -> None:
 def test_list_json_is_the_apis_rows(tmp_path: Path) -> None:
     result = run(tmp_path, World(granted=True), "list", "-t", "table-one", "--json")
 
-    rows = json.loads(result.stdout)
+    rows = json.loads(result.stdout)["repositories"]
     assert rows[0]["repository"]["slug"] == "sunken-vale"
     assert rows[0]["copied_at"] is None
 
@@ -389,7 +391,7 @@ def test_copy_asks_first_at_a_terminal_and_a_no_copies_nothing(tmp_path: Path) -
         tmp_path, world, "copy", "sunken-vale", "-t", "table-one", interactive=True, input="n\n"
     )
 
-    assert result.exit_code == 1
+    assert result.exit_code == 2
     assert "Copy Sunken Vale into table-one?" in said(result)
     assert world.writes() == []
 
@@ -412,13 +414,13 @@ def test_copy_goes_ahead_on_a_yes_at_the_prompt_and_with_the_flag(tmp_path: Path
 def test_copy_that_cannot_ask_needs_yes_and_json_never_asks(tmp_path: Path) -> None:
     world = World(granted=True)
     quiet = run(tmp_path, world, "copy", "sunken-vale", "-t", "table-one", interactive=False)
-    assert quiet.exit_code == 1
+    assert quiet.exit_code == 2
     assert "--yes" in said(quiet)
 
     json_run = run(
         tmp_path, world, "copy", "sunken-vale", "-t", "table-one", "--json", interactive=True
     )
-    assert json_run.exit_code == 1
+    assert json_run.exit_code == 2
     assert world.writes() == []
 
 
@@ -595,7 +597,7 @@ def test_again_is_sent_and_a_purge_is_asked_about_in_plain_words(tmp_path: Path)
         interactive=True,
         input="n\n",
     )
-    assert declined.exit_code == 1
+    assert declined.exit_code == 2
     assert "deletes what the earlier copy created" in said(declined)
     assert world.writes() == []
 
@@ -763,14 +765,14 @@ def test_apply_asks_first_and_cannot_without_yes_when_nobody_can_answer(tmp_path
     quiet = run(
         tmp_path, world, "updates", "sunken-vale", "-t", "table-one", "--apply", interactive=False
     )
-    assert quiet.exit_code == 1
+    assert quiet.exit_code == 2
     assert world.writes() == []
 
     declined = run(
         tmp_path, world, "updates", "sunken-vale", "-t", "table-one", "--apply",
         interactive=True, input="n\n",
     )  # fmt: skip
-    assert declined.exit_code == 1
+    assert declined.exit_code == 2
     assert world.writes() == []
 
     accepted = run(
@@ -1449,7 +1451,7 @@ def test_libraries_has_a_json_form(tmp_path: Path) -> None:
     world = World(library_counts={str(entry): 2})
     result = run(tmp_path, world, "libraries", "-t", "sunken-vale", "--entry", str(entry), "--json")
 
-    assert json.loads(result.output) == {"kind": "entry", "id": str(entry), "count": 2}
+    assert json.loads(result.output) == {"format": 1, "kind": "entry", "id": str(entry), "count": 2}
 
 
 def test_libraries_wants_exactly_one_thing_and_a_repository(tmp_path: Path) -> None:

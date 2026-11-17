@@ -162,7 +162,7 @@ def print_copy_result(console: Console, out: CopyOut) -> None:
         if previous.also_removed:
             extra = ", ".join(f"{n} {kind}" for kind, n in sorted(previous.also_removed.items()))
             console.print(
-                f"[yellow]Also removed with them, being attached to them: {extra}.[/yellow]"
+                f"[yellow]⚠ Also removed with them, being attached to them: {extra}.[/yellow]"
             )
 
 
@@ -294,7 +294,7 @@ def print_applied(console: Console, out: ApplyUpdatesOut) -> None:
             else f"{item.field} of {item.kind} {item.source_id}"
         )
         console.print(
-            f"[yellow]Couldn't apply {what}: {item.reason}. It stays on offer.[/yellow]",
+            f"[yellow]⚠ Couldn't apply {what}: {item.reason}. It stays on offer.[/yellow]",
             highlight=False,
         )
 

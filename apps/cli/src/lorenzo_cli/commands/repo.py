@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 from enum import StrEnum
 from pathlib import Path
 from typing import Annotated, cast
@@ -10,7 +9,7 @@ from uuid import UUID
 
 import typer
 
-from lorenzo_cli import repo_report, repos, vocabulary_commands
+from lorenzo_cli import console, repo_report, repos, vocabulary_commands
 from lorenzo_cli.client.models import (
     PublishRequest,
 )
@@ -30,6 +29,7 @@ from lorenzo_cli.runtime import (
     _err,
     _out,
     _reporting_errors,
+    may_write,
 )
 from lorenzo_cli.seed import (
     load_builtin,
@@ -98,19 +98,16 @@ ChoicesOption = Annotated[
 ]
 
 
-def _may_write(runtime: Runtime, *, yes: bool, as_json: bool, prompt: str) -> None:
-    """Ask before writing, unless told not to; never with --json, or when nobody can answer."""
-    if yes:
-        return
-    if as_json or not runtime.interactive:
-        _err.print("[red]Not asking anything here: run again with --yes to write.[/red]")
-        raise typer.Exit(1)
-    if not typer.confirm(prompt):
-        raise typer.Exit(1)
+def _may_write(
+    runtime: Runtime, *, yes: bool, as_json: bool, prompt: str, default: bool = False
+) -> None:
+    """The write contract (ADR 0482): `--yes` writes, a terminal is asked, anything else exits 2."""
+    del as_json  # the console knows a `--json` run
+    may_write(runtime, yes=yes, question=prompt, default=default)
 
 
-def _echo_json(value: object) -> None:
-    typer.echo(json.dumps(value, indent=2, ensure_ascii=False))
+def _echo_json(value: dict[str, object]) -> None:
+    console.emit(value)
 
 
 @repo_app.command("publish")
@@ -144,6 +141,7 @@ def repo_publish(
             "which is otherwise refused with the list of them.",
         ),
     ] = False,
+    yes: YesOption = False,
     as_json: JsonOption = False,
 ) -> None:
     """Publish a repository as a release, or as a new one if it already is.
@@ -163,13 +161,21 @@ def repo_publish(
         repository = resolve_tenant(client, tenant)
         repos.require_repository_tenant(repository, what="published")
         was_published = repository.published_at is not None
+        next_release = "a new release" if was_published else "its first release"
+        _may_write(
+            runtime,
+            yes=yes,
+            as_json=as_json,
+            prompt=f"Publish {repository.slug} as {next_release}?",
+            default=True,
+        )
         published = client.call(
             PUBLISH_REPOSITORY,
             path={"tenant_id": repository.id},
             body=body if body.model_fields_set else None,
         ).value
     if as_json:
-        typer.echo(published.model_dump_json(indent=2))
+        console.emit(published.model_dump(mode="json"))
         return
     release = published.release
     flag = " It is marked breaking." if release.breaking else ""
@@ -192,7 +198,10 @@ def repo_publish(
 
 @repo_app.command("unpublish")
 def repo_unpublish(
-    ctx: typer.Context, tenant: RepositoryTenant, as_json: JsonOption = False
+    ctx: typer.Context,
+    tenant: RepositoryTenant,
+    yes: YesOption = False,
+    as_json: JsonOption = False,
 ) -> None:
     """Back to a draft: nobody it is granted to can browse it, copy it or check its updates.
 
@@ -202,9 +211,16 @@ def repo_unpublish(
     with _reporting_errors(), _client(runtime, writes=True) as client:
         repository = resolve_tenant(client, tenant)
         repos.require_repository_tenant(repository, what="unpublished")
+        _may_write(
+            runtime,
+            yes=yes,
+            as_json=as_json,
+            prompt=f"Make {repository.slug} a draft again?",
+            default=True,
+        )
         withdrawn = client.call(UNPUBLISH_REPOSITORY, path={"tenant_id": repository.id}).value
     if as_json:
-        typer.echo(withdrawn.model_dump_json(indent=2))
+        console.emit(withdrawn.model_dump(mode="json"))
         return
     _out.print(f"{withdrawn.slug} is a draft again. Copies tenants already made stay theirs.")
 
@@ -217,6 +233,7 @@ def repo_grant(
         typer.Argument(help="The tenant to give access to: its id, or its slug if it is yours."),
     ],
     tenant: RepositoryTenant,
+    yes: YesOption = False,
     as_json: JsonOption = False,
 ) -> None:
     """Give a tenant access to a repository. Only its owners can; the tenant's members are told.
@@ -228,13 +245,20 @@ def repo_grant(
         repository = resolve_tenant(client, tenant)
         repos.require_repository_tenant(repository, what="granted")
         subscriber_id = repos.resolve_subscriber_to_grant(client, subscriber)
+        _may_write(
+            runtime,
+            yes=yes,
+            as_json=as_json,
+            prompt=f"Grant {repository.slug} to {subscriber}?",
+            default=True,
+        )
         reply = client.call(
             GRANT_REPOSITORY,
             path={"tenant_id": repository.id, "subscriber_tenant_id": subscriber_id},
         )
     granted = reply.value
     if as_json:
-        typer.echo(granted.model_dump_json(indent=2))
+        console.emit(granted.model_dump(mode="json"))
         return
     if reply.status != 201:
         _out.print(f"{granted.slug} already had access to {repository.slug}.")
@@ -252,6 +276,7 @@ def repo_revoke(
     ctx: typer.Context,
     subscriber: Annotated[str, typer.Argument(help="The tenant: its id or slug, as listed.")],
     tenant: RepositoryTenant,
+    yes: YesOption = False,
     as_json: JsonOption = False,
 ) -> None:
     """Take a tenant's access back. What it already copied stays its own."""
@@ -260,6 +285,13 @@ def repo_revoke(
         repository = resolve_tenant(client, tenant)
         repos.require_repository_tenant(repository, what="revoked")
         held = repos.resolve_subscriber_to_revoke(client, repository.id, subscriber)
+        _may_write(
+            runtime,
+            yes=yes,
+            as_json=as_json,
+            prompt=f"Take {held.slug}'s access to {repository.slug} back?",
+            default=True,
+        )
         client.call(
             REVOKE_REPOSITORY,
             path={"tenant_id": repository.id, "subscriber_tenant_id": held.tenant_id},
@@ -283,7 +315,7 @@ def repo_subscribers(
         rows = repos.list_subscribers(client, repository.id)
         public_copies = repos.subscribers_summary(client, repository.id).public_copies
     if as_json:
-        _echo_json([row.model_dump(mode="json") for row in rows])
+        _echo_json({"subscribers": [row.model_dump(mode="json") for row in rows]})
         return
     repo_report.print_subscribers(_out, rows, public_copies=public_copies)
 
@@ -314,7 +346,7 @@ def repo_libraries(
         if ref
     ]
     if len(given) != 1:
-        _err.print("[red]Name exactly one of --entry, --stat and --stat-group.[/red]")
+        _err.print("[red]✗ Name exactly one of --entry, --stat and --stat-group.[/red]")
         raise typer.Exit(2)
     (kind, ref), runtime = given[0], cast(Runtime, ctx.obj)
     with _reporting_errors(), _client(runtime) as client:
@@ -369,7 +401,7 @@ def repo_list(ctx: typer.Context, tenant: DrawingTenant, as_json: JsonOption = F
         drawing = resolve_tenant(client, tenant)
         rows = repos.list_repositories(client, drawing.id)
     if as_json:
-        _echo_json([row.model_dump(mode="json") for row in rows])
+        _echo_json({"repositories": [row.model_dump(mode="json") for row in rows]})
         return
     repo_report.print_repositories(_out, rows, drawing.slug)
 
@@ -395,11 +427,11 @@ def repo_copy_plan(
         ).value
     code = repos.copy_plan_exit_code(plan, repository_id)
     if as_json:
-        typer.echo(plan.model_dump_json(indent=2))
+        console.emit(plan.model_dump(mode="json"))
         raise typer.Exit(code)
     repo_report.print_copy_plan(_out, plan)
     for blocker in repos.copy_plan_blockers(plan, repository_id):
-        _out.print(f"[red]{blocker}[/red]")
+        _out.print(f"[red]✗ {blocker}[/red]")
     if code == 2:
         _out.print(
             "Give a choice for each with `lorenzo repo copy --choices FILE`, or answer them all "
@@ -474,7 +506,7 @@ def repo_copy(
             _out.print("Use --choices FILE, or --on-collision merge|skip.")
         raise typer.Exit(2)
     if as_json:
-        typer.echo(outcome.model_dump_json(indent=2))
+        console.emit(outcome.model_dump(mode="json"))
         return
     repo_report.print_copy_result(_out, outcome)
 
@@ -532,7 +564,7 @@ def repo_updates(
         ).value
         if not (apply or actions):
             if as_json:
-                typer.echo(updates.model_dump_json(indent=2))
+                console.emit(updates.model_dump(mode="json"))
             else:
                 name = repos.repository_name(client, drawing, repository_id)
                 repo_report.print_updates(_out, name, updates)

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 from collections.abc import Iterator
 from contextlib import contextmanager
 from typing import Annotated, Any
@@ -13,6 +12,7 @@ from pydantic import BaseModel, ValidationError
 from rich.table import Table
 from rich.text import Text
 
+from lorenzo_cli import console
 from lorenzo_cli.client import ops
 from lorenzo_cli.client.models import (
     StatDefinitionCreate,
@@ -34,6 +34,7 @@ Tenant = Annotated[
     str, typer.Option("--tenant", "-t", envvar="LORENZO_TENANT", help="Library id or slug.")
 ]
 Json = Annotated[bool, typer.Option("--json", help="Print one JSON document.")]
+Yes = Annotated[bool, typer.Option("--yes", help="Don't ask before writing (ADR 0482).")]
 groups_app = typer.Typer(help="Read, create and edit stat groups.", no_args_is_help=True)
 stats_app = typer.Typer(
     help="Read, create and edit stat definitions and their hints.", no_args_is_help=True
@@ -83,14 +84,14 @@ def resolve(rows: list[Any], reference: str, kind: str) -> UUID:
     )
 
 
-def output(value: BaseModel | list[Any], as_json: bool) -> None:
+def output(value: BaseModel | list[Any], as_json: bool, key: str = "rows") -> None:
     from lorenzo_cli.runtime import _out
 
     if as_json:
-        typer.echo(
-            json.dumps([r.model_dump(mode="json") for r in value], indent=2)
+        console.emit(
+            {key: [r.model_dump(mode="json") for r in value]}
             if isinstance(value, list)
-            else value.model_dump_json(indent=2)
+            else value.model_dump(mode="json")
         )
     elif isinstance(value, list):
         table = Table("name", "id", box=None)
@@ -100,6 +101,13 @@ def output(value: BaseModel | list[Any], as_json: bool) -> None:
     else:
         # Plain Text protects user-authored names from Rich markup interpretation.
         _out.print(Text(safe(value.model_dump_json(indent=2))))
+
+
+def ask(ctx: typer.Context, yes: bool, question: str) -> None:
+    """One row to write: asked at a terminal, default yes (ADR 0482)."""
+    from lorenzo_cli.runtime import may_write
+
+    may_write(ctx.obj, yes=yes, question=question, default=True)
 
 
 def changes(**values: Any) -> dict[str, Any]:
@@ -138,13 +146,13 @@ def hints(
 @groups_app.command("list")
 def group_list(ctx: typer.Context, tenant: Tenant, as_json: Json = False) -> None:
     with session(ctx, tenant) as (client, tid):
-        output(vocabulary(client, tid, groups=True), as_json)
+        output(vocabulary(client, tid, groups=True), as_json, "stat_groups")
 
 
 @stats_app.command("list")
 def stat_list(ctx: typer.Context, tenant: Tenant, as_json: Json = False) -> None:
     with session(ctx, tenant) as (client, tid):
-        output(vocabulary(client, tid), as_json)
+        output(vocabulary(client, tid), as_json, "stat_definitions")
 
 
 @groups_app.command("create")
@@ -155,9 +163,11 @@ def group_create(
     priority: int = 0,
     mandatory: bool = False,
     position: int | None = None,
+    yes: Yes = False,
     as_json: Json = False,
 ) -> None:
     with session(ctx, tenant, writes=True) as (client, tid):
+        ask(ctx, yes, f"Create the stat group {name}?")
         body = StatGroupCreate(
             **changes(name=name, priority=priority, mandatory=mandatory, position=position)
         )
@@ -175,12 +185,14 @@ def group_edit(
     priority: int | None = None,
     mandatory: Annotated[bool | None, typer.Option("--mandatory/--no-mandatory")] = None,
     position: int | None = None,
+    yes: Yes = False,
     as_json: Json = False,
 ) -> None:
     with session(ctx, tenant, writes=True) as (client, tid):
         data = changes(name=name, priority=priority, mandatory=mandatory, position=position)
         if not data:
             raise SelfServiceError("Name at least one field to edit.")
+        ask(ctx, yes, f"Change {', '.join(data)} of the stat group {group}?")
         gid = resolve(vocabulary(client, tid, groups=True), group, "stat group")
         output(
             client.call(
@@ -208,6 +220,7 @@ def stat_create(
     max_hint: str | None = None,
     min_hint: str | None = None,
     resolved_hint: str | None = None,
+    yes: Yes = False,
     as_json: Json = False,
 ) -> None:
     with session(ctx, tenant, writes=True) as (client, tid):
@@ -224,6 +237,7 @@ def stat_create(
             position=position,
         )
         hints(client, tid, data, max_hint, min_hint, resolved_hint)
+        ask(ctx, yes, f"Create the stat {name} ({value_type.value}) in {group}?")
         output(
             client.call(
                 ops.CREATE_STAT_DEFINITION,
@@ -253,6 +267,7 @@ def stat_edit(
     clear_max_hint: bool = False,
     clear_min_hint: bool = False,
     clear_resolved_hint: bool = False,
+    yes: Yes = False,
     as_json: Json = False,
 ) -> None:
     """Edit display fields and hints. Name, type and group are fixed by the API."""
@@ -275,6 +290,7 @@ def stat_edit(
         if not data:
             raise SelfServiceError("Name at least one field to edit.")
         sid = resolve(vocabulary(client, tid), stat, "stat")
+        ask(ctx, yes, f"Change {', '.join(data)} of the stat {stat}?")
         output(
             client.call(
                 ops.UPDATE_STAT_DEFINITION,
@@ -294,6 +310,7 @@ def sheet_settings(
     clear_weapon_stat_group: bool = False,
     ability_information_type: str | None = None,
     clear_ability_information_type: bool = False,
+    yes: Yes = False,
     as_json: Json = False,
 ) -> None:
     """Read the tenant sheet settings, or set or clear individual selections."""
@@ -327,25 +344,24 @@ def sheet_settings(
             ability_information_type,
             clear_ability_information_type,
         )
+        if data:
+            ask(ctx, yes, f"Change {', '.join(data)} of the sheet settings?")
         found = (
             client.call(ops.UPDATE_TENANT, path={"tenant_id": tid}, body=TenantUpdate(**data)).value
             if data
             else client.call(ops.GET_TENANT, path={"tenant_id": tid}).value
         )
         if as_json:
-            typer.echo(
-                json.dumps(
-                    {
-                        "being_stat_group_id": str(found.being_stat_group_id)
-                        if found.being_stat_group_id
-                        else None,
-                        "weapon_stat_group_id": str(found.weapon_stat_group_id)
-                        if found.weapon_stat_group_id
-                        else None,
-                        "ability_information_type": found.ability_information_type,
-                    },
-                    indent=2,
-                )
+            console.emit(
+                {
+                    "being_stat_group_id": str(found.being_stat_group_id)
+                    if found.being_stat_group_id
+                    else None,
+                    "weapon_stat_group_id": str(found.weapon_stat_group_id)
+                    if found.weapon_stat_group_id
+                    else None,
+                    "ability_information_type": found.ability_information_type,
+                }
             )
         else:
             from lorenzo_cli.runtime import _out

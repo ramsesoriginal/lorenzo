@@ -148,7 +148,7 @@ def test_apply_uses_the_exact_saved_plan_and_stale_errors_are_clean(tmp_path):
         obj=runtime(tmp_path, seen),
     )
     assert applied.exit_code == 0, applied.output
-    assert json.loads(applied.stdout) == RECEIPT
+    assert json.loads(applied.stdout) == {"format": 1, **RECEIPT}
     assert not any(r.url.path.endswith("/plan") for r in seen)
     assert json.loads(seen[-1].content)["token"] == PLAN["token"]
     stale = RUNNER.invoke(
@@ -205,7 +205,7 @@ def test_import_activity_is_stderr_and_bulk_wait_does_not_change_other_requests(
         obj=runtime(tmp_path, seen),
     )
     assert result.exit_code == 0, result.output
-    assert json.loads(result.stdout) == RECEIPT
+    assert json.loads(result.stdout) == {"format": 1, **RECEIPT}
     assert "Read calendar with 1 dated notes" in result.stderr
     assert "Planning calendar" in result.stderr
     assert "waiting for API confirmation" in result.stderr
@@ -246,10 +246,10 @@ def test_calendar_wait_must_be_positive(tmp_path):
 def test_terminal_import_renders_activity_and_keeps_receipt_readable(tmp_path, monkeypatch):
     from rich.console import Console
 
-    from lorenzo_cli import runtime as main
+    from lorenzo_cli import console as main
 
     terminal = io.StringIO()
-    monkeypatch.setattr(main, "_err", Console(file=terminal, force_terminal=True, width=120))
+    monkeypatch.setattr(main, "err", Console(file=terminal, force_terminal=True, width=120))
     result = RUNNER.invoke(
         app,
         ["calendar", "import", str(native_file(tmp_path)), "--tenant", TENANT_ID, "--yes"],

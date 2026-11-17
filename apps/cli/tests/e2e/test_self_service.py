@@ -67,10 +67,10 @@ def test_a_player_finds_their_character_and_the_public_catalog_and_adds_to_it(
 
     characters = json.loads(
         run_cli(stack, player, tmp_path, "character", "list", "-t", slug, "--json").stdout
-    )
+    )["characters"]
     catalog = json.loads(
         run_cli(stack, player, tmp_path, "item", "list", "-t", slug, "--json").stdout
-    )
+    )["items"]
 
     assert [c["name"] for c in characters] == ["Ashfang"]
     assert [i["title"] for i in catalog] == ["Rope"]

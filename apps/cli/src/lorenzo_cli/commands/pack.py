@@ -6,6 +6,7 @@ from typing import Annotated
 
 import typer
 
+from lorenzo_cli import console
 from lorenzo_cli.importer.give import (
     count_instances,
     give_pack,
@@ -16,6 +17,7 @@ from lorenzo_cli.runtime import (
     _client,
     _out,
     _reporting_errors,
+    may_write,
 )
 from lorenzo_cli.tenants import (
     resolve_tenant,
@@ -52,6 +54,7 @@ def pack_give(
     dry_run: Annotated[
         bool, typer.Option("--dry-run", help="Say what would be made, and make nothing.")
     ] = False,
+    yes: Annotated[bool, typer.Option("--yes", help="Don't ask before handing it out.")] = False,
     as_json: Annotated[
         bool, typer.Option("--json", help="Print what the API made (or would make) as JSON.")
     ] = False,
@@ -64,9 +67,11 @@ def pack_give(
     runtime: Runtime = ctx.obj
     with _reporting_errors(), _client(runtime, writes=not dry_run) as client:
         target = resolve_tenant(client, tenant)
+        if not dry_run:
+            may_write(runtime, yes=yes, question=f"Give {pack} to {owner}?", default=True)
         given = give_pack(client, target.id, pack, owner, override=override, dry_run=dry_run)
     if as_json:
-        typer.echo(given.model_dump_json(indent=2))
+        console.emit(given.model_dump(mode="json"))
         return
     for line in tree_lines(given):
         _out.print(line, highlight=False)

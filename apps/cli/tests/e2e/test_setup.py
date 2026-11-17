@@ -155,8 +155,8 @@ class Setup:
 
     def waiting(self, table: str, repository: str) -> bool:
         """What `repo list` marks as "updated since": published after the table last synced."""
-        _, rows = self.json("repo", "list", "--tenant", table)
-        row = next(r for r in rows if r["repository"]["slug"] == repository)
+        _, listed = self.json("repo", "list", "--tenant", table)
+        row = next(r for r in listed["repositories"] if r["repository"]["slug"] == repository)
         published = datetime.fromisoformat(row["repository"]["published_at"])
         return published > datetime.fromisoformat(row["synced_at"] or row["copied_at"])
 

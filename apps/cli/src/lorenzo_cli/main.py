@@ -15,6 +15,7 @@ import typer
 from typer import _click as click  # typer vendors its own click; its classes are these
 from typer.core import TyperCommand, TyperGroup
 
+from lorenzo_cli import console
 from lorenzo_cli.runtime import Runtime, default_runtime
 
 
@@ -96,6 +97,13 @@ class LazyGroup(TyperGroup):
         finally:
             self._listing = False
 
+    def parse_args(self, ctx: click.Context, args: list[str]) -> list[str]:
+        # Every run starts from the console's defaults; `--json` anywhere on the line makes this a
+        # run whose stdout is one document, which the console needs before any command code runs.
+        console.reset()
+        console.configure(json="--json" in args)
+        return super().parse_args(ctx, args)
+
     def format_help(self, ctx: click.Context, formatter: click.HelpFormatter) -> None:
         with self._only_listing():
             super().format_help(ctx, formatter)
@@ -152,6 +160,15 @@ def main(
         bool,
         typer.Option("--token-stdin", help="Read the access token from the first line of stdin."),
     ] = False,
+    quiet: Annotated[
+        bool,
+        typer.Option(
+            "--quiet", "-q", help="Print the result only: no notices and no progress (ADR 0481)."
+        ),
+    ] = False,
+    no_progress: Annotated[
+        bool, typer.Option("--no-progress", help="Show waits as plain lines, without animation.")
+    ] = False,
     version: Annotated[
         bool,
         typer.Option(
@@ -159,6 +176,7 @@ def main(
         ),
     ] = False,
 ) -> None:
+    console.configure(quiet=quiet, no_progress=no_progress)
     if ctx.obj is None:
         ctx.obj = default_runtime()
     runtime: Runtime = ctx.obj

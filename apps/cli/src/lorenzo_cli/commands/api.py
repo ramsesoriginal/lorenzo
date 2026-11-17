@@ -7,12 +7,12 @@ from typing import Annotated
 
 import typer
 
-from lorenzo_cli import rawapi
+from lorenzo_cli import console, rawapi
 from lorenzo_cli.runtime import (
     Runtime,
     _client,
-    _err,
     _reporting_errors,
+    may_write,
 )
 
 app = typer.Typer()
@@ -48,6 +48,9 @@ def api_request(
         typer.Option("--paginate", help="GET only: walk every page and print one array of items."),
     ] = False,
     raw: Annotated[bool, typer.Option("--raw", help="Print the body exactly as it came.")] = False,
+    yes: Annotated[
+        bool, typer.Option("--yes", help="Don't ask before a request that writes (not GET).")
+    ] = False,
 ) -> None:
     """Make one authenticated request to the API, and print its answer.
 
@@ -70,6 +73,8 @@ def api_request(
         raise typer.BadParameter(str(exc), param_hint=exc.hint) from exc
 
     with _reporting_errors(), _client(runtime, writes=verb != "GET") as client:
+        if verb != "GET":
+            may_write(runtime, yes=yes, question=f"{verb} {target}?", default=True)
         items: list[object] | None = None
         if paginate:
             response, items = rawapi.paginate(client, target, query=pairs)
@@ -86,7 +91,7 @@ def api_request(
     elif response.content:
         typer.echo(response.content if raw else rawapi.pretty(response.content), nl=False)
     if response.is_error:
-        _err.print(f"[red]{rawapi.failure_summary(response)}[/red]", highlight=False)
+        console.error(rawapi.failure_summary(response))
         raise typer.Exit(1)
 
 

@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-import json
 from typing import Annotated
 
 import typer
 
+from lorenzo_cli import console
 from lorenzo_cli.commands.common import TenantOption
 from lorenzo_cli.report import (
     print_libraries_held,
@@ -26,6 +26,7 @@ from lorenzo_cli.runtime import (
     _err,
     _out,
     _reporting_errors,
+    may_write,
 )
 from lorenzo_cli.seed import (
     LAYERS,
@@ -112,7 +113,7 @@ def seed(
                 f"--list only reads the seed, so it can't go with {', '.join(writing)}."
             )
         if as_json:
-            typer.echo(json.dumps(seed_list_json(spec, chosen), indent=2))
+            console.emit(seed_list_json(spec, chosen))
         else:
             print_seed_list(_out, spec, chosen)
         return
@@ -124,7 +125,7 @@ def seed(
         state = read_state(client, target.id, spec)
         plan = make_plan(spec, state, target, chosen, explicit=layers is not None)
         if as_json:
-            typer.echo(json.dumps(seed_plan_json(plan), indent=2))
+            console.emit(seed_plan_json(plan))
         else:
             print_seed_plan(_out, plan)
             if layers is None and any(a.kind != "retitle" for a in plan.actions):
@@ -139,13 +140,9 @@ def seed(
             raise typer.Exit(2 if plan.actions else 0)
         if not plan.actions:
             return
-        if not yes:
-            if not runtime.interactive:
-                _err.print("[red]Not asking anything here: run again with --yes to write.[/red]")
-                raise typer.Exit(1)
-            if not typer.confirm("Create these?"):
-                raise typer.Exit(1)
-        apply_plan(client, spec, plan, state)
+        may_write(runtime, yes=yes, question="Create these?")
+        with console.counting("Creating", len(plan.actions)) as steps:
+            apply_plan(client, spec, plan, state, advance=steps.advance)
     if not as_json:
         _out.print(
             f"Created {len(plan.actions)}. Run it again to check: it should find nothing to do."
@@ -206,7 +203,7 @@ def unseed(
                 "plan": unseed_plan_json(plan),
                 "result": None if result is None else unseed_result_json(result),
             }
-            typer.echo(json.dumps(document, indent=2))
+            console.emit(document)
 
     with _reporting_errors(), _client(runtime, writes=not dry_run) as client:
         target = resolve_tenant(client, tenant)
@@ -230,17 +227,11 @@ def unseed(
         if dry_run:
             emit(plan, None)
             raise typer.Exit(2)
-        if not yes:
-            if as_json or not runtime.interactive:
-                _err.print("[red]Not asking anything here: run again with --yes to delete.[/red]")
-                raise typer.Exit(1)
-            question = (
-                f"Delete {unseed_counts(plan)} of the {' and '.join(chosen)} layer from "
-                f"{target.slug}? The stat definitions can't be restored."
-            )
-            if not typer.confirm(question, default=False):
-                _err.print("Nothing was deleted.")
-                raise typer.Exit(1)
+        question = (
+            f"Delete {unseed_counts(plan)} of the {' and '.join(chosen)} layer from "
+            f"{target.slug}? The stat definitions can't be restored."
+        )
+        may_write(runtime, yes=yes, question=question)
         result = apply_unseed(client, plan)
     emit(plan, result)
     if not as_json:

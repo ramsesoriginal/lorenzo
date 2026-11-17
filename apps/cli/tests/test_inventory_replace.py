@@ -341,7 +341,7 @@ def test_replace_asks_with_both_counts_and_declining_changes_nothing(tmp_path: P
     )
 
     assert "Delete 3 and make 2?" in plain(done.output)
-    assert done.exit_code == 1 and world.verbs() == []
+    assert done.exit_code == 2 and world.verbs() == []
 
 
 def test_replace_with_nobody_to_ask_refuses_without_yes(tmp_path: Path) -> None:
@@ -358,7 +358,7 @@ def test_replace_with_nobody_to_ask_refuses_without_yes(tmp_path: Path) -> None:
         "--replace",
     )
 
-    assert done.exit_code == 1 and "--yes" in plain(done.output)
+    assert done.exit_code == 2 and "--yes" in plain(done.output)
     assert world.verbs() == []
 
 

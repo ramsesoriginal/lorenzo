@@ -72,7 +72,7 @@ def test_a_stack_is_deleted_from_the_top_down_and_built_again_under_the_same_slu
     assert mine.cli("tenant", "delete", mine.table, "--yes").exit_code == 0
     assert mine.cli("tenant", "delete", mine.equipment, "--yes").exit_code == 0
     wrong = mine.cli("tenant", "delete", mine.core, answers="not-the-slug\n")
-    assert wrong.exit_code == 1 and "Nothing was deleted." in plain(wrong.output)
+    assert wrong.exit_code == 2 and "nothing was deleted." in plain(wrong.output)
     typed = mine.cli("tenant", "delete", mine.core, answers=f"{mine.core}\n")
     assert typed.exit_code == 0, typed.output
     assert not {mine.core, mine.equipment, mine.table} & slugs(stack, mine.token)

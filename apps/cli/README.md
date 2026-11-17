@@ -310,8 +310,10 @@ A table that takes the bridge first gets the prototypes and lets each attachment
 
 ## Scripting
 
-- **Exit codes.** On `plan`, `seed --dry-run`, `repo copy-plan`, `repo updates` and `repo offer --dry-run`: 0 is fine, 2 is something to do or to decide, and 1 is refused or unresolved. Each command's `--help` says what 0 and 2 mean for it.
-- **`--json`** (on every command that prints a result) prints exactly one JSON document on stdout; whatever is for a person goes to stderr. It never asks a question, so a command that writes needs `--yes` with it.
+- **Writing.** Every command that writes shows what it will do, then asks once at a terminal; `--yes` skips the question, and `--dry-run`, where a command has it, never writes. With no terminal and no `--yes` it writes nothing and exits 2 ([ADR 0482](../../docs/adr/0482-one-write-contract-for-every-cli-command.md)). `lorenzo api` asks too, for anything but `GET`.
+- **Exit codes.** 0 is done or nothing to do, 2 is something to do or to decide that was not done, and 1 is refused or failed. Each command's `--help` says what 0 and 2 mean for it.
+- **`--json`** (on every command that prints a result) prints exactly one JSON object on stdout, with `"format": 1` beside what it reports; a list is under a key (`{"format": 1, "tenants": [...]}`). A failure under `--json` is one object too, `{"format": 1, "error": {"status", "code", "message", "details"}}`, with exit 1. It never asks a question, so a command that writes needs `--yes` with it. A file a command writes (a calendar, a ledger) and `lorenzo api`'s answer keep their own shape ([ADR 0481](../../docs/adr/0481-the-clis-output-and-machine-contract.md)).
+- **Feedback.** Whatever is for a person goes to stderr: notices, warnings (`⚠`), errors (`✗`), questions, and progress: a spinner while the API takes a moment, a bar with a count for a batch. Nothing animates when stderr is not a terminal, with `NO_COLOR`, with `--json`, or with `--no-progress` before the command (a wait is then one plain line); `--quiet` before the command drops notices and progress and keeps the result, warnings and errors.
 - **`lorenzo api`** is for everything else, with the login you already have, so no token is pasted into a shell:
 
 ```bash

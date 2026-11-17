@@ -161,6 +161,7 @@ def test_vocabulary_settings_hints_and_all_three_entry_reads(stack: Stack, tmp_p
         ).stdout
     )
     assert cleared == {
+        "format": 1,
         "being_stat_group_id": None,
         "weapon_stat_group_id": None,
         "ability_information_type": None,

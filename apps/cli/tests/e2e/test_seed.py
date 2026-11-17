@@ -325,7 +325,7 @@ def test_nothing_is_written_without_yes_when_nobody_can_be_asked(
     refused = seed(stack, token, tmp_path, tenant)
     still_to_do = seed(stack, token, tmp_path, tenant, "--dry-run", "--json")
 
-    assert refused.exit_code == 1
+    assert refused.exit_code == 2
     assert "--yes" in refused.output
     assert len(json.loads(still_to_do.output)["actions"]) == EVERYTHING  # untouched
 

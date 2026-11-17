@@ -66,7 +66,9 @@ def test_a_repository_is_offered_and_copied_and_offering_again_changes_nothing(
     refused = world.cli("repo", "offer", world.target, "--tenant", world.repository, "--yes")
     assert refused.exit_code == 1
     assert "isn't published yet" in " ".join(refused.output.split())
-    assert world.json("repo", "subscribers", "--tenant", world.repository)[1] == []  # no grant
+    assert (
+        world.json("repo", "subscribers", "--tenant", world.repository)[1]["subscribers"] == []
+    )  # no grant
 
     assert world.cli("repo", "publish", "--tenant", world.repository).exit_code == 0
     code, document = world.json(
@@ -80,7 +82,7 @@ def test_a_repository_is_offered_and_copied_and_offering_again_changes_nothing(
     weapon = world.entity(world.target, "weapon")  # as the tenant's own, by its slug
     assert weapon["name"]
 
-    held = world.json("repo", "list", "--tenant", world.target)[1]
+    held = world.json("repo", "list", "--tenant", world.target)[1]["repositories"]
     assert held[0]["repository"]["slug"] == world.repository
     assert held[0]["copied_at"] is not None
 
@@ -115,7 +117,10 @@ def test_names_already_in_use_need_a_choice_and_merging_answers_them(
     nothing = world.cli("repo", "copy", world.repository, "--tenant", world.target, "--yes")
     assert nothing.exit_code == 2
     assert "Nothing was copied" in " ".join(nothing.output.split())
-    assert world.json("repo", "list", "--tenant", world.target)[1][0]["copied_at"] is None
+    assert (
+        world.json("repo", "list", "--tenant", world.target)[1]["repositories"][0]["copied_at"]
+        is None
+    )
 
     dry = world.cli(
         "repo", "copy", world.repository, "--tenant", world.target,
@@ -123,7 +128,10 @@ def test_names_already_in_use_need_a_choice_and_merging_answers_them(
     )  # fmt: skip
     assert dry.exit_code == 0, dry.output
     assert "Would copy" in dry.output
-    assert world.json("repo", "list", "--tenant", world.target)[1][0]["copied_at"] is None
+    assert (
+        world.json("repo", "list", "--tenant", world.target)[1]["repositories"][0]["copied_at"]
+        is None
+    )
 
     copied = world.cli(
         "repo", "copy", world.repository, "--tenant", world.target,
@@ -162,7 +170,7 @@ def test_updates_are_found_taken_and_a_conflict_waits_until_it_is_named(
         assert added.status_code == 201, added.text
     assert world.cli("repo", "publish", "--tenant", world.repository).exit_code == 0
 
-    listed = world.json("repo", "list", "--tenant", world.target)[1]
+    listed = world.json("repo", "list", "--tenant", world.target)[1]["repositories"]
     assert listed[0]["repository"]["published_at"] > listed[0]["copied_at"]
     shown = world.cli("repo", "list", "--tenant", world.target)
     assert "updated since" in " ".join(shown.output.split())
@@ -235,7 +243,7 @@ def test_grant_publish_unpublish_and_revoke_round_trip(stack: Stack, tmp_path: P
     assert "isn't published yet" in " ".join(granted.output.split())
     again = world.cli("repo", "grant", world.target, "--tenant", world.repository)
     assert "already had access" in " ".join(again.output.split())
-    subscribers = world.json("repo", "subscribers", "--tenant", world.repository)[1]
+    subscribers = world.json("repo", "subscribers", "--tenant", world.repository)[1]["subscribers"]
     assert [s["tenant_id"] for s in subscribers] == [target_id]
 
     # A draft is invisible to the tenant it is granted to, whatever the grant says.
@@ -250,7 +258,7 @@ def test_grant_publish_unpublish_and_revoke_round_trip(stack: Stack, tmp_path: P
 
     revoked = world.cli("repo", "revoke", world.target, "--tenant", world.repository)
     assert revoked.exit_code == 0, revoked.output
-    assert world.json("repo", "subscribers", "--tenant", world.repository)[1] == []
+    assert world.json("repo", "subscribers", "--tenant", world.repository)[1]["subscribers"] == []
 
 
 def test_a_slug_that_is_not_one_of_the_tenants_repositories_is_named(

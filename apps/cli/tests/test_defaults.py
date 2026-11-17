@@ -168,7 +168,9 @@ def test_a_read_goes_to_the_official_api_and_says_nothing(tmp_path: Path) -> Non
 def test_a_write_says_where_it_goes_once_on_stderr(tmp_path: Path) -> None:
     seen: list[httpx.Request] = []
     result = runner.invoke(
-        app, ["tenant", "create", "Core", "--slug", "core", "--json"], obj=runtime(tmp_path, seen)
+        app,
+        ["tenant", "create", "Core", "--slug", "core", "--json", "--yes"],
+        obj=runtime(tmp_path, seen),
     )
 
     assert result.exit_code == 0, result.output
@@ -181,7 +183,7 @@ def test_naming_the_api_silences_the_note_and_the_default(tmp_path: Path) -> Non
     seen: list[httpx.Request] = []
     result = runner.invoke(
         app,
-        ["--api-url", LOCAL, "tenant", "create", "Core", "--slug", "core"],
+        ["--api-url", LOCAL, "tenant", "create", "Core", "--slug", "core", "--yes"],
         obj=runtime(tmp_path, seen),
     )
 
@@ -193,7 +195,16 @@ def test_naming_the_api_silences_the_note_and_the_default(tmp_path: Path) -> Non
 def test_the_official_address_named_is_still_the_default_and_still_says_so(tmp_path: Path) -> None:
     result = runner.invoke(
         app,
-        ["--api-url", OFFICIAL_API_URL + "/", "tenant", "create", "Core", "--slug", "core"],
+        [
+            "--api-url",
+            OFFICIAL_API_URL + "/",
+            "tenant",
+            "create",
+            "Core",
+            "--slug",
+            "core",
+            "--yes",
+        ],
         obj=runtime(tmp_path),
     )
 
@@ -203,7 +214,9 @@ def test_the_official_address_named_is_still_the_default_and_still_says_so(tmp_p
 
 def test_api_says_so_for_anything_but_a_get(tmp_path: Path) -> None:
     read = runner.invoke(app, ["api", "GET", "/tenants"], obj=runtime(tmp_path))
-    write = runner.invoke(app, ["api", "POST", "/tenants", "--data", "{}"], obj=runtime(tmp_path))
+    write = runner.invoke(
+        app, ["api", "POST", "/tenants", "--data", "{}", "--yes"], obj=runtime(tmp_path)
+    )
 
     assert read.exit_code == 0 and write.exit_code == 0, (read.output, write.output)
     assert NOTE not in read.stderr
@@ -234,7 +247,7 @@ def test_the_remembered_file_wins_over_the_default_and_is_not_announced(tmp_path
     rt = runtime(tmp_path, seen)
     assert rt.config is not None
     rt.config.save({"api_url": "https://mine.example"})
-    result = runner.invoke(app, ["tenant", "create", "Core", "--slug", "core"], obj=rt)
+    result = runner.invoke(app, ["tenant", "create", "Core", "--slug", "core", "--yes"], obj=rt)
 
     assert result.exit_code == 0, result.output
     assert seen[0].url.host == "mine.example"

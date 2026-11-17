@@ -2,19 +2,19 @@
 
 from __future__ import annotations
 
-import json
 from typing import Annotated
 
 import typer
 from rich.table import Table
 
-from lorenzo_cli import entry_commands
+from lorenzo_cli import console, entry_commands
 from lorenzo_cli.commands.common import ItemTenant
 from lorenzo_cli.runtime import (
     Runtime,
     _client,
     _out,
     _reporting_errors,
+    may_write,
 )
 from lorenzo_cli.self_service import (
     add_item,
@@ -49,7 +49,7 @@ def item_list(
         target = resolve_tenant(client, tenant)
         items = catalog(client, target.id, query)
     if as_json:
-        typer.echo(json.dumps([item.model_dump(mode="json") for item in items], indent=2))
+        console.emit({"items": [item.model_dump(mode="json") for item in items]})
         return
     if not items:
         _out.print("Nothing matches." if query else "Nothing is in the catalog you can see yet.")
@@ -84,6 +84,7 @@ def item_add(
         str | None,
         typer.Option("--into", help="A container you hold (id or slug) to put it in."),
     ] = None,
+    yes: Annotated[bool, typer.Option("--yes", help="Don't ask before adding it.")] = False,
     as_json: Annotated[
         bool, typer.Option("--json", help="Print the new item instance as JSON.")
     ] = False,
@@ -99,13 +100,19 @@ def item_add(
         found = resolve_item(client, target.id, item)
         owner_id, owner_name = resolve_owner(client, target.id, owner)
         container = resolve_container(client, target.id, into) if into else None
+        count = f"{quantity} x " if quantity > 1 else ""
+        may_write(
+            runtime,
+            yes=yes,
+            question=f"Add {count}{found.title} to {owner_name}?",
+            default=True,
+        )
         made = add_item(
             client, target.id, found, owner_id, name=name, quantity=quantity, into=container
         )
     if as_json:
-        typer.echo(made.model_dump_json(indent=2))
+        console.emit(made.model_dump(mode="json"))
         return
-    count = f"{quantity} x " if quantity > 1 else ""
     _out.print(f"Added {count}{made.title} to {owner_name}.", highlight=False)
     _out.print(str(made.entity_id))
 
@@ -125,7 +132,7 @@ def character_list(
         target = resolve_tenant(client, tenant)
         found = characters(client, target.id, mine=not everyone)
     if as_json:
-        typer.echo(json.dumps([row.model_dump(mode="json") for row in found], indent=2))
+        console.emit({"characters": [row.model_dump(mode="json") for row in found]})
         return
     if not found:
         _out.print("No characters here." if everyone else "You don't control a character here yet.")

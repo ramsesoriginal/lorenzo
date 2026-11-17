@@ -287,7 +287,7 @@ def test_tenant_create_makes_a_repository_unless_told_otherwise(tmp_path: Path) 
     seen: list[httpx.Request] = []
     result = runner.invoke(
         app,
-        ["tenant", "create", "My Homebrew", "--slug", "my-homebrew"],
+        ["tenant", "create", "My Homebrew", "--slug", "my-homebrew", "--yes"],
         obj=creator(tmp_path, creating(seen)),
     )
 
@@ -306,7 +306,17 @@ def test_tenant_create_can_make_a_play_tenant_and_prints_json(tmp_path: Path) ->
     seen: list[httpx.Request] = []
     result = runner.invoke(
         app,
-        ["tenant", "create", "Our Table", "--kind", "play", "--description", "Fridays", "--json"],
+        [
+            "tenant",
+            "create",
+            "Our Table",
+            "--kind",
+            "play",
+            "--description",
+            "Fridays",
+            "--json",
+            "--yes",
+        ],
         obj=creator(tmp_path, creating(seen)),
     )
 
@@ -318,7 +328,7 @@ def test_tenant_create_can_make_a_play_tenant_and_prints_json(tmp_path: Path) ->
 
 def test_tenant_create_without_the_creator_role_shows_why(tmp_path: Path) -> None:
     result = runner.invoke(
-        app, ["tenant", "create", "X"], obj=creator(tmp_path, creating([], status=403))
+        app, ["tenant", "create", "X", "--yes"], obj=creator(tmp_path, creating([], status=403))
     )
 
     assert result.exit_code == 1

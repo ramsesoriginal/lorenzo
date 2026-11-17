@@ -16,8 +16,8 @@ from pathlib import Path
 from typing import TYPE_CHECKING, TextIO
 
 import typer
-from rich.console import Console
 
+from lorenzo_cli import console
 from lorenzo_cli.auth import store as credentials
 from lorenzo_cli.auth.store import CredentialsFile
 from lorenzo_cli.config import Settings, SettingsFile, default_config_path, load_settings
@@ -28,12 +28,33 @@ if TYPE_CHECKING:
     from lorenzo_cli.client.transport import LorenzoClient
     from lorenzo_cli.evalworker import Engine, EvalRequest, EvalResult
 
-_out = Console()
-_err = Console(stderr=True)
+# The two consoles every command prints through (ADR 0481); the names stay for the modules that
+# already use them.
+_out = console.out
+_err = console.err
 
 
 def _warn(message: str) -> None:
-    _err.print(f"[yellow]{message}[/yellow]")
+    console.warning(message)
+
+
+def may_write(runtime: Runtime, *, yes: bool, question: str, default: bool = False) -> None:
+    """The write contract (ADR 0482), once the plan has been shown: `--yes` writes; at a terminal
+    the question is asked once; anywhere else nothing is written and the command exits 2, as it
+    does when the answer is no. `default` is True only where the plan is a single row."""
+    if yes:
+        return
+    if console.settings.json or not runtime.interactive:
+        console.err.print(
+            console.status("note", "nothing was written: run again with --yes to write."),
+            soft_wrap=True,
+        )
+        raise typer.Exit(2)
+    with console.paused():
+        agreed = typer.confirm(question, default=default, err=True)
+    if not agreed:
+        console.err.print(console.status("note", "nothing was written."), soft_wrap=True)
+        raise typer.Exit(2)
 
 
 class _WorkerOnUse:
@@ -144,15 +165,30 @@ def _reporting_errors() -> Iterator[None]:
     except Exception as exc:
         from lorenzo_cli.client.errors import LorenzoApiError
 
-        if isinstance(exc, _expected()):
-            _err.print(f"[red]{exc}[/red]")
-            raise typer.Exit(1) from exc
         if isinstance(exc, LorenzoApiError):
             from lorenzo_cli import repos
 
-            _err.print(f"[red]{repos.in_words(exc)} (HTTP {exc.status})[/red]", highlight=False)
+            message = f"{repos.in_words(exc)} (HTTP {exc.status})"
+            code = str(exc.problem.get("type") or f"http-{exc.status}")
+            _fail(message, exc.status, code, exc.problem or None)
+            raise typer.Exit(1) from exc
+        if isinstance(exc, _expected()):
+            _fail(str(exc), None, _code(exc), None)
             raise typer.Exit(1) from exc
         raise
+
+
+def _code(exc: BaseException) -> str:
+    """`TenantNotFoundError` -> `tenant-not-found`: a failure's code in a `--json` error."""
+    name = type(exc).__name__.removesuffix("Error")
+    return "".join(f"-{c.lower()}" if c.isupper() else c for c in name).lstrip("-")
+
+
+def _fail(message: str, status_code: int | None, code: str, details: object) -> None:
+    """One line on stderr, and under `--json` one error document on stdout (ADR 0481)."""
+    console.error(message)
+    if console.settings.json:
+        console.emit_error(status_code, code, message, details)
 
 
 @contextmanager
@@ -177,5 +213,8 @@ def _client(runtime: Runtime, *, writes: bool = False) -> Iterator[LorenzoClient
             _err.print(
                 f"Using the official Lorenzo at {base_url}.", highlight=False, soft_wrap=True
             )
-        with LorenzoClient(base_url, tokens, transport=runtime.transport) as client:
+        with (
+            console.busy("Waiting for the API"),
+            LorenzoClient(base_url, tokens, transport=runtime.transport) as client,
+        ):
             yield client

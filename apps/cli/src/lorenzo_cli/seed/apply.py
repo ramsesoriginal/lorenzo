@@ -7,6 +7,7 @@ one request (ADR 0139), so running the seed again picks up exactly where it stop
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from uuid import UUID
 
 from lorenzo_cli import descriptions
@@ -38,7 +39,13 @@ from lorenzo_cli.seed.plan import SeedPlan, TenantState
 from lorenzo_cli.seed.spec import SeedSpec
 
 
-def apply_plan(client: LorenzoClient, spec: SeedSpec, plan: SeedPlan, state: TenantState) -> None:
+def apply_plan(
+    client: LorenzoClient,
+    spec: SeedSpec,
+    plan: SeedPlan,
+    state: TenantState,
+    advance: Callable[[], None] = lambda: None,
+) -> None:
     if plan.problems:
         raise ValueError("A plan with problems is never applied.")
     tenant = {"tenant_id": plan.tenant.id}
@@ -47,6 +54,7 @@ def apply_plan(client: LorenzoClient, spec: SeedSpec, plan: SeedPlan, state: Ten
     nodes: dict[str, UUID] = {slug: n.entity_id for slug, n in state.nodes.items()}
 
     for action in plan.actions:
+        advance()
         if action.kind == "group":
             created = client.call(
                 CREATE_STAT_GROUP, path=tenant, body=StatGroupCreate(name=action.name)

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 from typing import Any, Literal
 from uuid import UUID
 
@@ -10,6 +9,7 @@ import typer
 from rich.table import Column, Table
 from rich.text import Text
 
+from lorenzo_cli import console
 from lorenzo_cli.client import ops
 from lorenzo_cli.client.models import DescriptionOut, ItemInstanceOut, ItemOut, SheetOut
 from lorenzo_cli.client.paging import all_items
@@ -133,7 +133,7 @@ def show(ctx: typer.Context, tenant: str, ref: str, kind: Kind, as_json: bool) -
         if sheet is not None:
             data["sheet"] = sheet.model_dump(mode="json")
         if as_json:
-            typer.echo(json.dumps(data, indent=2))
+            console.emit(data)
             return
         definitions = vocabulary(client, tid)
         by_name = {d.name: d for d in definitions}

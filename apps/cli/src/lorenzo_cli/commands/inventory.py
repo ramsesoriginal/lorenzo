@@ -6,18 +6,10 @@ from pathlib import Path
 from typing import Annotated
 
 import typer
-from rich.progress import (
-    BarColumn,
-    MofNCompleteColumn,
-    Progress,
-    SpinnerColumn,
-    TextColumn,
-    TimeElapsedColumn,
-)
-from rich.table import Column
 from rich.text import Text
 from rich.tree import Tree
 
+from lorenzo_cli import console
 from lorenzo_cli.commands.common import ItemTenant
 from lorenzo_cli.inventory import preprocess as inventory_preprocess
 from lorenzo_cli.inventory.apply import apply as apply_inventory
@@ -32,6 +24,7 @@ from lorenzo_cli.runtime import (
     _err,
     _out,
     _reporting_errors,
+    may_write,
 )
 from lorenzo_cli.self_service import (
     resolve_owner,
@@ -192,10 +185,10 @@ def inventory_import(
             client, target, inventory, owner=owner, add=add, table=table, replace=replace
         )
         for remark in plan.warnings:
-            _err.print(f"[yellow]{remark}[/yellow]", highlight=False)
+            _err.print(f"[yellow]⚠ {remark}[/yellow]", highlight=False)
         if plan.problems:
             for remark in plan.problems:
-                _err.print(f"[red]{remark}[/red]", highlight=False)
+                _err.print(f"[red]✗ {remark}[/red]", highlight=False)
             raise typer.Exit(1)
         _inventory_summary(plan)
         if dry_run:
@@ -203,44 +196,22 @@ def inventory_import(
             return
         if not plan.steps and not plan.deleting:
             return
-        if not yes:
-            if not runtime.interactive:
-                _err.print("[red]Not asking anything here: run again with --yes to write.[/red]")
-                raise typer.Exit(1)
-            question = (
-                f"Delete {len(plan.deleting)} and make {len(plan.makes)}?"
-                if plan.replace
-                else "Make these?"
-            )
-            if not typer.confirm(question):
-                raise typer.Exit(1)
+        question = (
+            f"Delete {len(plan.deleting)} and make {len(plan.makes)}?"
+            if plan.replace
+            else "Make these?"
+        )
+        may_write(runtime, yes=yes, question=question)
         if backup is not None and plan.deleting:
             saved = export_inventory(client, target.id, plan.owner_id, plan.owner_name, target.slug)
             text = render_json(saved) if backup.suffix == ".json" else render_markdown(saved)
             backup.write_text(text, encoding="utf-8")
             _err.print(f"Saved what {plan.owner_name} has now to {backup}.", highlight=False)
-        with Progress(
-            SpinnerColumn(),
-            TextColumn(
-                "{task.description}",
-                table_column=Column(width=44, no_wrap=True, overflow="ellipsis"),
-            ),
-            BarColumn(),
-            MofNCompleteColumn(),
-            TimeElapsedColumn(),
-            console=_err,
-        ) as bar:
-            task = bar.add_task("Starting", total=inventory_total(plan))
-            done = apply_inventory(
-                client,
-                plan,
-                before=lambda label: bar.update(task, description=label),
-                after=lambda: bar.advance(task),
-            )
-            bar.update(task, description="Stopped" if done.stopped or done.failed else "Done")
+        with console.counting("Starting", inventory_total(plan)) as steps:
+            done = apply_inventory(client, plan, before=steps.describe, after=steps.advance)
     if done.stopped:
         _err.print(
-            f"[red]Stopped before making anything: {len(done.failed)} could not be deleted.[/red]"
+            f"[red]✗ Stopped before making anything: {len(done.failed)} could not be deleted.[/red]"
             " Run the command again to delete the rest and then make.",
             highlight=False,
         )
@@ -253,7 +224,7 @@ def inventory_import(
             highlight=False,
         )
     for remark in done.failed:
-        _err.print(f"[red]{remark}[/red]", highlight=False)
+        _err.print(f"[red]✗ {remark}[/red]", highlight=False)
     if done.failed:
         raise typer.Exit(1)
 

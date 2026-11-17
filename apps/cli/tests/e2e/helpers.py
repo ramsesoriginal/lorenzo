@@ -50,6 +50,30 @@ def make_tenant(stack: Stack, token: str, kind: str = "repository") -> str:
     return slug
 
 
+_WRITES = {
+    ("repo", "publish"),
+    ("repo", "unpublish"),
+    ("repo", "grant"),
+    ("repo", "revoke"),
+    ("tenant", "create"),
+    ("tenant", "sheet-settings"),
+    ("stat-group", "create"),
+    ("stat-group", "edit"),
+    ("stat-definition", "create"),
+    ("stat-definition", "edit"),
+    ("item", "add"),
+    ("pack", "give"),
+}
+
+
+def _writes(args: tuple[str, ...]) -> bool:
+    """A single write that asks at a terminal (ADR 0482). Run with nobody to ask, it is given
+    --yes, as a script would; the contract itself is tested in the unit tests."""
+    if tuple(args[:2]) in _WRITES:
+        return "--dry-run" not in args
+    return args[:1] == ("api",) and len(args) > 1 and args[1].upper() != "GET"
+
+
 def run_cli(
     stack: Stack,
     token: str,
@@ -62,6 +86,8 @@ def run_cli(
     """Run the command. `answers` are typed at a terminal that is there to be asked. The sheet's
     JavaScript is evaluated through the session's cache, unless `real_engine` asks for the worker
     subprocess itself."""
+    if answers is None and _writes(args) and "--yes" not in args:
+        args = (*args, "--yes")
     runtime = Runtime(
         env={
             "LORENZO_API_URL": stack.api_url,

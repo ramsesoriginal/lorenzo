@@ -11,6 +11,7 @@ from typing import Annotated
 
 import typer
 
+from lorenzo_cli import console
 from lorenzo_cli.client.transport import LorenzoClient
 from lorenzo_cli.commands.common import TenantOption
 from lorenzo_cli.evalworker import EvalRequest, read_sources
@@ -37,6 +38,7 @@ from lorenzo_cli.runtime import (
     _err,
     _out,
     _reporting_errors,
+    may_write,
 )
 
 app = typer.Typer()
@@ -63,11 +65,11 @@ def inspect_files(
         request = EvalRequest(base=read_sources(base or []), files=read_sources(files or []))
         result = runtime.engine.evaluate(request)
     if as_json:
-        typer.echo(result.model_dump_json(indent=2))
+        console.emit(result.model_dump(mode="json"))
     else:
         print_evaluation(_out, result)
     if not result.ok:
-        _err.print(f"[red]{result.error}[/red]")
+        _err.print(f"[red]✗ {result.error}[/red]")
     if not result.ok or any(f.status != "ok" for f in result.files):
         raise typer.Exit(1)
 
@@ -195,14 +197,15 @@ def _prepare_plan(
         answered = False
         for unknown in fresh:
             asked.add((unknown.list_name, unknown.attribute, unknown.key))
-            row = ask(
-                unknown,
-                plan.loaded.mapping,
-                lambda text, default: typer.prompt(
-                    text, default=default, show_default=bool(default)
-                ),
-                _out.print,
-            )
+            with console.paused():
+                row = ask(
+                    unknown,
+                    plan.loaded.mapping,
+                    lambda text, default: typer.prompt(
+                        text, default=default, show_default=bool(default)
+                    ),
+                    _out.print,
+                )
             if row is not None:
                 taught.setdefault((unknown.list_name, unknown.attribute), []).append(row)
                 answered = True
@@ -224,14 +227,16 @@ def _save_taught(
     _out.print(f"The rows you chose are in {proposed}.")
     if map_file is None or not runtime.interactive:
         return
-    if not typer.confirm(f"Append them to {map_file}?"):
+    with console.paused():
+        append = typer.confirm(f"Append them to {map_file}?")
+    if not append:
         return
     combined = map_file.read_text(encoding="utf-8").rstrip("\n") + "\n\n" + text
     try:
         tomllib.loads(combined)
     except tomllib.TOMLDecodeError:
         _err.print(
-            f"[yellow]Not appended: {map_file} already has one of those tables, so the result "
+            f"[yellow]⚠ Not appended: {map_file} already has one of those tables, so the result "
             f"wouldn't be valid TOML. Paste the rows from {proposed} under it.[/yellow]"
         )
         return
@@ -360,26 +365,29 @@ def apply(
         if not result.pending and not (reconcile and result.reparent_count):
             emit(result, None, unresolved)
             raise typer.Exit(1 if unresolved else 0)
-        if not yes:
-            if as_json or not runtime.interactive:
-                _err.print("[red]Not asking anything here: run again with --yes to write.[/red]")
-                emit(result, None, unresolved)
-                raise typer.Exit(1)
-            if not typer.confirm("Import these?"):
-                raise typer.Exit(1)
-        report = apply_import(
-            client,
-            result,
-            manifest,
-            ApplyOptions(reconcile=reconcile, public_catalog=public_catalog),
-            progress=lambda line: _err.print(line, highlight=False, style="dim"),
-        )
+        if not yes and (as_json or not runtime.interactive):
+            emit(result, None, unresolved)
+        may_write(runtime, yes=yes, question="Import these?")
+        writing = sum(1 for i in result.items if i.status in ("create", "complete", "retitle"))
+        with console.counting("Importing", writing) as steps:
+
+            def step(line: str) -> None:
+                steps.describe(line.split(" ", 1)[-1])
+                steps.advance()
+
+            report = apply_import(
+                client,
+                result,
+                manifest,
+                ApplyOptions(reconcile=reconcile, public_catalog=public_catalog),
+                progress=step,
+            )
         manifest.save()
     failed = bool(unresolved or report.failures)
     if as_json:
         emit(result, report, unresolved)
         for failure in report.failures:
-            _err.print(f"[red]{failure}[/red]")
+            _err.print(f"[red]✗ {failure}[/red]")
         raise typer.Exit(1 if failed else 0)
     attached = f"attached {report.attached}, " if result.part == "system" else ""
     _out.print(
@@ -388,7 +396,7 @@ def apply(
         f"{report.categories} new categories, {report.definitions} new stat definitions."
     )
     for failure in report.failures:
-        _err.print(f"[red]{failure}[/red]")
+        _err.print(f"[red]✗ {failure}[/red]")
     if not report.failures:
         _save_taught(runtime, taught, map_file, proposed_map_file)
     raise typer.Exit(1 if failed else 0)

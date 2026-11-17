@@ -21,7 +21,7 @@ def test_apply_json_is_one_document_and_never_asks(stack: Stack, tmp_path: Path)
     ]  # fmt: skip
 
     refused = run_cli(stack, token, tmp_path, *apply)
-    assert refused.exit_code == 1  # it never asks, and was not told to write
+    assert refused.exit_code == 2  # it never asks, and was not told to write
     unwritten = json.loads(refused.stdout)
     assert unwritten["applied"] is None
     assert unwritten["plan"]["header"]["counts"]["create"] > 0
