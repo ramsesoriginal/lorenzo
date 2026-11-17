@@ -1,6 +1,9 @@
 import { client, unwrap } from './api';
 import { outlineOf, writingAddress } from './composition';
+import { compositionReview } from './composition-review';
+import { type ApplyRepositoryUpdate, repositoryComparison } from './repository-comparison';
 import { suggestedBeings } from './suggested-beings';
+import { suggestedPeriods } from './suggested-periods';
 
 const node = <K extends keyof HTMLElementTagNameMap>(tag: K, text = '') => {
   const el = document.createElement(tag);
@@ -14,12 +17,18 @@ export async function writingDetails(
   id: string,
   onTellingChanged?: (version: string) => void,
   sources?: () => string[],
+  applyRepositoryUpdate?: ApplyRepositoryUpdate,
 ) {
-  const refresh = () => writingDetails(host, tenant, id, onTellingChanged, sources);
+  const refresh = () =>
+    writingDetails(host, tenant, id, onTellingChanged, sources, applyRepositoryUpdate);
   const current = await outlineOf(tenant, id);
   const status = node('p');
   status.setAttribute('role', 'status');
-  host.replaceChildren(status);
+  host.replaceChildren(
+    status,
+    repositoryComparison(tenant, id, applyRepositoryUpdate),
+    compositionReview(tenant, id, applyRepositoryUpdate),
+  );
   const action = (label: string, run: () => Promise<void>) => {
     const button = node('button', label);
     button.type = 'button';
@@ -142,7 +151,10 @@ export async function writingDetails(
   }
   if (!version) return;
   if (current.kind === 'scene' && sources)
-    host.append(suggestedBeings(tenant, scene, sources, refresh));
+    host.append(
+      suggestedBeings(tenant, scene, sources, refresh),
+      suggestedPeriods(tenant, scene, sources, refresh),
+    );
   for (const [label, kind, plural] of [
     ['Being', 'being', 'beings'],
     ['Fact', 'fact', 'facts'],

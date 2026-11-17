@@ -142,3 +142,35 @@ its history. This screen does not offer that destructive action.
 The app is a single page, `/`, driven by `?tenant=` and `?entry=` (plus `/auth/redirect/` for sign-in).
 
 Deployed at <https://lorenzo-writing.pages.dev/> on Cloudflare Pages; [the setup guide](../../docs/operations/writing-setup.md) records the procedure. `.env.example` lists the build variables.
+
+**Suggested periods** ([ADR 0397](../../docs/adr/0397-reviewed-scene-periods.md)) in direct Scene Details
+checks prose for full names of existing visible calendar periods. Review a match and explicitly
+set an empty Scene period. Ambiguous names use the manual Period lookup. Existing periods, relative
+dates and dates not yet created in a calendar are never filled or replaced automatically.
+
+**Repository updates** ([ADR 0438](../../docs/adr/0438-atomic-manuscript-repository-updates.md))
+are available in Details and Outline under **Composition updates**. Review connected writing,
+attachments and structure against the original copy, choose which changes to keep or take, then
+apply the selected changes together. This covers Books, Editions, Chapters, Scenes and tellings,
+biographies and Carriers, including placements, coverage, redirects, numbering and contents.
+Stable elements keep their identities when moved between manuscripts. Incomplete dependent
+choices are refused without applying part of the update. Local additions and entries removed
+upstream remain in the library; ordinary notes retain their existing update behavior.
+
+Older copies explicitly show when the original composition was not recorded. Keeping or taking
+that version establishes a baseline without inventing history. Updates read the currently allowed
+repository source, including its published release when public. Missing world dependencies and
+link-name collisions must be resolved through the ordinary repository review first.
+
+Save or recover affected browser drafts before applying updates, including drafts in other tabs.
+Accepted changes preserve manuscript revisions and a private structural checkpoint, retain
+existing audiences and reviewer grants, and add no writing-session credit. A change that would
+widen access is refused until the author separately reviews sharing. New writing starts private.
+Attachments are compared by their contents; the review does not show attachment previews.
+
+The earlier **Repository comparison** remains available for direct text-only updates with unchanged
+payloads and copied composition ([ADR 0398](../../docs/adr/0398-copied-manuscript-comparison.md),
+[ADR 0429](../../docs/adr/0429-standalone-draft-repository-updates.md),
+[ADR 0430](../../docs/adr/0430-placed-chapter-text-updates.md),
+[ADR 0435](../../docs/adr/0435-nested-chapter-text-updates.md), and
+[ADR 0436](../../docs/adr/0436-parent-chapter-text-updates.md)).
