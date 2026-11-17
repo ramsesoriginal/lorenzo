@@ -46,6 +46,9 @@ from lorenzo_api.exceptions import (
     RepositoryProtectedError,
 )
 from lorenzo_api.frames import AXES
+from lorenzo_api.manuscript_comparison import copy_baselines
+from lorenzo_api.manuscript_graph import snapshots as manuscript_snapshots
+from lorenzo_api.manuscript_graph import source_identities
 from lorenzo_api.models import (
     Calendar,
     CalendarObservance,
@@ -1333,6 +1336,22 @@ class _Planner:
                             "target": target_text,
                         }
                     )
+        manuscript_baselines = copy_baselines(c, local_information, local_payloads)
+        for manuscript_source_id, record in manuscript_snapshots(c, source_identities(c)).items():
+            baseline = manuscript_baselines.setdefault(
+                uuid.UUID(manuscript_source_id),
+                {
+                    "format": 1,
+                    "bundle": None,
+                    "information_id": None,
+                    "identities": {},
+                },
+            )
+            baseline["structure"] = record["structure"]
+            baseline["coverage_identities"] = {}
+        for link in self.rows["link_entity"]:
+            if link["source_tenant_id"] == repository_id:
+                link["manuscript_baseline"] = manuscript_baselines.get(link["source_id"])
         for source, redirect in c.manuscript_redirects.items():
             if not copies("entity", source):
                 continue
@@ -1521,7 +1540,7 @@ class _Planner:
                         "settings": settings,
                     }
                 )
-        for covered in c.carrier_coverage.values():
+        for coverage_id, covered in c.carrier_coverage.items():
             if not copies("entity", covered["carrier"]):
                 continue
             target_entry = self._local(c, "entity", covered["entry"]) if covered["entry"] else None
@@ -1535,9 +1554,13 @@ class _Planner:
                 raise InvalidRepositoryUpdateError(
                     detail="Copy the Carrier together with its covered writing and direct prose."
                 )
+            local_coverage = uuid.uuid4()
+            carrier_baseline = manuscript_baselines.get(covered["carrier"])
+            if carrier_baseline is not None:
+                carrier_baseline["coverage_identities"][str(local_coverage)] = str(coverage_id)
             self.rows["carrier_coverage"].append(
                 {
-                    "id": uuid.uuid4(),
+                    "id": local_coverage,
                     "tenant_id": tenant_id,
                     "carrier_id": self.local["entity"][covered["carrier"]],
                     "target_entity_id": target_entry,

@@ -9,8 +9,8 @@ Descriptions and notes stay separate. See [RFC 0047](../../docs/rfcs/0047-lorenz
 The outline offers explicit up/down ordering and placing unassigned Chapters; removing a Chapter
 from an outline keeps its text and subchapters. Edition copying starts private, without copying
 notes or history. All editing retains conditional autosave, per-account browser recovery and
-saved prose revisions. Personal length goals ([ADR 0383](../../docs/adr/0383-personal-manuscript-length-goals.md)) are decided and not built;
-timers, suggestions, repository updates of manuscripts and export remain in [the accepted proposal](../../docs/rfcs/0047-lorenzo-writing.md).
+saved prose revisions. Personal length goals, session goals and timers, reviewed name/date
+suggestions and manuscript repository updates are available; their details appear below.
 
 Scene reuse creates a separate telling each time. A shared telling reads the Scene manuscript;
 Make independent copies its current prose and pictures before editing. Viewpoints and world
@@ -88,6 +88,27 @@ the generated list before their authored prose. Index and Glossary Chapters stay
 LorenzoScript. Reading and Book review links respect the reader's access. These lists do not
 combine headings inside separate texts, and do not generate indexes, glossaries or page numbers.
 
+**Link to an entity** ([ADR 0396](../../docs/adr/0396-reviewed-manuscript-links.md)) lets an author
+select one name in manuscript prose, find accessible entries and choose by link name. The
+label keeps the exact selected wording. Undo, autosave and saved backlinks use the ordinary
+LorenzoScript editing path.
+
+**Suggested Being references** ([ADR 0395](../../docs/adr/0395-reviewed-being-references.md))
+appear in Details when editing a Scene. Choose **Check names** to scan the current prose for
+accessible Beings. Choose a unique match to add a private Scene reference. The review flags
+names shared by several Beings and asks for a fresh scan when the draft or references change.
+
+**Writing session goals** ([ADR 0394](../../docs/adr/0394-personal-net-new-writing-session-goals.md))
+count net editing changes after Start, including unsaved work. Deletions subtract; structure
+changes, loaded revisions and other authors' versions add no credit. Progress follows this
+browser tab across entries and reload, separately for each account and library. Finish retains
+the result until you explicitly start a new session. This is drafting progress, not saved activity.
+
+**Writing timer** ([ADR 0393](../../docs/adr/0393-personal-writing-timer.md)) lives inside
+Word count in Write. Choose minutes, start, pause, resume or reset. It survives reload and
+entry navigation within this browser tab, separately for each account and library, and
+quietly shows when time has elapsed. Closing the tab ends its recovery lifetime.
+
 **Personal word targets** ([ADR 0383](../../docs/adr/0383-personal-manuscript-length-goals.md))
 are available inside Word count. Each Author keeps separate targets for direct draft prose and
 assembled reading, with live remaining-word progress. Targets belong to the account and are
@@ -121,3 +142,56 @@ its history. This screen does not offer that destructive action.
 The app is a single page, `/`, driven by `?tenant=` and `?entry=` (plus `/auth/redirect/` for sign-in).
 
 Deployed at <https://lorenzo-writing.pages.dev/> on Cloudflare Pages; [the setup guide](../../docs/operations/writing-setup.md) records the procedure. `.env.example` lists the build variables.
+
+**Suggested periods** ([ADR 0397](../../docs/adr/0397-reviewed-scene-periods.md)) in direct Scene Details
+checks prose for full names of existing visible calendar periods. Review a match and explicitly
+set an empty Scene period. Ambiguous names use the manual Period lookup. Existing periods, relative
+dates and dates not yet created in a calendar are never filled or replaced automatically.
+
+**Repository updates** ([ADR 0438](../../docs/adr/0438-atomic-manuscript-repository-updates.md))
+are available in Details and Outline under **Composition updates**. Review connected writing,
+attachments and structure against the original copy, choose which changes to keep or take, then
+apply the selected changes together. This covers Books, Editions, Chapters, Scenes and tellings,
+biographies and Carriers, including placements, coverage, redirects, numbering and contents.
+Stable elements keep their identities when moved between manuscripts. Incomplete dependent
+choices are refused without applying part of the update. Local additions and entries removed
+upstream remain in the library; ordinary notes retain their existing update behavior.
+
+Older copies explicitly show when the original composition was not recorded. Keeping or taking
+that version establishes a baseline without inventing history. Updates read the currently allowed
+repository source, including its published release when public. Missing world dependencies and
+link-name collisions must be resolved through the ordinary repository review first.
+
+Save or recover affected browser drafts before applying updates, including drafts in other tabs.
+Accepted changes preserve manuscript revisions and a private structural checkpoint, retain
+existing audiences and reviewer grants, and add no writing-session credit. A change that would
+widen access is refused until the author separately reviews sharing. New writing starts private.
+Attachments are compared by their contents; the review does not show attachment previews.
+
+The earlier **Repository comparison** remains available for direct text-only updates with unchanged
+payloads and copied composition ([ADR 0398](../../docs/adr/0398-copied-manuscript-comparison.md),
+[ADR 0429](../../docs/adr/0429-standalone-draft-repository-updates.md),
+[ADR 0430](../../docs/adr/0430-placed-chapter-text-updates.md),
+[ADR 0435](../../docs/adr/0435-nested-chapter-text-updates.md), and
+[ADR 0436](../../docs/adr/0436-parent-chapter-text-updates.md)).
+
+## Exporting saved writing
+
+**Export** opens a preview of saved writing from the editor, assembled reading or Edition review.
+It leaves unsent editor changes alone. **Download LorenzoScript** saves a ZIP containing exact
+UTF-8 text, original picture bytes and a `lorenzo-writing/1` manifest. The manifest retains stable
+entry/payload IDs, reading order, repeated Carrier coverage, shared tellings, source locales and
+numbering/contents settings. It describes the selected authorized composition, not a library backup;
+there is no import/restore operation. Notes, history and unrelated world references are omitted.
+
+**Print / Save as PDF** opens the browser print dialog. Choose Save as PDF and turn off browser
+headers and footers for a clean manuscript. The printable document uses LorenzoScript headings,
+tables, local footnotes, pictures, Chapter numbering and contents, with self-hosted brand fonts.
+Repeated passages have distinct local link targets. Pagination follows the browser's paper settings;
+advanced publishing and other formats remain deferred.
+
+Both outputs recheck access and the preview's version. If saved writing changes, refresh the preview.
+Review exports remain limited to the granted Edition. Exports over 5,000 distinct entries, 20,000
+reading occurrences or 50 MiB of text/pictures ask for a smaller section rather than truncating it.
+See [ADR 0478](../../docs/adr/0478-manuscript-export-snapshots.md) and
+[the source archive format](../../docs/reference/writing-source-archive.md).

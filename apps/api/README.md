@@ -156,3 +156,33 @@ reads an Event through permitted relationships without saving inferred evidence.
 separate entered, derived, not-reckoned, conflicting and limit-reached results. Hidden sources
 are filtered before traversal, provenance and work limits. Repository release documents carry
 relationships; earlier formats remain readable.
+
+Copied manuscripts retain an independent direct-bundle baseline for three-way
+comparison ([ADR 0398](../../docs/adr/0398-copied-manuscript-comparison.md)). The Writing comparison
+route requires current manuscript edit/history access and uses the repository's gated live or
+released read. Legacy copies report no baseline; ordinary entity updates leave this baseline intact.
+
+Standalone Scene/Chapter text updates require the reviewed comparison ETag and current write
+access ([ADR 0429](../../docs/adr/0429-standalone-draft-repository-updates.md)). Explicit keep/take
+choices advance the baseline; taking text uses ordinary history and backlink writes atomically.
+Unsupported connected manuscripts, changed payload structures and changed non-text payloads are refused.
+
+Placed leaf Chapters directly inside an Edition can also accept text updates when their copied
+Book, Edition, anchor and position still match on both sides
+([ADR 0430](../../docs/adr/0430-placed-chapter-text-updates.md)). New copies retain this context;
+older connected copies and dependent structural changes remain comparison-only.
+
+Nested leaf Chapters also accept text updates when every copied ancestor edge to the Edition
+still matches ([ADR 0435](../../docs/adr/0435-nested-chapter-text-updates.md)). New nested copies
+retain this full path; moving an ancestor invalidates review. Structural updates remain comparison-only.
+
+Chapters with subchapters may accept their own text updates when the copied direct child edges
+also remain unchanged ([ADR 0436](../../docs/adr/0436-parent-chapter-text-updates.md)). Child prose
+and placements are never changed by accepting a parent update. Older parent copies without this
+context, tellings and structural changes remain comparison-only.
+
+Writing export previews and conditional source downloads use a dedicated restricted-role
+REPEATABLE READ snapshot, ordinary entry/Information visibility or the scoped Edition review
+grant, and private/no-store responses. Source download requires the preview ETag in `If-Match`.
+No export table or job is created. See [ADR 0478](../../docs/adr/0478-manuscript-export-snapshots.md)
+and [the source archive format](../../docs/reference/writing-source-archive.md).
