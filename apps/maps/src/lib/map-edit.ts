@@ -84,6 +84,7 @@ import {
   batchPlacements,
   type EntryChoice,
   findEntries,
+  isPublicLocation,
   makeLocation,
   partsOf,
   putPlacement,
@@ -107,6 +108,7 @@ import {
   withParts,
 } from './parts-edit';
 import { SPLINE_MAX_POINTS, splineCurve } from './spline';
+import { splitPieces } from './split-entries';
 import {
   BRUSH_ROLE,
   BRUSH_STEP,
@@ -2505,7 +2507,84 @@ export function createEditor(context: EditorContext): Editor {
       list.append(item);
     }
     box.append(list);
+    if (row.kinds.includes('location') && geometry.parts.length >= 2) {
+      box.append(splitControl(row, geometry));
+    }
     return box;
+  }
+
+  /** Split into entries (ADR 0482): a base name, and the action. */
+  function splitControl(row: Row, geometry: Geometry): HTMLElement {
+    const box = el('div', '', 'stack-tight map-split');
+    const base = field('Name the new places from', row.name);
+    base.input.maxLength = 180;
+    box.append(
+      el(
+        'p',
+        `Each of the ${geometry.parts.length} parts becomes a place of its own inside ${row.name}, drawn here as that part.`,
+        'status-text',
+      ),
+      base.label,
+      button('Split into entries', () => splitInto(row, geometry, base.input.value), {
+        variant: 'secondary',
+      }),
+    );
+    return box;
+  }
+
+  /**
+   * Makes a new Location of each part, inside the original, and places them on this Map in its
+   * stead as one batch and one history step (ADR 0482).
+   */
+  async function splitInto(row: Row, geometry: Geometry, base: string) {
+    const plan = splitPieces(geometry, base);
+    if (!plan.ok) {
+      say(plan.why, true);
+      return;
+    }
+    const pieces = plan.pieces;
+    await guarded(async () => {
+      const isPublic = await isPublicLocation(context.tenant, row.id);
+      const made: { id: string; name: string }[] = [];
+      try {
+        for (const piece of pieces) {
+          made.push(await makeLocation(context.tenant, piece.name, isPublic, row.id));
+        }
+      } catch (error) {
+        say(
+          `${made.length} of ${pieces.length} new places were made, and stay in the library; nothing was placed. ${asText(error)}`,
+          true,
+        );
+        return;
+      }
+      const how = rowState(row);
+      const put = made.map((location, i) => ({
+        entry_id: location.id,
+        geometry: (pieces[i] as (typeof pieces)[number]).geometry as unknown as Record<
+          string,
+          unknown
+        >,
+        role: how.role,
+        style: how.style,
+        z: how.z,
+      }));
+      await batchPlacements(context.tenant, context.mapId, { put, remove: [row.id] });
+      await reload();
+      history.record(
+        [
+          { entry: row.id, before: how, after: null },
+          ...made.map((location, i) => ({
+            entry: location.id,
+            before: null,
+            after: { ...how, geometry: put[i]?.geometry ?? how.geometry },
+          })),
+        ],
+        `Split ${row.name} into ${made.length} entries`,
+      );
+      selectedPart = null;
+      context.select(null);
+      say(`${row.name} is now ${made.length} places, each on the map and inside ${row.name}.`);
+    });
   }
 
   function childrenControl(row: Row, shape: Editable): HTMLElement | null {

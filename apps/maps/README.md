@@ -26,7 +26,8 @@ the Map writes beside it, [ADR 0473](../../docs/adr/0473-the-height-line-tool.md
 and lower the land of an entry's height lines, redrawing only the lines they reach, from a field that lives
 in the page, [ADR 0480](../../docs/adr/0480-the-height-brush.md)) and Area tools; a drawing of
 several parts, or an area with holes, is changed a part at a time
-([ADR 0474](../../docs/adr/0474-editing-the-parts-of-a-placement.md)). A generator previews what it would draw,
+([ADR 0474](../../docs/adr/0474-editing-the-parts-of-a-placement.md)), and a Location's can be split into places inside it,
+one for each part ([ADR 0482](../../docs/adr/0482-splitting-a-drawing-into-entries.md)). A generator previews what it would draw,
 from a seed, and applies it as one step ([ADR 0475](../../docs/adr/0475-the-generator-contract.md)); Cave system is
 the first ([ADR 0476](../../docs/adr/0476-the-cave-system-generator.md)), Fill by marching squares the second
 ([ADR 0477](../../docs/adr/0477-the-fill-by-marching-squares-generator.md)) and Fill by wave function collapse the
