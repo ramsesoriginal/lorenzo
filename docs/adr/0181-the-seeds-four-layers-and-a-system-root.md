@@ -1,6 +1,6 @@
 # 0181 - The seed's four layers and a system root
 
-Status: accepted
+Status: superseded by [ADR 0491](0491-starters-replace-the-seed.md): starters replace the seed (RFC 0057)
 
 Numbered 0175 originally; renumbered to 0181 on merging `main`, which had independently claimed 0175-0180 for account-hub's ADRs in the meantime (the same collision as ADR 0068 and 0069).
 

@@ -1,6 +1,6 @@
 # 0162 - The D&D 5e layer is its own repository, a bridge over core
 
-Status: accepted
+Status: superseded by [ADR 0491](0491-starters-replace-the-seed.md): starters replace the seed (RFC 0057)
 
 Decides the question [RFC 0025](../rfcs/0025-lorenzo-cli-mpmb-item-importer.md) R8 left open, with the maintainer, on 2026-10-03. Amends R8's "one tenant, both layers, for v1". Builds on [ADR 0120](0120-bridge-repositories-and-dependency-manifests.md), [ADR 0143](0143-lorenzo-seed-taxonomy-and-stats.md) and [ADR 0159](0159-lorenzo-repo-commands.md); [ADR 0163](0163-lorenzo-repo-offer-offers-what-a-bridge-builds-on.md) is its other half.
 
