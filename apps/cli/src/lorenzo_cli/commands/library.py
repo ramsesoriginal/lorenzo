@@ -41,6 +41,9 @@ PruneOption = Annotated[
     ),
 ]
 JsonOption = Annotated[bool, typer.Option("--json", help="Print the plan as one JSON document.")]
+FullOption = Annotated[
+    bool, typer.Option("--full", help="List every row of a long plan, not a count per kind.")
+]
 
 
 def _document(file: Path | None, starter: str | None) -> Document:
@@ -69,6 +72,7 @@ def plan_command(
     file: FileArgument = None,
     starter: StarterOption = None,
     prune: PruneOption = False,
+    full: FullOption = False,
     as_json: JsonOption = False,
 ) -> None:
     """Work out what applying a document would do, and change nothing.
@@ -81,7 +85,7 @@ def plan_command(
     if as_json:
         console.emit(plan_json(plan))
     else:
-        print_plan(plan)
+        print_plan(plan, full=full)
     raise typer.Exit(plan.exit_code())
 
 
@@ -96,6 +100,7 @@ def apply_command(
         bool, typer.Option("--dry-run", help="Show the plan and write nothing (as `plan`).")
     ] = False,
     yes: Annotated[bool, typer.Option("--yes", help="Don't ask before writing.")] = False,
+    full: FullOption = False,
     as_json: JsonOption = False,
 ) -> None:
     """Apply a document: create what the library lacks and set what the document names.
@@ -113,7 +118,7 @@ def apply_command(
                 state = read(client, target)
             plan = make_plan(doc, state, prune=prune)
             if not as_json:
-                print_plan(plan)
+                print_plan(plan, full=full)
             if plan.problems or dry_run or not plan.actions:
                 if as_json:
                     console.emit(plan_json(plan))
