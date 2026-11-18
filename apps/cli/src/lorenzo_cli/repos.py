@@ -265,6 +265,7 @@ def copy_with_choices(
     on_collision: OnCollision | None,
     dry_run: bool,
     again: Literal["keep", "purge"] | None,
+    strict_units: bool = False,
 ) -> CopyOut | NeedsChoices:
     """Copy, answering collisions as they are reported.
 
@@ -282,6 +283,9 @@ def copy_with_choices(
             request["dry_run"] = True
         if again:
             request["again"] = again
+        if strict_units:
+            # A stat whose unit or bounds differ is a name to answer, not a merge (ADR 0453).
+            request["strict_units"] = True
         body = CopyRequest.model_validate(request)
         try:
             return client.call(
@@ -595,6 +599,7 @@ def perform_offer(
     explicit: Sequence[ResolutionIn],
     on_collision: OnCollision | None,
     apply_clean_updates: bool,
+    strict_units: bool = False,
 ) -> OfferResult:
     """Grant, copy into the subscriber, and optionally take the clean updates (ADR 0160).
 
@@ -631,6 +636,7 @@ def perform_offer(
                 on_collision=on_collision,
                 dry_run=False,
                 again=None,
+                strict_units=strict_units,
             )
         except LorenzoApiError as exc:
             # Copied between the check and the copy: the tenant has it, which is the point.

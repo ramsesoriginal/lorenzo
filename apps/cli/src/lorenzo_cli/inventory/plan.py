@@ -260,7 +260,8 @@ def build_plan(
             Remark(
                 0,
                 f"{len(plan.placeholders)} line(s) match nothing here, and this library has no "
-                "“unsorted” item to hold them: its GM runs `lorenzo seed --layer core` to add it",
+                "“unsorted” item to hold them: its GM applies "
+                "`lorenzo apply --starter neutral` to add it",
             )
         )
     return plan

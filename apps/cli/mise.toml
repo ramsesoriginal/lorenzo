@@ -42,7 +42,7 @@ run = "uv lock"
 description = "Regenerate src/lorenzo_cli/client/models.py from apps/api's OpenAPI schema (dumps it first)"
 run = [
   "mise run //apps/api:openapi-schema",
-  "uv run datamodel-codegen --input ../api/openapi.json --input-file-type openapi --output src/lorenzo_cli/client/models.py --output-model-type pydantic_v2.BaseModel --target-python-version 3.14 --use-standard-collections --use-union-operator --disable-timestamp --formatters ruff-format ruff-check",
+  "uv run datamodel-codegen --input ../api/openapi.json --input-file-type openapi --output src/lorenzo_cli/client/models.py --output-model-type pydantic_v2.BaseModel --base-class lorenzo_cli.client.base.BaseModel --target-python-version 3.14 --use-standard-collections --use-union-operator --disable-timestamp --formatters ruff-format ruff-check",
 ]
 
 [tasks.check-schema]

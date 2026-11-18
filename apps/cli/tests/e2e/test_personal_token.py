@@ -74,7 +74,9 @@ def test_login_token_connects_this_computer_and_the_token_acts_as_the_user(
 
     # Full as the user: the creator role carried over, so a tenant can be made with it.
     slug = f"e2e-{uuid.uuid4().hex[:8]}"
-    made = runner.invoke(app, ["tenant", "create", slug, "--kind", "repository"], obj=runtime())
+    made = runner.invoke(
+        app, ["tenant", "create", slug, "--kind", "repository", "--yes"], obj=runtime()
+    )
     assert made.exit_code == 0, made.output
 
     # Revoked in the hub, the next request is refused.

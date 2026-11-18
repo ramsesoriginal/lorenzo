@@ -1,5 +1,5 @@
 """A character's inventory as a file (ADR 0193): what they own, where it is, and what was written
-about it, in the shape `lorenzo inventory import --add` reads back.
+about it, in the shape `lorenzo import inventory --add` reads back.
 
 An item's own id goes in `ref` (so a re-import moves it rather than making a second) and its
 prototype's in `item`. What is written about it is read from the two notes an import writes,

@@ -77,7 +77,7 @@ def test_the_srd_imports_with_nothing_left_unresolved_and_a_second_run_finds_not
         assert "Container" in parent_names(backpack)
         rope = by_slug(api, tid, "basic-gear-rope-hempen-50-feet")
         assert own_stats(rope)["own_weight"] == 10.0  # 50 feet at 0.2 each
-        assert own_stats(rope)["price"] == 100
+        assert own_stats(rope)["dnd5e_price"] == 100
         arrows = by_slug(api, tid, "basic-gear-arrows-20")
         assert parent_names(arrows) == ["Ammunition"]  # a consumable, by being its child
 

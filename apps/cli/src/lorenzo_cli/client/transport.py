@@ -31,6 +31,7 @@ _BACKOFF_SECONDS = 0.5
 
 # What httpx accepts as a query value; None entries are dropped before sending.
 type QueryValue = str | int | float | bool | Sequence[str | int | float | bool] | None
+type Observer = Callable[[str, Mapping[str, object], Mapping[str, QueryValue] | None, Any], None]
 
 
 class TokenSource(Protocol):
@@ -54,8 +55,22 @@ def problem_message(status: int, problem: dict[str, Any]) -> str:
     for key in ("detail", "title"):
         value = problem.get(key)
         if isinstance(value, str) and value:
-            return value
+            return value + _field_errors(problem)
     return f"Request failed ({status})"
+
+
+def _field_errors(problem: dict[str, Any]) -> str:
+    """A validation error's fields, so "Request validation error" says which (at most three)."""
+    errors = problem.get("errors")
+    if not isinstance(errors, list) or not errors:
+        return ""
+    said = []
+    for error in errors[:3]:
+        if isinstance(error, dict):
+            where = ".".join(str(p) for p in error.get("loc", []) if p != "body")
+            said.append(f"{where}: {error.get('msg', '')}".strip(": "))
+    more = f" (and {len(errors) - 3} more)" if len(errors) > 3 else ""
+    return f" {'; '.join(said)}{more}" if said else ""
 
 
 def read_problem(response: httpx.Response) -> dict[str, Any]:
@@ -79,6 +94,8 @@ class LorenzoClient:
     ) -> None:
         self._tokens = tokens
         self._max_attempts = max_attempts
+        # Told of every answered operation: the completion cache listens here (ADR 0507).
+        self.observer: Observer | None = None
         self._sleep = sleep
         self._http = httpx.Client(
             base_url=base_url.rstrip("/"), transport=transport, timeout=timeout
@@ -112,7 +129,10 @@ class LorenzoClient:
             if_match=if_match,
             timeout=timeout,
         )
-        return self._reply(op, response)
+        reply = self._reply(op, response)
+        if self.observer is not None:
+            self.observer(op.operation_id, path or {}, query, reply.value)
+        return reply
 
     def send(
         self,

@@ -1,6 +1,6 @@
 # 0166 - A bare `seed` refuses to add a layer to a tenant that holds another
 
-Status: accepted
+Status: superseded by [ADR 0505](0505-starters-replace-the-seed.md): starters replace the seed (RFC 0057)
 
 Amends [ADR 0143](0143-lorenzo-seed-taxonomy-and-stats.md) and [ADR 0162](0162-the-dnd5e-layer-is-its-own-repository-a-bridge-over-core.md). Decided with the maintainer on 2026-10-04, after a bare `seed` put the D&D 5e layer into the `core` repository.
 
