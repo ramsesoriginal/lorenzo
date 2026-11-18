@@ -25,9 +25,67 @@ export function worthConverting(html: string): boolean {
   return /<(h[1-6]|ul|ol|li|strong|b|em|i|a|blockquote)[\s>]/i.test(html);
 }
 
+const KEEP = new Set([
+  'p',
+  'div',
+  'span',
+  'br',
+  'h1',
+  'h2',
+  'h3',
+  'h4',
+  'h5',
+  'h6',
+  'ul',
+  'ol',
+  'li',
+  'blockquote',
+  'b',
+  'strong',
+  'i',
+  'em',
+  's',
+  'strike',
+  'del',
+  'code',
+  'pre',
+  'a',
+  'table',
+  'tr',
+  'td',
+  'th',
+]);
+
+/**
+ * The clipboard's HTML reduced to the tags and the two attributes this conversion reads, before
+ * it is parsed at all: no script, no handler, no other attribute and no link that is not http(s)
+ * or mailto reaches the parser. The result is read for its text and structure only.
+ */
+export function neutralize(html: string): string {
+  return html
+    .replace(/<!--[\s\S]*?-->/g, '')
+    .replace(/<(script|style|iframe|object|embed|head)\b[\s\S]*?<\/\1\s*>/gi, '')
+    .replace(
+      /<(\/?)([a-z][a-z0-9:]*)([^>]*)>/gi,
+      (_all, slash: string, name: string, rest: string) => {
+        const tag = name.toLowerCase();
+        if (!KEEP.has(tag)) return '';
+        if (slash) return `</${tag}>`;
+        const href = /\bhref\s*=\s*"((?:https?:|mailto:)[^"<>]*)"/i.exec(rest);
+        const style = /\bstyle\s*=\s*"([^"<>]*)"/i.exec(rest);
+        const link = tag === 'a' && href ? ` href="${href[1]}"` : '';
+        const look =
+          tag === 'span' && style
+            ? ` style="${(style[1] ?? '').replace(/[^a-z0-9:;\- .,#]/gi, '')}"`
+            : '';
+        return `<${tag}${link}${look}>`;
+      },
+    );
+}
+
 /** The LorenzoScript for a clipboard's HTML. */
 export function htmlToScript(html: string): string {
-  const doc = new DOMParser().parseFromString(html, 'text/html');
+  const doc = new DOMParser().parseFromString(neutralize(html), 'text/html');
   for (const gone of doc.querySelectorAll('style,script,meta,link,head,title,o\\:p')) gone.remove();
   const out = walk(doc.body, { list: [] });
   return out
