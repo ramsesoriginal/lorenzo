@@ -287,7 +287,7 @@ def test_nothing_is_written_without_yes_when_nobody_can_be_asked(
     refused = apply(stack, token, tmp_path, tenant, WEAPONS, "--map", LEGENDARY)
     still = plan(stack, token, tmp_path, tenant, WEAPONS, "--map", LEGENDARY, "--json")
 
-    assert refused.exit_code == 1 and "--yes" in refused.output
+    assert refused.exit_code == 2 and "--yes" in refused.output
     assert set(statuses(json.loads(still.stdout)).values()) == {"create"}
     assert run_cli  # (imported for the fixtures' sake)
 

@@ -39,10 +39,12 @@ def test_tenant_list_shows_what_the_user_belongs_to_and_filters_by_kind(
     repository = make_tenant(stack, token, "repository")
     play = make_tenant(stack, token, "play")
 
-    everything = json.loads(run_cli(stack, token, tmp_path, "tenant", "list", "--json").stdout)
+    everything = json.loads(run_cli(stack, token, tmp_path, "tenant", "list", "--json").stdout)[
+        "tenants"
+    ]
     repositories = json.loads(
         run_cli(stack, token, tmp_path, "tenant", "list", "--kind", "repository", "--json").stdout
-    )
+    )["tenants"]
 
     kinds = {row["slug"]: row["kind"] for row in everything}
     assert kinds == {repository: "repository", play: "play"}

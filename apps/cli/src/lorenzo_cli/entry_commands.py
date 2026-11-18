@@ -2,14 +2,14 @@
 
 from __future__ import annotations
 
-import json
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 from uuid import UUID
 
 import typer
 from rich.table import Column, Table
 from rich.text import Text
 
+from lorenzo_cli import completers, console
 from lorenzo_cli.client import ops
 from lorenzo_cli.client.models import DescriptionOut, ItemInstanceOut, ItemOut, SheetOut
 from lorenzo_cli.client.paging import all_items
@@ -21,7 +21,7 @@ from lorenzo_cli.vocabulary_commands import Json, Tenant, session, vocabulary
 
 Kind = Literal["item", "item_instance", "being"]
 instance_app = typer.Typer(help="Read item instances.", no_args_is_help=True)
-being_app = typer.Typer(help="Read beings and their sheets.", no_args_is_help=True)
+being_app = typer.Typer(help="Read beings and their sheets, or make one.", no_args_is_help=True)
 
 
 def entry_id(client: LorenzoClient, tid: UUID, ref: str, kind: Kind) -> UUID:
@@ -107,12 +107,24 @@ def references(
     return found
 
 
-def show(ctx: typer.Context, tenant: str, ref: str, kind: Kind, as_json: bool) -> None:
-    from lorenzo_cli.main import _out
+def show(
+    ctx: typer.Context,
+    tenant: str,
+    ref: str,
+    kind: Kind,
+    as_json: bool,
+    *,
+    system: str | None = None,
+    campaign: str | None = None,
+    template: str | None = None,
+) -> None:
+    from lorenzo_cli.runtime import _out
 
     with session(ctx, tenant) as (client, tid):
         eid = entry_id(client, tid, ref, kind)
-        detail = client.call(ops.GET_ENTITY, path={"tenant_id": tid, "entity_id": eid}).value
+        detail = client.call(
+            ops.GET_ENTITY, path={"tenant_id": tid, "entity_id": eid}, query={"system": system}
+        ).value
         if kind not in {k.value for k in detail.kinds}:
             raise SelfServiceError(f"“{detail.name}” is not a {kind.replace('_', ' ')}.")
         item: ItemOut | ItemInstanceOut | None = None
@@ -123,7 +135,25 @@ def show(ctx: typer.Context, tenant: str, ref: str, kind: Kind, as_json: bool) -
                 ops.GET_ITEM_INSTANCE, path={"tenant_id": tid, "entity_id": eid}
             ).value
         sheet = (
-            client.call(ops.GET_BEING_SHEET, path={"tenant_id": tid, "entity_id": eid}).value
+            client.call(
+                ops.GET_BEING_SHEET,
+                path={"tenant_id": tid, "entity_id": eid},
+                query=_sheet_query(client, tid, campaign, template),
+            ).value
+            if kind == "being"
+            else None
+        )
+        # A campaign or a template names the sheet: the being is read through it (ADR 0487).
+        view = (
+            client.call(
+                ops.READ_THROUGH_TEMPLATE,
+                path={"tenant_id": tid, "entity_id": eid, "template_id": sheet.template.id},
+            ).value
+            if sheet is not None and sheet.template is not None and (campaign or template)
+            else None
+        )
+        held = (
+            client.call(ops.LIST_HELD_FEATURES, path={"tenant_id": tid, "entity_id": eid}).value
             if kind == "being"
             else None
         )
@@ -132,8 +162,10 @@ def show(ctx: typer.Context, tenant: str, ref: str, kind: Kind, as_json: bool) -
             data["item" if kind == "item" else "item_instance"] = item.model_dump(mode="json")
         if sheet is not None:
             data["sheet"] = sheet.model_dump(mode="json")
+        if view is not None:
+            data["view"] = view.model_dump(mode="json")
         if as_json:
-            typer.echo(json.dumps(data, indent=2))
+            console.emit(data)
             return
         definitions = vocabulary(client, tid)
         by_name = {d.name: d for d in definitions}
@@ -154,8 +186,27 @@ def show(ctx: typer.Context, tenant: str, ref: str, kind: Kind, as_json: bool) -
                     f"Owner: {item.owner_entity_id or 'none'}" + (" · Bound" if item.bound else "")
                 )
             )
-        if detail.children:
-            _out.print(Text("Contains: " + ", ".join(safe(c.name) for c in detail.children)))
+        # A feature a being holds is an entry below it, not something it carries.
+        features = list(held.features) if held is not None else []
+        feature_ids = {f.id for f in features}
+        carried = [c for c in detail.children if c.id not in feature_ids]
+        if carried:
+            _out.print(Text("Contains: " + ", ".join(safe(c.name) for c in carried)))
+        if features and view is None:
+            _out.print(
+                Text(
+                    "Features: "
+                    + ", ".join(safe(f.name) + ("" if f.active else " (off)") for f in features)
+                )
+            )
+        if view is not None:
+            from lorenzo_cli.sheet_view import print_view
+
+            _out.print()
+            print_view(view, {d.id: d for d in definitions})
+            return
+        if (campaign or template) and sheet is not None and sheet.template is None:
+            console.notice("No template matches it there, so every stat follows.")
         table = Table("Stat", "Value", "Hints", "Source", box=None)
         stats = {s.name: s for s in detail.stats}
         ordered = [d.name for d in definitions if d.name in stats]
@@ -235,7 +286,7 @@ def show(ctx: typer.Context, tenant: str, ref: str, kind: Kind, as_json: bool) -
 
 
 def print_sheet(sheet: SheetOut, definitions: dict[str, Any]) -> None:
-    from lorenzo_cli.main import _out
+    from lorenzo_cli.runtime import _out
 
     if not sheet.weapons_configured:
         _out.print(Text("Weapon stat group is not set.", style="dim"))
@@ -261,24 +312,122 @@ def print_sheet(sheet: SheetOut, definitions: dict[str, Any]) -> None:
         _out.print(Text("No abilities visible.", style="dim"))
 
 
-def item_show(ctx: typer.Context, item: str, tenant: Tenant, as_json: Json = False) -> None:
+SystemOption = Annotated[
+    str | None,
+    typer.Option(
+        "--system", help="Read it as one system shows it: its stats and the neutral ones."
+    ),
+]
+
+
+def _sheet_query(
+    client: LorenzoClient, tid: UUID, campaign: str | None, template: str | None
+) -> dict[str, str]:
+    """The sheet's campaign (whose system picks the template) and template, by name or id."""
+    from lorenzo_cli.client.models import TemplateSummaryOut
+    from lorenzo_cli.commands.campaigns import find as find_campaign
+
+    query: dict[str, str] = {}
+    if campaign is not None:
+        query["campaign_id"] = str(find_campaign(client, tid, campaign).id)
+    if template is not None:
+        rows = all_items(client, ops.LIST_TEMPLATES, path={"tenant_id": tid}, of=TemplateSummaryOut)
+        found = next((t for t in rows if template in (t.name, str(t.id))), None)
+        if found is None:
+            raise SelfServiceError(f"No template {template} here: `lorenzo template list`.")
+        query["template_id"] = str(found.id)
+    return query
+
+
+def item_show(
+    ctx: typer.Context,
+    item: str,
+    tenant: Tenant,
+    system: SystemOption = None,
+    as_json: Json = False,
+) -> None:
     """Read an item by id, link name or exact title."""
-    show(ctx, tenant, item, "item", as_json)
+    show(ctx, tenant, item, "item", as_json, system=system)
 
 
 @instance_app.command("show")
-def instance_show(ctx: typer.Context, instance: str, tenant: Tenant, as_json: Json = False) -> None:
+def instance_show(
+    ctx: typer.Context,
+    instance: str,
+    tenant: Tenant,
+    system: SystemOption = None,
+    as_json: Json = False,
+) -> None:
     """Read an item instance by id, link name or exact title."""
-    show(ctx, tenant, instance, "item_instance", as_json)
+    show(ctx, tenant, instance, "item_instance", as_json, system=system)
 
 
 @being_app.command("show")
-def being_show(ctx: typer.Context, being: str, tenant: Tenant, as_json: Json = False) -> None:
+def being_show(
+    ctx: typer.Context,
+    being: str,
+    tenant: Tenant,
+    system: SystemOption = None,
+    campaign: Annotated[
+        str | None,
+        typer.Option(
+            "--campaign",
+            help="Its sheet as this campaign shows it (its system's template).",
+            autocompletion=completers.campaign,
+        ),
+    ] = None,
+    template: Annotated[
+        str | None,
+        typer.Option(
+            "--template",
+            help="Its sheet through this template.",
+            autocompletion=completers.template,
+        ),
+    ] = None,
+    as_json: Json = False,
+) -> None:
     """Read a being by id, link name or exact name, with equipped weapons and abilities."""
-    show(ctx, tenant, being, "being", as_json)
+    show(ctx, tenant, being, "being", as_json, system=system, campaign=campaign, template=template)
 
 
-def register(app: typer.Typer, item_app: typer.Typer) -> None:
-    app.add_typer(instance_app, name="item-instance")
-    app.add_typer(being_app, name="being")
-    item_app.command("show")(item_show)
+@being_app.command("create")
+def being_create(
+    ctx: typer.Context,
+    name: str,
+    tenant: Tenant,
+    parent: Annotated[
+        list[str] | None,
+        typer.Option("--parent", help="An entry it inherits from, by slug or id; repeat."),
+    ] = None,
+    slug: Annotated[str | None, typer.Option("--slug", help="Its link name.")] = None,
+    yes: Annotated[bool, typer.Option("--yes", help="Don't ask before writing.")] = False,
+    as_json: Json = False,
+) -> None:
+    """Make a being, inheriting from the entries named (an operative type, a class, a person)."""
+    from lorenzo_cli.client.models import EntityCreate
+    from lorenzo_cli.runtime import may_write
+
+    with session(ctx, tenant, writes=True) as (client, tid):
+        parents = []
+        for ref in parent or []:
+            try:
+                parents.append(UUID(ref))
+            except ValueError:
+                parents.append(
+                    client.call(
+                        ops.GET_ENTITY_BY_SLUG, path={"tenant_id": tid, "slug": ref}
+                    ).value.id
+                )
+        under = f" under {', '.join(parent)}" if parent else ""
+        may_write(ctx.obj, yes=yes, question=f"Make the being {name}{under}?", default=True)
+        values: dict[str, Any] = {"name": name, "kinds": ["being"], "parents": parents}
+        if slug is not None:
+            values["slug"] = slug
+        made = client.call(
+            ops.CREATE_ENTITY, path={"tenant_id": tid}, body=EntityCreate(**values)
+        ).value
+    if as_json:
+        console.emit(made.model_dump(mode="json"))
+        return
+    console.out.print(console.status("done", f"made {made.name}{under}."))
+    console.out.print(str(made.id))

@@ -45,3 +45,35 @@ exists to take a layer out. Before launch there is no data to keep.
   repository, and a second system beside it without a collision.
 - The starters are content to keep correct; their numbers are reviewed like code.
 - Nothing is seeded by the API: a starter is a document a person chooses to apply.
+
+## As built (slice C10)
+
+- Three starters ship in `apps/cli/src/lorenzo_cli/starters/`: `neutral`, `dnd5e` (system `dnd5e`, root `dnd5e-system`) and
+  `wrath-and-glory` (system `wg`). `dnd5e` requires `neutral` and attaches its Economic object to the neutral forms; every D&D
+  stat is prefixed `dnd5e_`, and damage is one dice stat (`dnd5e_damage = "1d8"`) instead of a count and a die.
+- `seed`, `unseed`, the `seed/` package and its tests are gone; `tenant create` points to `lorenzo apply --starter neutral`.
+- The four published repositories are two: the equipment (`neutral` and the neutral pass) and the rules, which copy the equipment
+  and add `dnd5e` and the system pass. `repo contents` no longer counts seed layers.
+- The `wrath-and-glory` starter holds names and numbers only, checked against the core rulebook and its character sheets
+  (2026-11-18): an attribute is a rating, a bonus and their total, which the skills and traits read; every trait but Corruption
+  is at least 1, written as a `max` over a step stat (group `wg_steps`); armour's Bulk lowers Speed and Powered adds to
+  Strength; a ranged weapon has three ranges; Glory is the group's pool, so no character holds it. A character starts with the
+  book's values (attributes 1, skills 0, Speed 6, Average size, 2 Wrath).
+- It holds the core rulebook's five species (Speed, the Astartes' +1 Resolve, the Primaris' +3 Wounds, their abilities), its 27
+  archetypes (Tier, XP cost, Keywords, attribute and skill ratings, Influence bonus, and the ability a grant rule gives) and its 91
+  talents and Faith talents (XP cost, requirements as text, and as prerequisites where they are ratings that all must hold), with
+  the page of each. No effect text: what a talent or an ability does is in the book. Generated from the book's text and checked
+  by eye; a requirement of Keywords, a Species or another talent is text only.
+- D&D's armour class reads what a character wears (2026-11-18): the best worn body armour's `dnd5e_armor` (10 with none),
+  the lowest Dexterity cap among it (light none, medium 2, heavy 0, set on the armour tiers), and the best worn shield's, as
+  `contents` formulas filtered by the tags `dnd5e_is_body_armor` and `dnd5e_is_shield`. The importer files any armour named with
+  the word "shield" as a shield.
+- Another way of working out armour class comes from a feature the character holds, switched on, while no body armour is worn:
+  the tags `dnd5e_ac_10_dex_con` (a shield allowed), `dnd5e_ac_10_dex_wis` (no shield) and `dnd5e_ac_13_dex` (a shield
+  allowed), or a natural armour class in `dnd5e_ac_natural`. The armour class is the best of the worn value and those ways
+  (`max`); each way is a count of held features (`contents`, `feature_instance`), a `comparison`, a `sum` and a `product`, in the
+  hidden group `dnd5e_steps`. The starter carries the SRD's Unarmored Defense (Barbarian, Monk), Draconic Resilience and Mage
+  Armor (starting switched off); a character starts with every ability at 10 and level 1, so an unfinished one has an armour class.
+- A flat bonus goes on top of the best way: `dnd5e_ac_bonus` (always: a Ring of Protection) and `dnd5e_ac_bonus_armored` (while
+  body armour is worn: Defense, which the starter's Defense feature now carries), each summed over what the character holds,
+  switched on. A way's tag counts on a worn item as on a feature.

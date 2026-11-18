@@ -237,7 +237,7 @@ def test_it_shows_what_it_will_do_and_asks_once_at_a_terminal(tmp_path: Path) ->
     world = World()
     declined = offer(tmp_path, world, interactive=True, input="n\n")
 
-    assert declined.exit_code == 1
+    assert declined.exit_code == 2
     assert world.writes() == []
     text = said(declined)
     assert "grant: to be granted" in text
@@ -252,11 +252,11 @@ def test_it_shows_what_it_will_do_and_asks_once_at_a_terminal(tmp_path: Path) ->
 def test_without_a_terminal_or_with_json_it_needs_yes(tmp_path: Path) -> None:
     world = World()
     quiet = offer(tmp_path, world, interactive=False)
-    assert quiet.exit_code == 1
+    assert quiet.exit_code == 2
     assert "--yes" in said(quiet)
 
     json_run = offer(tmp_path, world, "--json", interactive=True)
-    assert json_run.exit_code == 1
+    assert json_run.exit_code == 2
     assert world.writes() == []
 
 
@@ -411,7 +411,7 @@ def test_the_plan_before_asking_names_each_dependency_and_what_it_needs(tmp_path
     world = World(bridge=True)
     declined = offer(tmp_path, world, interactive=True, input="n\n")
 
-    assert declined.exit_code == 1
+    assert declined.exit_code == 2
     assert world.writes() == []
     assert "grant core, which sunken-vale builds on: to be granted" in said(declined)
 

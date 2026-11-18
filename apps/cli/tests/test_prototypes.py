@@ -7,8 +7,8 @@ import uuid
 from typing import Any
 
 import httpx
+from item_json import item_json as _item
 from test_transport import FixedToken
-from test_unseed import _item
 
 from lorenzo_cli.client.transport import LorenzoClient
 from lorenzo_cli.prototypes import add_parent

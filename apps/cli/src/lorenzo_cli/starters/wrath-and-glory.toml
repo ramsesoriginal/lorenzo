@@ -1,0 +1,4143 @@
+# The Wrath & Glory starter (ADR 0491). Requires the neutral starter.
+# Mechanics, numbers and stat names only: no rules text, setting text or setting names. The
+# attributes and skills, the traits' formulas, the bounds and the wargear profile were checked
+# against the core rulebook and its character sheets. The species, the 27 archetypes, their
+# abilities and the talents of the core rulebook are here by name, cost, ratings, requirements
+# and page: what each does is in the book.
+
+format = 1
+name = "wrath-and-glory"
+requires = [
+    "neutral",
+]
+group = [
+    { name = "wg_attributes", system = true },
+    { name = "wg_skills", system = true },
+    { name = "wg_traits", system = true },
+    { name = "wg_pools", system = true },
+    { name = "wg_progress", system = true },
+    { name = "wg_steps", system = true },
+    { name = "wg_gear", system = true },
+    { name = "wg_features", system = true },
+]
+
+[system]
+slug = "wg"
+name = "Wrath & Glory"
+root = "wg-system"
+
+[[stat]]
+name = "wg_strength"
+group = "wg_attributes"
+type = "int"
+min = 1
+max = 12
+
+[[stat]]
+name = "wg_strength_bonus"
+group = "wg_attributes"
+type = "int"
+signed = true
+
+[[stat]]
+name = "wg_strength_total"
+group = "wg_attributes"
+type = "int"
+
+[[stat]]
+name = "wg_toughness"
+group = "wg_attributes"
+type = "int"
+min = 1
+max = 12
+
+[[stat]]
+name = "wg_toughness_bonus"
+group = "wg_attributes"
+type = "int"
+signed = true
+
+[[stat]]
+name = "wg_toughness_total"
+group = "wg_attributes"
+type = "int"
+
+[[stat]]
+name = "wg_agility"
+group = "wg_attributes"
+type = "int"
+min = 1
+max = 12
+
+[[stat]]
+name = "wg_agility_bonus"
+group = "wg_attributes"
+type = "int"
+signed = true
+
+[[stat]]
+name = "wg_agility_total"
+group = "wg_attributes"
+type = "int"
+
+[[stat]]
+name = "wg_initiative"
+group = "wg_attributes"
+type = "int"
+min = 1
+max = 12
+
+[[stat]]
+name = "wg_initiative_bonus"
+group = "wg_attributes"
+type = "int"
+signed = true
+
+[[stat]]
+name = "wg_initiative_total"
+group = "wg_attributes"
+type = "int"
+
+[[stat]]
+name = "wg_willpower"
+group = "wg_attributes"
+type = "int"
+min = 1
+max = 12
+
+[[stat]]
+name = "wg_willpower_bonus"
+group = "wg_attributes"
+type = "int"
+signed = true
+
+[[stat]]
+name = "wg_willpower_total"
+group = "wg_attributes"
+type = "int"
+
+[[stat]]
+name = "wg_intellect"
+group = "wg_attributes"
+type = "int"
+min = 1
+max = 12
+
+[[stat]]
+name = "wg_intellect_bonus"
+group = "wg_attributes"
+type = "int"
+signed = true
+
+[[stat]]
+name = "wg_intellect_total"
+group = "wg_attributes"
+type = "int"
+
+[[stat]]
+name = "wg_fellowship"
+group = "wg_attributes"
+type = "int"
+min = 1
+max = 12
+
+[[stat]]
+name = "wg_fellowship_bonus"
+group = "wg_attributes"
+type = "int"
+signed = true
+
+[[stat]]
+name = "wg_fellowship_total"
+group = "wg_attributes"
+type = "int"
+
+[[stat]]
+name = "wg_athletics"
+group = "wg_skills"
+type = "int"
+min = 0
+max = 8
+
+[[stat]]
+name = "wg_awareness"
+group = "wg_skills"
+type = "int"
+min = 0
+max = 8
+
+[[stat]]
+name = "wg_ballistic_skill"
+group = "wg_skills"
+type = "int"
+min = 0
+max = 8
+
+[[stat]]
+name = "wg_cunning"
+group = "wg_skills"
+type = "int"
+min = 0
+max = 8
+
+[[stat]]
+name = "wg_deception"
+group = "wg_skills"
+type = "int"
+min = 0
+max = 8
+
+[[stat]]
+name = "wg_insight"
+group = "wg_skills"
+type = "int"
+min = 0
+max = 8
+
+[[stat]]
+name = "wg_intimidation"
+group = "wg_skills"
+type = "int"
+min = 0
+max = 8
+
+[[stat]]
+name = "wg_investigation"
+group = "wg_skills"
+type = "int"
+min = 0
+max = 8
+
+[[stat]]
+name = "wg_leadership"
+group = "wg_skills"
+type = "int"
+min = 0
+max = 8
+
+[[stat]]
+name = "wg_medicae"
+group = "wg_skills"
+type = "int"
+min = 0
+max = 8
+
+[[stat]]
+name = "wg_persuasion"
+group = "wg_skills"
+type = "int"
+min = 0
+max = 8
+
+[[stat]]
+name = "wg_pilot"
+group = "wg_skills"
+type = "int"
+min = 0
+max = 8
+
+[[stat]]
+name = "wg_psychic_mastery"
+group = "wg_skills"
+type = "int"
+min = 0
+max = 8
+
+[[stat]]
+name = "wg_scholar"
+group = "wg_skills"
+type = "int"
+min = 0
+max = 8
+
+[[stat]]
+name = "wg_stealth"
+group = "wg_skills"
+type = "int"
+min = 0
+max = 8
+
+[[stat]]
+name = "wg_survival"
+group = "wg_skills"
+type = "int"
+min = 0
+max = 8
+
+[[stat]]
+name = "wg_tech"
+group = "wg_skills"
+type = "int"
+min = 0
+max = 8
+
+[[stat]]
+name = "wg_weapon_skill"
+group = "wg_skills"
+type = "int"
+min = 0
+max = 8
+
+[[stat]]
+name = "wg_defence"
+group = "wg_traits"
+type = "int"
+
+[[stat]]
+name = "wg_resilience"
+group = "wg_traits"
+type = "int"
+
+[[stat]]
+name = "wg_determination"
+group = "wg_traits"
+type = "int"
+
+[[stat]]
+name = "wg_max_wounds"
+group = "wg_traits"
+type = "int"
+
+[[stat]]
+name = "wg_max_shock"
+group = "wg_traits"
+type = "int"
+
+[[stat]]
+name = "wg_max_traumatic_injuries"
+group = "wg_traits"
+type = "int"
+
+[[stat]]
+name = "wg_conviction"
+group = "wg_traits"
+type = "int"
+
+[[stat]]
+name = "wg_resolve"
+group = "wg_traits"
+type = "int"
+
+[[stat]]
+name = "wg_passive_awareness"
+group = "wg_traits"
+type = "int"
+
+[[stat]]
+name = "wg_influence"
+group = "wg_traits"
+type = "int"
+
+[[stat]]
+name = "wg_wealth"
+group = "wg_traits"
+type = "int"
+
+[[stat]]
+name = "wg_armour"
+group = "wg_traits"
+type = "int"
+
+[[stat]]
+name = "wg_speed"
+group = "wg_traits"
+type = "int"
+
+[[stat]]
+name = "wg_size"
+group = "wg_traits"
+type = "enum"
+values = [
+    "Tiny",
+    "Small",
+    "Average",
+    "Large",
+    "Huge",
+    "Gargantuan",
+]
+
+[[stat]]
+name = "wg_tier"
+group = "wg_progress"
+type = "int"
+min = 1
+max = 5
+
+[[stat]]
+name = "wg_rank"
+group = "wg_progress"
+type = "int"
+min = 1
+max = 5
+
+[[stat]]
+name = "wg_wrath"
+group = "wg_progress"
+type = "int"
+min = 0
+adjustable_in_play = true
+
+[[stat]]
+name = "wg_wounds"
+group = "wg_progress"
+type = "int"
+min = 0
+adjustable_in_play = true
+max_hint = "wg_max_wounds"
+
+[[stat]]
+name = "wg_shock"
+group = "wg_progress"
+type = "int"
+min = 0
+adjustable_in_play = true
+max_hint = "wg_max_shock"
+
+[[stat]]
+name = "wg_traumatic_injuries"
+group = "wg_progress"
+type = "int"
+min = 0
+adjustable_in_play = true
+max_hint = "wg_max_traumatic_injuries"
+
+[[stat]]
+name = "wg_corruption"
+group = "wg_progress"
+type = "int"
+min = 0
+adjustable_in_play = true
+
+[[stat]]
+name = "wg_faith"
+group = "wg_progress"
+type = "int"
+min = 0
+adjustable_in_play = true
+
+[[stat]]
+name = "wg_ammo"
+group = "wg_progress"
+type = "int"
+min = 0
+adjustable_in_play = true
+
+[[stat]]
+name = "wg_stealth_score"
+group = "wg_progress"
+type = "int"
+min = 0
+adjustable_in_play = true
+
+[[stat]]
+name = "wg_xp_earned"
+group = "wg_progress"
+type = "int"
+min = 0
+
+[[stat]]
+name = "wg_xp"
+group = "wg_progress"
+type = "int"
+min = 0
+adjustable_in_play = true
+
+[[stat]]
+name = "wg_defence_base"
+group = "wg_steps"
+type = "int"
+
+[[stat]]
+name = "wg_resolve_base"
+group = "wg_steps"
+type = "int"
+
+[[stat]]
+name = "wg_resolve_bonus"
+group = "wg_steps"
+type = "int"
+
+[[stat]]
+name = "wg_max_wounds_bonus"
+group = "wg_steps"
+type = "int"
+
+[[stat]]
+name = "wg_influence_base"
+group = "wg_steps"
+type = "int"
+
+[[stat]]
+name = "wg_influence_bonus"
+group = "wg_steps"
+type = "int"
+
+[[stat]]
+name = "wg_speed_base"
+group = "wg_steps"
+type = "int"
+
+[[stat]]
+name = "wg_bulk_worn"
+group = "wg_steps"
+type = "int"
+
+[[stat]]
+name = "wg_powered_worn"
+group = "wg_steps"
+type = "int"
+
+[[stat]]
+name = "wg_xp_cost"
+group = "wg_features"
+type = "int"
+min = 0
+
+[[stat]]
+name = "wg_archetype_tier"
+group = "wg_features"
+type = "int"
+min = 1
+max = 5
+
+[[stat]]
+name = "wg_keywords"
+group = "wg_features"
+type = "text"
+
+[[stat]]
+name = "wg_requirements"
+group = "wg_features"
+type = "text"
+
+[[stat]]
+name = "wg_damage"
+group = "wg_gear"
+type = "int"
+
+[[stat]]
+name = "wg_adds_strength"
+group = "wg_gear"
+type = "bool"
+
+[[stat]]
+name = "wg_extra_damage_dice"
+group = "wg_gear"
+type = "int"
+min = 0
+
+[[stat]]
+name = "wg_extra_damage"
+group = "wg_gear"
+type = "dice"
+
+[[stat]]
+name = "wg_armour_penetration"
+group = "wg_gear"
+type = "int"
+signed = true
+
+[[stat]]
+name = "wg_salvo"
+group = "wg_gear"
+type = "int"
+min = 0
+
+[[stat]]
+name = "wg_range_short"
+group = "wg_gear"
+type = "int"
+min = 0
+unit = "m"
+
+[[stat]]
+name = "wg_range_medium"
+group = "wg_gear"
+type = "int"
+min = 0
+unit = "m"
+
+[[stat]]
+name = "wg_range_long"
+group = "wg_gear"
+type = "int"
+min = 0
+unit = "m"
+
+[[stat]]
+name = "wg_armour_rating"
+group = "wg_gear"
+type = "int"
+min = 0
+
+[[stat]]
+name = "wg_invulnerable"
+group = "wg_gear"
+type = "bool"
+
+[[stat]]
+name = "wg_bulk"
+group = "wg_gear"
+type = "int"
+min = 0
+
+[[stat]]
+name = "wg_powered"
+group = "wg_gear"
+type = "int"
+min = 0
+
+[[stat]]
+name = "wg_value"
+group = "wg_gear"
+type = "int"
+min = 0
+
+[[stat]]
+name = "wg_rarity"
+group = "wg_gear"
+type = "enum"
+values = [
+    "Common",
+    "Uncommon",
+    "Rare",
+    "Very Rare",
+    "Unique",
+]
+
+[[stat]]
+name = "wg_uses"
+group = "wg_features"
+type = "int"
+min = 0
+adjustable_in_play = true
+
+[[stat]]
+name = "wg_pool_athletics"
+group = "wg_pools"
+type = "int"
+
+[[stat]]
+name = "wg_roll_athletics"
+group = "wg_pools"
+type = "dice"
+
+[[stat]]
+name = "wg_pool_awareness"
+group = "wg_pools"
+type = "int"
+
+[[stat]]
+name = "wg_roll_awareness"
+group = "wg_pools"
+type = "dice"
+
+[[stat]]
+name = "wg_pool_ballistic_skill"
+group = "wg_pools"
+type = "int"
+
+[[stat]]
+name = "wg_roll_ballistic_skill"
+group = "wg_pools"
+type = "dice"
+
+[[stat]]
+name = "wg_pool_cunning"
+group = "wg_pools"
+type = "int"
+
+[[stat]]
+name = "wg_roll_cunning"
+group = "wg_pools"
+type = "dice"
+
+[[stat]]
+name = "wg_pool_deception"
+group = "wg_pools"
+type = "int"
+
+[[stat]]
+name = "wg_roll_deception"
+group = "wg_pools"
+type = "dice"
+
+[[stat]]
+name = "wg_pool_insight"
+group = "wg_pools"
+type = "int"
+
+[[stat]]
+name = "wg_roll_insight"
+group = "wg_pools"
+type = "dice"
+
+[[stat]]
+name = "wg_pool_intimidation"
+group = "wg_pools"
+type = "int"
+
+[[stat]]
+name = "wg_roll_intimidation"
+group = "wg_pools"
+type = "dice"
+
+[[stat]]
+name = "wg_pool_investigation"
+group = "wg_pools"
+type = "int"
+
+[[stat]]
+name = "wg_roll_investigation"
+group = "wg_pools"
+type = "dice"
+
+[[stat]]
+name = "wg_pool_leadership"
+group = "wg_pools"
+type = "int"
+
+[[stat]]
+name = "wg_roll_leadership"
+group = "wg_pools"
+type = "dice"
+
+[[stat]]
+name = "wg_pool_medicae"
+group = "wg_pools"
+type = "int"
+
+[[stat]]
+name = "wg_roll_medicae"
+group = "wg_pools"
+type = "dice"
+
+[[stat]]
+name = "wg_pool_persuasion"
+group = "wg_pools"
+type = "int"
+
+[[stat]]
+name = "wg_roll_persuasion"
+group = "wg_pools"
+type = "dice"
+
+[[stat]]
+name = "wg_pool_pilot"
+group = "wg_pools"
+type = "int"
+
+[[stat]]
+name = "wg_roll_pilot"
+group = "wg_pools"
+type = "dice"
+
+[[stat]]
+name = "wg_pool_psychic_mastery"
+group = "wg_pools"
+type = "int"
+
+[[stat]]
+name = "wg_roll_psychic_mastery"
+group = "wg_pools"
+type = "dice"
+
+[[stat]]
+name = "wg_pool_scholar"
+group = "wg_pools"
+type = "int"
+
+[[stat]]
+name = "wg_roll_scholar"
+group = "wg_pools"
+type = "dice"
+
+[[stat]]
+name = "wg_pool_stealth"
+group = "wg_pools"
+type = "int"
+
+[[stat]]
+name = "wg_roll_stealth"
+group = "wg_pools"
+type = "dice"
+
+[[stat]]
+name = "wg_pool_survival"
+group = "wg_pools"
+type = "int"
+
+[[stat]]
+name = "wg_roll_survival"
+group = "wg_pools"
+type = "dice"
+
+[[stat]]
+name = "wg_pool_tech"
+group = "wg_pools"
+type = "int"
+
+[[stat]]
+name = "wg_roll_tech"
+group = "wg_pools"
+type = "dice"
+
+[[stat]]
+name = "wg_pool_weapon_skill"
+group = "wg_pools"
+type = "int"
+
+[[stat]]
+name = "wg_roll_weapon_skill"
+group = "wg_pools"
+type = "dice"
+
+[[entry]]
+slug = "wg-system"
+name = "Wrath & Glory"
+description = "The mechanics of Wrath & Glory: attributes, skills, the traits they give, dice pools and gear. Numbers and names of mechanics only; the rules and the setting are in the rulebook."
+
+[[entry]]
+slug = "wg-character"
+name = "Character (Wrath & Glory)"
+parents = [
+    "wg-system",
+]
+
+[entry.stats]
+wg_strength = 1
+wg_toughness = 1
+wg_agility = 1
+wg_initiative = 1
+wg_willpower = 1
+wg_intellect = 1
+wg_fellowship = 1
+wg_strength_bonus = 0
+wg_toughness_bonus = 0
+wg_agility_bonus = 0
+wg_initiative_bonus = 0
+wg_willpower_bonus = 0
+wg_intellect_bonus = 0
+wg_fellowship_bonus = 0
+wg_athletics = 0
+wg_awareness = 0
+wg_ballistic_skill = 0
+wg_cunning = 0
+wg_deception = 0
+wg_insight = 0
+wg_intimidation = 0
+wg_investigation = 0
+wg_leadership = 0
+wg_medicae = 0
+wg_persuasion = 0
+wg_pilot = 0
+wg_psychic_mastery = 0
+wg_scholar = 0
+wg_stealth = 0
+wg_survival = 0
+wg_tech = 0
+wg_weapon_skill = 0
+wg_influence_bonus = 0
+wg_resolve_bonus = 0
+wg_max_wounds_bonus = 0
+wg_speed_base = 6
+wg_size = "Average"
+wg_tier = 1
+wg_rank = 1
+wg_wrath = 2
+wg_wounds = 0
+wg_shock = 0
+wg_traumatic_injuries = 0
+wg_corruption = 0
+
+[[entry]]
+slug = "wg-species"
+name = "Species (Wrath & Glory)"
+parents = [
+    "wg-character",
+]
+
+[[entry]]
+slug = "wg-archetypes"
+name = "Archetypes (Wrath & Glory)"
+parents = [
+    "wg-system",
+]
+
+[[entry]]
+slug = "wg-talents"
+name = "Talents (Wrath & Glory)"
+parents = [
+    "wg-system",
+]
+
+[[entry]]
+slug = "wg-faith-talents"
+name = "Faith Talents (Wrath & Glory)"
+parents = [
+    "wg-talents",
+]
+
+[[entry]]
+slug = "wg-abilities"
+name = "Abilities (Wrath & Glory)"
+parents = [
+    "wg-system",
+]
+
+[[entry]]
+slug = "wg-weapon"
+name = "Weapon (Wrath & Glory)"
+parents = [
+    "wg-system",
+    "weapon",
+]
+
+[entry.stats]
+wg_extra_damage_dice = 0
+wg_armour_penetration = 0
+wg_salvo = 0
+
+[[entry]]
+slug = "wg-melee-weapon"
+name = "Melee weapon (Wrath & Glory)"
+parents = [
+    "wg-weapon",
+    "melee-weapon",
+]
+
+[entry.stats]
+wg_adds_strength = true
+wg_range_short = 1
+wg_range_medium = 1
+wg_range_long = 1
+
+[[entry]]
+slug = "wg-ranged-weapon"
+name = "Ranged weapon (Wrath & Glory)"
+parents = [
+    "wg-weapon",
+    "ranged-weapon",
+]
+
+[entry.stats]
+wg_adds_strength = false
+
+[[entry]]
+slug = "wg-armour"
+name = "Armour (Wrath & Glory)"
+parents = [
+    "wg-system",
+    "armor",
+]
+
+[entry.stats]
+wg_armour_rating = 0
+wg_invulnerable = false
+wg_bulk = 0
+wg_powered = 0
+
+[[entry]]
+slug = "wg-species-human"
+name = "Human"
+parents = [
+    "wg-species",
+]
+description = "Wrath & Glory Core Rulebook, p. 29."
+
+[entry.stats]
+wg_speed_base = 6
+
+[[entry]]
+slug = "wg-species-adeptus-astartes"
+name = "Adeptus Astartes"
+parents = [
+    "wg-species",
+]
+description = "Wrath & Glory Core Rulebook, p. 29."
+
+[entry.stats]
+wg_speed_base = 7
+wg_resolve_bonus = 1
+
+[[entry]]
+slug = "wg-ability-defender-of-humanity"
+name = "Defender of Humanity"
+kinds = [
+    "feature",
+]
+parents = [
+    "wg-abilities",
+]
+description = "Wrath & Glory Core Rulebook, p. 29."
+
+[[entry]]
+slug = "wg-ability-honour-the-chapter"
+name = "Honour the Chapter"
+kinds = [
+    "feature",
+]
+parents = [
+    "wg-abilities",
+]
+description = "Wrath & Glory Core Rulebook, p. 29."
+
+[[entry]]
+slug = "wg-ability-space-marine-implants"
+name = "Space Marine Implants"
+kinds = [
+    "feature",
+]
+parents = [
+    "wg-abilities",
+]
+description = "Wrath & Glory Core Rulebook, p. 29."
+
+[[entry]]
+slug = "wg-species-primaris-astartes"
+name = "Primaris Astartes"
+parents = [
+    "wg-species",
+]
+description = "Wrath & Glory Core Rulebook, p. 29."
+
+[entry.stats]
+wg_speed_base = 7
+wg_resolve_bonus = 1
+wg_max_wounds_bonus = 3
+
+[[entry]]
+slug = "wg-ability-honour-the-chapter-primaris"
+name = "Honour the Chapter (Primaris)"
+kinds = [
+    "feature",
+]
+parents = [
+    "wg-abilities",
+]
+description = "Wrath & Glory Core Rulebook, p. 29."
+
+[[entry]]
+slug = "wg-species-aeldari"
+name = "Aeldari"
+parents = [
+    "wg-species",
+]
+description = "Wrath & Glory Core Rulebook, p. 29."
+
+[entry.stats]
+wg_speed_base = 8
+
+[[entry]]
+slug = "wg-ability-intense-emotion"
+name = "Intense Emotion"
+kinds = [
+    "feature",
+]
+parents = [
+    "wg-abilities",
+]
+description = "Wrath & Glory Core Rulebook, p. 29."
+
+[[entry]]
+slug = "wg-ability-psychosensitive"
+name = "Psychosensitive"
+kinds = [
+    "feature",
+]
+parents = [
+    "wg-abilities",
+]
+description = "Wrath & Glory Core Rulebook, p. 29."
+
+[[entry]]
+slug = "wg-species-ork"
+name = "Ork"
+parents = [
+    "wg-species",
+]
+description = "Wrath & Glory Core Rulebook, p. 29."
+
+[entry.stats]
+wg_speed_base = 6
+
+[[entry]]
+slug = "wg-ability-orky"
+name = "Orky"
+kinds = [
+    "feature",
+]
+parents = [
+    "wg-abilities",
+]
+description = "Wrath & Glory Core Rulebook, p. 29."
+
+[[entry]]
+slug = "wg-ability-bigger-is-better"
+name = "Bigger is Better"
+kinds = [
+    "feature",
+]
+parents = [
+    "wg-abilities",
+]
+description = "Wrath & Glory Core Rulebook, p. 29."
+
+[[entry]]
+slug = "wg-archetype-sister-hospitaller"
+name = "Sister Hospitaller"
+parents = [
+    "wg-species-human",
+    "wg-archetypes",
+]
+description = "Wrath & Glory Core Rulebook, p. 91."
+
+[entry.stats]
+wg_willpower = 3
+wg_intellect = 3
+wg_medicae = 1
+wg_scholar = 1
+wg_xp_cost = 24
+wg_archetype_tier = 1
+wg_keywords = "IMPERIUM, ADEPTUS MINISTORUM, ADEPTA SORORITAS, [ORDER]"
+
+[[entry]]
+slug = "wg-ability-loyal-compassion"
+name = "Loyal Compassion"
+kinds = [
+    "feature",
+]
+parents = [
+    "wg-abilities",
+]
+description = "Wrath & Glory Core Rulebook, p. 91."
+
+[[entry]]
+slug = "wg-archetype-ministorum-priest"
+name = "Ministorum Priest"
+parents = [
+    "wg-species-human",
+    "wg-archetypes",
+]
+description = "Wrath & Glory Core Rulebook, p. 92."
+
+[entry.stats]
+wg_willpower = 3
+wg_scholar = 1
+wg_xp_cost = 12
+wg_archetype_tier = 1
+wg_keywords = "IMPERIUM, ADEPTUS MINISTORUM"
+
+[[entry]]
+slug = "wg-ability-fiery-invective"
+name = "Fiery Invective"
+kinds = [
+    "feature",
+]
+parents = [
+    "wg-abilities",
+]
+description = "Wrath & Glory Core Rulebook, p. 92."
+
+[[entry]]
+slug = "wg-archetype-imperial-guardsman"
+name = "Imperial Guardsman"
+parents = [
+    "wg-species-human",
+    "wg-archetypes",
+]
+description = "Wrath & Glory Core Rulebook, p. 93."
+
+[entry.stats]
+wg_ballistic_skill = 2
+wg_xp_cost = 6
+wg_archetype_tier = 1
+wg_keywords = "IMPERIUM, ASTRA MILITARUM, [REGIMENT]"
+
+[[entry]]
+slug = "wg-ability-look-out-sir"
+name = "Look Out, Sir!"
+kinds = [
+    "feature",
+]
+parents = [
+    "wg-abilities",
+]
+description = "Wrath & Glory Core Rulebook, p. 93."
+
+[[entry]]
+slug = "wg-archetype-inquisitorial-acolyte"
+name = "Inquisitorial Acolyte"
+parents = [
+    "wg-species-human",
+    "wg-archetypes",
+]
+description = "Wrath & Glory Core Rulebook, p. 94."
+
+[entry.stats]
+wg_xp_cost = 6
+wg_archetype_tier = 1
+wg_keywords = "IMPERIUM, INQUISITION, [ANY], [ORDO]"
+
+[[entry]]
+slug = "wg-ability-inquisitorial-decree"
+name = "Inquisitorial Decree"
+kinds = [
+    "feature",
+]
+parents = [
+    "wg-abilities",
+]
+description = "Wrath & Glory Core Rulebook, p. 94."
+
+[[entry]]
+slug = "wg-archetype-inquisitorial-sage"
+name = "Inquisitorial Sage"
+parents = [
+    "wg-species-human",
+    "wg-archetypes",
+]
+description = "Wrath & Glory Core Rulebook, p. 95."
+
+[entry.stats]
+wg_intellect = 3
+wg_scholar = 2
+wg_xp_cost = 16
+wg_archetype_tier = 1
+wg_keywords = "ADEPTUS ADMINISTRATUM, IMPERIUM, INQUISITION, [ORDO]"
+wg_influence_bonus = 1
+
+[[entry]]
+slug = "wg-ability-administratum-records"
+name = "Administratum Records"
+kinds = [
+    "feature",
+]
+parents = [
+    "wg-abilities",
+]
+description = "Wrath & Glory Core Rulebook, p. 95."
+
+[[entry]]
+slug = "wg-archetype-ganger"
+name = "Ganger"
+parents = [
+    "wg-species-human",
+    "wg-archetypes",
+]
+description = "Wrath & Glory Core Rulebook, p. 96."
+
+[entry.stats]
+wg_cunning = 1
+wg_xp_cost = 2
+wg_archetype_tier = 1
+wg_keywords = "SCUM, [ANY]"
+wg_influence_bonus = 1
+
+[[entry]]
+slug = "wg-ability-scrounger"
+name = "Scrounger"
+kinds = [
+    "feature",
+]
+parents = [
+    "wg-abilities",
+]
+description = "Wrath & Glory Core Rulebook, p. 96."
+
+[[entry]]
+slug = "wg-archetype-corsair"
+name = "Corsair"
+parents = [
+    "wg-species-aeldari",
+    "wg-archetypes",
+]
+description = "Wrath & Glory Core Rulebook, p. 97."
+
+[entry.stats]
+wg_agility = 3
+wg_athletics = 2
+wg_xp_cost = 16
+wg_archetype_tier = 1
+wg_keywords = "AELDARI, ANHRATHE, [COTERIE]"
+
+[[entry]]
+slug = "wg-ability-dancing-on-the-blades-edge"
+name = "Dancing on the Blade’s Edge"
+kinds = [
+    "feature",
+]
+parents = [
+    "wg-abilities",
+]
+description = "Wrath & Glory Core Rulebook, p. 97."
+
+[[entry]]
+slug = "wg-archetype-ork-boy"
+name = "Ork Boy"
+parents = [
+    "wg-species-ork",
+    "wg-archetypes",
+]
+description = "Wrath & Glory Core Rulebook, p. 98."
+
+[entry.stats]
+wg_strength = 3
+wg_toughness = 3
+wg_weapon_skill = 2
+wg_xp_cost = 26
+wg_archetype_tier = 1
+wg_keywords = "ORK, [CLAN]"
+
+[[entry]]
+slug = "wg-ability-get-stuck-in"
+name = "Get Stuck In"
+kinds = [
+    "feature",
+]
+parents = [
+    "wg-abilities",
+]
+description = "Wrath & Glory Core Rulebook, p. 98."
+
+[[entry]]
+slug = "wg-archetype-sister-of-battle"
+name = "Sister of Battle"
+parents = [
+    "wg-species-human",
+    "wg-archetypes",
+]
+description = "Wrath & Glory Core Rulebook, p. 99."
+
+[entry.stats]
+wg_strength = 3
+wg_toughness = 3
+wg_agility = 3
+wg_willpower = 3
+wg_ballistic_skill = 2
+wg_scholar = 1
+wg_weapon_skill = 2
+wg_xp_cost = 64
+wg_archetype_tier = 2
+wg_keywords = "IMPERIUM, ADEPTUS MINISTORUM, ADEPTA SORORITAS, [ORDER]"
+wg_influence_bonus = 1
+
+[[entry]]
+slug = "wg-ability-purity-of-faith"
+name = "Purity of Faith"
+kinds = [
+    "feature",
+]
+parents = [
+    "wg-abilities",
+]
+description = "Wrath & Glory Core Rulebook, p. 99."
+
+[[entry]]
+slug = "wg-archetype-sanctioned-psyker"
+name = "Sanctioned Psyker"
+parents = [
+    "wg-species-human",
+    "wg-archetypes",
+]
+description = "Wrath & Glory Core Rulebook, p. 100."
+
+[entry.stats]
+wg_willpower = 4
+wg_psychic_mastery = 1
+wg_xp_cost = 32
+wg_archetype_tier = 2
+wg_keywords = "IMPERIUM, ADEPTUS ASTRA TELEPATHICA, PSYKER, SCHOLASTIA PSYKANA"
+
+[[entry]]
+slug = "wg-ability-psyker"
+name = "Psyker"
+kinds = [
+    "feature",
+]
+parents = [
+    "wg-abilities",
+]
+description = "Wrath & Glory Core Rulebook, p. 100."
+
+[[entry]]
+slug = "wg-archetype-skitarius"
+name = "Skitarius"
+parents = [
+    "wg-species-human",
+    "wg-archetypes",
+]
+description = "Wrath & Glory Core Rulebook, p. 101."
+
+[entry.stats]
+wg_toughness = 3
+wg_ballistic_skill = 2
+wg_tech = 1
+wg_xp_cost = 28
+wg_archetype_tier = 2
+wg_keywords = "IMPERIUM, ADEPTUS MECHANICUS, SKITARII, [FORGE WORLD]"
+
+[[entry]]
+slug = "wg-ability-heavily-augmented"
+name = "Heavily Augmented"
+kinds = [
+    "feature",
+]
+parents = [
+    "wg-abilities",
+]
+description = "Wrath & Glory Core Rulebook, p. 101."
+
+[[entry]]
+slug = "wg-archetype-death-cult-assassin"
+name = "Death Cult Assassin"
+parents = [
+    "wg-species-human",
+    "wg-archetypes",
+]
+description = "Wrath & Glory Core Rulebook, p. 102."
+
+[entry.stats]
+wg_agility = 4
+wg_weapon_skill = 2
+wg_xp_cost = 36
+wg_archetype_tier = 2
+wg_keywords = "IMPERIUM, ADEPTUS MINISTORUM"
+wg_influence_bonus = 1
+
+[[entry]]
+slug = "wg-ability-glancing-blow"
+name = "Glancing Blow"
+kinds = [
+    "feature",
+]
+parents = [
+    "wg-abilities",
+]
+description = "Wrath & Glory Core Rulebook, p. 102."
+
+[[entry]]
+slug = "wg-archetype-tempestus-scion"
+name = "Tempestus Scion"
+parents = [
+    "wg-species-human",
+    "wg-archetypes",
+]
+description = "Wrath & Glory Core Rulebook, p. 103."
+
+[entry.stats]
+wg_strength = 3
+wg_toughness = 3
+wg_agility = 3
+wg_ballistic_skill = 2
+wg_stealth = 2
+wg_xp_cost = 52
+wg_archetype_tier = 2
+wg_keywords = "IMPERIUM, ASTRA MILITARUM, MILITARUM TEMPESTUS"
+wg_influence_bonus = 1
+
+[[entry]]
+slug = "wg-ability-elite-soldier"
+name = "Elite Soldier"
+kinds = [
+    "feature",
+]
+parents = [
+    "wg-abilities",
+]
+description = "Wrath & Glory Core Rulebook, p. 103."
+
+[[entry]]
+slug = "wg-archetype-rogue-trader"
+name = "Rogue Trader"
+parents = [
+    "wg-species-human",
+    "wg-archetypes",
+]
+description = "Wrath & Glory Core Rulebook, p. 104."
+
+[entry.stats]
+wg_fellowship = 3
+wg_awareness = 1
+wg_cunning = 1
+wg_insight = 2
+wg_persuasion = 2
+wg_xp_cost = 36
+wg_archetype_tier = 2
+wg_keywords = "IMPERIUM, ROGUE TRADER, [DYNASTY]"
+wg_influence_bonus = 2
+
+[[entry]]
+slug = "wg-ability-warrant-of-trade"
+name = "Warrant of Trade"
+kinds = [
+    "feature",
+]
+parents = [
+    "wg-abilities",
+]
+description = "Wrath & Glory Core Rulebook, p. 104."
+
+[[entry]]
+slug = "wg-archetype-scavvy"
+name = "Scavvy"
+parents = [
+    "wg-species-human",
+    "wg-archetypes",
+]
+description = "Wrath & Glory Core Rulebook, p. 105."
+
+[entry.stats]
+wg_toughness = 2
+wg_survival = 1
+wg_xp_cost = 16
+wg_archetype_tier = 2
+wg_keywords = "SCUM, [ANY]"
+wg_influence_bonus = -1
+
+[[entry]]
+slug = "wg-ability-mutant"
+name = "Mutant"
+kinds = [
+    "feature",
+]
+parents = [
+    "wg-abilities",
+]
+description = "Wrath & Glory Core Rulebook, p. 105."
+
+[[entry]]
+slug = "wg-archetype-space-marine-scout"
+name = "Space Marine Scout"
+parents = [
+    "wg-species-adeptus-astartes",
+    "wg-archetypes",
+]
+description = "Wrath & Glory Core Rulebook, p. 106."
+
+[entry.stats]
+wg_strength = 4
+wg_toughness = 4
+wg_agility = 4
+wg_initiative = 4
+wg_willpower = 3
+wg_intellect = 3
+wg_athletics = 3
+wg_awareness = 3
+wg_ballistic_skill = 3
+wg_stealth = 3
+wg_weapon_skill = 3
+wg_xp_cost = 170
+wg_archetype_tier = 2
+wg_keywords = "IMPERIUM, ADEPTUS ASTARTES, [CHAPTER]"
+wg_influence_bonus = 1
+
+[[entry]]
+slug = "wg-ability-use-the-terrain"
+name = "Use the Terrain"
+kinds = [
+    "feature",
+]
+parents = [
+    "wg-abilities",
+]
+description = "Wrath & Glory Core Rulebook, p. 106."
+
+[[entry]]
+slug = "wg-archetype-ranger"
+name = "Ranger"
+parents = [
+    "wg-species-aeldari",
+    "wg-archetypes",
+]
+description = "Wrath & Glory Core Rulebook, p. 107."
+
+[entry.stats]
+wg_agility = 3
+wg_ballistic_skill = 2
+wg_stealth = 1
+wg_survival = 2
+wg_xp_cost = 34
+wg_archetype_tier = 2
+wg_keywords = "AELDARI, ASURYANI"
+
+[[entry]]
+slug = "wg-ability-from-the-shadows"
+name = "From the Shadows"
+kinds = [
+    "feature",
+]
+parents = [
+    "wg-abilities",
+]
+description = "Wrath & Glory Core Rulebook, p. 107."
+
+[[entry]]
+slug = "wg-archetype-ork-kommando"
+name = "Ork Kommando"
+parents = [
+    "wg-species-ork",
+    "wg-archetypes",
+]
+description = "Wrath & Glory Core Rulebook, p. 108."
+
+[entry.stats]
+wg_strength = 3
+wg_toughness = 3
+wg_agility = 3
+wg_stealth = 2
+wg_survival = 1
+wg_weapon_skill = 2
+wg_xp_cost = 54
+wg_archetype_tier = 2
+wg_keywords = "ORK, [CLAN]"
+
+[[entry]]
+slug = "wg-ability-kunnin-plan"
+name = "Kunnin‘ Plan"
+kinds = [
+    "feature",
+]
+parents = [
+    "wg-abilities",
+]
+description = "Wrath & Glory Core Rulebook, p. 108."
+
+[[entry]]
+slug = "wg-archetype-tech-priest"
+name = "Tech-Priest"
+parents = [
+    "wg-species-human",
+    "wg-archetypes",
+]
+description = "Wrath & Glory Core Rulebook, p. 109."
+
+[entry.stats]
+wg_intellect = 3
+wg_scholar = 1
+wg_tech = 3
+wg_xp_cost = 44
+wg_archetype_tier = 3
+wg_keywords = "IMPERIUM, ADEPTUS MECHANICUS, [FORGE WORLD]"
+wg_influence_bonus = 2
+
+[[entry]]
+slug = "wg-ability-rite-of-repair"
+name = "Rite of Repair"
+kinds = [
+    "feature",
+]
+parents = [
+    "wg-abilities",
+]
+description = "Wrath & Glory Core Rulebook, p. 109."
+
+[[entry]]
+slug = "wg-archetype-crusader"
+name = "Crusader"
+parents = [
+    "wg-species-human",
+    "wg-archetypes",
+]
+description = "Wrath & Glory Core Rulebook, p. 110."
+
+[entry.stats]
+wg_initiative = 3
+wg_willpower = 3
+wg_scholar = 1
+wg_weapon_skill = 3
+wg_xp_cost = 54
+wg_archetype_tier = 3
+wg_keywords = "IMPERIUM, ADEPTUS MINISTORUM"
+wg_influence_bonus = 1
+
+[[entry]]
+slug = "wg-ability-armour-of-faith"
+name = "Armour of Faith"
+kinds = [
+    "feature",
+]
+parents = [
+    "wg-abilities",
+]
+description = "Wrath & Glory Core Rulebook, p. 110."
+
+[[entry]]
+slug = "wg-archetype-imperial-commissar"
+name = "Imperial Commissar"
+parents = [
+    "wg-species-human",
+    "wg-archetypes",
+]
+description = "Wrath & Glory Core Rulebook, p. 111."
+
+[entry.stats]
+wg_strength = 3
+wg_toughness = 3
+wg_willpower = 4
+wg_ballistic_skill = 1
+wg_intimidation = 2
+wg_leadership = 2
+wg_weapon_skill = 1
+wg_xp_cost = 76
+wg_archetype_tier = 3
+wg_keywords = "IMPERIUM, ASTRA MILLITARUM, OFFICIO PREFECTUS"
+wg_influence_bonus = 3
+
+[[entry]]
+slug = "wg-ability-fearsome-respect"
+name = "Fearsome Respect"
+kinds = [
+    "feature",
+]
+parents = [
+    "wg-abilities",
+]
+description = "Wrath & Glory Core Rulebook, p. 111."
+
+[[entry]]
+slug = "wg-archetype-desperado"
+name = "Desperado"
+parents = [
+    "wg-species-human",
+    "wg-archetypes",
+]
+description = "Wrath & Glory Core Rulebook, p. 112."
+
+[entry.stats]
+wg_agility = 3
+wg_intellect = 2
+wg_awareness = 2
+wg_cunning = 2
+wg_investigation = 2
+wg_xp_cost = 52
+wg_archetype_tier = 3
+wg_keywords = "SCUM, [ANY]"
+wg_influence_bonus = 1
+
+[[entry]]
+slug = "wg-ability-valuable-prey"
+name = "Valuable Prey"
+kinds = [
+    "feature",
+]
+parents = [
+    "wg-abilities",
+]
+description = "Wrath & Glory Core Rulebook, p. 112."
+
+[[entry]]
+slug = "wg-archetype-tactical-space-marine"
+name = "Tactical Space Marine"
+parents = [
+    "wg-species-adeptus-astartes",
+    "wg-archetypes",
+]
+description = "Wrath & Glory Core Rulebook, p. 113."
+
+[entry.stats]
+wg_strength = 4
+wg_toughness = 5
+wg_agility = 5
+wg_initiative = 5
+wg_willpower = 4
+wg_intellect = 4
+wg_athletics = 3
+wg_awareness = 3
+wg_ballistic_skill = 5
+wg_leadership = 1
+wg_scholar = 1
+wg_stealth = 3
+wg_survival = 1
+wg_weapon_skill = 4
+wg_xp_cost = 257
+wg_archetype_tier = 3
+wg_keywords = "IMPERIUM, ADEPTUS ASTARTES, [CHAPTER]"
+wg_influence_bonus = 2
+
+[[entry]]
+slug = "wg-ability-tactical-versatility"
+name = "Tactical Versatility"
+kinds = [
+    "feature",
+]
+parents = [
+    "wg-abilities",
+]
+description = "Wrath & Glory Core Rulebook, p. 113."
+
+[[entry]]
+slug = "wg-archetype-warlock"
+name = "Warlock"
+parents = [
+    "wg-species-aeldari",
+    "wg-archetypes",
+]
+description = "Wrath & Glory Core Rulebook, p. 114."
+
+[entry.stats]
+wg_agility = 3
+wg_willpower = 4
+wg_psychic_mastery = 2
+wg_xp_cost = 56
+wg_archetype_tier = 3
+wg_keywords = "AELDARI, ASURYANI, PSYKER, [CRAFTWORLD]"
+wg_influence_bonus = 2
+
+[[entry]]
+slug = "wg-ability-runes-of-battle"
+name = "Runes of Battle"
+kinds = [
+    "feature",
+]
+parents = [
+    "wg-abilities",
+]
+description = "Wrath & Glory Core Rulebook, p. 114."
+
+[[entry]]
+slug = "wg-archetype-ork-nob"
+name = "Ork Nob"
+parents = [
+    "wg-species-ork",
+    "wg-archetypes",
+]
+description = "Wrath & Glory Core Rulebook, p. 115."
+
+[entry.stats]
+wg_strength = 4
+wg_toughness = 3
+wg_intimidation = 2
+wg_xp_cost = 56
+wg_archetype_tier = 3
+wg_keywords = "ORK, [CLAN]"
+wg_influence_bonus = 2
+
+[[entry]]
+slug = "wg-ability-the-green-tide"
+name = "The Green Tide"
+kinds = [
+    "feature",
+]
+parents = [
+    "wg-abilities",
+]
+description = "Wrath & Glory Core Rulebook, p. 115."
+
+[[entry]]
+slug = "wg-archetype-inquisitor"
+name = "Inquisitor"
+parents = [
+    "wg-species-human",
+    "wg-archetypes",
+]
+description = "Wrath & Glory Core Rulebook, p. 116."
+
+[entry.stats]
+wg_willpower = 4
+wg_intellect = 4
+wg_xp_cost = 110
+wg_archetype_tier = 4
+wg_keywords = "IMPERIUM, INQUISITION, [ORDO], [ANY]"
+wg_influence_bonus = 4
+
+[[entry]]
+slug = "wg-ability-unchecked-authority"
+name = "Unchecked Authority"
+kinds = [
+    "feature",
+]
+parents = [
+    "wg-abilities",
+]
+description = "Wrath & Glory Core Rulebook, p. 116."
+
+[[entry]]
+slug = "wg-archetype-primaris-intercessor"
+name = "Primaris Intercessor"
+parents = [
+    "wg-species-primaris-astartes",
+    "wg-archetypes",
+]
+description = "Wrath & Glory Core Rulebook, p. 117."
+
+[entry.stats]
+wg_strength = 5
+wg_toughness = 6
+wg_agility = 5
+wg_initiative = 5
+wg_willpower = 3
+wg_intellect = 3
+wg_athletics = 3
+wg_awareness = 3
+wg_ballistic_skill = 6
+wg_stealth = 3
+wg_weapon_skill = 3
+wg_xp_cost = 300
+wg_archetype_tier = 4
+wg_keywords = "ADEPTUS ASTARTES, IMPERIUM, PRIMARIS, [CHAPTER]"
+wg_influence_bonus = 1
+
+[[entry]]
+slug = "wg-ability-intercessor-focus"
+name = "Intercessor Focus"
+kinds = [
+    "feature",
+]
+parents = [
+    "wg-abilities",
+]
+description = "Wrath & Glory Core Rulebook, p. 117."
+
+[[entry]]
+slug = "wg-talent-armourbane"
+name = "Armourbane"
+kinds = [
+    "feature",
+]
+parents = [
+    "wg-talents",
+]
+description = "Wrath & Glory Core Rulebook, p. 129."
+prerequisites = [
+    { stat = "wg_weapon_skill", comparator = "ge", value = 2 },
+]
+
+[entry.stats]
+wg_xp_cost = 20
+wg_requirements = "Weapon Skill Rating 2+"
+
+[[entry]]
+slug = "wg-talent-augmetic"
+name = "Augmetic"
+kinds = [
+    "feature",
+]
+parents = [
+    "wg-talents",
+]
+description = "Wrath & Glory Core Rulebook, p. 129."
+
+[entry.stats]
+wg_xp_cost = 20
+
+[[entry]]
+slug = "wg-talent-acute-sense"
+name = "Acute Sense"
+kinds = [
+    "feature",
+]
+parents = [
+    "wg-talents",
+]
+description = "Wrath & Glory Core Rulebook, p. 129."
+
+[entry.stats]
+wg_xp_cost = 20
+
+[[entry]]
+slug = "wg-talent-angel-of-death"
+name = "Angel Of Death"
+kinds = [
+    "feature",
+]
+parents = [
+    "wg-talents",
+]
+description = "Wrath & Glory Core Rulebook, p. 129."
+
+[entry.stats]
+wg_xp_cost = 30
+wg_requirements = "Rank 2+, Adeptus Astartes Species"
+
+[[entry]]
+slug = "wg-talent-betrayer"
+name = "Betrayer"
+kinds = [
+    "feature",
+]
+parents = [
+    "wg-talents",
+]
+description = "Wrath & Glory Core Rulebook, p. 130."
+
+[entry.stats]
+wg_xp_cost = 20
+wg_requirements = "CHAOS Keyword"
+
+[[entry]]
+slug = "wg-talent-berzerker"
+name = "Berzerker"
+kinds = [
+    "feature",
+]
+parents = [
+    "wg-talents",
+]
+description = "Wrath & Glory Core Rulebook, p. 130."
+
+[entry.stats]
+wg_xp_cost = 20
+
+[[entry]]
+slug = "wg-talent-binary-chatter"
+name = "Binary Chatter"
+kinds = [
+    "feature",
+]
+parents = [
+    "wg-talents",
+]
+description = "Wrath & Glory Core Rulebook, p. 130."
+
+[entry.stats]
+wg_xp_cost = 20
+wg_requirements = "ADEPTUS MECHANICUS Keyword"
+
+[[entry]]
+slug = "wg-talent-blindfighter"
+name = "Blindfighter"
+kinds = [
+    "feature",
+]
+parents = [
+    "wg-talents",
+]
+description = "Wrath & Glory Core Rulebook, p. 130."
+prerequisites = [
+    { stat = "wg_awareness", comparator = "ge", value = 3 },
+]
+
+[entry.stats]
+wg_xp_cost = 20
+wg_requirements = "Awareness Rating 3+"
+
+[[entry]]
+slug = "wg-talent-blood-must-flow"
+name = "Blood Must Flow!"
+kinds = [
+    "feature",
+]
+parents = [
+    "wg-talents",
+]
+description = "Wrath & Glory Core Rulebook, p. 130."
+prerequisites = [
+    { stat = "wg_weapon_skill", comparator = "ge", value = 2 },
+]
+
+[entry.stats]
+wg_xp_cost = 20
+wg_requirements = "Weapon Skill Rating 2+"
+
+[[entry]]
+slug = "wg-talent-bombardment"
+name = "Bombardment"
+kinds = [
+    "feature",
+]
+parents = [
+    "wg-talents",
+]
+description = "Wrath & Glory Core Rulebook, p. 130."
+
+[entry.stats]
+wg_xp_cost = 40
+wg_requirements = "Rank 2+ Any of the following Keywords: ADEPTUS ASTARTES, AELDARI, ASTRA MILLITARUM, CHAOS, ORK, ROGUE TRADER"
+
+[[entry]]
+slug = "wg-talent-brutalist"
+name = "Brutalist"
+kinds = [
+    "feature",
+]
+parents = [
+    "wg-talents",
+]
+description = "Wrath & Glory Core Rulebook, p. 130."
+prerequisites = [
+    { stat = "wg_strength", comparator = "ge", value = 3 },
+]
+
+[entry.stats]
+wg_xp_cost = 20
+wg_requirements = "Strength Rating 3+"
+
+[[entry]]
+slug = "wg-talent-chaos-familiar"
+name = "Chaos Familiar"
+kinds = [
+    "feature",
+]
+parents = [
+    "wg-talents",
+]
+description = "Wrath & Glory Core Rulebook, p. 130."
+
+[entry.stats]
+wg_xp_cost = 20
+wg_requirements = "CHAOS Keyword"
+
+[[entry]]
+slug = "wg-talent-conversational-cogitator"
+name = "Conversational Cogitator"
+kinds = [
+    "feature",
+]
+parents = [
+    "wg-talents",
+]
+description = "Wrath & Glory Core Rulebook, p. 131."
+
+[entry.stats]
+wg_xp_cost = 10
+wg_requirements = "ADEPTUS MECHANICUS Keyword"
+
+[[entry]]
+slug = "wg-talent-counter-attack"
+name = "Counter Attack"
+kinds = [
+    "feature",
+]
+parents = [
+    "wg-talents",
+]
+description = "Wrath & Glory Core Rulebook, p. 131."
+prerequisites = [
+    { stat = "wg_weapon_skill", comparator = "ge", value = 5 },
+]
+
+[entry.stats]
+wg_xp_cost = 30
+wg_requirements = "Weapon Skill Rating 5+"
+
+[[entry]]
+slug = "wg-talent-deadshot"
+name = "Deadshot"
+kinds = [
+    "feature",
+]
+parents = [
+    "wg-talents",
+]
+description = "Wrath & Glory Core Rulebook, p. 131."
+prerequisites = [
+    { stat = "wg_ballistic_skill", comparator = "ge", value = 2 },
+]
+
+[entry.stats]
+wg_xp_cost = 20
+wg_requirements = "Ballistic Skill Rating 2+"
+
+[[entry]]
+slug = "wg-talent-death-or-glory"
+name = "Death Or Glory!"
+kinds = [
+    "feature",
+]
+parents = [
+    "wg-talents",
+]
+description = "Wrath & Glory Core Rulebook, p. 131."
+
+[entry.stats]
+wg_xp_cost = 20
+wg_requirements = "Human"
+
+[[entry]]
+slug = "wg-talent-deductive"
+name = "Deductive"
+kinds = [
+    "feature",
+]
+parents = [
+    "wg-talents",
+]
+description = "Wrath & Glory Core Rulebook, p. 132."
+prerequisites = [
+    { stat = "wg_intellect", comparator = "ge", value = 3 },
+]
+
+[entry.stats]
+wg_xp_cost = 20
+wg_requirements = "Intellect Rating 3+"
+
+[[entry]]
+slug = "wg-talent-devotees"
+name = "Devotees"
+kinds = [
+    "feature",
+]
+parents = [
+    "wg-talents",
+]
+description = "Wrath & Glory Core Rulebook, p. 132."
+prerequisites = [
+    { stat = "wg_leadership", comparator = "ge", value = 4 },
+]
+
+[entry.stats]
+wg_xp_cost = 30
+wg_requirements = "Leadership Rating 4+"
+
+[[entry]]
+slug = "wg-talent-die-hard"
+name = "Die Hard"
+kinds = [
+    "feature",
+]
+parents = [
+    "wg-talents",
+]
+description = "Wrath & Glory Core Rulebook, p. 132."
+
+[entry.stats]
+wg_xp_cost = 20
+
+[[entry]]
+slug = "wg-talent-dirty-fighter"
+name = "Dirty Fighter"
+kinds = [
+    "feature",
+]
+parents = [
+    "wg-talents",
+]
+description = "Wrath & Glory Core Rulebook, p. 132."
+
+[entry.stats]
+wg_xp_cost = 20
+
+[[entry]]
+slug = "wg-talent-discipline-savant"
+name = "Discipline Savant"
+kinds = [
+    "feature",
+]
+parents = [
+    "wg-talents",
+]
+description = "Wrath & Glory Core Rulebook, p. 132."
+prerequisites = [
+    { stat = "wg_psychic_mastery", comparator = "ge", value = 4 },
+]
+
+[entry.stats]
+wg_xp_cost = 30
+wg_requirements = "Psychic Mastery Rating 4+, and at least 2 psychic powers from a single Discipline."
+
+[[entry]]
+slug = "wg-talent-disturbing-voice"
+name = "Disturbing Voice"
+kinds = [
+    "feature",
+]
+parents = [
+    "wg-talents",
+]
+description = "Wrath & Glory Core Rulebook, p. 133."
+
+[entry.stats]
+wg_xp_cost = 20
+
+[[entry]]
+slug = "wg-talent-dual-wield"
+name = "Dual Wield"
+kinds = [
+    "feature",
+]
+parents = [
+    "wg-talents",
+]
+description = "Wrath & Glory Core Rulebook, p. 133."
+
+[entry.stats]
+wg_xp_cost = 20
+
+[[entry]]
+slug = "wg-talent-duty-until-death"
+name = "Duty Until Death"
+kinds = [
+    "feature",
+]
+parents = [
+    "wg-talents",
+]
+description = "Wrath & Glory Core Rulebook, p. 133."
+prerequisites = [
+    { stat = "wg_willpower", comparator = "ge", value = 3 },
+]
+
+[entry.stats]
+wg_xp_cost = 20
+wg_requirements = "Willpower Rating 3+, IMPERIUM Keyword"
+
+[[entry]]
+slug = "wg-talent-eliminator"
+name = "Eliminator"
+kinds = [
+    "feature",
+]
+parents = [
+    "wg-talents",
+]
+description = "Wrath & Glory Core Rulebook, p. 133."
+prerequisites = [
+    { stat = "wg_stealth", comparator = "ge", value = 2 },
+]
+
+[entry.stats]
+wg_xp_cost = 20
+wg_requirements = "Stealth Rating 2+"
+
+[[entry]]
+slug = "wg-talent-escape-artist"
+name = "Escape Artist"
+kinds = [
+    "feature",
+]
+parents = [
+    "wg-talents",
+]
+description = "Wrath & Glory Core Rulebook, p. 133."
+
+[entry.stats]
+wg_xp_cost = 20
+
+[[entry]]
+slug = "wg-talent-ever-vigilant"
+name = "Ever Vigilant"
+kinds = [
+    "feature",
+]
+parents = [
+    "wg-talents",
+]
+description = "Wrath & Glory Core Rulebook, p. 133."
+
+[entry.stats]
+wg_xp_cost = 20
+
+[[entry]]
+slug = "wg-talent-favoured-by-the-warp"
+name = "Favoured By The Warp"
+kinds = [
+    "feature",
+]
+parents = [
+    "wg-talents",
+]
+description = "Wrath & Glory Core Rulebook, p. 133."
+
+[entry.stats]
+wg_xp_cost = 40
+wg_requirements = "PSYKER Keyword"
+
+[[entry]]
+slug = "wg-talent-fear"
+name = "Fear"
+kinds = [
+    "feature",
+]
+parents = [
+    "wg-talents",
+]
+description = "Wrath & Glory Core Rulebook, p. 133."
+
+[entry.stats]
+wg_xp_cost = 30
+
+[[entry]]
+slug = "wg-talent-fearless"
+name = "Fearless"
+kinds = [
+    "feature",
+]
+parents = [
+    "wg-talents",
+]
+description = "Wrath & Glory Core Rulebook, p. 133."
+prerequisites = [
+    { stat = "wg_willpower", comparator = "ge", value = 4 },
+]
+
+[entry.stats]
+wg_xp_cost = 30
+wg_requirements = "Willpower Rating 4+"
+
+[[entry]]
+slug = "wg-talent-feel-no-pain"
+name = "Feel No Pain"
+kinds = [
+    "feature",
+]
+parents = [
+    "wg-talents",
+]
+description = "Wrath & Glory Core Rulebook, p. 133."
+prerequisites = [
+    { stat = "wg_toughness", comparator = "ge", value = 4 },
+]
+
+[entry.stats]
+wg_xp_cost = 40
+wg_requirements = "Toughness Rating 4+"
+
+[[entry]]
+slug = "wg-talent-flagellant"
+name = "Flagellant"
+kinds = [
+    "feature",
+]
+parents = [
+    "wg-talents",
+]
+description = "Wrath & Glory Core Rulebook, p. 134."
+
+[entry.stats]
+wg_xp_cost = 20
+wg_requirements = "IMPERIUM Keyword"
+
+[[entry]]
+slug = "wg-talent-frenzy"
+name = "Frenzy"
+kinds = [
+    "feature",
+]
+parents = [
+    "wg-talents",
+]
+description = "Wrath & Glory Core Rulebook, p. 134."
+
+[entry.stats]
+wg_xp_cost = 20
+
+[[entry]]
+slug = "wg-talent-furious-charge"
+name = "Furious Charge"
+kinds = [
+    "feature",
+]
+parents = [
+    "wg-talents",
+]
+description = "Wrath & Glory Core Rulebook, p. 134."
+prerequisites = [
+    { stat = "wg_athletics", comparator = "ge", value = 2 },
+    { stat = "wg_weapon_skill", comparator = "ge", value = 2 },
+]
+
+[entry.stats]
+wg_xp_cost = 20
+wg_requirements = "Athletics Rating 2+ and Weapon Skill Rating 2+"
+
+[[entry]]
+slug = "wg-talent-gallows-humour"
+name = "Gallows Humour"
+kinds = [
+    "feature",
+]
+parents = [
+    "wg-talents",
+]
+description = "Wrath & Glory Core Rulebook, p. 134."
+
+[entry.stats]
+wg_xp_cost = 20
+
+[[entry]]
+slug = "wg-talent-hardy"
+name = "Hardy"
+kinds = [
+    "feature",
+]
+parents = [
+    "wg-talents",
+]
+description = "Wrath & Glory Core Rulebook, p. 134."
+prerequisites = [
+    { stat = "wg_toughness", comparator = "ge", value = 3 },
+]
+
+[entry.stats]
+wg_xp_cost = 30
+wg_requirements = "Toughness Rating 3+"
+
+[[entry]]
+slug = "wg-talent-hatred-any"
+name = "Hatred [Any]"
+kinds = [
+    "feature",
+]
+parents = [
+    "wg-talents",
+]
+description = "Wrath & Glory Core Rulebook, p. 134."
+
+[entry.stats]
+wg_xp_cost = 30
+
+[[entry]]
+slug = "wg-talent-hive-explorer"
+name = "Hive Explorer"
+kinds = [
+    "feature",
+]
+parents = [
+    "wg-talents",
+]
+description = "Wrath & Glory Core Rulebook, p. 135."
+
+[entry.stats]
+wg_xp_cost = 20
+wg_requirements = "IMPERIUM Keyword"
+
+[[entry]]
+slug = "wg-talent-jargon-skill"
+name = "Jargon [Skill]"
+kinds = [
+    "feature",
+]
+parents = [
+    "wg-talents",
+]
+description = "Wrath & Glory Core Rulebook, p. 135."
+
+[entry.stats]
+wg_xp_cost = 20
+wg_requirements = "A Rating of 1+ in any of the following: Ballistic Skill (A), Medicae (Int), Pilot (A), Scholar (Int), Survival (Wil), Tech (Int), or Weapon Skill (I)."
+
+[[entry]]
+slug = "wg-talent-legacy-of-sorrow"
+name = "Legacy Of Sorrow"
+kinds = [
+    "feature",
+]
+parents = [
+    "wg-talents",
+]
+description = "Wrath & Glory Core Rulebook, p. 135."
+
+[entry.stats]
+wg_xp_cost = 20
+wg_requirements = "Aeldari Species"
+
+[[entry]]
+slug = "wg-talent-let-the-galaxy-burn"
+name = "Let The Galaxy Burn"
+kinds = [
+    "feature",
+]
+parents = [
+    "wg-talents",
+]
+description = "Wrath & Glory Core Rulebook, p. 135."
+
+[entry.stats]
+wg_xp_cost = 20
+wg_requirements = "CHAOS Keyword"
+
+[[entry]]
+slug = "wg-talent-lip-reader"
+name = "Lip Reader"
+kinds = [
+    "feature",
+]
+parents = [
+    "wg-talents",
+]
+description = "Wrath & Glory Core Rulebook, p. 135."
+
+[entry.stats]
+wg_xp_cost = 20
+
+[[entry]]
+slug = "wg-talent-lobotomised-efficiency"
+name = "Lobotomised Efficiency"
+kinds = [
+    "feature",
+]
+parents = [
+    "wg-talents",
+]
+description = "Wrath & Glory Core Rulebook, p. 136."
+
+[entry.stats]
+wg_xp_cost = 20
+wg_requirements = "Human"
+
+[[entry]]
+slug = "wg-talent-loremaster-keyword"
+name = "Loremaster [Keyword]"
+kinds = [
+    "feature",
+]
+parents = [
+    "wg-talents",
+]
+description = "Wrath & Glory Core Rulebook, p. 136."
+prerequisites = [
+    { stat = "wg_scholar", comparator = "ge", value = 3 },
+]
+
+[entry.stats]
+wg_xp_cost = 30
+wg_requirements = "Scholar Rating 3+"
+
+[[entry]]
+slug = "wg-talent-mark-of-chaos"
+name = "Mark Of Chaos"
+kinds = [
+    "feature",
+]
+parents = [
+    "wg-talents",
+]
+description = "Wrath & Glory Core Rulebook, p. 136."
+
+[entry.stats]
+wg_xp_cost = 30
+wg_requirements = "[MARK OF CHAOS] Keyword"
+
+[[entry]]
+slug = "wg-talent-mastered-paths"
+name = "Mastered Paths"
+kinds = [
+    "feature",
+]
+parents = [
+    "wg-talents",
+]
+description = "Wrath & Glory Core Rulebook, p. 136."
+
+[entry.stats]
+wg_xp_cost = 20
+wg_requirements = "Aeldari Species, ASURYANI Keyword"
+
+[[entry]]
+slug = "wg-talent-orthopraxy"
+name = "Orthopraxy"
+kinds = [
+    "feature",
+]
+parents = [
+    "wg-talents",
+]
+description = "Wrath & Glory Core Rulebook, p. 137."
+
+[entry.stats]
+wg_xp_cost = 20
+wg_requirements = "IMPERIUM Keyword"
+
+[[entry]]
+slug = "wg-talent-paranoid"
+name = "Paranoid"
+kinds = [
+    "feature",
+]
+parents = [
+    "wg-talents",
+]
+description = "Wrath & Glory Core Rulebook, p. 137."
+prerequisites = [
+    { stat = "wg_cunning", comparator = "ge", value = 3 },
+]
+
+[entry.stats]
+wg_xp_cost = 20
+wg_requirements = "Cunning Rating 3+"
+
+[[entry]]
+slug = "wg-talent-primaris-perspective"
+name = "Primaris Perspective"
+kinds = [
+    "feature",
+]
+parents = [
+    "wg-talents",
+]
+description = "Wrath & Glory Core Rulebook, p. 137."
+
+[entry.stats]
+wg_xp_cost = 40
+wg_requirements = "Primaris Astartes Species"
+
+[[entry]]
+slug = "wg-talent-mimic-voice"
+name = "Mimic Voice"
+kinds = [
+    "feature",
+]
+parents = [
+    "wg-talents",
+]
+description = "Wrath & Glory Core Rulebook, p. 137."
+prerequisites = [
+    { stat = "wg_deception", comparator = "ge", value = 3 },
+]
+
+[entry.stats]
+wg_xp_cost = 20
+wg_requirements = "Deception Rating 3+"
+
+[[entry]]
+slug = "wg-talent-mob-rule"
+name = "Mob Rule"
+kinds = [
+    "feature",
+]
+parents = [
+    "wg-talents",
+]
+description = "Wrath & Glory Core Rulebook, p. 137."
+
+[entry.stats]
+wg_xp_cost = 20
+wg_requirements = "Ork Species"
+
+[[entry]]
+slug = "wg-talent-more-dakka"
+name = "More Dakka!"
+kinds = [
+    "feature",
+]
+parents = [
+    "wg-talents",
+]
+description = "Wrath & Glory Core Rulebook, p. 137."
+
+[entry.stats]
+wg_xp_cost = 35
+wg_requirements = "Ork Species"
+
+[[entry]]
+slug = "wg-talent-noble-peer"
+name = "Noble Peer"
+kinds = [
+    "feature",
+]
+parents = [
+    "wg-talents",
+]
+description = "Wrath & Glory Core Rulebook, p. 137."
+prerequisites = [
+    { stat = "wg_persuasion", comparator = "ge", value = 3 },
+]
+
+[entry.stats]
+wg_xp_cost = 30
+wg_requirements = "Persuasion Rating 3+"
+
+[[entry]]
+slug = "wg-talent-promethium-proficiency"
+name = "Promethium Proficiency"
+kinds = [
+    "feature",
+]
+parents = [
+    "wg-talents",
+]
+description = "Wrath & Glory Core Rulebook, p. 138."
+
+[entry.stats]
+wg_xp_cost = 20
+wg_requirements = "IMPERIUM Keyword"
+
+[[entry]]
+slug = "wg-talent-rite-of-fear"
+name = "Rite of Fear"
+kinds = [
+    "feature",
+]
+parents = [
+    "wg-talents",
+]
+description = "Wrath & Glory Core Rulebook, p. 138."
+
+[entry.stats]
+wg_xp_cost = 30
+wg_requirements = "ADEPTUS MECHANICUS Keyword"
+
+[[entry]]
+slug = "wg-talent-rite-of-magnometrics"
+name = "Rite of Magnometrics"
+kinds = [
+    "feature",
+]
+parents = [
+    "wg-talents",
+]
+description = "Wrath & Glory Core Rulebook, p. 138."
+
+[entry.stats]
+wg_xp_cost = 20
+wg_requirements = "ADEPTUS MECHANICUS Keyword"
+
+[[entry]]
+slug = "wg-talent-rite-of-pure-thought"
+name = "Rite of Pure Thought"
+kinds = [
+    "feature",
+]
+parents = [
+    "wg-talents",
+]
+description = "Wrath & Glory Core Rulebook, p. 139."
+
+[entry.stats]
+wg_xp_cost = 20
+wg_requirements = "ADEPTUS MECHANICUS Keyword"
+
+[[entry]]
+slug = "wg-talent-scum-savvy"
+name = "Scum Savvy"
+kinds = [
+    "feature",
+]
+parents = [
+    "wg-talents",
+]
+description = "Wrath & Glory Core Rulebook, p. 139."
+
+[entry.stats]
+wg_xp_cost = 20
+wg_requirements = "Human"
+
+[[entry]]
+slug = "wg-talent-secret-identity"
+name = "Secret Identity"
+kinds = [
+    "feature",
+]
+parents = [
+    "wg-talents",
+]
+description = "Wrath & Glory Core Rulebook, p. 139."
+
+[entry.stats]
+wg_xp_cost = 20
+wg_requirements = "INQUISITION Keyword"
+
+[[entry]]
+slug = "wg-talent-sidestep"
+name = "Sidestep"
+kinds = [
+    "feature",
+]
+parents = [
+    "wg-talents",
+]
+description = "Wrath & Glory Core Rulebook, p. 139."
+prerequisites = [
+    { stat = "wg_initiative", comparator = "ge", value = 3 },
+]
+
+[entry.stats]
+wg_xp_cost = 30
+wg_requirements = "Initiative Rating 3+"
+
+[[entry]]
+slug = "wg-talent-silent"
+name = "Silent"
+kinds = [
+    "feature",
+]
+parents = [
+    "wg-talents",
+]
+description = "Wrath & Glory Core Rulebook, p. 139."
+
+[entry.stats]
+wg_xp_cost = 20
+
+[[entry]]
+slug = "wg-talent-simultaneous-strike"
+name = "Simultaneous Strike"
+kinds = [
+    "feature",
+]
+parents = [
+    "wg-talents",
+]
+description = "Wrath & Glory Core Rulebook, p. 139."
+
+[entry.stats]
+wg_xp_cost = 30
+wg_requirements = "Ballistic Skill Rating 4+ or Weapon Skill Rating 4+"
+
+[[entry]]
+slug = "wg-talent-smash-attack"
+name = "Smash Attack"
+kinds = [
+    "feature",
+]
+parents = [
+    "wg-talents",
+]
+description = "Wrath & Glory Core Rulebook, p. 139."
+prerequisites = [
+    { stat = "wg_weapon_skill", comparator = "ge", value = 2 },
+]
+
+[entry.stats]
+wg_xp_cost = 20
+wg_requirements = "Weapon Skill Rating 2+"
+
+[[entry]]
+slug = "wg-talent-special-weapons-trooper"
+name = "Special Weapons Trooper"
+kinds = [
+    "feature",
+]
+parents = [
+    "wg-talents",
+]
+description = "Wrath & Glory Core Rulebook, p. 140."
+
+[entry.stats]
+wg_xp_cost = 20
+
+[[entry]]
+slug = "wg-talent-stoic"
+name = "Stoic"
+kinds = [
+    "feature",
+]
+parents = [
+    "wg-talents",
+]
+description = "Wrath & Glory Core Rulebook, p. 140."
+
+[entry.stats]
+wg_xp_cost = 20
+
+[[entry]]
+slug = "wg-talent-storm-of-death"
+name = "Storm of Death"
+kinds = [
+    "feature",
+]
+parents = [
+    "wg-talents",
+]
+description = "Wrath & Glory Core Rulebook, p. 140."
+prerequisites = [
+    { stat = "wg_weapon_skill", comparator = "ge", value = 4 },
+]
+
+[entry.stats]
+wg_xp_cost = 30
+wg_requirements = "Weapon Skill Rating 4+"
+
+[[entry]]
+slug = "wg-talent-supplicant"
+name = "Supplicant"
+kinds = [
+    "feature",
+]
+parents = [
+    "wg-talents",
+]
+description = "Wrath & Glory Core Rulebook, p. 140."
+
+[entry.stats]
+wg_xp_cost = 20
+wg_requirements = "Human Species"
+
+[[entry]]
+slug = "wg-talent-supreme-presence-skill"
+name = "Supreme Presence [Skill]"
+kinds = [
+    "feature",
+]
+parents = [
+    "wg-talents",
+]
+description = "Wrath & Glory Core Rulebook, p. 140."
+
+[entry.stats]
+wg_xp_cost = 30
+wg_requirements = "Skill Rating 4+ in any one of the following: Athletics (S), Deception (Fel), Intimidation (Wil), Persuasion (Fel) or Tech (Int)."
+
+[[entry]]
+slug = "wg-talent-tenacious"
+name = "Tenacious"
+kinds = [
+    "feature",
+]
+parents = [
+    "wg-talents",
+]
+description = "Wrath & Glory Core Rulebook, p. 140."
+
+[entry.stats]
+wg_xp_cost = 30
+
+[[entry]]
+slug = "wg-talent-the-flesh-is-weak"
+name = "The Flesh is Weak"
+kinds = [
+    "feature",
+]
+parents = [
+    "wg-talents",
+]
+description = "Wrath & Glory Core Rulebook, p. 140."
+
+[entry.stats]
+wg_xp_cost = 30
+
+[[entry]]
+slug = "wg-talent-touched-by-fate"
+name = "Touched By Fate"
+kinds = [
+    "feature",
+]
+parents = [
+    "wg-talents",
+]
+description = "Wrath & Glory Core Rulebook, p. 140."
+
+[entry.stats]
+wg_xp_cost = 20
+
+[[entry]]
+slug = "wg-talent-uncanny-trait"
+name = "Uncanny [Trait]"
+kinds = [
+    "feature",
+]
+parents = [
+    "wg-talents",
+]
+description = "Wrath & Glory Core Rulebook, p. 141."
+
+[entry.stats]
+wg_xp_cost = 40
+
+[[entry]]
+slug = "wg-talent-unnatural-skill"
+name = "Unnatural [Skill]"
+kinds = [
+    "feature",
+]
+parents = [
+    "wg-talents",
+]
+description = "Wrath & Glory Core Rulebook, p. 141."
+
+[entry.stats]
+wg_xp_cost = 60
+wg_requirements = "[Skill] Rating 4+"
+
+[[entry]]
+slug = "wg-talent-unremarkable"
+name = "Unremarkable"
+kinds = [
+    "feature",
+]
+parents = [
+    "wg-talents",
+]
+description = "Wrath & Glory Core Rulebook, p. 141."
+
+[entry.stats]
+wg_xp_cost = 20
+wg_requirements = "IMPERIUM Keyword"
+
+[[entry]]
+slug = "wg-talent-warped-mind"
+name = "Warped Mind"
+kinds = [
+    "feature",
+]
+parents = [
+    "wg-talents",
+]
+description = "Wrath & Glory Core Rulebook, p. 141."
+prerequisites = [
+    { stat = "wg_psychic_mastery", comparator = "ge", value = 4 },
+]
+
+[entry.stats]
+wg_xp_cost = 30
+wg_requirements = "Psychic Mastery Rating 4+."
+
+[[entry]]
+slug = "wg-talent-trademark-weapon"
+name = "Trademark Weapon"
+kinds = [
+    "feature",
+]
+parents = [
+    "wg-talents",
+]
+description = "Wrath & Glory Core Rulebook, p. 141."
+
+[entry.stats]
+wg_xp_cost = 30
+
+[[entry]]
+slug = "wg-talent-transhuman-attribute"
+name = "Transhuman [Attribute]"
+kinds = [
+    "feature",
+]
+parents = [
+    "wg-talents",
+]
+description = "Wrath & Glory Core Rulebook, p. 141."
+
+[entry.stats]
+wg_xp_cost = 60
+wg_requirements = "[Attribute] Rating 5+"
+
+[[entry]]
+slug = "wg-talent-twin-focus"
+name = "Twin Focus"
+kinds = [
+    "feature",
+]
+parents = [
+    "wg-talents",
+]
+description = "Wrath & Glory Core Rulebook, p. 141."
+prerequisites = [
+    { stat = "wg_psychic_mastery", comparator = "ge", value = 4 },
+]
+
+[entry.stats]
+wg_xp_cost = 20
+wg_requirements = "Psychic Mastery Rating 4+."
+
+[[entry]]
+slug = "wg-talent-bolstering-purity"
+name = "Bolstering Purity"
+kinds = [
+    "feature",
+]
+parents = [
+    "wg-faith-talents",
+]
+description = "Wrath & Glory Core Rulebook, p. 142."
+
+[entry.stats]
+wg_xp_cost = 40
+wg_requirements = "ADEPTUS MINISTORUM or ADEPTA SORORITAS Keyword"
+
+[[entry]]
+slug = "wg-talent-by-his-will"
+name = "By His Will"
+kinds = [
+    "feature",
+]
+parents = [
+    "wg-faith-talents",
+]
+description = "Wrath & Glory Core Rulebook, p. 142."
+
+[entry.stats]
+wg_xp_cost = 20
+wg_requirements = "ADEPTUS MINISTORUM or ADEPTA SORORITAS Keyword"
+
+[[entry]]
+slug = "wg-talent-consecrated-light"
+name = "Consecrated Light"
+kinds = [
+    "feature",
+]
+parents = [
+    "wg-faith-talents",
+]
+description = "Wrath & Glory Core Rulebook, p. 143."
+
+[entry.stats]
+wg_xp_cost = 20
+wg_requirements = "ADEPTUS MINISTORUM Keyword"
+
+[[entry]]
+slug = "wg-talent-divine-guidance"
+name = "Divine Guidance"
+kinds = [
+    "feature",
+]
+parents = [
+    "wg-faith-talents",
+]
+description = "Wrath & Glory Core Rulebook, p. 143."
+
+[entry.stats]
+wg_xp_cost = 20
+wg_requirements = "ADEPTUS MINISTORUM or ADEPTA SORORITAS Keyword"
+
+[[entry]]
+slug = "wg-talent-in-his-name"
+name = "In His Name"
+kinds = [
+    "feature",
+]
+parents = [
+    "wg-faith-talents",
+]
+description = "Wrath & Glory Core Rulebook, p. 143."
+prerequisites = [
+    { stat = "wg_scholar", comparator = "ge", value = 1 },
+]
+
+[entry.stats]
+wg_xp_cost = 20
+wg_requirements = "ADEPTUS MINISTORUM or ADEPTA SORORITAS Keyword, Scholar Rating 1+"
+
+[[entry]]
+slug = "wg-talent-inspired-blessing"
+name = "Inspired Blessing"
+kinds = [
+    "feature",
+]
+parents = [
+    "wg-faith-talents",
+]
+description = "Wrath & Glory Core Rulebook, p. 143."
+
+[entry.stats]
+wg_xp_cost = 25
+wg_requirements = "ADEPTUS MINISTORUM Keyword"
+
+[[entry]]
+slug = "wg-talent-litany-of-hatred"
+name = "Litany Of Hatred"
+kinds = [
+    "feature",
+]
+parents = [
+    "wg-faith-talents",
+]
+description = "Wrath & Glory Core Rulebook, p. 143."
+
+[entry.stats]
+wg_xp_cost = 20
+wg_requirements = "ADEPTUS MINISTORUM or ADEPTA SORORITAS Keyword, the Hatred Talent (p.135)"
+
+[[entry]]
+slug = "wg-talent-martyrs-tears"
+name = "Martyr’s Tears"
+kinds = [
+    "feature",
+]
+parents = [
+    "wg-faith-talents",
+]
+description = "Wrath & Glory Core Rulebook, p. 143."
+prerequisites = [
+    { stat = "wg_willpower", comparator = "ge", value = 3 },
+]
+
+[entry.stats]
+wg_xp_cost = 20
+wg_requirements = "ADEPTUS MINISTORUM or ADEPTA SORORITAS Keyword, Willpower Rating 3+."
+
+[[entry]]
+slug = "wg-talent-repent"
+name = "Repent!"
+kinds = [
+    "feature",
+]
+parents = [
+    "wg-faith-talents",
+]
+description = "Wrath & Glory Core Rulebook, p. 144."
+prerequisites = [
+    { stat = "wg_willpower", comparator = "ge", value = 3 },
+]
+
+[entry.stats]
+wg_xp_cost = 20
+wg_requirements = "ADEPTUS MINISTORUM or ADEPTA SORORITAS Keyword Willpower Rating 3+"
+
+[[entry]]
+slug = "wg-talent-righteous-wrath"
+name = "Righteous Wrath"
+kinds = [
+    "feature",
+]
+parents = [
+    "wg-faith-talents",
+]
+description = "Wrath & Glory Core Rulebook, p. 144."
+prerequisites = [
+    { stat = "wg_willpower", comparator = "ge", value = 3 },
+]
+
+[entry.stats]
+wg_xp_cost = 20
+wg_requirements = "ADEPTUS MINISTORUM or ADEPTA SORORITAS Keyword, Willpower Rating 3+"
+
+[[entry]]
+slug = "wg-talent-shield-of-faith"
+name = "Shield Of Faith"
+kinds = [
+    "feature",
+]
+parents = [
+    "wg-faith-talents",
+]
+description = "Wrath & Glory Core Rulebook, p. 144."
+prerequisites = [
+    { stat = "wg_willpower", comparator = "ge", value = 3 },
+]
+
+[entry.stats]
+wg_xp_cost = 20
+wg_requirements = "ADEPTA SORORITAS Keyword, Willpower Rating 3+"
+
+[[entry]]
+slug = "wg-talent-the-passion"
+name = "The Passion"
+kinds = [
+    "feature",
+]
+parents = [
+    "wg-faith-talents",
+]
+description = "Wrath & Glory Core Rulebook, p. 144."
+
+[entry.stats]
+wg_xp_cost = 20
+wg_requirements = "ADEPTUS MINISTORUM or ADEPTA SORORITAS Keyword"
+
+[[entry]]
+slug = "wg-talent-the-emperor-protects"
+name = "The Emperor Protects"
+kinds = [
+    "feature",
+]
+parents = [
+    "wg-faith-talents",
+]
+description = "Wrath & Glory Core Rulebook, p. 144."
+
+[entry.stats]
+wg_xp_cost = 30
+wg_requirements = "ADEPTUS MINISTORUM or ADEPTA SORORITAS Keyword, at least 1 Faith"
+
+[[formula]]
+on = "wg-character"
+stat = "wg_strength_total"
+kind = "sum"
+terms = [
+    "wg_strength",
+    "wg_strength_bonus",
+    "wg_powered_worn",
+]
+
+[[formula]]
+on = "wg-character"
+stat = "wg_toughness_total"
+kind = "sum"
+terms = [
+    "wg_toughness",
+    "wg_toughness_bonus",
+]
+
+[[formula]]
+on = "wg-character"
+stat = "wg_agility_total"
+kind = "sum"
+terms = [
+    "wg_agility",
+    "wg_agility_bonus",
+]
+
+[[formula]]
+on = "wg-character"
+stat = "wg_initiative_total"
+kind = "sum"
+terms = [
+    "wg_initiative",
+    "wg_initiative_bonus",
+]
+
+[[formula]]
+on = "wg-character"
+stat = "wg_willpower_total"
+kind = "sum"
+terms = [
+    "wg_willpower",
+    "wg_willpower_bonus",
+]
+
+[[formula]]
+on = "wg-character"
+stat = "wg_intellect_total"
+kind = "sum"
+terms = [
+    "wg_intellect",
+    "wg_intellect_bonus",
+]
+
+[[formula]]
+on = "wg-character"
+stat = "wg_fellowship_total"
+kind = "sum"
+terms = [
+    "wg_fellowship",
+    "wg_fellowship_bonus",
+]
+
+[[formula]]
+on = "wg-character"
+stat = "wg_armour"
+kind = "contents"
+source = "wg_armour_rating"
+aggregate = "max"
+only_active = true
+if_none = 0
+
+[[formula]]
+on = "wg-character"
+stat = "wg_bulk_worn"
+kind = "contents"
+source = "wg_bulk"
+aggregate = "max"
+only_active = true
+if_none = 0
+
+[[formula]]
+on = "wg-character"
+stat = "wg_powered_worn"
+kind = "contents"
+source = "wg_powered"
+aggregate = "max"
+only_active = true
+if_none = 0
+
+[[formula]]
+on = "wg-character"
+stat = "wg_defence_base"
+kind = "linear"
+source = "wg_initiative_total"
+multiplier = 1
+offset = -1
+
+[[formula]]
+on = "wg-character"
+stat = "wg_defence"
+kind = "max"
+inputs = [
+    "wg_defence_base",
+    1,
+]
+
+[[formula]]
+on = "wg-character"
+stat = "wg_resilience"
+kind = "sum"
+terms = [
+    "wg_toughness_total",
+    "wg_armour",
+]
+offset = 1
+
+[[formula]]
+on = "wg-character"
+stat = "wg_determination"
+kind = "linear"
+source = "wg_toughness_total"
+multiplier = 1
+
+[[formula]]
+on = "wg-character"
+stat = "wg_max_wounds"
+kind = "sum"
+terms = [
+    { stat = "wg_tier", coefficient = 2 },
+    "wg_toughness_total",
+    "wg_max_wounds_bonus",
+]
+
+[[formula]]
+on = "wg-character"
+stat = "wg_max_shock"
+kind = "sum"
+terms = [
+    "wg_willpower_total",
+    "wg_tier",
+]
+
+[[formula]]
+on = "wg-character"
+stat = "wg_max_traumatic_injuries"
+kind = "linear"
+source = "wg_tier"
+multiplier = 1
+offset = 1
+
+[[formula]]
+on = "wg-character"
+stat = "wg_conviction"
+kind = "linear"
+source = "wg_willpower_total"
+multiplier = 1
+
+[[formula]]
+on = "wg-character"
+stat = "wg_resolve_base"
+kind = "sum"
+terms = [
+    "wg_willpower_total",
+    "wg_resolve_bonus",
+]
+offset = -1
+
+[[formula]]
+on = "wg-character"
+stat = "wg_resolve"
+kind = "max"
+inputs = [
+    "wg_resolve_base",
+    1,
+]
+
+[[formula]]
+on = "wg-character"
+stat = "wg_passive_awareness"
+kind = "linear"
+source = "wg_pool_awareness"
+multiplier = 0.5
+round = "ceil"
+
+[[formula]]
+on = "wg-character"
+stat = "wg_influence_base"
+kind = "sum"
+terms = [
+    "wg_fellowship_total",
+    "wg_influence_bonus",
+]
+offset = -1
+
+[[formula]]
+on = "wg-character"
+stat = "wg_influence"
+kind = "max"
+inputs = [
+    "wg_influence_base",
+    1,
+]
+
+[[formula]]
+on = "wg-character"
+stat = "wg_wealth"
+kind = "linear"
+source = "wg_tier"
+multiplier = 1
+
+[[formula]]
+on = "wg-character"
+stat = "wg_speed"
+kind = "sum"
+terms = [
+    "wg_speed_base",
+    { stat = "wg_bulk_worn", coefficient = -1 },
+]
+
+[[formula]]
+on = "wg-character"
+stat = "wg_pool_athletics"
+kind = "sum"
+terms = [
+    "wg_strength_total",
+    "wg_athletics",
+]
+
+[[formula]]
+on = "wg-character"
+stat = "wg_roll_athletics"
+kind = "dice"
+count = "wg_pool_athletics"
+sides_constant = 6
+
+[[formula]]
+on = "wg-character"
+stat = "wg_pool_awareness"
+kind = "sum"
+terms = [
+    "wg_intellect_total",
+    "wg_awareness",
+]
+
+[[formula]]
+on = "wg-character"
+stat = "wg_roll_awareness"
+kind = "dice"
+count = "wg_pool_awareness"
+sides_constant = 6
+
+[[formula]]
+on = "wg-character"
+stat = "wg_pool_ballistic_skill"
+kind = "sum"
+terms = [
+    "wg_agility_total",
+    "wg_ballistic_skill",
+]
+
+[[formula]]
+on = "wg-character"
+stat = "wg_roll_ballistic_skill"
+kind = "dice"
+count = "wg_pool_ballistic_skill"
+sides_constant = 6
+
+[[formula]]
+on = "wg-character"
+stat = "wg_pool_cunning"
+kind = "sum"
+terms = [
+    "wg_fellowship_total",
+    "wg_cunning",
+]
+
+[[formula]]
+on = "wg-character"
+stat = "wg_roll_cunning"
+kind = "dice"
+count = "wg_pool_cunning"
+sides_constant = 6
+
+[[formula]]
+on = "wg-character"
+stat = "wg_pool_deception"
+kind = "sum"
+terms = [
+    "wg_fellowship_total",
+    "wg_deception",
+]
+
+[[formula]]
+on = "wg-character"
+stat = "wg_roll_deception"
+kind = "dice"
+count = "wg_pool_deception"
+sides_constant = 6
+
+[[formula]]
+on = "wg-character"
+stat = "wg_pool_insight"
+kind = "sum"
+terms = [
+    "wg_fellowship_total",
+    "wg_insight",
+]
+
+[[formula]]
+on = "wg-character"
+stat = "wg_roll_insight"
+kind = "dice"
+count = "wg_pool_insight"
+sides_constant = 6
+
+[[formula]]
+on = "wg-character"
+stat = "wg_pool_intimidation"
+kind = "sum"
+terms = [
+    "wg_willpower_total",
+    "wg_intimidation",
+]
+
+[[formula]]
+on = "wg-character"
+stat = "wg_roll_intimidation"
+kind = "dice"
+count = "wg_pool_intimidation"
+sides_constant = 6
+
+[[formula]]
+on = "wg-character"
+stat = "wg_pool_investigation"
+kind = "sum"
+terms = [
+    "wg_intellect_total",
+    "wg_investigation",
+]
+
+[[formula]]
+on = "wg-character"
+stat = "wg_roll_investigation"
+kind = "dice"
+count = "wg_pool_investigation"
+sides_constant = 6
+
+[[formula]]
+on = "wg-character"
+stat = "wg_pool_leadership"
+kind = "sum"
+terms = [
+    "wg_willpower_total",
+    "wg_leadership",
+]
+
+[[formula]]
+on = "wg-character"
+stat = "wg_roll_leadership"
+kind = "dice"
+count = "wg_pool_leadership"
+sides_constant = 6
+
+[[formula]]
+on = "wg-character"
+stat = "wg_pool_medicae"
+kind = "sum"
+terms = [
+    "wg_intellect_total",
+    "wg_medicae",
+]
+
+[[formula]]
+on = "wg-character"
+stat = "wg_roll_medicae"
+kind = "dice"
+count = "wg_pool_medicae"
+sides_constant = 6
+
+[[formula]]
+on = "wg-character"
+stat = "wg_pool_persuasion"
+kind = "sum"
+terms = [
+    "wg_fellowship_total",
+    "wg_persuasion",
+]
+
+[[formula]]
+on = "wg-character"
+stat = "wg_roll_persuasion"
+kind = "dice"
+count = "wg_pool_persuasion"
+sides_constant = 6
+
+[[formula]]
+on = "wg-character"
+stat = "wg_pool_pilot"
+kind = "sum"
+terms = [
+    "wg_agility_total",
+    "wg_pilot",
+]
+
+[[formula]]
+on = "wg-character"
+stat = "wg_roll_pilot"
+kind = "dice"
+count = "wg_pool_pilot"
+sides_constant = 6
+
+[[formula]]
+on = "wg-character"
+stat = "wg_pool_psychic_mastery"
+kind = "sum"
+terms = [
+    "wg_willpower_total",
+    "wg_psychic_mastery",
+]
+
+[[formula]]
+on = "wg-character"
+stat = "wg_roll_psychic_mastery"
+kind = "dice"
+count = "wg_pool_psychic_mastery"
+sides_constant = 6
+
+[[formula]]
+on = "wg-character"
+stat = "wg_pool_scholar"
+kind = "sum"
+terms = [
+    "wg_intellect_total",
+    "wg_scholar",
+]
+
+[[formula]]
+on = "wg-character"
+stat = "wg_roll_scholar"
+kind = "dice"
+count = "wg_pool_scholar"
+sides_constant = 6
+
+[[formula]]
+on = "wg-character"
+stat = "wg_pool_stealth"
+kind = "sum"
+terms = [
+    "wg_agility_total",
+    "wg_stealth",
+]
+
+[[formula]]
+on = "wg-character"
+stat = "wg_roll_stealth"
+kind = "dice"
+count = "wg_pool_stealth"
+sides_constant = 6
+
+[[formula]]
+on = "wg-character"
+stat = "wg_pool_survival"
+kind = "sum"
+terms = [
+    "wg_willpower_total",
+    "wg_survival",
+]
+
+[[formula]]
+on = "wg-character"
+stat = "wg_roll_survival"
+kind = "dice"
+count = "wg_pool_survival"
+sides_constant = 6
+
+[[formula]]
+on = "wg-character"
+stat = "wg_pool_tech"
+kind = "sum"
+terms = [
+    "wg_intellect_total",
+    "wg_tech",
+]
+
+[[formula]]
+on = "wg-character"
+stat = "wg_roll_tech"
+kind = "dice"
+count = "wg_pool_tech"
+sides_constant = 6
+
+[[formula]]
+on = "wg-character"
+stat = "wg_pool_weapon_skill"
+kind = "sum"
+terms = [
+    "wg_initiative_total",
+    "wg_weapon_skill",
+]
+
+[[formula]]
+on = "wg-character"
+stat = "wg_roll_weapon_skill"
+kind = "dice"
+count = "wg_pool_weapon_skill"
+sides_constant = 6
+
+[[formula]]
+on = "wg-weapon"
+stat = "wg_extra_damage"
+kind = "dice"
+count = "wg_extra_damage_dice"
+sides_constant = 6
+
+[[template]]
+name = "Character sheet (Wrath & Glory)"
+system = true
+kind = "being"
+ancestor = "wg-character"
+
+[[template.slot]]
+kind = "stats"
+label = "Attributes"
+group = "wg_attributes"
+
+[[template.slot]]
+kind = "stats"
+label = "Skills"
+group = "wg_skills"
+
+[[template.slot]]
+kind = "stats"
+label = "Dice pools"
+group = "wg_pools"
+
+[[template.slot]]
+kind = "stats"
+label = "Traits"
+group = "wg_traits"
+
+[[template.slot]]
+kind = "stats"
+label = "Progress"
+group = "wg_progress"
+
+[[template.slot]]
+kind = "features"
+label = "Talents"
+group = "wg_features"
+
+[[template.slot]]
+kind = "held"
+label = "Wargear"
+stats = [
+    "wg_damage",
+    "wg_extra_damage_dice",
+    "wg_armour_penetration",
+    "wg_salvo",
+    "wg_range_short",
+    "wg_range_medium",
+    "wg_range_long",
+    "wg_armour_rating",
+    "weight",
+]
+held_order = "name"
+
+[[grant_rule]]
+on = "wg-species-adeptus-astartes"
+label = "Species abilities"
+mode = "all"
+options = [
+    "wg-ability-defender-of-humanity",
+    "wg-ability-honour-the-chapter",
+    "wg-ability-space-marine-implants",
+]
+
+[[grant_rule]]
+on = "wg-species-primaris-astartes"
+label = "Species abilities"
+mode = "all"
+options = [
+    "wg-ability-defender-of-humanity",
+    "wg-ability-honour-the-chapter-primaris",
+    "wg-ability-space-marine-implants",
+]
+
+[[grant_rule]]
+on = "wg-species-aeldari"
+label = "Species abilities"
+mode = "all"
+options = [
+    "wg-ability-intense-emotion",
+    "wg-ability-psychosensitive",
+]
+
+[[grant_rule]]
+on = "wg-species-ork"
+label = "Species abilities"
+mode = "all"
+options = [
+    "wg-ability-orky",
+    "wg-ability-bigger-is-better",
+]
+
+[[grant_rule]]
+on = "wg-archetype-sister-hospitaller"
+label = "Archetype ability"
+mode = "all"
+options = [
+    "wg-ability-loyal-compassion",
+]
+
+[[grant_rule]]
+on = "wg-archetype-ministorum-priest"
+label = "Archetype ability"
+mode = "all"
+options = [
+    "wg-ability-fiery-invective",
+]
+
+[[grant_rule]]
+on = "wg-archetype-imperial-guardsman"
+label = "Archetype ability"
+mode = "all"
+options = [
+    "wg-ability-look-out-sir",
+]
+
+[[grant_rule]]
+on = "wg-archetype-inquisitorial-acolyte"
+label = "Archetype ability"
+mode = "all"
+options = [
+    "wg-ability-inquisitorial-decree",
+]
+
+[[grant_rule]]
+on = "wg-archetype-inquisitorial-sage"
+label = "Archetype ability"
+mode = "all"
+options = [
+    "wg-ability-administratum-records",
+]
+
+[[grant_rule]]
+on = "wg-archetype-ganger"
+label = "Archetype ability"
+mode = "all"
+options = [
+    "wg-ability-scrounger",
+]
+
+[[grant_rule]]
+on = "wg-archetype-corsair"
+label = "Archetype ability"
+mode = "all"
+options = [
+    "wg-ability-dancing-on-the-blades-edge",
+]
+
+[[grant_rule]]
+on = "wg-archetype-ork-boy"
+label = "Archetype ability"
+mode = "all"
+options = [
+    "wg-ability-get-stuck-in",
+]
+
+[[grant_rule]]
+on = "wg-archetype-sister-of-battle"
+label = "Archetype ability"
+mode = "all"
+options = [
+    "wg-ability-purity-of-faith",
+]
+
+[[grant_rule]]
+on = "wg-archetype-sanctioned-psyker"
+label = "Archetype ability"
+mode = "all"
+options = [
+    "wg-ability-psyker",
+]
+
+[[grant_rule]]
+on = "wg-archetype-skitarius"
+label = "Archetype ability"
+mode = "all"
+options = [
+    "wg-ability-heavily-augmented",
+]
+
+[[grant_rule]]
+on = "wg-archetype-death-cult-assassin"
+label = "Archetype ability"
+mode = "all"
+options = [
+    "wg-ability-glancing-blow",
+]
+
+[[grant_rule]]
+on = "wg-archetype-tempestus-scion"
+label = "Archetype ability"
+mode = "all"
+options = [
+    "wg-ability-elite-soldier",
+]
+
+[[grant_rule]]
+on = "wg-archetype-rogue-trader"
+label = "Archetype ability"
+mode = "all"
+options = [
+    "wg-ability-warrant-of-trade",
+]
+
+[[grant_rule]]
+on = "wg-archetype-scavvy"
+label = "Archetype ability"
+mode = "all"
+options = [
+    "wg-ability-mutant",
+]
+
+[[grant_rule]]
+on = "wg-archetype-space-marine-scout"
+label = "Archetype ability"
+mode = "all"
+options = [
+    "wg-ability-use-the-terrain",
+]
+
+[[grant_rule]]
+on = "wg-archetype-ranger"
+label = "Archetype ability"
+mode = "all"
+options = [
+    "wg-ability-from-the-shadows",
+]
+
+[[grant_rule]]
+on = "wg-archetype-ork-kommando"
+label = "Archetype ability"
+mode = "all"
+options = [
+    "wg-ability-kunnin-plan",
+]
+
+[[grant_rule]]
+on = "wg-archetype-tech-priest"
+label = "Archetype ability"
+mode = "all"
+options = [
+    "wg-ability-rite-of-repair",
+]
+
+[[grant_rule]]
+on = "wg-archetype-crusader"
+label = "Archetype ability"
+mode = "all"
+options = [
+    "wg-ability-armour-of-faith",
+]
+
+[[grant_rule]]
+on = "wg-archetype-imperial-commissar"
+label = "Archetype ability"
+mode = "all"
+options = [
+    "wg-ability-fearsome-respect",
+]
+
+[[grant_rule]]
+on = "wg-archetype-desperado"
+label = "Archetype ability"
+mode = "all"
+options = [
+    "wg-ability-valuable-prey",
+]
+
+[[grant_rule]]
+on = "wg-archetype-tactical-space-marine"
+label = "Archetype ability"
+mode = "all"
+options = [
+    "wg-ability-tactical-versatility",
+]
+
+[[grant_rule]]
+on = "wg-archetype-warlock"
+label = "Archetype ability"
+mode = "all"
+options = [
+    "wg-ability-runes-of-battle",
+]
+
+[[grant_rule]]
+on = "wg-archetype-ork-nob"
+label = "Archetype ability"
+mode = "all"
+options = [
+    "wg-ability-the-green-tide",
+]
+
+[[grant_rule]]
+on = "wg-archetype-inquisitor"
+label = "Archetype ability"
+mode = "all"
+options = [
+    "wg-ability-unchecked-authority",
+]
+
+[[grant_rule]]
+on = "wg-archetype-primaris-intercessor"
+label = "Archetype ability"
+mode = "all"
+options = [
+    "wg-ability-intercessor-focus",
+]

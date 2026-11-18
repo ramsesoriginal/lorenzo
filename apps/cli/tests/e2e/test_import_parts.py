@@ -1,9 +1,9 @@
-"""The importer's two passes against the real API (ADR 0182): the neutral half into the equipment
-repository, the system's half into the bridge that attaches it, and a table that takes the
-equipment first and the bridge after.
+"""The importer's two passes against the real API (ADR 0182, ADR 0490): the neutral half into the
+equipment repository, the system's half into the rules repository that takes the equipment and
+attaches it, and a table that takes the equipment first and the rules after.
 
-The stack is RFC 0033's: core, an equipment repository and a rules repository over it, and a
-bridge over both. It is built once for the file, since every test only reads it.
+The equipment holds the `neutral` starter, the rules the `dnd5e` starter over the equipment it
+copies. It is built once for the file, since every test only reads it.
 """
 
 from __future__ import annotations
@@ -19,11 +19,11 @@ from plain import plain
 
 from e2e.helpers import FIXTURES, by_slug, make_tenant, own_stats, parent_names, run_cli, tenant_id
 from e2e.stack import Stack
-from lorenzo_cli.seed import load_builtin
+from lorenzo_cli.importer import vocabulary
 
-SEED = load_builtin()
-MARTIAL = SEED.node("dnd5e-martial").name
-VERSATILE = SEED.node("dnd5e-versatile").name
+VOCABULARY = vocabulary.load()
+MARTIAL = VOCABULARY.node("dnd5e-martial").name
+VERSATILE = VOCABULARY.node("dnd5e-versatile").name
 FILES = [str(FIXTURES / "weapons.js"), str(FIXTURES / "packs.js")]
 MAP = ["--map", str(FIXTURES / "legendary-form.map.toml")]
 
@@ -34,37 +34,28 @@ def said(result: Any) -> str:
 
 
 class Parted:
-    """Core, the equipment (neutral pass) and the rules, and the bridge (system pass) over both."""
+    """The equipment (neutral pass), and the bridge (system pass): the rules over the equipment."""
 
     def __init__(self, stack: Stack, work: Path) -> None:
         self.stack = stack
         self.work = work
         self.token = stack.creator_token("parts-owner")
-        self.core = make_tenant(stack, self.token, "repository")
         self.equipment = make_tenant(stack, self.token, "repository")
-        self.rules = make_tenant(stack, self.token, "repository")
         self.bridge = make_tenant(stack, self.token, "repository")
-        self.ok("seed", "--tenant", self.core, "--layer", "core", "--yes")
-        self.ok("repo", "publish", "--tenant", self.core)
-        for repository, layer in ((self.equipment, "equipment"), (self.rules, "dnd5e")):
-            self.ok("repo", "grant", repository, "--tenant", self.core)
-            self.ok("repo", "copy", self.core, "--tenant", repository, "--yes")
-            self.ok("seed", "--tenant", repository, "--layer", layer, "--yes")
+        self.ok("apply", "--starter", "neutral", "-t", self.equipment, "--yes")
         self.ok(*self.importing(self.equipment, "neutral", "--public-catalog", "--yes"))
         self.ok("repo", "publish", "--tenant", self.equipment)
-        self.ok("repo", "publish", "--tenant", self.rules)
         self.bridge_over(self.bridge, self.equipment)
         self.ok(*self.importing(self.bridge, "system", "--yes"))
         self.ok("repo", "publish", "--tenant", self.bridge)
 
     def bridge_over(self, bridge: str, equipment: str) -> None:
         self.ok("repo", "offer", bridge, "--tenant", equipment, "--yes")
-        self.ok("repo", "offer", bridge, "--tenant", self.rules, "--yes")
-        self.ok("seed", "--tenant", bridge, "--layer", "dnd5e-equipment", "--yes")
+        self.ok("apply", "--starter", "dnd5e", "-t", bridge, "--yes")
 
     def importing(self, tenant: str, part: str, *flags: str) -> tuple[str, ...]:
         return (
-            "apply", "--tenant", tenant, "--part", part, *flags, *MAP,
+            "import", "mpmb", "apply", "--tenant", tenant, "--part", part, *flags, *MAP,
             "--review-queue", str(self.work / "review-queue.json"),
             "--proposed-map", str(self.work / "proposed.map.toml"),
             *FILES,
@@ -73,7 +64,7 @@ class Parted:
     def planning(self, tenant: str, part: str | None, *flags: str) -> tuple[str, ...]:
         chosen = ("--part", part) if part else ()
         return (
-            "plan", "--tenant", tenant, *chosen, *flags, *MAP,
+            "import", "mpmb", "plan", "--tenant", tenant, *chosen, *flags, *MAP,
             "--review-queue", str(self.work / "review-queue.json"),
             "--proposed-map", str(self.work / "proposed.map.toml"),
             *FILES,
@@ -144,18 +135,17 @@ def test_the_system_pass_attaches_a_prototype_to_the_equipments_item_in_the_brid
     assert prototype["name"] == "Purple sword (D&D 5e)"
     assert parent_names(prototype) == sorted([MARTIAL, VERSATILE])
     assert own_stats(prototype) == {
-        "damage_dice_count": 1,
-        "damage_die": 8,
-        "damage_type": "slashing",
-        "damage_versatile_die": 10,
-        "attack_ability": "Strength",
-        "ability_to_damage": True,
+        "dnd5e_damage": "d8",
+        "dnd5e_damage_type": "slashing",
+        "dnd5e_damage_versatile": "d10",
+        "dnd5e_attack_ability": "Strength",
+        "dnd5e_ability_to_damage": True,
     }
     # The sword has its dice from the prototype and the price of 0 from the Economic object that
-    # the bridge's seed attached to Weapon: neither is its own.
+    # the dnd5e starter attached to Weapon: neither is its own.
     inherited = {s["name"]: s for s in sword["stats"]}
-    assert inherited["damage_die"]["value"] == 8 and inherited["damage_die"]["own"] is False
-    assert inherited["price"]["value"] == 0 and inherited["price"]["own"] is False
+    assert inherited["dnd5e_damage"]["value"] == "d8" and inherited["dnd5e_damage"]["own"] is False
+    assert inherited["dnd5e_price"]["value"] == 0 and inherited["dnd5e_price"]["own"] is False
     assert inherited["own_weight"]["own"] is True
     # The prototype is for the GM's whole catalog; the neutral item stays public.
     assert parted.public(parted.bridge, "srd5e-weapons-purple-sword") is False
@@ -172,7 +162,7 @@ def test_a_weapon_with_no_proficiency_still_gets_its_prototype_for_its_dice(
 
     assert "Moon whip (D&D 5e)" in parent_names(whip)
     assert parent_names(prototype) == []
-    assert own_stats(prototype)["damage_die"] == 6
+    assert own_stats(prototype)["dnd5e_damage"] == "d6"
 
 
 def test_a_pack_keeps_its_contents_in_the_equipment_and_gets_its_price_from_the_bridge(
@@ -188,12 +178,12 @@ def test_a_pack_keeps_its_contents_in_the_equipment_and_gets_its_price_from_the_
     prototype = parted.entity(parted.bridge, "srd5e-packs-camper")
 
     assert len(contents) == 1 and contents[0].startswith("This pack contains:")
-    assert "price" not in own_stats(parted.entity(parted.equipment, "basic-packs-camper"))
+    assert "dnd5e_price" not in own_stats(parted.entity(parted.equipment, "basic-packs-camper"))
     assert "Camper's pack (D&D 5e)" in parent_names(pack)
-    assert own_stats(prototype) == {"price": 700}
+    assert own_stats(prototype) == {"dnd5e_price": 700}
     # Every item of the pack is the equipment's, with its own price in the bridge.
-    assert own_stats(parted.entity(parted.bridge, "srd5e-gear-backpack")) == {"price": 200}
-    assert "price" not in own_stats(parted.entity(parted.equipment, "basic-gear-backpack"))
+    assert own_stats(parted.entity(parted.bridge, "srd5e-gear-backpack")) == {"dnd5e_price": 200}
+    assert "dnd5e_price" not in own_stats(parted.entity(parted.equipment, "basic-gear-backpack"))
     # A plain item made for an entry of the pack has nothing of the system's, so no prototype.
     assert parted.has(parted.bridge, "basic-gear-alms-box")
     assert not parted.has(parted.bridge, "srd5e-gear-alms-box")
@@ -222,7 +212,7 @@ def test_a_table_that_took_the_equipment_first_gets_the_prototype_when_it_takes_
     parted.ok("repo", "offer", table, "--tenant", parted.equipment, "--yes")
     before = parted.entity(table, "basic-weapons-purple-sword")
     assert parent_names(before) == ["Blade", "Melee weapon"]
-    assert "damage_die" not in {s["name"] for s in before["stats"]}
+    assert "dnd5e_damage" not in {s["name"] for s in before["stats"]}
 
     code, offered = parted.json("repo", "offer", table, "--tenant", parted.bridge, "--yes")
 
@@ -230,8 +220,8 @@ def test_a_table_that_took_the_equipment_first_gets_the_prototype_when_it_takes_
     after = parted.entity(table, "basic-weapons-purple-sword")
     # The one sword the table had has the prototype as a parent now, and its dice by inheritance.
     assert parent_names(after) == ["Blade", "Melee weapon", "Purple sword (D&D 5e)"]
-    dice = next(s for s in after["stats"] if s["name"] == "damage_die")
-    assert dice["value"] == 8 and dice["own"] is False
+    dice = next(s for s in after["stats"] if s["name"] == "dnd5e_damage")
+    assert dice["value"] == "d8" and dice["own"] is False
     assert parted.public(table, "basic-weapons-purple-sword") is True
     assert parted.public(table, "srd5e-weapons-purple-sword") is False
     with parted.stack.api(parted.token) as api:
@@ -247,9 +237,7 @@ def test_the_system_pass_before_the_neutral_one_holds_every_item_and_writes_noth
 ) -> None:
     equipment = make_tenant(parted.stack, parted.token, "repository")
     bridge = make_tenant(parted.stack, parted.token, "repository")
-    parted.ok("repo", "grant", equipment, "--tenant", parted.core)
-    parted.ok("repo", "copy", parted.core, "--tenant", equipment, "--yes")
-    parted.ok("seed", "--tenant", equipment, "--layer", "equipment", "--yes")
+    parted.ok("apply", "--starter", "neutral", "-t", equipment, "--yes")
     parted.ok("repo", "publish", "--tenant", equipment)
     parted.bridge_over(bridge, equipment)
 
@@ -262,7 +250,7 @@ def test_the_system_pass_before_the_neutral_one_holds_every_item_and_writes_noth
     assert {issue["kind"] for i in held for issue in i["issues"]} == {"neutral-item"}
     assert refused.exit_code == 1
     queue = json.loads((parted.work / "review-queue.json").read_text())
-    assert any("lorenzo apply --part neutral" in entry["suggestion"] for entry in queue)
+    assert any("lorenzo import mpmb apply --part neutral" in entry["suggestion"] for entry in queue)
     assert not parted.has(bridge, "srd5e-weapons-purple-sword")
 
 
@@ -279,16 +267,17 @@ def test_without_a_part_one_tenant_gets_the_one_item_with_both_halves_as_before(
     parted: Parted,
 ) -> None:
     tenant = make_tenant(parted.stack, parted.token, "repository")
-    parted.ok("seed", "--tenant", tenant, "--yes")
+    for starter in ("neutral", "dnd5e"):
+        parted.ok("apply", "--starter", starter, "-t", tenant, "--yes")
 
     code, document = parted.json(*parted.planning(tenant, None))
     parted.ok(
-        "apply", "--tenant", tenant, *MAP, "--review-queue", str(parted.work / "rq.json"),
+        "import", "mpmb", "apply", "--tenant", tenant, *MAP, "--review-queue", str(parted.work / "rq.json"),
         "--proposed-map", str(parted.work / "pm.toml"), *FILES, "--yes",
     )  # fmt: skip
 
     assert code == 2 and document["header"]["part"] == "all"
     sword = parted.entity(tenant, "basic-weapons-purple-sword")
     assert parent_names(sword) == ["Blade", MARTIAL, "Melee weapon", VERSATILE]
-    assert own_stats(sword)["damage_die"] == 8
+    assert own_stats(sword)["dnd5e_damage"] == "d8"
     assert not parted.has(tenant, "srd5e-weapons-purple-sword")

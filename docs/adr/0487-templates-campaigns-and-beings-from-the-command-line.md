@@ -28,3 +28,12 @@ template, and cannot create a campaign or a being, so a worked example needs the
 
 - The workflows of RFC 0057 (a roster, a library with two systems, an author's world) run from the command line alone.
 - A being looks the way its campaign's system says, in the terminal as in the apps.
+
+## As built (slice C7)
+
+- `template create --from FILE` creates a template, or replaces the one of its name (the API replaces a template whole). In the
+  file, and in a document, `system` is `true` for the document's own system, a slug for another, or false for none.
+- `being create` makes a being with its parents and slug; `--character --campaign` is not built: making a character is a player's
+  step the apps and `lorenzo api` keep.
+- `being show --campaign` and `--template` pass the campaign and the template to the sheet read; `--system` on the three reads
+  passes the API's `system` filter to the entry read.

@@ -45,7 +45,7 @@ its layers, `unseed`, the importers' commands, flags and walkthroughs change or 
 
 ```text
 lorenzo plan|apply  FILE | --starter NAME  -t LIBRARY  [--prune] [--yes] [--json]
-lorenzo export      SYSTEM | --neutral     -t LIBRARY  [-o FILE]
+lorenzo export      SYSTEM | neutral       -t LIBRARY  [-o FILE]
 lorenzo starter     list | show NAME
 lorenzo schema      [document | output COMMAND]
 
@@ -157,3 +157,16 @@ reviewed, exported and applied again; every command answers a person with feedba
 
 Harder, and accepted: every command, flag, seed document and walkthrough of the command line before this changes; applying a
 large document is bounded by one request per row until the API has a bulk write; the starters are content to keep correct.
+
+## As built
+
+All thirteen slices are built as stacked pull requests, C1 to C13, each with an "As built" note on its ADR where it differs. In
+short:
+
+- Completing a name loads the command's group, since the completer sits on its parameter: about 280 ms against about 100 ms for
+  the root; it reads only the cache file (ADR 0493).
+- The API reports a merged stat's unit warning only for a merge it is told to make, so `copy --on-collision merge --dry-run` shows
+  it and a plain `copy-plan` does not (ADR 0492).
+- The published repositories are two, the equipment and the rules, not four (ADR 0491).
+- Found on the way: a concurrent write of two values on one entry answers 500 (the writer serializes per row; issue #1282), and
+  inventory-web still names the removed `lorenzo seed` (issue #1287).

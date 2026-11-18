@@ -50,6 +50,30 @@ def make_tenant(stack: Stack, token: str, kind: str = "repository") -> str:
     return slug
 
 
+_WRITES = {
+    ("repo", "publish"),
+    ("repo", "unpublish"),
+    ("repo", "grant"),
+    ("repo", "revoke"),
+    ("tenant", "create"),
+    ("tenant", "sheet-settings"),
+    ("stat-group", "create"),
+    ("stat-group", "edit"),
+    ("stat-definition", "create"),
+    ("stat-definition", "edit"),
+    ("item", "add"),
+    ("pack", "give"),
+}
+
+
+def _writes(args: tuple[str, ...]) -> bool:
+    """A single write that asks at a terminal (ADR 0482). Run with nobody to ask, it is given
+    --yes, as a script would; the contract itself is tested in the unit tests."""
+    if tuple(args[:2]) in _WRITES:
+        return "--dry-run" not in args
+    return args[:1] == ("api",) and len(args) > 1 and args[1].upper() != "GET"
+
+
 def run_cli(
     stack: Stack,
     token: str,
@@ -62,11 +86,14 @@ def run_cli(
     """Run the command. `answers` are typed at a terminal that is there to be asked. The sheet's
     JavaScript is evaluated through the session's cache, unless `real_engine` asks for the worker
     subprocess itself."""
+    if answers is None and _writes(args) and "--yes" not in args:
+        args = (*args, "--yes")
     runtime = Runtime(
         env={
             "LORENZO_API_URL": stack.api_url,
             "LORENZO_TOKEN": token,
             "XDG_STATE_HOME": str(tmp_path / "state"),
+            "XDG_CACHE_HOME": str(tmp_path / "cache"),
             **env,
         },
         stdin=io.StringIO(),
@@ -125,7 +152,8 @@ _GOLDEN: dict[str, SharedRepository] = {}
 
 
 def golden_repository(stack: Stack) -> SharedRepository:
-    """The session's one seeded repository, published, built the first time something asks.
+    """The session's one repository with the neutral and dnd5e starters, published, built the
+    first time something asks.
 
     It is what a test's tenant starts from (`copy_of_seeded`) and what the tests that only read
     or plan look at (the `shared_repository` fixture). Nothing writes to it but the grants a
@@ -136,7 +164,11 @@ def golden_repository(stack: Stack) -> SharedRepository:
         token = stack.creator_token(subject)
         slug = make_tenant(stack, token)
         work = Path(tempfile.mkdtemp(prefix="golden-"))
-        for args in (("seed", "--tenant", slug, "--yes"), ("repo", "publish", "--tenant", slug)):
+        for args in (
+            ("apply", "--starter", "neutral", "-t", slug, "--yes"),
+            ("apply", "--starter", "dnd5e", "-t", slug, "--yes"),
+            ("repo", "publish", "--tenant", slug),
+        ):
             built = run_cli(stack, token, work, *args)
             assert built.exit_code == 0, built.output
         with stack.api(token) as api:
@@ -147,7 +179,7 @@ def golden_repository(stack: Stack) -> SharedRepository:
 
 def copy_of_seeded(stack: Stack, token: str, tmp_path: Path, kind: str = "repository") -> str:
     """A new tenant of the test's owner that starts as a copy of the seeded repository: the way a
-    table gets the seed (ADR 0183), in a few requests where `lorenzo seed` makes about 130. For
+    table gets the starters (ADR 0491), in a few requests where applying them makes hundreds. For
     the tests of what a tenant does with a seed it has, not of the seed itself."""
     golden = golden_repository(stack)
     slug = f"e2e-{uuid.uuid4().hex[:10]}"

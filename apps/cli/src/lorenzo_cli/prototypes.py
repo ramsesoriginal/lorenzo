@@ -1,4 +1,4 @@
-"""Adding a parent to an item that has some already (ADR 0172, 0181, 0182): the seed's
+"""Adding a parent to an item that has some already (ADR 0172, 0182): a starter's
 attachments, and the importer's system pass, both do it the one way."""
 
 from __future__ import annotations

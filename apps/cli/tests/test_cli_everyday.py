@@ -186,14 +186,14 @@ def test_tenant_list_json_is_one_array_of_what_the_api_returned(tmp_path: Path) 
     result = runner.invoke(app, ["tenant", "list", "--json"], obj=runtime(tmp_path, []))
 
     assert result.exit_code == 0, result.output
-    assert json.loads(result.stdout) == SUMMARIES
+    assert json.loads(result.stdout) == {"format": 1, "tenants": SUMMARIES}
 
 
 def test_tenant_list_with_no_tenants_says_so_and_is_not_an_error(tmp_path: Path) -> None:
     result = runner.invoke(
         app, ["tenant", "list", "--kind", "play", "--json"], obj=runtime(tmp_path, [])
     )
-    assert json.loads(result.stdout) == [SUMMARIES[1]]
+    assert json.loads(result.stdout)["tenants"] == [SUMMARIES[1]]
 
     def nothing(request: httpx.Request) -> httpx.Response:
         return httpx.Response(

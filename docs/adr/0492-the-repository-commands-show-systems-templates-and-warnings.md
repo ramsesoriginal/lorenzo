@@ -25,3 +25,14 @@ template can be name clashes. The CLI prints none of this beyond `--json`, and `
 
 - What a copy or an update does to a library's systems and templates is said before it happens, in words.
 - `repo contents` describes a repository by what the API knows, not by a file shipped with the CLI.
+
+## As built (slice C11)
+
+- `--strict-units` is on `copy-plan`, `copy` and `offer`. The API reports a scale warning only for a merge it is told to make, so
+  a plain `copy-plan` has none; `copy --on-collision merge --dry-run` shows them.
+- What a step leaves out is counted by kind and reason in the text; `--json` keeps every row with its id.
+- `repo contents` reads its lists four at a time, and names a system's root by the root entry's slug. Its `--json` keeps `holds`
+  (with `systems`, `templates`, `entries`, `features` and `grant_rules` added) beside `systems`, `templates`, `roles` and
+  `by_system`.
+- `repo updates` needed no change: system and template rows and their fields print like any other row; kinds are said in words
+  (`role`, `stat`, `grant rule`).

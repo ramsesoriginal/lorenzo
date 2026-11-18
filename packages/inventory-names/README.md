@@ -1,6 +1,6 @@
 # @lorenzo/inventory-names
 
-The table of other spellings that `lorenzo inventory import` tries when a name matches no item
+The table of other spellings that `lorenzo import inventory` tries when a name matches no item
 ([ADR 0193](../../docs/adr/0193-lorenzo-inventory-import-and-export.md)), as data, with a reader for
 TypeScript ([ADR 0242](../../docs/adr/0242-inventory-names-the-spelling-table-shared.md)).
 

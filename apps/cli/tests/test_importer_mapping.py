@@ -177,7 +177,7 @@ capacity = { transform = "regex_extract", pattern = "(\\\\d+) lb", group = 1, st
         ),
         (
             'schema = 1\n[classify.weapons.type]\nx = { disposition = "create-under", axis = "proficiency", slug = "gear", name = "X" }\n',
-            "already one of the seed's own categories",
+            "already one of the starters' own categories",
         ),
         (
             'schema = 1\n[classify.weapons.type]\nx = { disposition = "create-under", axis = "proficiency", slug = "has space", name = "X" }\n',

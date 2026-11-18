@@ -16,7 +16,7 @@ values to stats named before the prefix rule and the dice type.
 
 - **Commands**: `lorenzo import mpmb plan|apply|inspect`, `lorenzo import inventory FILE`, `lorenzo import calendar FILE`,
   `lorenzo export inventory`, `lorenzo export calendar SOURCE`. Their options and exit codes stay, under the write contract
-  ([ADR 0482](0482-one-write-contract-for-every-cli-command.md)). `lorenzo export SYSTEM | --neutral` is the document's.
+  ([ADR 0482](0482-one-write-contract-for-every-cli-command.md)). `lorenzo export SYSTEM | neutral` is the document's.
 - **Parts by system, not by layer.** A stat is the system half's when its group has a system, and neutral otherwise; a category is the
   system half's when it is under a system's root. `--part neutral|system` stays; `--system SLUG` names the system the system pass writes
   for and is required with `--part system` when the library has more than one. A map row's `part` is allowed only where the library does
@@ -32,3 +32,17 @@ values to stats named before the prefix rule and the dice type.
 
 - `lorenzo plan` and `apply` mean one thing, the document; importing is one group with one habit.
 - Which half of an item a value belongs to follows the library's systems, so a second system's importer needs no layer of its own.
+
+## As built (slice C10)
+
+- The MPMB importer reads its vocabulary from the `neutral` and `dnd5e` starters (`importer/vocabulary.py`) instead of the seed:
+  a stat is the system's part when its group has a system, a category when it comes from the `dnd5e` document. The review queue
+  records a digest of the two starters as its version.
+- `builtin_map.toml` writes the `dnd5e_` stats; a versatile weapon's two-handed damage is a dice value (`1d10`).
+- A library without the starters' stats is refused with the commands that add them.
+- Found while building it: a validation error from the API now names its fields in the message, and a formula read back keeps the
+  fields its kind requires (a linear formula's multiplier of 1 was dropped, from slice C6).
+- MPMB's ways of working out armour class (2026-11-18): the map's new disposition `armor-class-way` (the armour list's `firstlist`
+  and `magic`) makes an entry a feature under `dnd5e-armor-class-features`, created as an entry of the kind `feature` in the system
+  pass (or a run without `--part`) and never attached to a neutral item; its tag comes from its `ac` (`10+Con`, `10+Wis`, `13`, or a
+  natural number with `dex` -10). Armour with a formula AC stays an item and carries the tag.
