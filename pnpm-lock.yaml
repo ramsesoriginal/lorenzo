@@ -805,6 +805,9 @@ importers:
       '@lorenzo/lorenzoscript-editor':
         specifier: workspace:*
         version: link:../../packages/lorenzoscript-editor
+      '@lorenzo/lorenzoscript-semilive-editor':
+        specifier: workspace:*
+        version: link:../../packages/lorenzoscript-semilive-editor
       '@lorenzo/repo-ui':
         specifier: workspace:*
         version: link:../../packages/repo-ui

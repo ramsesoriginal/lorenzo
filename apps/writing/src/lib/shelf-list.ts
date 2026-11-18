@@ -54,3 +54,31 @@ export function shown(works: Work[], filter: string, query: string): Work[] {
       words.every((word) => w.name.toLocaleLowerCase().includes(word)),
   );
 }
+
+export type Layout = 'source' | 'split' | 'live';
+
+/** How a text is shown for writing: its source with a preview tab, beside a preview, or live. */
+export const LAYOUTS: [Layout, string][] = [
+  ['source', 'Source'],
+  ['split', 'Split'],
+  ['live', 'Live'],
+];
+
+const LAYOUT = 'lorenzo:writing:layout';
+
+export function savedLayout(): Layout {
+  try {
+    const value = localStorage.getItem(LAYOUT);
+    return value === 'split' || value === 'live' ? value : 'source';
+  } catch {
+    return 'source';
+  }
+}
+
+export function rememberLayout(layout: Layout) {
+  try {
+    localStorage.setItem(LAYOUT, layout);
+  } catch {
+    // A convenience only.
+  }
+}

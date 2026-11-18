@@ -64,3 +64,30 @@
     grid-template-columns: minmax(0, 1fr) minmax(16rem, 22rem);
   }
 }
+
+/* The Live layout: formatted paragraphs, the open one a text area (ADR 0511). */
+.ls-semilive-blocks {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-4);
+}
+
+.ls-semilive-blocks .ls-block {
+  padding: var(--space-2);
+  border-radius: var(--radius-control);
+}
+
+.ls-semilive-blocks .ls-block:not(.ls-block-open):hover,
+.ls-semilive-blocks .ls-block:focus-visible {
+  background: var(--fill-soft);
+}
+
+.ls-semilive-blocks .ls-block[data-selected] {
+  background: var(--fill-soft);
+  outline: 2px solid var(--border-subtle);
+}
+
+.ls-semilive-field {
+  width: 100%;
+  resize: none;
+}

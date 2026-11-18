@@ -2803,3 +2803,30 @@ test('a text block splits from its menu at the section the cursor is in, and say
     await context.close();
   }
 });
+
+test('the Live layout shows paragraphs formatted and opens the one clicked as its source', async ({
+  browser,
+}) => {
+  test.setTimeout(120000);
+  const { page, context } = await world(browser);
+  try {
+    const text = page.getByRole('textbox', { name: 'Manuscript', exact: true });
+    await text.fill('# A heading\n\nA *slanted* paragraph.');
+    await expect(page.getByRole('status', { name: 'Save status' })).toHaveText('Saved');
+    await page.getByRole('button', { name: 'Layout', exact: true }).click();
+    await page.getByRole('menuitemradio', { name: 'Live' }).click();
+    await expect(page.locator('.ls-block h1')).toHaveText('A heading');
+    await expect(page.locator('.ls-block em')).toHaveText('slanted');
+    await page.locator('.ls-block').nth(1).click();
+    const open = page.getByRole('textbox', { name: 'Edit this part' });
+    await expect(open).toHaveValue('A *slanted* paragraph.');
+    await open.press('End');
+    await open.pressSequentially(' More.');
+    await expect(page.getByRole('status', { name: 'Save status' })).toHaveText('Saved');
+    await page.reload();
+    await expect(page.locator('.ls-block').nth(1)).toContainText('More.');
+    await expect(page.locator('.ls-block h1')).toHaveText('A heading');
+  } finally {
+    await context.close();
+  }
+});

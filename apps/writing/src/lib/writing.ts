@@ -11,6 +11,7 @@ import {
 } from '@lorenzo/information-editor';
 import { parse, render } from '@lorenzo/lorenzoscript';
 import { createEditor } from '@lorenzo/lorenzoscript-editor';
+import { createEditor as createLiveEditor } from '@lorenzo/lorenzoscript-semilive-editor';
 import { modernAddress } from './addresses';
 import { client, fetchAllPages, LorenzoApiError, loadFile, unwrap } from './api';
 import { isAuthConfigured, isAuthenticated, login, logout } from './auth';
@@ -31,7 +32,7 @@ import { countSources } from './manuscript-count';
 import { exportControls } from './manuscript-export';
 import { reviewAddress, reviewScreen } from './review';
 import { shelf } from './shelf';
-import { rememberWork } from './shelf-list';
+import { LAYOUTS, rememberLayout, rememberWork, savedLayout } from './shelf-list';
 import { draftCount } from './word-count';
 import { writingDetails } from './writing-details';
 import { writingSession } from './writing-session';
@@ -511,7 +512,24 @@ async function manuscript(
   };
   dock();
   wide.addEventListener('change', dock);
-  actions.append(sideToggle);
+  // The writing layout: Source, Split or Live (ADR 0494, W3a). A choice of this browser.
+  const layoutButton = button('Layout', () =>
+    openMenu(
+      layoutButton,
+      LAYOUTS.map(([id, label]) => ({
+        label,
+        checked: layout === id,
+        run: () => {
+          layout = id;
+          rememberLayout(id);
+          mount(editor.read());
+        },
+      })),
+      { label: 'Layout', sprite: `${BRANDING_CSS_URL}/icons.svg` },
+    ),
+  );
+  layoutButton.setAttribute('aria-haspopup', 'menu');
+  actions.append(layoutButton, sideToggle);
   head.append(headTitle, actions);
   const main = element('div', '', 'stack');
   main.append(status, warning, conflicts, area);
@@ -551,6 +569,7 @@ async function manuscript(
     }, 400);
   };
 
+  let layout = savedLayout();
   // The page's parts act on saved text, so a change in the editor is saved first (ADR 0494, W3).
   let selected: string[] = [];
   const job = (run: () => Promise<void>) => {
@@ -679,10 +698,11 @@ async function manuscript(
         caption.htmlFor = text.id;
         container.append(caption, text);
 
-        const control = createEditor({
+        // One set of options for every layout: Source, Split and Live differ in the import only.
+        const control = (layout === 'live' ? createLiveEditor : createEditor)({
           textarea: text,
           reviewEntitySelection: () => review.open(),
-          layout: 'tabs',
+          layout: layout === 'split' ? 'split' : 'tabs',
           toolbar: ['bold', 'italic', 'heading', 'bullets', '|', 'link', 'entity', 'undo'],
 
           render: (source) => render(parse(source), { externalImages: false }),
