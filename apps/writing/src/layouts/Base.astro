@@ -11,9 +11,12 @@ const { title = 'Lorenzo Writing', status = 'Opening your writing�' } = Astro.
 <AppPage
   title={title}
   product="Writing"
+  icon="kind-book"
   brandingUrl={BRANDING_CSS_URL}
   themeKey="lorenzo:writing:theme"
-  nav={[]}
+  shell="web"
+  template="list-detail"
+  nav={[{ label: 'Writing', href: '/', icon: 'kind-book' }]}
   path="apps/writing"
   welcome={{ title: 'Writing', text: 'Begin with a sentence, a picture, or an idea.', status }}
 >

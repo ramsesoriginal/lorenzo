@@ -78,8 +78,13 @@ export async function start() {
     },
   });
 
+  // The palette, the keys and the apps sheet are the shell's (ADR 0494).
+  shell?.palette();
   void getAppLinks(API_BASE_URL)
-    .then((registry) => shell?.accountLink(registry.apps.account_hub.url))
+    .then((registry) => {
+      shell?.accountLink(registry.apps.account_hub.url);
+      shell?.apps(registry);
+    })
     .catch(() => {});
   try {
     if (!isAuthConfigured() || !(await isAuthenticated())) {
@@ -96,6 +101,7 @@ export async function start() {
     if (reviewTenant && reviewEdition) {
       shell?.account({ state: 'signed-in', label: me.email ?? undefined });
       shell?.reveal();
+      shell?.statusBar({ sync: 'synced', syncedAt: new Date() });
       await reviewScreen(host, reviewTenant, reviewEdition, me.id);
       return;
     }
@@ -112,12 +118,14 @@ export async function start() {
 
     shell?.account({ state: 'signed-in', label: me.email ?? undefined });
     shell?.reveal();
+    shell?.statusBar({ sync: 'synced', syncedAt: new Date() });
 
     const params = new URLSearchParams(location.search);
 
     const tenant = params.get('tenant') ?? libraries[0]?.id;
 
     shell?.libraries(libraries, tenant ?? '', (id) => location.assign(address(id)));
+    shell?.library(tenant ?? null);
 
     if (!tenant) {
       host.textContent = 'Choose an author role in a library or repository to begin writing.';

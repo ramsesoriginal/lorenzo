@@ -57,7 +57,7 @@ Filled in as each slice lands.
 
 | Part | Slice | State |
 | --- | --- | --- |
-| The frame, the status bar | W0 | |
+| The frame, the status bar | W0 | done: Writing is in the web shell (`AppPage shell="web"`, the `list-detail` template): the palette and its keys, the apps sheet, the library link and the status bar with the sync state are the shell's, and the old screens sit inside it unchanged. Not yet: the save state and the word count in the status bar (W2), and the work's own template (W2). |
 | The shelf | W1 | |
 | A work's page, addresses, side views, the leave dialog | W2 | |
 | The page as blocks | W3 | |
@@ -73,4 +73,4 @@ Filled in as each slice lands.
 - The editor package gains the two additive exports of W3a and, after W3, the small helpers of WR12 (paste from Word, find and replace, `[[` completion and quiet highlighting, B1 to B4) as opt-in options, so that every app that uses it, and the semilive editor, can have them; the block surface is the app's. If a block needs something the editor does not give (a way to know its caret is at a safe boundary), it comes from the split-points read the API already has.
 - The old interface is gone from the first PR in which its part is replaced, so the old panels are removed with their replacements and not kept beside them.
 - The editing habits of [WR12](../design/web/writing/README.md#wr12-three-habits-proposed) touch the stack as the design says: the wording and layout items (its A rows) are written into the PRs above, the small editor helpers (paste from Word, find and replace, `[[` completion), in the editor package, are one small PR each after W3, and the Live layout is W3a, in the stack. Decided 2026-11-18: Start writing opens a Scene at once (A1); comments on a passage for Authors (C2), search across all writing (C4) and a second pane (C5) are wanted and are each a stack of their own, with their own ADRs, after this one; Word and Markdown import and export (C3) is not yet. No code-editor engine (C1): the Live layout is paragraphs formatted with the clicked one as source, in our own code.
-- The tracking issue and the milestone are made when the work is started, not before.
+- The tracking issue is [#1297](https://github.com/ramsesoriginal/lorenzo/issues/1297), in the milestone of RFC 0050, made when the work was started.

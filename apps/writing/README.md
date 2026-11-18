@@ -127,7 +127,7 @@ Generated navigation, code, math, notes and structural titles contribute no word
 - `mise run //apps/writing:test-e2e` — real API, isolated Postgres database, fake Authgear.
   Set `E2E_BROWSER_CHANNEL=msedge` to use installed Edge locally.
 
-The app uses the shared brand, app shell, API client, LorenzoScript editor and Information
+The app is in the web shell ([ADR 0494](../../docs/adr/0494-writing-moves-into-the-web-shell.md)), and uses the shared brand, app shell, API client, LorenzoScript editor and Information
 bundle editor. No app-specific CSS. `PUBLIC_API_BASE_URL`, `PUBLIC_AUTHGEAR_ENDPOINT`,
 `PUBLIC_AUTHGEAR_CLIENT_ID` and optional `PUBLIC_BRANDING_CSS_URL` configure the build.
 

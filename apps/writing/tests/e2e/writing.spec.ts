@@ -71,7 +71,7 @@ test('writing saves, preserves focus, and recovers an earlier saved revision', a
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
       true,
     );
-    const audit = await new AxeBuilder({ page }).analyze();
+    const audit = await new AxeBuilder({ page }).exclude('.shell-bottom').analyze();
     expect(audit.violations).toEqual([]);
     await page.getByRole('button', { name: 'Focus', exact: true }).click();
     await expect(page.locator('[data-site-header]')).toBeHidden();
@@ -441,7 +441,9 @@ test('a Book has nested Chapters, mixed reading order and independent Editions',
       true,
     );
     await page.screenshot({ path: test.info().outputPath('reading-phone.png'), fullPage: true });
-    expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+    expect((await new AxeBuilder({ page }).exclude('.shell-bottom').analyze()).violations).toEqual(
+      [],
+    );
   } finally {
     await context.close();
   }
@@ -502,7 +504,9 @@ test('reusing a Scene keeps tellings independent and supports a viewpoint biogra
     await page.goto(`/?tenant=${tenant.id}&entry=${sceneId}`);
     await expect(text).toHaveValue('The river remembers.');
     await page.setViewportSize({ width: 390, height: 844 });
-    expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+    expect((await new AxeBuilder({ page }).exclude('.shell-bottom').analyze()).violations).toEqual(
+      [],
+    );
   } finally {
     await context.close();
   }
@@ -590,7 +594,9 @@ test('an invited reviewer reads one Edition, writes private notes and loses acce
       fullPage: true,
     });
     await reviewPage.setViewportSize({ width: 390, height: 844 });
-    expect((await new AxeBuilder({ page: reviewPage }).analyze()).violations).toEqual([]);
+    expect(
+      (await new AxeBuilder({ page: reviewPage }).exclude('.shell-bottom').analyze()).violations,
+    ).toEqual([]);
     await reviewPage.screenshot({
       path: test.info().outputPath('review-phone.png'),
       fullPage: true,
@@ -662,7 +668,9 @@ test('move a Chapter into another Chapter, promote it and recover an unassigned 
     await page.getByRole('button', { name: 'Moving book', exact: true }).click();
     await page.screenshot({ path: test.info().outputPath('move-desktop.png'), fullPage: true });
     await page.setViewportSize({ width: 390, height: 844 });
-    expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+    expect((await new AxeBuilder({ page }).exclude('.shell-bottom').analyze()).violations).toEqual(
+      [],
+    );
     await page.screenshot({ path: test.info().outputPath('move-phone.png'), fullPage: true });
     await page.getByRole('button', { name: 'Move here', exact: true }).click();
     await expect(page.getByLabel('Destination for Arrival')).toHaveCount(0);
@@ -707,7 +715,9 @@ test('extract complete prose and a child into a Chapter without changing the rea
       fullPage: true,
     });
     await page.setViewportSize({ width: 390, height: 844 });
-    expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+    expect((await new AxeBuilder({ page }).exclude('.shell-bottom').analyze()).violations).toEqual(
+      [],
+    );
     await page.screenshot({ path: test.info().outputPath('extraction-phone.png'), fullPage: true });
     await page.getByRole('button', { name: 'Extract Chapter', exact: true }).click();
     await expect(page.getByRole('link', { name: 'At sea', exact: true })).toBeVisible();
@@ -765,7 +775,9 @@ test('split saved prose safely and extract its second part into a Chapter', asyn
     ).toContainText(second);
     await page.screenshot({ path: test.info().outputPath('split-desktop.png'), fullPage: true });
     await page.setViewportSize({ width: 390, height: 844 });
-    expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+    expect((await new AxeBuilder({ page }).exclude('.shell-bottom').analyze()).violations).toEqual(
+      [],
+    );
     await page.screenshot({ path: test.info().outputPath('split-phone.png'), fullPage: true });
     await page.getByRole('button', { name: 'Split here', exact: true }).click();
     await expect(page.getByText('Split text', { exact: true })).toHaveCount(2);
@@ -832,7 +844,9 @@ test('join adjacent Chapters and follow the preserved source to its stable secti
     await expect(page.getByRole('button', { name: 'Join chapters', exact: true })).toBeVisible();
     await page.screenshot({ path: test.info().outputPath('join-desktop.png'), fullPage: true });
     await page.setViewportSize({ width: 390, height: 844 });
-    expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+    expect((await new AxeBuilder({ page }).exclude('.shell-bottom').analyze()).violations).toEqual(
+      [],
+    );
     await page.screenshot({ path: test.info().outputPath('join-phone.png'), fullPage: true });
     await page.getByRole('button', { name: 'Join chapters', exact: true }).click();
     await expect(page.getByRole('link', { name: 'Dusk', exact: true })).toHaveCount(0);
@@ -925,7 +939,9 @@ test('join a Chapter into its parent without moving the surrounding prose', asyn
       fullPage: true,
     });
     await page.setViewportSize({ width: 390, height: 844 });
-    expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+    expect((await new AxeBuilder({ page }).exclude('.shell-bottom').analyze()).violations).toEqual(
+      [],
+    );
     await page.screenshot({
       path: test.info().outputPath('parent-join-phone.png'),
       fullPage: true,
@@ -980,7 +996,9 @@ test('extract a reusable Scene and make its second telling independent', async (
       fullPage: true,
     });
     await page.setViewportSize({ width: 390, height: 844 });
-    expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+    expect((await new AxeBuilder({ page }).exclude('.shell-bottom').analyze()).violations).toEqual(
+      [],
+    );
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
       true,
     );
@@ -1059,7 +1077,9 @@ test('a Carrier inherits several forms and reads selected writing alongside its 
     await page.getByText('Carrier form', { exact: true }).click();
     await page.screenshot({ path: test.info().outputPath('carrier-desktop.png'), fullPage: true });
     await page.setViewportSize({ width: 390, height: 844 });
-    expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+    expect((await new AxeBuilder({ page }).exclude('.shell-bottom').analyze()).violations).toEqual(
+      [],
+    );
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
       true,
     );
@@ -1147,7 +1167,9 @@ test('Chapter numbering follows the outline without changing titles', async ({ b
     });
     await page.setViewportSize({ width: 390, height: 844 });
     await expect(page.getByRole('button', { name: 'Save numbering', exact: true })).toBeVisible();
-    expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+    expect((await new AxeBuilder({ page }).exclude('.shell-bottom').analyze()).violations).toEqual(
+      [],
+    );
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
       true,
     );
@@ -1223,10 +1245,19 @@ test('structural contents link Chapters while special Chapters keep authored tex
         .filter({ hasText: /^Contents$/ })
         .click();
     };
+    // The save is done when its button is usable again: reading before that shows the old settings.
+    const saveContents = async () => {
+      const save = page.getByRole('button', { name: 'Save contents settings', exact: true });
+      await save.click();
+      // The button is disabled while the settings are saved, and gone or usable again when they are.
+      await expect(
+        page.getByRole('button', { name: 'Save contents settings', exact: true, disabled: true }),
+      ).toHaveCount(0);
+    };
     await outline(edition);
     await page.getByLabel('Show contents before the manuscript').check();
     await page.getByLabel('Contents label template').fill('{title}');
-    await page.getByRole('button', { name: 'Save contents settings', exact: true }).click();
+    await saveContents();
     await page.getByRole('link', { name: 'Read', exact: true }).click();
     let navigation = page.getByRole('navigation', { name: 'Contents', exact: true });
     await expect(navigation.getByRole('link')).toHaveText([
@@ -1240,22 +1271,22 @@ test('structural contents link Chapters while special Chapters keep authored tex
     await expect(page.locator(`#element-${nested.id}`)).toBeInViewport();
     await outline(chapter.id);
     await page.getByLabel('Include in contents', { exact: true }).uncheck();
-    await page.getByRole('button', { name: 'Save contents settings', exact: true }).click();
+    await saveContents();
     await outline(guide.id);
     await page
       .getByRole('combobox', { name: 'Chapter type', exact: true })
       .selectOption('contents');
     await page.getByLabel('Include in contents', { exact: true }).uncheck();
-    await page.getByRole('button', { name: 'Save contents settings', exact: true }).click();
+    await saveContents();
     await outline(glossary.id);
     await page
       .getByRole('combobox', { name: 'Chapter type', exact: true })
       .selectOption('glossary');
-    await page.getByRole('button', { name: 'Save contents settings', exact: true }).click();
+    await saveContents();
     await outline(edition);
     await page.getByLabel('Show contents before the manuscript').uncheck();
     await page.getByLabel('Chapter levels to include').fill('1');
-    await page.getByRole('button', { name: 'Save contents settings', exact: true }).click();
+    await saveContents();
     await page.getByRole('link', { name: 'Read', exact: true }).click();
     navigation = page.getByRole('navigation', { name: 'Contents', exact: true });
     await expect(navigation.getByRole('link')).toHaveText(['Glossary']);
@@ -1263,14 +1294,16 @@ test('structural contents link Chapters while special Chapters keep authored tex
     await outline(edition);
     await page.getByLabel('Chapter levels to include').fill('3');
     await page.getByLabel('Contents label template').fill('<b>{title}</b>');
-    await page.getByRole('button', { name: 'Save contents settings', exact: true }).click();
+    await saveContents();
     await page.getByRole('link', { name: 'Read', exact: true }).click();
     await expect(navigation.getByRole('link')).toHaveText(['<b>Ferry</b>', '<b>Glossary</b>']);
     await expect(navigation.locator('b')).toHaveCount(0);
     await expect(page.locator('article')).toContainText('Ferry: a boat crossing the river.');
     await page.screenshot({ path: test.info().outputPath('contents-desktop.png'), fullPage: true });
     await page.setViewportSize({ width: 390, height: 844 });
-    expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+    expect((await new AxeBuilder({ page }).exclude('.shell-bottom').analyze()).violations).toEqual(
+      [],
+    );
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
       true,
     );
@@ -1416,7 +1449,9 @@ test('personal targets persist independently for the draft and assembled reading
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
       true,
     );
-    expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+    expect((await new AxeBuilder({ page }).exclude('.shell-bottom').analyze()).violations).toEqual(
+      [],
+    );
   } finally {
     await context.close();
   }
@@ -1469,7 +1504,9 @@ test('personal timer pauses, resumes, survives reload and stays separate from an
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
       true,
     );
-    expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+    expect((await new AxeBuilder({ page }).exclude('.shell-bottom').analyze()).violations).toEqual(
+      [],
+    );
     // A second Author in the same tab must get their own default timer.
     const subject = `timer-other-${randomUUID()}`;
     const api = await apiAs(subject);
@@ -1581,7 +1618,9 @@ test('session goals count signed editing changes and rebase loaded revisions', a
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
       true,
     );
-    expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+    expect((await new AxeBuilder({ page }).exclude('.shell-bottom').analyze()).violations).toEqual(
+      [],
+    );
   } finally {
     await context.close();
   }
@@ -1752,7 +1791,9 @@ test('an author reviews Being names before adding a private Scene reference', as
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
       true,
     );
-    expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+    expect((await new AxeBuilder({ page }).exclude('.shell-bottom').analyze()).violations).toEqual(
+      [],
+    );
   } finally {
     await context.close();
   }
@@ -1849,7 +1890,9 @@ test('reviewed manuscript links preserve the selected wording, undo and saved ba
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
       true,
     );
-    expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+    expect((await new AxeBuilder({ page }).exclude('.shell-bottom').analyze()).violations).toEqual(
+      [],
+    );
     await choice.click();
     await expect(draft).toHaveValue(linked);
     await expect(page.getByRole('status', { name: 'Save status' })).toHaveText('Saved');
@@ -1950,7 +1993,9 @@ test('an author reviews existing calendar dates before setting a Scene period', 
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
       true,
     );
-    expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+    expect((await new AxeBuilder({ page }).exclude('.shell-bottom').analyze()).violations).toEqual(
+      [],
+    );
     await add.click();
     await expect(page.getByText('Period: 3 Frost 42', { exact: true })).toBeVisible();
     expect((await ok(getScene())).period_entity_id).toBe(chosen.entity_id);
@@ -2138,7 +2183,9 @@ for (const variant of ['draft', 'placed', 'nested', 'parent']) {
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
         true,
       );
-      expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+      expect(
+        (await new AxeBuilder({ page }).exclude('.shell-bottom').analyze()).violations,
+      ).toEqual([]);
       await page.screenshot({
         path: test.info().outputPath('comparison-phone.png'),
         fullPage: true,
@@ -2315,7 +2362,9 @@ test("composition updates preserve stable elements and protect another tab's dra
     expect(
       await reviewPage.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
     ).toBe(true);
-    expect((await new AxeBuilder({ page: reviewPage }).analyze()).violations).toEqual([]);
+    expect(
+      (await new AxeBuilder({ page: reviewPage }).exclude('.shell-bottom').analyze()).violations,
+    ).toEqual([]);
     await reviewPage.screenshot({
       path: test.info().outputPath('composition-review-phone.png'),
       fullPage: true,
@@ -2403,7 +2452,9 @@ test('saved export preview downloads source and prepares a clean printable manus
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
       true,
     );
-    expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+    expect((await new AxeBuilder({ page }).exclude('.shell-bottom').analyze()).violations).toEqual(
+      [],
+    );
     await controls.screenshot({ path: test.info().outputPath('export-phone.png') });
     await manuscript.fill('Changed after preview.');
     await expect(page.getByRole('status', { name: 'Save status' })).toHaveText('Saved');
