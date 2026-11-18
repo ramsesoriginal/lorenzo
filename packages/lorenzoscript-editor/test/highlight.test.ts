@@ -3,10 +3,11 @@ import { highlightSource } from '../src/highlight';
 
 const plain = (html: string) =>
   html
-    .replace(/<[^>]+>/g, '')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&amp;/g, '&');
+    .replaceAll('</span>', '')
+    .replace(/<span class="ls-hl-[a-z]+">/g, '')
+    .replaceAll('&lt;', '<')
+    .replaceAll('&gt;', '>')
+    .replaceAll('&amp;', '&');
 
 test('wraps only the markers, and the text stays the same characters', () => {
   const source =
