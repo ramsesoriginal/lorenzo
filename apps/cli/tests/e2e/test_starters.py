@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import Any
 
 from e2e.helpers import by_slug, make_tenant, run_cli, tenant_id
 from e2e.stack import Stack
@@ -185,9 +186,6 @@ def test_dnd_armor_class_comes_from_what_is_worn(stack: Stack, tmp_path: Path) -
                 },
             )
             assert made.status_code == 201, made.text
-            return str(
-                made.json()["entity_id"] if "entity_id" in made.json() else made.json()["id"]
-            )
 
         wear("chain-mail", "knight")
         wear("shield", "knight")
@@ -196,3 +194,123 @@ def test_dnd_armor_class_comes_from_what_is_worn(stack: Stack, tmp_path: Path) -
 
     assert armor_class("knight") == 18  # chain mail 16, no Dexterity for heavy armor, shield +2
     assert armor_class("rogue") == 14  # leather 11 + Dexterity +3; the chain mail is not worn
+
+
+FEATURED = """
+format = 1
+name = "featured"
+requires = ["dnd5e"]
+
+[[entry]]
+slug = "shell"
+name = "Shell"
+kinds = ["feature"]
+parents = ["dnd5e-armor-class-features"]
+stats = { dnd5e_ac_natural = 17 }
+
+[[entry]]
+slug = "barbarian"
+name = "Barbarian"
+kinds = ["being"]
+parents = ["dnd5e-character"]
+stats = { dnd5e_dexterity = 14, dnd5e_constitution = 16 }
+
+[[entry]]
+slug = "monk"
+name = "Monk"
+kinds = ["being"]
+parents = ["dnd5e-character"]
+stats = { dnd5e_dexterity = 16, dnd5e_wisdom = 16 }
+
+[[entry]]
+slug = "wizard"
+name = "Wizard"
+kinds = ["being"]
+parents = ["dnd5e-character"]
+stats = { dnd5e_dexterity = 14 }
+
+[[entry]]
+slug = "turtle"
+name = "Turtle"
+kinds = ["being"]
+parents = ["dnd5e-character"]
+
+[[entry]]
+slug = "chain-mail"
+name = "Chain mail"
+parents = ["armor", "dnd5e-heavy-armor"]
+stats = { dnd5e_armor = 16 }
+
+[[entry]]
+slug = "shield"
+name = "Shield"
+parents = ["armor"]
+stats = { dnd5e_armor = 2 }
+"""
+
+
+def test_dnd_armor_class_takes_the_best_way_a_feature_gives(stack: Stack, tmp_path: Path) -> None:
+    token = stack.creator_token("ac-ways")
+    tenant = make_tenant(stack, token, kind="play")
+
+    def ok(*args: str) -> Any:
+        result = run_cli(stack, token, tmp_path, *args)
+        assert result.exit_code == 0, f"{' '.join(args)}\n{result.output}"
+        return result
+
+    for starter in ("neutral", "dnd5e"):
+        ok("apply", "--starter", starter, "-t", tenant, "--yes")
+    featured = tmp_path / "featured.toml"
+    featured.write_text(FEATURED, encoding="utf-8")
+    ok("apply", str(featured), "-t", tenant, "--yes")
+
+    def armor_class(being: str) -> object:
+        found = ok("formula", "preview", "dnd5e_armor_class", "--on", being, "-t", tenant, "--json")
+        return json.loads(found.stdout)["value"]
+
+    with stack.api(token) as api:
+        tid = tenant_id(api, tenant)
+
+        def wear(item: str, being: str) -> str:
+            made = api.post(
+                f"/tenants/{tid}/item-instances",
+                json={
+                    "prototype_id": by_slug(api, tid, item)["id"],
+                    "container_entity_id": by_slug(api, tid, being)["id"],
+                    "active": True,
+                },
+            )
+            assert made.status_code == 201, made.text
+            return str(made.json()["entity_id"])
+
+        def take_off(instance: str) -> None:
+            gone = api.delete(f"/tenants/{tid}/item-instances/{instance}")
+            assert gone.status_code == 204, gone.text
+
+        def award(feature: str, being: str) -> None:
+            ok("feature", "award", feature, "--to", being, "-t", tenant, "--yes")
+
+        assert armor_class("barbarian") == 12  # no feature yet: 10 + Dexterity +2
+        award("dnd5e-unarmored-defense-barbarian", "barbarian")
+        assert armor_class("barbarian") == 15  # 10 + Dexterity +2 + Constitution +3
+        shield = wear("shield", "barbarian")
+        assert armor_class("barbarian") == 17  # a shield still counts
+        take_off(shield)
+        wear("chain-mail", "barbarian")
+        assert armor_class("barbarian") == 16  # armor worn: the way no longer applies
+
+        award("dnd5e-unarmored-defense-monk", "monk")
+        assert armor_class("monk") == 16  # 10 + Dexterity +3 + Wisdom +3
+        wear("shield", "monk")
+        assert armor_class("monk") == 15  # a shield ends it: 10 + 3 + 2
+
+        award("dnd5e-mage-armor", "wizard")
+        assert armor_class("wizard") == 12  # the spell starts switched off
+        ok("feature", "activate", "dnd5e-mage-armor", "--on", "wizard", "-t", tenant, "--yes")
+        assert armor_class("wizard") == 15  # 13 + Dexterity +2
+
+        award("shell", "turtle")
+        assert armor_class("turtle") == 17  # a natural armor class, no Dexterity
+
+    again = run_cli(stack, token, tmp_path, "plan", "--starter", "dnd5e", "-t", tenant)
+    assert again.exit_code == 0, again.output  # the formulas read back as written
