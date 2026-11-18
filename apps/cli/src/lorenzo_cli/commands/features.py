@@ -125,14 +125,65 @@ def feature_list(
         rows = list(
             all_items(client, ops.LIST_ENTITIES, path=library.path, query=query, of=EntityListOut)
         )
+        with console.waiting("Reading their values"):
+            details = _details(client, library.path, {r.id for r in rows})
+    listed = [
+        {
+            **r.model_dump(mode="json"),
+            **details.get(r.id, {"slug": None, "under": [], "values": {}}),
+        }
+        for r in rows
+    ]
     if as_json:
-        console.emit({"features": [r.model_dump(mode="json") for r in rows]})
+        console.emit({"features": listed})
         return
     if not rows:
         console.out.print("No features yet.")
         return
-    for row in rows:
-        console.out.print(Text(f"{safe(row.name)}  {row.id}"))
+    prefix = f"{system}_" if system else ""
+    table = Table("name", "slug", "under", "values", box=None, pad_edge=False)
+    for row in listed:
+        values = ", ".join(
+            f"{name.removeprefix(prefix)} {value}" for name, value in row["values"].items()
+        )
+        table.add_row(
+            Text(safe(row["name"])),
+            Text(safe(row["slug"] or "-")),
+            Text(safe(", ".join(row["under"]))),
+            Text(safe(values)),
+        )
+    console.out.print(table)
+
+
+def _details(
+    client: LorenzoClient, path: dict[str, Any], wanted: set[UUID]
+) -> dict[UUID, dict[str, Any]]:
+    """The slug, the parents by name and the own values of each wanted entry: from the export,
+    500 entries a request, and the stat names, one request (ADR 0262)."""
+    names = {
+        s.id: s.name
+        for s in all_items(client, ops.LIST_STAT_DEFINITIONS, path=path, of=StatDefinitionOut)
+    }
+    rows: dict[UUID, Any] = {}
+    cursor: str | None = None
+    while True:
+        page = client.call(ops.EXPORT_ENTITIES, path=path, query={"cursor": cursor, "limit": 500})
+        rows |= {row.id: row for row in page.value.items}
+        cursor = page.value.next_cursor
+        if cursor is None:
+            break
+    return {
+        entry_id: {
+            "slug": rows[entry_id].slug,
+            "under": [rows[p].name for p in rows[entry_id].parent_ids if p in rows],
+            "values": {
+                names.get(s.stat_definition_id, str(s.stat_definition_id)): s.value
+                for s in rows[entry_id].stats
+            },
+        }
+        for entry_id in wanted
+        if entry_id in rows
+    }
 
 
 @feature_app.command("show")

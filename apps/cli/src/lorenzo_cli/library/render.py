@@ -37,14 +37,42 @@ def counts_line(plan: Plan) -> str:
     return ", ".join(said)
 
 
-def print_plan(plan: Plan) -> None:
+# A plan longer than this shows what it creates as a count per kind; what it changes or removes in
+# what a library already holds is always listed row by row (until it is this long itself).
+LONG = 30
+# How many names a summary row shows before "and N more".
+EXAMPLES = 3
+
+
+def print_plan(plan: Plan, *, full: bool = False) -> None:
     out = console.out
     out.print(
         Text(f"{plan.document.name} into {plan.tenant.slug}: {counts_line(plan)}."), soft_wrap=True
     )
-    if plan.actions:
+    listed = list(plan.actions)
+    summed: list[Any] = []
+    if not full and len(plan.actions) > LONG:
+        listed = [a for a in plan.actions if a.verb != "create"]
+        summed = [a for a in plan.actions if a.verb == "create"]
+        if len(listed) > LONG:
+            listed, summed = [], list(plan.actions)
+    if summed:
+        groups: dict[tuple[str, str], list[str]] = {}
+        for action in summed:
+            groups.setdefault((action.verb, action.kind), []).append(action.key)
+        table = Table("", "what", "how many", "for example", box=None, pad_edge=False)
+        for (verb, kind), keys in groups.items():
+            more = f", and {len(keys) - EXAMPLES} more" if len(keys) > EXAMPLES else ""
+            table.add_row(
+                console.status(verb),
+                kind,
+                str(len(keys)),
+                Text(safe(", ".join(keys[:EXAMPLES]) + more)),
+            )
+        out.print(table)
+    if listed:
         table = Table("", "what", "name", "detail", box=None, pad_edge=False)
-        for action in plan.actions:
+        for action in listed:
             table.add_row(
                 console.status(action.verb),
                 action.kind,
@@ -52,6 +80,11 @@ def print_plan(plan: Plan) -> None:
                 Text(safe(action.detail)),
             )
         out.print(table)
+    if summed:
+        console.notice(
+            f"{len(summed)} rows are counted, not listed: --full lists each one, "
+            "--json has them all."
+        )
     for note in plan.notes:
         console.err.print(console.status("note", note), soft_wrap=True)
     for problem in plan.problems:

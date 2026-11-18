@@ -233,7 +233,7 @@ lorenzo export ds -t my-library -o ds.toml    # a system back as a document (exp
 lorenzo schema document > lorenzo-document.schema.json   # for an editor to check the file
 ```
 
-`apply` sets what the document names and leaves what it does not; it never deletes. `--prune` also removes what the document's system no longer names, shown first: its stat groups and stats, and the entries under its root that are features or that others inherit from (a leaf item imported under the root is content and stays). It is refused for a document without a `[system]`. A description is created when an entry has none; one that differs is reported, not rewritten. `lorenzo starter list|show` names and prints the documents that ship with the CLI, and `--starter NAME` on `plan` and `apply` stands for one. `lorenzo schema output COMMAND` prints the shape of a command's `--json` output.
+`apply` sets what the document names and leaves what it does not; it never deletes. A plan longer than 30 rows counts what it creates per kind, with a few names, and still lists every change and removal; `--full` lists every row. `--prune` also removes what the document's system no longer names, shown first: its stat groups and stats, and the entries under its root that are features or that others inherit from (a leaf item imported under the root is content and stays). It is refused for a document without a `[system]`. A description is created when an entry has none; one that differs is reported, not rewritten. `lorenzo starter list|show` names and prints the documents that ship with the CLI, and `--starter NAME` on `plan` and `apply` stands for one. `lorenzo schema output COMMAND` prints the shape of a command's `--json` output.
 
 ### Templates, campaigns and beings
 
@@ -303,7 +303,7 @@ lorenzo check -t lib --severity warning --json
 lorenzo check -t lib --fail-on warning                  # exit 1 on a warning, for a script or CI
 ```
 
-The codes are `unset-input`, `own-value-shadows-formula` and `tie` (warnings), and `computed-outside-scale`, `above-hint` and `formula-chain-depth` (notes; `tie` needs `--entry`). Without `--fail-on` it exits 0 whatever it finds. `apply`, `import mpmb apply` and `repo copy` do not run it; they end with a line that names it.
+The codes are `unset-input`, `own-value-shadows-formula` and `tie` (warnings), and `computed-outside-scale`, `above-hint` and `formula-chain-depth` (notes; `tie` needs `--entry`). Without `--fail-on` it exits 0 whatever it finds. `apply`, `import mpmb apply` and `repo copy` do not run it; they end with a line that names it. A finding that three or more entries share in the same words is said once, with how many and a few of their names; `--by-entry` lists every finding under its entry.
 
 ### Formulas
 
