@@ -3133,6 +3133,15 @@ test('the new pages pass axe in the dark theme and their controls are 44px on a 
     await page.getByRole('textbox', { name: 'Manuscript', exact: true }).fill('Dark words.');
     await axe();
     await small(['Layout', 'Side views', 'Rename', 'Block options', 'Add text']);
+    await expect(page.getByRole('status', { name: 'Save status' })).toHaveText('Saved');
+    await page.getByRole('link', { name: 'Read', exact: true }).click();
+    await expect(page.locator('article')).toContainText('Dark words.');
+    await axe();
+    await page.goto(`/?tenant=${tenant.id}`);
+    await startAs(page, 'chapter', 'Dark chapter');
+    await page.getByRole('link', { name: 'Outline', exact: true }).click();
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+    await axe();
     await page.goto(`/?tenant=${tenant.id}`);
     await axe();
     await small(['Start writing', 'Start something else']);
