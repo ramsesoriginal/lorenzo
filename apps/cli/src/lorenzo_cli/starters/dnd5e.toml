@@ -15,6 +15,7 @@ group = [
     { name = "dnd5e_modifiers", system = true },
     { name = "dnd5e_character", system = true },
     { name = "dnd5e_features", system = true },
+    { name = "dnd5e_steps", system = true },
 ]
 attach = [
     { entry = "weapon", parent = "dnd5e-economic-object" },
@@ -292,6 +293,124 @@ name = "dnd5e_is_shield"
 group = "dnd5e_properties"
 type = "bool"
 
+# The other ways of working out armor class (SRD 5.1): a feature carries the tag of its way, or a
+# natural armor class; the character takes the best way that applies.
+[[stat]]
+name = "dnd5e_ac_10_dex_con"
+group = "dnd5e_properties"
+type = "bool"
+
+[[stat]]
+name = "dnd5e_ac_10_dex_wis"
+group = "dnd5e_properties"
+type = "bool"
+
+[[stat]]
+name = "dnd5e_ac_13_dex"
+group = "dnd5e_properties"
+type = "bool"
+
+[[stat]]
+name = "dnd5e_ac_natural"
+group = "dnd5e_properties"
+type = "int"
+min = 0
+
+[[stat]]
+name = "dnd5e_armor_class_worn"
+group = "dnd5e_steps"
+type = "int"
+
+[[stat]]
+name = "dnd5e_body_armor_count"
+group = "dnd5e_steps"
+type = "int"
+
+[[stat]]
+name = "dnd5e_unarmored"
+group = "dnd5e_steps"
+type = "bool"
+
+[[stat]]
+name = "dnd5e_no_shield"
+group = "dnd5e_steps"
+type = "bool"
+
+[[stat]]
+name = "dnd5e_ac_10_dex_con_count"
+group = "dnd5e_steps"
+type = "int"
+
+[[stat]]
+name = "dnd5e_ac_10_dex_con_held"
+group = "dnd5e_steps"
+type = "bool"
+
+[[stat]]
+name = "dnd5e_ac_10_dex_con_value"
+group = "dnd5e_steps"
+type = "int"
+
+[[stat]]
+name = "dnd5e_ac_by_10_dex_con"
+group = "dnd5e_steps"
+type = "int"
+
+[[stat]]
+name = "dnd5e_ac_10_dex_wis_count"
+group = "dnd5e_steps"
+type = "int"
+
+[[stat]]
+name = "dnd5e_ac_10_dex_wis_held"
+group = "dnd5e_steps"
+type = "bool"
+
+[[stat]]
+name = "dnd5e_ac_10_dex_wis_value"
+group = "dnd5e_steps"
+type = "int"
+
+[[stat]]
+name = "dnd5e_ac_by_10_dex_wis"
+group = "dnd5e_steps"
+type = "int"
+
+[[stat]]
+name = "dnd5e_ac_13_dex_count"
+group = "dnd5e_steps"
+type = "int"
+
+[[stat]]
+name = "dnd5e_ac_13_dex_held"
+group = "dnd5e_steps"
+type = "bool"
+
+[[stat]]
+name = "dnd5e_ac_13_dex_value"
+group = "dnd5e_steps"
+type = "int"
+
+[[stat]]
+name = "dnd5e_ac_by_13_dex"
+group = "dnd5e_steps"
+type = "int"
+
+[[stat]]
+name = "dnd5e_ac_natural_best"
+group = "dnd5e_steps"
+type = "int"
+
+[[stat]]
+name = "dnd5e_ac_natural_value"
+group = "dnd5e_steps"
+type = "int"
+
+[[stat]]
+name = "dnd5e_ac_by_natural"
+group = "dnd5e_steps"
+type = "int"
+
 [[stat]]
 name = "dnd5e_armor_dexterity"
 group = "dnd5e_character"
@@ -415,6 +534,71 @@ tags = [
     "dnd5e_is_shield",
 ]
 description = "A shield adds its armor class to the wearer's, on top of the armor worn."
+
+[[entry]]
+slug = "dnd5e-armor-class-features"
+name = "Armor class features (D&D 5e)"
+parents = [
+    "dnd5e-system",
+]
+description = "Features that give another way of working out armor class. A feature takes a way by its tag (10 + Dexterity + Constitution, 10 + Dexterity + Wisdom, or 13 + Dexterity) or a natural armor class; while the holder wears no body armor, the best way that applies is its armor class. A race's, a class's or a magic item's feature joins by carrying the same tag."
+
+[[entry]]
+slug = "dnd5e-unarmored-defense-barbarian"
+name = "Unarmored Defense (Barbarian)"
+kinds = [
+    "feature",
+]
+parents = [
+    "dnd5e-armor-class-features",
+]
+tags = [
+    "dnd5e_ac_10_dex_con",
+]
+description = "While you are not wearing any armor, your Armor Class equals 10 + your Dexterity modifier + your Constitution modifier. You can use a shield and still gain this benefit."
+
+[[entry]]
+slug = "dnd5e-unarmored-defense-monk"
+name = "Unarmored Defense (Monk)"
+kinds = [
+    "feature",
+]
+parents = [
+    "dnd5e-armor-class-features",
+]
+tags = [
+    "dnd5e_ac_10_dex_wis",
+]
+description = "While you are wearing no armor and not wielding a shield, your AC equals 10 + your Dexterity modifier + your Wisdom modifier."
+
+[[entry]]
+slug = "dnd5e-draconic-resilience"
+name = "Draconic Resilience"
+kinds = [
+    "feature",
+]
+parents = [
+    "dnd5e-armor-class-features",
+]
+tags = [
+    "dnd5e_ac_13_dex",
+]
+description = "When you aren't wearing armor, your AC equals 13 + your Dexterity modifier."
+
+[[entry]]
+slug = "dnd5e-mage-armor"
+name = "Mage Armor"
+kinds = [
+    "feature",
+]
+starts_inactive = true
+parents = [
+    "dnd5e-armor-class-features",
+]
+tags = [
+    "dnd5e_ac_13_dex",
+]
+description = "The target's base AC becomes 13 + its Dexterity modifier while it isn't wearing armor. Switch it on while the spell lasts."
 
 [[entry]]
 slug = "dnd5e-tool-proficiency"
@@ -597,6 +781,17 @@ parents = [
     "dnd5e-system",
 ]
 
+# Every ability starts at 10 (a modifier of +0) and the level at 1, so a character the GM has
+# not finished still has an armor class.
+[entry.stats]
+dnd5e_strength = 10
+dnd5e_dexterity = 10
+dnd5e_constitution = 10
+dnd5e_intelligence = 10
+dnd5e_wisdom = 10
+dnd5e_charisma = 10
+dnd5e_level = 1
+
 [[entry]]
 slug = "dnd5e-fighter"
 name = "Fighter"
@@ -744,12 +939,196 @@ inputs = [
 
 [[formula]]
 on = "dnd5e-character"
-stat = "dnd5e_armor_class"
+stat = "dnd5e_armor_class_worn"
 kind = "sum"
 terms = [
     "dnd5e_armor_base",
     "dnd5e_armor_dexterity",
     "dnd5e_shield_bonus",
+]
+
+# Whether body armor or a shield is worn, for the ways that ask.
+[[formula]]
+on = "dnd5e-character"
+stat = "dnd5e_body_armor_count"
+kind = "contents"
+aggregate = "count"
+only_active = true
+only_kind = "item_instance"
+where = "dnd5e_is_body_armor"
+
+[[formula]]
+on = "dnd5e-character"
+stat = "dnd5e_unarmored"
+kind = "comparison"
+left = "dnd5e_body_armor_count"
+comparator = "eq"
+right_constant = 0
+
+[[formula]]
+on = "dnd5e-character"
+stat = "dnd5e_no_shield"
+kind = "comparison"
+left = "dnd5e_shield_bonus"
+comparator = "eq"
+right_constant = 0
+
+# 10 + Dexterity + Constitution, a shield allowed (a Barbarian's Unarmored Defense).
+[[formula]]
+on = "dnd5e-character"
+stat = "dnd5e_ac_10_dex_con_count"
+kind = "contents"
+aggregate = "count"
+only_active = true
+only_kind = "feature_instance"
+where = "dnd5e_ac_10_dex_con"
+
+[[formula]]
+on = "dnd5e-character"
+stat = "dnd5e_ac_10_dex_con_held"
+kind = "comparison"
+left = "dnd5e_ac_10_dex_con_count"
+comparator = "ge"
+right_constant = 1
+
+[[formula]]
+on = "dnd5e-character"
+stat = "dnd5e_ac_10_dex_con_value"
+kind = "sum"
+terms = [
+    "dnd5e_dexterity_mod",
+    "dnd5e_constitution_mod",
+    "dnd5e_shield_bonus",
+]
+offset = 10
+
+[[formula]]
+on = "dnd5e-character"
+stat = "dnd5e_ac_by_10_dex_con"
+kind = "product"
+factors = [
+    "dnd5e_ac_10_dex_con_held",
+    "dnd5e_unarmored",
+    "dnd5e_ac_10_dex_con_value",
+]
+
+# 10 + Dexterity + Wisdom, no shield (a Monk's Unarmored Defense).
+[[formula]]
+on = "dnd5e-character"
+stat = "dnd5e_ac_10_dex_wis_count"
+kind = "contents"
+aggregate = "count"
+only_active = true
+only_kind = "feature_instance"
+where = "dnd5e_ac_10_dex_wis"
+
+[[formula]]
+on = "dnd5e-character"
+stat = "dnd5e_ac_10_dex_wis_held"
+kind = "comparison"
+left = "dnd5e_ac_10_dex_wis_count"
+comparator = "ge"
+right_constant = 1
+
+[[formula]]
+on = "dnd5e-character"
+stat = "dnd5e_ac_10_dex_wis_value"
+kind = "sum"
+terms = [
+    "dnd5e_dexterity_mod",
+    "dnd5e_wisdom_mod",
+]
+offset = 10
+
+[[formula]]
+on = "dnd5e-character"
+stat = "dnd5e_ac_by_10_dex_wis"
+kind = "product"
+factors = [
+    "dnd5e_ac_10_dex_wis_held",
+    "dnd5e_unarmored",
+    "dnd5e_no_shield",
+    "dnd5e_ac_10_dex_wis_value",
+]
+
+# 13 + Dexterity, a shield allowed (Mage Armor, Draconic Resilience, a race's natural armor).
+[[formula]]
+on = "dnd5e-character"
+stat = "dnd5e_ac_13_dex_count"
+kind = "contents"
+aggregate = "count"
+only_active = true
+only_kind = "feature_instance"
+where = "dnd5e_ac_13_dex"
+
+[[formula]]
+on = "dnd5e-character"
+stat = "dnd5e_ac_13_dex_held"
+kind = "comparison"
+left = "dnd5e_ac_13_dex_count"
+comparator = "ge"
+right_constant = 1
+
+[[formula]]
+on = "dnd5e-character"
+stat = "dnd5e_ac_13_dex_value"
+kind = "sum"
+terms = [
+    "dnd5e_dexterity_mod",
+    "dnd5e_shield_bonus",
+]
+offset = 13
+
+[[formula]]
+on = "dnd5e-character"
+stat = "dnd5e_ac_by_13_dex"
+kind = "product"
+factors = [
+    "dnd5e_ac_13_dex_held",
+    "dnd5e_unarmored",
+    "dnd5e_ac_13_dex_value",
+]
+
+# A natural armor class a feature names (no Dexterity), a shield allowed.
+[[formula]]
+on = "dnd5e-character"
+stat = "dnd5e_ac_natural_best"
+kind = "contents"
+source = "dnd5e_ac_natural"
+aggregate = "max"
+only_active = true
+only_kind = "feature_instance"
+if_none = 0
+
+[[formula]]
+on = "dnd5e-character"
+stat = "dnd5e_ac_natural_value"
+kind = "sum"
+terms = [
+    "dnd5e_ac_natural_best",
+    "dnd5e_shield_bonus",
+]
+
+[[formula]]
+on = "dnd5e-character"
+stat = "dnd5e_ac_by_natural"
+kind = "product"
+factors = [
+    "dnd5e_unarmored",
+    "dnd5e_ac_natural_value",
+]
+
+# The armor class: the best of the ways that apply (a way that does not apply is 0).
+[[formula]]
+on = "dnd5e-character"
+stat = "dnd5e_armor_class"
+kind = "max"
+inputs = [
+    "dnd5e_armor_class_worn",
+    "dnd5e_ac_by_10_dex_con",
+    "dnd5e_ac_by_10_dex_wis",
+    "dnd5e_ac_by_13_dex",
+    "dnd5e_ac_by_natural",
 ]
 
 [[template]]
