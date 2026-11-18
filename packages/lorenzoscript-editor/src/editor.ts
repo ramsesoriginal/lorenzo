@@ -4,6 +4,7 @@ import { parse, render as renderScript } from '@lorenzo/lorenzoscript';
 import { ACTIONS, type ActionName, type State } from './actions';
 import { complete, completionContext } from './complete';
 import { findAll, replaceMatches } from './find';
+import { highlightSource } from './highlight';
 import { keyAction } from './keys';
 import { htmlToScript, worthConverting } from './paste';
 
@@ -28,6 +29,8 @@ export type EditorOptions = {
   findReplace?: boolean;
   /** Names to offer after `[[`, for the words typed so far (ADR 0514). Off by default. */
   completeNames?: (query: string) => Promise<string[]>;
+  /** Show the markers in a quieter colour (ADR 0516). Off by default. */
+  highlight?: boolean;
 };
 
 export type Editor = {
@@ -233,6 +236,60 @@ export function createEditor(options: EditorOptions): Editor {
     panes.before(list);
   }
 
+  // Quiet highlighting: a layer behind the text area with the same text and metrics, whose
+  // markers are coloured; the text area's own text is made see-through, so only one is seen.
+  let unhighlight = () => {};
+  if (options.highlight) {
+    const wrap = make('div', 'ls-hl-wrap');
+    const layer = make('div', 'ls-hl-layer', { 'aria-hidden': 'true' });
+    textarea.before(wrap);
+    wrap.append(layer, textarea);
+    const view = doc.defaultView;
+    const copy = () => {
+      const style = view?.getComputedStyle(textarea);
+      if (!style) return;
+      for (const name of [
+        'fontFamily',
+        'fontSize',
+        'fontWeight',
+        'lineHeight',
+        'letterSpacing',
+        'tabSize',
+        'paddingTop',
+        'paddingRight',
+        'paddingBottom',
+        'paddingLeft',
+        'borderTopWidth',
+        'borderRightWidth',
+        'borderBottomWidth',
+        'borderLeftWidth',
+      ] as const)
+        layer.style[name] = style[name];
+      layer.style.boxSizing = style.boxSizing;
+      layer.style.borderStyle = 'solid';
+      layer.style.borderColor = 'transparent';
+    };
+    const draw = () => {
+      layer.innerHTML = `${highlightSource(textarea.value)}\n `;
+      layer.scrollTop = textarea.scrollTop;
+    };
+    copy();
+    draw();
+    textarea.classList.add('ls-hl-text');
+    textarea.addEventListener('input', draw);
+    textarea.addEventListener('scroll', draw);
+    const watch = view?.ResizeObserver ? new view.ResizeObserver(copy) : null;
+    watch?.observe(textarea);
+    unhighlight = () => {
+      watch?.disconnect();
+      textarea.removeEventListener('input', draw);
+      textarea.removeEventListener('scroll', draw);
+      textarea.classList.remove('ls-hl-text');
+      wrap.before(textarea);
+      wrap.remove();
+    };
+  }
+
   const finder = options.findReplace ? findBar() : null;
   const onFind = (e: KeyboardEvent) => {
     if ((e.ctrlKey || e.metaKey) && !e.altKey && e.key.toLowerCase() === 'h') {
@@ -393,6 +450,7 @@ export function createEditor(options: EditorOptions): Editor {
     destroy() {
       clearTimeout(timer);
       textarea.removeEventListener('keydown', onKey);
+      unhighlight();
       textarea.removeEventListener('paste', onPaste);
       textarea.removeEventListener('keydown', onCompleteKey, true);
       textarea.removeEventListener('input', onComplete);

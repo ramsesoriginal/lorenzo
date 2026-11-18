@@ -150,3 +150,38 @@ li[data-drop="before"] {
 li[data-drop="after"] {
   border-bottom: 2px solid var(--border-subtle);
 }
+
+/* Quiet highlighting of the source (ADR 0516): a layer of the same text behind the text area,
+   its markers in softer colours. Colour only, so the text keeps its place. */
+.ls-hl-wrap {
+  position: relative;
+  width: 100%;
+}
+
+.ls-hl-layer {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  pointer-events: none;
+  color: var(--text-primary);
+}
+
+textarea.ls-hl-text {
+  position: relative;
+  color: transparent;
+  caret-color: var(--text-primary);
+  background: transparent;
+}
+
+.ls-hl-mark,
+.ls-hl-quote {
+  color: var(--text-tertiary);
+}
+
+.ls-hl-code,
+.ls-hl-ref,
+.ls-hl-link {
+  color: var(--text-secondary);
+}

@@ -802,6 +802,7 @@ async function manuscript(
                 }),
               )
             ).items.map((entry) => entry.name),
+          highlight: true,
           pasteFromWord: true,
           findReplace: true,
           layout: layout === 'split' ? 'split' : 'tabs',

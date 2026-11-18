@@ -3130,3 +3130,33 @@ test('the Edition menu opens a section of the outline page', async ({ browser })
     await context.close();
   }
 });
+
+test('the source shows its markers quietly, in the same place as the text', async ({ browser }) => {
+  test.setTimeout(120000);
+  const { page, context } = await world(browser);
+  try {
+    const text = page.getByRole('textbox', { name: 'Manuscript', exact: true });
+    await text.fill('# A title\n\nSome **bold** words and [[Ash]].');
+    const layer = page.locator('.ls-hl-layer');
+    await expect(layer).toHaveText(/Some \*\*bold\*\* words and \[\[Ash\]\]\./);
+    await expect(layer.locator('.ls-hl-mark').first()).toBeVisible();
+    // The layer lies exactly under the text area.
+    const a = await layer.boundingBox();
+    const b = await text.boundingBox();
+    expect(Math.abs((a?.x ?? 0) - (b?.x ?? 99))).toBeLessThan(1);
+    expect(Math.abs((a?.width ?? 0) - (b?.width ?? 99))).toBeLessThan(1);
+    // A marker is a softer colour than the words beside it.
+    const colours = await page.evaluate(() => {
+      const mark = document.querySelector('.ls-hl-mark') as HTMLElement;
+      return [
+        getComputedStyle(mark).color,
+        getComputedStyle(mark.parentElement as HTMLElement).color,
+      ];
+    });
+    expect(colours[0]).not.toBe(colours[1]);
+    const axe = await new AxeBuilder({ page }).exclude('.shell-bottom').analyze();
+    expect(axe.violations).toEqual([]);
+  } finally {
+    await context.close();
+  }
+});
