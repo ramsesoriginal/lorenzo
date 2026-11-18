@@ -242,6 +242,12 @@ parents = ["armor", "dnd5e-heavy-armor"]
 stats = { dnd5e_armor = 16 }
 
 [[entry]]
+slug = "ring-of-protection"
+name = "Ring of protection"
+parents = ["gear"]
+stats = { dnd5e_ac_bonus = 1 }
+
+[[entry]]
 slug = "shield"
 name = "Shield"
 parents = ["armor"]
@@ -298,6 +304,9 @@ def test_dnd_armor_class_takes_the_best_way_a_feature_gives(stack: Stack, tmp_pa
         take_off(shield)
         wear("chain-mail", "barbarian")
         assert armor_class("barbarian") == 16  # armor worn: the way no longer applies
+        award("dnd5e-defense", "barbarian")
+        assert armor_class("barbarian") == 17  # Defense: +1 while wearing armor
+        award("dnd5e-defense", "monk")
 
         award("dnd5e-unarmored-defense-monk", "monk")
         assert armor_class("monk") == 16  # 10 + Dexterity +3 + Wisdom +3
@@ -311,6 +320,8 @@ def test_dnd_armor_class_takes_the_best_way_a_feature_gives(stack: Stack, tmp_pa
 
         award("shell", "turtle")
         assert armor_class("turtle") == 17  # a natural armor class, no Dexterity
+        wear("ring-of-protection", "turtle")
+        assert armor_class("turtle") == 18  # a bonus on top of any way
 
     again = run_cli(stack, token, tmp_path, "plan", "--starter", "dnd5e", "-t", tenant)
     assert again.exit_code == 0, again.output  # the formulas read back as written

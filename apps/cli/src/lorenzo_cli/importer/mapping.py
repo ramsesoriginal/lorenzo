@@ -76,7 +76,11 @@ class Row(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    disposition: Literal["map", "skip", "attach-form-only", "create-under", "fail"] = "map"
+    # `armor-class-way`: the entry is a way of working out armour class, not an item: it becomes a
+    # feature under the starter's armour class features (the system's half only).
+    disposition: Literal[
+        "map", "skip", "attach-form-only", "create-under", "fail", "armor-class-way"
+    ] = "map"
     parents: list[str] = Field(default_factory=list)
     replace_form: bool = False
     axis: Literal["form", "proficiency", "tier", "property", "material"] | None = None

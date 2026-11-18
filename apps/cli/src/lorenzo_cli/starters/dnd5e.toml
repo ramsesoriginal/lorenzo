@@ -294,7 +294,8 @@ group = "dnd5e_properties"
 type = "bool"
 
 # The other ways of working out armor class (SRD 5.1): a feature carries the tag of its way, or a
-# natural armor class; the character takes the best way that applies.
+# natural armor class; the character takes the best way that applies. A feature it holds or an item it wears (switched
+# on) gives a way alike.
 [[stat]]
 name = "dnd5e_ac_10_dex_con"
 group = "dnd5e_properties"
@@ -408,6 +409,45 @@ type = "int"
 
 [[stat]]
 name = "dnd5e_ac_by_natural"
+group = "dnd5e_steps"
+type = "int"
+
+# A bonus on top of whichever way applies: always (a Ring of Protection), or only while body
+# armor is worn (the Defense fighting style). On a feature or an item, counted while switched on.
+[[stat]]
+name = "dnd5e_ac_bonus"
+group = "dnd5e_properties"
+type = "int"
+signed = true
+
+[[stat]]
+name = "dnd5e_ac_bonus_armored"
+group = "dnd5e_properties"
+type = "int"
+signed = true
+
+[[stat]]
+name = "dnd5e_armor_class_best"
+group = "dnd5e_steps"
+type = "int"
+
+[[stat]]
+name = "dnd5e_ac_bonus_total"
+group = "dnd5e_steps"
+type = "int"
+
+[[stat]]
+name = "dnd5e_ac_bonus_armored_total"
+group = "dnd5e_steps"
+type = "int"
+
+[[stat]]
+name = "dnd5e_armored"
+group = "dnd5e_steps"
+type = "bool"
+
+[[stat]]
+name = "dnd5e_ac_bonus_armored_applied"
 group = "dnd5e_steps"
 type = "int"
 
@@ -828,6 +868,9 @@ parents = [
 ]
 description = "While you are wearing armor, you gain a +1 bonus to AC."
 
+[entry.stats]
+dnd5e_ac_bonus_armored = 1
+
 [[formula]]
 on = "dnd5e-character"
 stat = "dnd5e_strength_mod"
@@ -980,7 +1023,6 @@ stat = "dnd5e_ac_10_dex_con_count"
 kind = "contents"
 aggregate = "count"
 only_active = true
-only_kind = "feature_instance"
 where = "dnd5e_ac_10_dex_con"
 
 [[formula]]
@@ -1019,7 +1061,6 @@ stat = "dnd5e_ac_10_dex_wis_count"
 kind = "contents"
 aggregate = "count"
 only_active = true
-only_kind = "feature_instance"
 where = "dnd5e_ac_10_dex_wis"
 
 [[formula]]
@@ -1058,7 +1099,6 @@ stat = "dnd5e_ac_13_dex_count"
 kind = "contents"
 aggregate = "count"
 only_active = true
-only_kind = "feature_instance"
 where = "dnd5e_ac_13_dex"
 
 [[formula]]
@@ -1097,7 +1137,6 @@ kind = "contents"
 source = "dnd5e_ac_natural"
 aggregate = "max"
 only_active = true
-only_kind = "feature_instance"
 if_none = 0
 
 [[formula]]
@@ -1121,7 +1160,7 @@ factors = [
 # The armor class: the best of the ways that apply (a way that does not apply is 0).
 [[formula]]
 on = "dnd5e-character"
-stat = "dnd5e_armor_class"
+stat = "dnd5e_armor_class_best"
 kind = "max"
 inputs = [
     "dnd5e_armor_class_worn",
@@ -1129,6 +1168,51 @@ inputs = [
     "dnd5e_ac_by_10_dex_wis",
     "dnd5e_ac_by_13_dex",
     "dnd5e_ac_by_natural",
+]
+
+# The bonuses of what is held, switched on: features and items alike.
+[[formula]]
+on = "dnd5e-character"
+stat = "dnd5e_ac_bonus_total"
+kind = "contents"
+source = "dnd5e_ac_bonus"
+aggregate = "sum"
+only_active = true
+
+[[formula]]
+on = "dnd5e-character"
+stat = "dnd5e_ac_bonus_armored_total"
+kind = "contents"
+source = "dnd5e_ac_bonus_armored"
+aggregate = "sum"
+only_active = true
+
+[[formula]]
+on = "dnd5e-character"
+stat = "dnd5e_armored"
+kind = "comparison"
+left = "dnd5e_body_armor_count"
+comparator = "ge"
+right_constant = 1
+
+[[formula]]
+on = "dnd5e-character"
+stat = "dnd5e_ac_bonus_armored_applied"
+kind = "product"
+factors = [
+    "dnd5e_armored",
+    "dnd5e_ac_bonus_armored_total",
+]
+
+# The armor class: the best way that applies, and the bonuses on top.
+[[formula]]
+on = "dnd5e-character"
+stat = "dnd5e_armor_class"
+kind = "sum"
+terms = [
+    "dnd5e_armor_class_best",
+    "dnd5e_ac_bonus_total",
+    "dnd5e_ac_bonus_armored_applied",
 ]
 
 [[template]]

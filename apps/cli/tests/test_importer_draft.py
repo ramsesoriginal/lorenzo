@@ -190,13 +190,6 @@ def test_what_the_sheet_uses_to_work_out_ac_is_not_an_item() -> None:
     ).skip_reason
 
 
-def test_an_ac_formula_is_kept_as_text_since_no_number_is_right() -> None:
-    result = draft("armour", "robe", {"name": "Robe", "ac": "10+Wis"})
-
-    assert "dnd5e_armor" not in result.stats
-    assert result.stats["dnd5e_armor_formula"] == "10+Wis"
-
-
 def test_a_shield_is_found_by_its_name() -> None:
     result = draft("armour", "shield", {"name": "Shield", "ac": 2, "weight": 6})
 
@@ -334,3 +327,45 @@ def test_ancestry_drops_a_parent_that_another_implies() -> None:
     assert ancestry.reduce(set()) == []
     ancestry.add("hb-x", "dnd5e-weapon-proficiency")
     assert ancestry.reduce({"hb-x", "dnd5e-weapon-proficiency"}) == ["hb-x"]
+
+
+def test_the_sheets_own_ways_of_working_out_armour_class_are_features() -> None:
+    rage = draft("armour", "rage", {"name": "Thick hide", "ac": "10+Con", "list": "firstlist"})
+
+    assert rage.armor_class_way and rage.skip_reason is None
+    assert rage.parents == ["dnd5e-armor-class-features"]
+    assert rage.stats == {"dnd5e_ac_10_dex_con": True}  # MPMB adds Dexterity unless it says not
+
+
+def test_armour_whose_ac_is_a_formula_stays_an_item_that_gives_the_way_while_worn() -> None:
+    robe = draft("armour", "robe", {"name": "Robe", "ac": "10+Wis", "weight": 4})
+    odd = draft("armour", "robe", {"name": "Odd robe", "ac": "10+Int"})
+
+    assert not robe.armor_class_way and robe.parents == ["armor"]
+    assert robe.stats["dnd5e_ac_10_dex_wis"] is True and "dnd5e_armor_formula" not in robe.stats
+    assert odd.stats["dnd5e_armor_formula"] == "10+Int"  # no tag for it: kept as text
+
+
+def test_a_way_without_dexterity_is_a_natural_armour_class() -> None:
+    shell = draft("armour", "shell", {"name": "Shell", "ac": 17, "dex": -10, "list": "firstlist"})
+    scales = draft("armour", "scales", {"name": "Scales", "ac": 13, "list": "firstlist"})
+
+    assert shell.stats == {"dnd5e_ac_natural": 17}
+    assert scales.stats == {"dnd5e_ac_13_dex": True}
+
+
+def test_a_way_the_starter_has_no_tag_for_is_held_with_a_way_out() -> None:
+    odd = draft("armour", "bladesong", {"name": "Bladesong", "ac": "10+Int", "list": "magic"})
+
+    assert [i.attribute for i in odd.issues] == ["ac"]
+    assert "no tag" in odd.issues[0].reason
+
+
+def test_a_way_is_the_systems_alone() -> None:
+    from lorenzo_cli.importer.draft import default_parts, part_view
+
+    way = draft("armour", "rage", {"name": "Thick hide", "ac": "10+Con", "list": "firstlist"})
+
+    assert part_view(way, "neutral", default_parts()).skip_reason
+    system = part_view(way, "system", default_parts())
+    assert system.skip_reason is None and system.name == "Thick hide"  # not a prototype
