@@ -1,6 +1,6 @@
 import { parse, render } from '@lorenzo/lorenzoscript';
 import { createEditor, type Editor } from '@lorenzo/lorenzoscript-editor';
-import { client, loadFile, unwrap } from './api';
+import { client, LorenzoApiError, loadFile, unwrap } from './api';
 import { contentsNavigation } from './contents';
 import { exportControls } from './manuscript-export';
 import { numberedTitle } from './numbering';
@@ -72,9 +72,14 @@ export async function reviewScreen(
   const fail = (error: unknown) => {
     clear();
     draft = { id: crypto.randomUUID(), entry: edition, content: '', version: undefined };
+    // A review that was closed to this person is one sentence, not an error to decode.
     const message = node(
       'p',
-      error instanceof Error ? error.message : 'This review is no longer available.',
+      error instanceof LorenzoApiError && [401, 403, 404].includes(error.status)
+        ? 'This review is no longer open to you. Ask the Author who shared it if you need it again.'
+        : error instanceof Error
+          ? error.message
+          : 'This review is no longer available.',
     );
     message.setAttribute('role', 'alert');
     host.append(message);
@@ -186,6 +191,12 @@ export async function reviewScreen(
           );
         host.append(section);
       }
+      host.append(
+        node(
+          'p',
+          'Your notes are private: only you and the Authors of this library can read them. A note is kept when you choose Save note.',
+        ),
+      );
       select = node('select');
       select.setAttribute('aria-label', 'Note on');
       for (const entry of data.entries) {

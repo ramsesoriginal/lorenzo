@@ -617,6 +617,9 @@ test('an invited reviewer reads one Edition, writes private notes and loses acce
       path: test.info().outputPath('review-phone.png'),
       fullPage: true,
     });
+    await expect(
+      reviewPage.getByText(/Your notes are private: only you and the Authors/),
+    ).toBeVisible();
     await page.reload();
     await expect(
       page.getByText('Could the bridge appear in Chapter one?', { exact: true }),
@@ -626,6 +629,7 @@ test('an invited reviewer reads one Edition, writes private notes and loses acce
     // An already-open review is cleared by its next periodic authorization check.
     await expect(reviewPage.locator('article')).toHaveCount(0, { timeout: 40000 });
     await expect(reviewPage.getByRole('alert')).toBeVisible();
+    await expect(reviewPage.getByRole('alert')).toContainText('no longer open to you');
     await expect(reviewPage.getByLabel('Review note', { exact: true })).toHaveCount(0);
     await expect(reviewPage.getByText('Word count', { exact: true })).toHaveCount(0);
     await reviewPage.reload();
