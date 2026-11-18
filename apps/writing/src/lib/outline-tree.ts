@@ -36,6 +36,16 @@ export async function outlineTree(tenant: string, current: string): Promise<HTML
   const labels = (await numberingOf(tenant, top.id).catch(() => null))?.labels ?? {};
   const open = new Set(chain.map((entry) => entry.id));
 
+  const counts: (() => Promise<void>)[] = [];
+  let running = false;
+  const schedule = () => {
+    if (running) return;
+    running = true;
+    setTimeout(async () => {
+      while (counts.length) await (counts.shift() as () => Promise<void>)();
+      running = false;
+    }, 2000);
+  };
   const nav = el('nav', '', 'outline-tree');
   nav.setAttribute('aria-label', 'Outline');
   const list = el('ul');
@@ -80,19 +90,24 @@ export async function outlineTree(tenant: string, current: string): Promise<HTML
       item.setAttribute('aria-expanded', 'false');
     }
     line.append(link);
-    // The words of this entry's own text, found when the row is opened (the API has no count).
+    // The words of this entry's own text, found a little after the page has settled and one row
+    // at a time, so the outline never competes with the page for the server (the API has no count).
     const words = el('span', '', 'caption');
     line.append(words);
-    void entityOf(tenant, entry.id)
-      .then((own) => {
+    counts.push(async () => {
+      try {
+        const own = await entityOf(tenant, entry.id);
         const texts = own.information
           .filter((i) => i.type === 'manuscript')
           .flatMap((i) => i.payloads)
           .flatMap((p) => (p.kind === 'description' ? [p.content] : []));
         const n = countSources(texts);
         words.textContent = `${n} ${n === 1 ? 'word' : 'words'}`;
-      })
-      .catch(() => {});
+      } catch {
+        // A count is a convenience.
+      }
+    });
+    schedule();
     item.append(line, children);
     if (expandable && open.has(entry.id) && entry.id !== current) void show(true);
     if (expandable && entry.id === current) void show(true);
