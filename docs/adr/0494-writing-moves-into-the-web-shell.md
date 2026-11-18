@@ -58,7 +58,7 @@ Filled in as each slice lands.
 | Part | Slice | State |
 | --- | --- | --- |
 | The frame, the status bar | W0 | done: Writing is in the web shell (`AppPage shell="web"`, the `list-detail` template): the palette and its keys, the apps sheet, the library link and the status bar with the sync state are the shell's, and the old screens sit inside it unchanged. Not yet: the save state and the word count in the status bar (W2), and the work's own template (W2). |
-| The shelf | W1 | |
+| The shelf | W1 | Built: Start writing (an untitled Scene at once, or titled if a title is typed), a menu for Chapter, Book, Carrier and Character biography with one plain line each, Continue, the filter, the search, "Shared with you to review", the empty and no-match states. Differences: the title field stays beside Start writing (the work page has no title edit yet; W2/W6); Continue does not show for a Book, whose opened entry is its Edition, which the entry list does not hold |
 | A work's page, addresses, side views, the leave dialog | W2 | |
 | The page as blocks | W3 | |
 | The outline | W4 | |

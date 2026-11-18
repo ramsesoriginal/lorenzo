@@ -27,6 +27,8 @@ import {
 import { linkReview } from './link-review';
 import { exportControls } from './manuscript-export';
 import { reviewAddress, reviewScreen } from './review';
+import { shelf } from './shelf';
+import { rememberWork } from './shelf-list';
 import { draftCount } from './word-count';
 import { writingDetails } from './writing-details';
 import { writingSession } from './writing-session';
@@ -135,6 +137,7 @@ export async function start() {
     const entry = params.get('entry');
 
     if (entry) {
+      rememberWork(tenant, entry);
       try {
         const view = params.get('view');
         if (view === 'outline' || view === 'read')
@@ -148,117 +151,7 @@ export async function start() {
       return;
     }
 
-    const heading = element('h1', 'Your writing');
-
-    const name = element('input', '', 'text-input');
-    name.placeholder = 'Untitled';
-    name.maxLength = 300;
-
-    name.setAttribute('aria-label', 'New draft title');
-
-    const status = element('p', '', 'caption');
-    status.setAttribute('role', 'status');
-    status.setAttribute('aria-label', 'Save status');
-
-    const kind = element('select');
-    kind.setAttribute('aria-label', 'Start with');
-    for (const [value, label] of [
-      ['scene', 'Scene draft'],
-      ['book', 'Book'],
-      ['chapter', 'Chapter draft'],
-      ['carrier', 'Carrier'],
-      ['biography', 'Character biography'],
-    ]) {
-      const option = element('option', label);
-      option.value = value;
-      kind.append(option);
-    }
-    const creationId = crypto.randomUUID();
-    const firstEditionId = crypto.randomUUID();
-    const create = button('Start writing', () => {
-      create.disabled = true;
-
-      void (async () => {
-        try {
-          if (kind.value !== 'scene') {
-            const route =
-              kind.value === 'book'
-                ? '/tenants/{tenant_id}/writing/books'
-                : kind.value === 'carrier'
-                  ? '/tenants/{tenant_id}/writing/carriers'
-                  : kind.value === 'biography'
-                    ? '/tenants/{tenant_id}/writing/biographies'
-                    : '/tenants/{tenant_id}/writing/chapters';
-            const made = await unwrap(
-              await client.POST(route, {
-                params: { path: { tenant_id: tenant } },
-                body: {
-                  id: creationId,
-                  first_edition_id: firstEditionId,
-                  name: name.value.trim() || 'Untitled',
-                },
-              }),
-            );
-            location.assign(address(tenant, made.kind === 'book' ? made.editions[0]?.id : made.id));
-            return;
-          }
-          const scene = await unwrap(
-            await client.POST('/tenants/{tenant_id}/scenes', {
-              params: { path: { tenant_id: tenant } },
-              body: {
-                id: creationId,
-                name: name.value.trim() || 'Untitled',
-                is_public: false,
-              },
-            }),
-          );
-
-          location.assign(address(tenant, scene.id));
-        } catch (error) {
-          status.textContent = message(error);
-          create.disabled = false;
-        }
-      })();
-    });
-
-    const row = element('div', '', 'row');
-    row.append(kind, name, create);
-
-    host.replaceChildren(heading, row, status);
-
-    const scenes = await fetchAllPages(async (page) =>
-      unwrap(
-        await client.GET('/tenants/{tenant_id}/entities', {
-          params: {
-            path: { tenant_id: tenant },
-            query: {
-              page,
-              size: 100,
-              kind: ['scene', 'book', 'chapter', 'scene_telling', 'carrier'],
-            },
-          },
-        }),
-      ),
-    );
-
-    const list = element('ul', '', 'list');
-
-    const biographies = await fetchAllPages(async (page) =>
-      unwrap(
-        await client.GET('/tenants/{tenant_id}/writing/biographies', {
-          params: { path: { tenant_id: tenant }, query: { page, size: 100 } },
-        }),
-      ),
-    );
-    for (const scene of [...scenes, ...biographies]) {
-      const item = element('li');
-      const link = element('a', scene.name);
-      link.href = address(tenant, scene.id);
-      item.append(link);
-      list.append(item);
-    }
-
-    host.append(list);
+    await shelf(host, tenant);
   } catch (error) {
     host.textContent = message(error);
     shell?.status(message(error), 'error');

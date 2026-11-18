@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import AxeBuilder from '@axe-core/playwright';
-import { type Browser, expect, test } from '@playwright/test';
+import { type Browser, expect, type Page, test } from '@playwright/test';
 import { apiAs, ok, refreshTokenFor } from './support/api.ts';
 import { API_URL, REFRESH_TOKEN_KEY, SITE_URL } from './support/env.ts';
 
@@ -31,13 +31,29 @@ async function world(browser: Browser) {
   });
   const page = await context.newPage();
   await page.goto(`/?tenant=${tenant.id}`);
-  await page.getByLabel('New draft title').fill('Across the water');
-  await page.getByRole('button', { name: 'Start writing', exact: true }).click();
+  await startAs(page, 'scene', 'Across the water');
   // Initial sign-in, entry authorization and bundle creation can exceed five seconds on a cold API.
   await expect(page.getByRole('textbox', { name: 'Manuscript', exact: true })).toBeVisible({
     timeout: 15000,
   });
   return { api, owner, user, subject, tenant, page, context };
+}
+
+const STARTS: Record<string, string> = {
+  chapter: 'Chapter',
+  book: 'Book',
+  carrier: 'Carrier',
+  biography: 'Character biography',
+};
+
+async function startAs(page: Page, kind: string, title: string) {
+  await page.getByLabel('New draft title').fill(title);
+  if (kind === 'scene') {
+    await page.getByRole('button', { name: 'Start writing', exact: true }).click();
+    return;
+  }
+  await page.getByRole('button', { name: 'Start something else', exact: true }).click();
+  await page.getByRole('menuitem', { name: new RegExp(`^${STARTS[kind]}:`) }).click();
 }
 
 test('writing saves, preserves focus, and recovers an earlier saved revision', async ({
@@ -388,9 +404,7 @@ test('a Book has nested Chapters, mixed reading order and independent Editions',
   const { page, context, tenant } = await world(browser);
   try {
     await page.goto(`/?tenant=${tenant.id}`);
-    await page.getByLabel('Start with').selectOption('book');
-    await page.getByLabel('New draft title').fill('Journeys');
-    await page.getByRole('button', { name: 'Start writing', exact: true }).click();
+    await startAs(page, 'book', 'Journeys');
     const manuscript = page.getByRole('textbox', { name: 'Manuscript', exact: true });
     await manuscript.fill('Before departure.');
     await expect(page.getByRole('status', { name: 'Save status' })).toHaveText('Saved');
@@ -460,16 +474,12 @@ test('reusing a Scene keeps tellings independent and supports a viewpoint biogra
     await expect(page.getByRole('status', { name: 'Save status' })).toHaveText('Saved');
     const sceneId = new URL(page.url()).searchParams.get('entry');
     await page.goto(`/?tenant=${tenant.id}`);
-    await page.getByLabel('Start with').selectOption('biography');
-    await page.getByLabel('New draft title').fill('Ferryman');
-    await page.getByRole('button', { name: 'Start writing', exact: true }).click();
+    await startAs(page, 'biography', 'Ferryman');
     await text.fill('He knows every crossing.');
     await expect(page.getByRole('status', { name: 'Save status' })).toHaveText('Saved');
     await page.goto(`/?tenant=${tenant.id}`);
     await expect(page.getByRole('link', { name: 'Ferryman', exact: true })).toBeVisible();
-    await page.getByLabel('Start with').selectOption('book');
-    await page.getByLabel('New draft title').fill('River book');
-    await page.getByRole('button', { name: 'Start writing', exact: true }).click();
+    await startAs(page, 'book', 'River book');
     await expect(page.getByRole('heading', { name: 'River book', exact: true })).toBeVisible();
     const edition = new URL(page.url()).searchParams.get('entry');
     await page.getByRole('link', { name: 'Outline', exact: true }).click();
@@ -533,9 +543,7 @@ test('an invited reviewer reads one Edition, writes private notes and loses acce
   });
   try {
     await page.goto(`/?tenant=${tenant.id}`);
-    await page.getByLabel('Start with').selectOption('book');
-    await page.getByLabel('New draft title').fill('A review copy');
-    await page.getByRole('button', { name: 'Start writing', exact: true }).click();
+    await startAs(page, 'book', 'A review copy');
     await expect(page.getByRole('heading', { name: 'A review copy', exact: true })).toBeVisible();
     await page
       .getByRole('textbox', { name: 'Manuscript', exact: true })
@@ -628,9 +636,7 @@ test('move a Chapter into another Chapter, promote it and recover an unassigned 
   const { page, context, tenant } = await world(browser);
   try {
     await page.goto(`/?tenant=${tenant.id}`);
-    await page.getByLabel('Start with').selectOption('book');
-    await page.getByLabel('New draft title').fill('Moving book');
-    await page.getByRole('button', { name: 'Start writing', exact: true }).click();
+    await startAs(page, 'book', 'Moving book');
     await expect(page.getByRole('heading', { name: 'Moving book', exact: true })).toBeVisible();
     const edition = new URL(page.url()).searchParams.get('entry');
     await page.getByRole('link', { name: 'Outline', exact: true }).click();
@@ -688,9 +694,7 @@ test('extract complete prose and a child into a Chapter without changing the rea
   const { page, context, tenant } = await world(browser);
   try {
     await page.goto(`/?tenant=${tenant.id}`);
-    await page.getByLabel('Start with').selectOption('book');
-    await page.getByLabel('New draft title').fill('Collected journeys');
-    await page.getByRole('button', { name: 'Start writing', exact: true }).click();
+    await startAs(page, 'book', 'Collected journeys');
     const manuscript = page.getByRole('textbox', { name: 'Manuscript', exact: true });
     const prose = 'A **whole** passage[^a].\n\n[^a]: The local footnote stays.';
     await manuscript.fill(prose);
@@ -743,9 +747,7 @@ test('split saved prose safely and extract its second part into a Chapter', asyn
   const { page, context, tenant } = await world(browser);
   try {
     await page.goto(`/?tenant=${tenant.id}`);
-    await page.getByLabel('Start with').selectOption('book');
-    await page.getByLabel('New draft title').fill('A divided journey');
-    await page.getByRole('button', { name: 'Start writing', exact: true }).click();
+    await startAs(page, 'book', 'A divided journey');
     const manuscript = page.getByRole('textbox', { name: 'Manuscript', exact: true });
     const first =
       '# Dawn\n\nFirst 🐉[^a].\n\n- One\n\n  Still the same list.\n\n[^a]: A local note.\n\n';
@@ -805,9 +807,7 @@ test('join adjacent Chapters and follow the preserved source to its stable secti
   const { page, context, tenant, api } = await world(browser);
   try {
     await page.goto(`/?tenant=${tenant.id}`);
-    await page.getByLabel('Start with').selectOption('book');
-    await page.getByLabel('New draft title').fill('Joined journeys');
-    await page.getByRole('button', { name: 'Start writing', exact: true }).click();
+    await startAs(page, 'book', 'Joined journeys');
     const text = page.getByRole('textbox', { name: 'Manuscript', exact: true });
     await expect(text).toBeVisible();
     const edition = new URL(page.url()).searchParams.get('entry');
@@ -877,9 +877,7 @@ test('join a Chapter into its parent without moving the surrounding prose', asyn
   const { page, context, tenant, api } = await world(browser);
   try {
     await page.goto(`/?tenant=${tenant.id}`);
-    await page.getByLabel('Start with').selectOption('book');
-    await page.getByLabel('New draft title').fill('One continuous account');
-    await page.getByRole('button', { name: 'Start writing', exact: true }).click();
+    await startAs(page, 'book', 'One continuous account');
     const text = page.getByRole('textbox', { name: 'Manuscript', exact: true });
     await expect(text).toBeVisible();
     const parent = new URL(page.url()).searchParams.get('entry');
@@ -970,9 +968,7 @@ test('extract a reusable Scene and make its second telling independent', async (
   const { page, context, tenant } = await world(browser);
   try {
     await page.goto(`/?tenant=${tenant.id}`);
-    await page.getByLabel('Start with').selectOption('book');
-    await page.getByLabel('New draft title').fill('Shared crossings');
-    await page.getByRole('button', { name: 'Start writing', exact: true }).click();
+    await startAs(page, 'book', 'Shared crossings');
     const manuscript = page.getByRole('textbox', { name: 'Manuscript', exact: true });
     const prose = 'The river **remembers**.';
     await manuscript.fill(prose);
@@ -1041,9 +1037,7 @@ test('a Carrier inherits several forms and reads selected writing alongside its 
     const scene = new URL(page.url()).searchParams.get('entry');
     for (const name of ['Vellum', 'Coptic', 'Collected codex']) {
       await page.goto(`/?tenant=${tenant.id}`);
-      await page.getByLabel('Start with').selectOption('carrier');
-      await page.getByLabel('New draft title').fill(name);
-      await page.getByRole('button', { name: 'Start writing', exact: true }).click();
+      await startAs(page, 'carrier', name);
       await expect(page.getByRole('heading', { name, exact: true })).toBeVisible();
     }
     await manuscript.fill('A note on this binding.');
@@ -1482,8 +1476,7 @@ test('personal timer pauses, resumes, survives reload and stays separate from an
     await openTimer();
     await expect(page.getByRole('timer')).toHaveText('0:50');
     await page.getByRole('link', { name: 'Your writing', exact: true }).click();
-    await page.getByLabel('New draft title').fill('Another passage');
-    await page.getByRole('button', { name: 'Start writing', exact: true }).click();
+    await startAs(page, 'scene', 'Another passage');
     await expect(page.getByRole('textbox', { name: 'Manuscript', exact: true })).toBeVisible();
     await openTimer();
     await expect(page.getByRole('timer')).toHaveText('0:50');
@@ -2665,6 +2658,32 @@ test('export repeats composition with distinct footnotes, contents and original 
       await printed.pdf({ path: process.env.E2E_EXPORT_PDF, format: 'A4', printBackground: true });
       await printed.close();
     }
+  } finally {
+    await context.close();
+  }
+});
+
+test('the shelf filters by kind, searches, and continues the work last opened', async ({
+  browser,
+}) => {
+  const { page, context, tenant } = await world(browser);
+  try {
+    await page.goto(`/?tenant=${tenant.id}`);
+    await startAs(page, 'chapter', 'Shelf chapter');
+    await expect(page.getByRole('heading', { name: 'Shelf chapter', exact: true })).toBeVisible();
+    await page.goto(`/?tenant=${tenant.id}`);
+    await expect(page.getByRole('link', { name: 'Continue with Shelf chapter' })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Across the water', exact: true })).toBeVisible();
+
+    await page.getByRole('button', { name: 'Chapters', exact: true }).click();
+    await expect(page.getByRole('link', { name: 'Across the water', exact: true })).toHaveCount(0);
+    await page.getByRole('button', { name: 'All', exact: true }).click();
+    await page.getByLabel('Search your writing').fill('across');
+    await expect(page.getByRole('link', { name: 'Shelf chapter', exact: true })).toHaveCount(0);
+    await page.getByLabel('Search your writing').fill('nothing like this');
+    await expect(page.getByText('No writing match')).toBeVisible();
+    const axe = await new AxeBuilder({ page }).exclude('.shell-bottom').analyze();
+    expect(axe.violations).toEqual([]);
   } finally {
     await context.close();
   }
