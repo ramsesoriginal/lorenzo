@@ -68,3 +68,9 @@ exists to take a layer out. Before launch there is no data to keep.
   the lowest Dexterity cap among it (light none, medium 2, heavy 0, set on the armour tiers), and the best worn shield's, as
   `contents` formulas filtered by the tags `dnd5e_is_body_armor` and `dnd5e_is_shield`. The importer files any armour named with
   the word "shield" as a shield.
+- Another way of working out armour class comes from a feature the character holds, switched on, while no body armour is worn:
+  the tags `dnd5e_ac_10_dex_con` (a shield allowed), `dnd5e_ac_10_dex_wis` (no shield) and `dnd5e_ac_13_dex` (a shield
+  allowed), or a natural armour class in `dnd5e_ac_natural`. The armour class is the best of the worn value and those ways
+  (`max`); each way is a count of held features (`contents`, `feature_instance`), a `comparison`, a `sum` and a `product`, in the
+  hidden group `dnd5e_steps`. The starter carries the SRD's Unarmored Defense (Barbarian, Monk), Draconic Resilience and Mage
+  Armor (starting switched off); a character starts with every ability at 10 and level 1, so an unfinished one has an armour class.
