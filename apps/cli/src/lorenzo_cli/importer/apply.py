@@ -20,6 +20,7 @@ from uuid import UUID
 from lorenzo_cli import descriptions
 from lorenzo_cli.client.errors import LorenzoApiError, StaleResourceError
 from lorenzo_cli.client.models import (
+    EntityCreate,
     InformationCreate,
     ItemCreate,
     SetEntityStatRequest,
@@ -30,6 +31,7 @@ from lorenzo_cli.client.models import (
     StatValueType,
 )
 from lorenzo_cli.client.ops import (
+    CREATE_ENTITY,
     CREATE_INFORMATION,
     CREATE_ITEM,
     CREATE_STAT_DEFINITION,
@@ -195,18 +197,32 @@ def _write_item(
     have_information = item.have_information
     if item.status == "create":
         try:
-            created = client.call(
-                CREATE_ITEM,
-                path=tenant,
-                body=ItemCreate(
-                    name=name,
-                    slug=item.slug,
-                    prototype_ids=[parent_ids[p] for p in draft.parents],
-                    # A prototype is never public: players list the neutral items (ADR 0182).
-                    in_public_catalog=options.public_catalog and plan.part != "system",
-                ),
-            )
-            entity_id = created.value.entity_id
+            if draft.armor_class_way:
+                # A feature, not an item: a character holds it to work out its armour class.
+                made = client.call(
+                    CREATE_ENTITY,
+                    path=tenant,
+                    body=EntityCreate(
+                        name=name,
+                        slug=item.slug,
+                        kinds=["feature"],
+                        parents=[parent_ids[p] for p in draft.parents],
+                    ),
+                )
+                entity_id = made.value.id
+            else:
+                created = client.call(
+                    CREATE_ITEM,
+                    path=tenant,
+                    body=ItemCreate(
+                        name=name,
+                        slug=item.slug,
+                        prototype_ids=[parent_ids[p] for p in draft.parents],
+                        # A prototype is never public: players list the neutral items (ADR 0182).
+                        in_public_catalog=options.public_catalog and plan.part != "system",
+                    ),
+                )
+                entity_id = created.value.entity_id
             report.created += 1
         except LorenzoApiError as exc:
             if exc.status != 409:
@@ -269,7 +285,7 @@ def _write_item(
         _retitle(client, plan.tenant.id, item, report)
     if MARKER_STAT in draft.stats:
         write(MARKER_STAT)  # last: its presence says the item is finished
-    if plan.part == "system":
+    if plan.part == "system" and not draft.armor_class_way:
         _attach(client, plan, item, entity_id, report)
 
 

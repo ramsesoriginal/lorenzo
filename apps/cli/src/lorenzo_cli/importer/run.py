@@ -11,7 +11,7 @@ from lorenzo_cli.evalworker import Engine, EvalError, EvalRequest, read_sources
 from lorenzo_cli.importer.manifest import Manifest, default_path
 from lorenzo_cli.importer.mapping import load_mapping
 from lorenzo_cli.importer.plan import ImportPlan, Options, build_plan
-from lorenzo_cli.seed import load_builtin
+from lorenzo_cli.importer.vocabulary import load as load_builtin
 from lorenzo_cli.tenants import require_repository, resolve_tenant
 
 

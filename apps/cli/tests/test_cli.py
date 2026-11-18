@@ -188,7 +188,7 @@ CORPUS = Path(__file__).parent / "corpus"
 def test_inspect_shows_the_files_lists_and_what_was_stubbed(tmp_path: Path) -> None:
     result = runner.invoke(
         app,
-        ["inspect", str(CORPUS / "stubs" / "uses_sheet.js")],
+        ["import", "mpmb", "inspect", str(CORPUS / "stubs" / "uses_sheet.js")],
         obj=runtime(tmp_path, []),
     )
 
@@ -205,7 +205,15 @@ def test_inspect_starts_the_lists_from_the_base_files_and_names_each_entrys_file
     case = CORPUS / "base_and_patch"
     result = runner.invoke(
         app,
-        ["inspect", "--base", str(case / "base.js"), str(case / "homebrew.js"), "--json"],
+        [
+            "import",
+            "mpmb",
+            "inspect",
+            "--base",
+            str(case / "base.js"),
+            str(case / "homebrew.js"),
+            "--json",
+        ],
         obj=runtime(tmp_path, []),
     )
 
@@ -221,7 +229,14 @@ def test_inspect_starts_the_lists_from_the_base_files_and_names_each_entrys_file
 def test_inspect_takes_the_base_alone_like_plan_and_apply(tmp_path: Path) -> None:
     result = runner.invoke(
         app,
-        ["inspect", "--base", str(CORPUS / "base_and_patch" / "base.js"), "--json"],
+        [
+            "import",
+            "mpmb",
+            "inspect",
+            "--base",
+            str(CORPUS / "base_and_patch" / "base.js"),
+            "--json",
+        ],
         obj=runtime(tmp_path, []),
     )
 
@@ -231,7 +246,7 @@ def test_inspect_takes_the_base_alone_like_plan_and_apply(tmp_path: Path) -> Non
 
 
 def test_inspect_with_nothing_to_read_says_what_to_name(tmp_path: Path) -> None:
-    result = runner.invoke(app, ["inspect"], obj=runtime(tmp_path, []))
+    result = runner.invoke(app, ["import", "mpmb", "inspect"], obj=runtime(tmp_path, []))
 
     assert result.exit_code == 2
     assert "--base" in plain(result.output)
@@ -241,7 +256,7 @@ def test_inspect_exits_1_when_a_file_fails_but_still_reports_the_rest(tmp_path: 
     errors = CORPUS / "errors"
     result = runner.invoke(
         app,
-        ["inspect", str(errors / "syntax_error.js"), str(errors / "fine.js")],
+        ["import", "mpmb", "inspect", str(errors / "syntax_error.js"), str(errors / "fine.js")],
         obj=runtime(tmp_path, []),
     )
 
@@ -251,7 +266,9 @@ def test_inspect_exits_1_when_a_file_fails_but_still_reports_the_rest(tmp_path: 
 
 
 def test_inspect_reports_a_missing_file_as_a_usage_error(tmp_path: Path) -> None:
-    result = runner.invoke(app, ["inspect", str(tmp_path / "nope.js")], obj=runtime(tmp_path, []))
+    result = runner.invoke(
+        app, ["import", "mpmb", "inspect", str(tmp_path / "nope.js")], obj=runtime(tmp_path, [])
+    )
 
     assert result.exit_code == 2
 
@@ -287,7 +304,7 @@ def test_tenant_create_makes_a_repository_unless_told_otherwise(tmp_path: Path) 
     seen: list[httpx.Request] = []
     result = runner.invoke(
         app,
-        ["tenant", "create", "My Homebrew", "--slug", "my-homebrew"],
+        ["tenant", "create", "My Homebrew", "--slug", "my-homebrew", "--yes"],
         obj=creator(tmp_path, creating(seen)),
     )
 
@@ -299,14 +316,24 @@ def test_tenant_create_makes_a_repository_unless_told_otherwise(tmp_path: Path) 
         "kind": "repository",
     }
     assert "repository" in result.output
-    assert "lorenzo seed --tenant my-homebrew" in result.output
+    assert "lorenzo apply --starter neutral -t my-homebrew" in result.output
 
 
 def test_tenant_create_can_make_a_play_tenant_and_prints_json(tmp_path: Path) -> None:
     seen: list[httpx.Request] = []
     result = runner.invoke(
         app,
-        ["tenant", "create", "Our Table", "--kind", "play", "--description", "Fridays", "--json"],
+        [
+            "tenant",
+            "create",
+            "Our Table",
+            "--kind",
+            "play",
+            "--description",
+            "Fridays",
+            "--json",
+            "--yes",
+        ],
         obj=creator(tmp_path, creating(seen)),
     )
 
@@ -318,7 +345,7 @@ def test_tenant_create_can_make_a_play_tenant_and_prints_json(tmp_path: Path) ->
 
 def test_tenant_create_without_the_creator_role_shows_why(tmp_path: Path) -> None:
     result = runner.invoke(
-        app, ["tenant", "create", "X"], obj=creator(tmp_path, creating([], status=403))
+        app, ["tenant", "create", "X", "--yes"], obj=creator(tmp_path, creating([], status=403))
     )
 
     assert result.exit_code == 1

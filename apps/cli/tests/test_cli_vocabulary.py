@@ -90,10 +90,15 @@ class VocabularyWorld(World):
             return httpx.Response(200, json=page(self.groups))
         if path == base + "/stat-definitions":
             return httpx.Response(200, json=page(self.stats))
+        if path == base + "/systems":
+            return httpx.Response(200, json=page([]))
         return super().handler(request)
 
 
 def invoke(world: VocabularyWorld, tmp_path: Path, *args: str):
+    """Writes are given --yes (ADR 0496); a read with --yes is the same read."""
+    if args[1:2] in (("create",), ("edit",)) or args[1:2] == ("sheet-settings",):
+        args = (*args, "--yes")
     runtime = Runtime(
         env={"LORENZO_API_URL": "https://api.example", "LORENZO_TOKEN": "tok"},
         stdin=io.StringIO(),
@@ -197,9 +202,11 @@ def test_settings_set_clear_and_read_are_one_document(tmp_path):
     )
     assert result.exit_code == 0, result.output
     assert json.loads(result.stdout) == {
+        "format": 1,
         "being_stat_group_id": None,
         "weapon_stat_group_id": str(G),
         "ability_information_type": "ability",
+        "controllers_award_features": False,
     }
     result = invoke(
         world,
@@ -242,7 +249,9 @@ def test_lists_and_invalid_values(tmp_path):
     world = VocabularyWorld()
     for command in ("stat-group", "stat-definition"):
         result = invoke(world, tmp_path, command, "list", "-t", "table-one", "--json")
-        assert result.exit_code == 0 and isinstance(json.loads(result.stdout), list)
+        assert result.exit_code == 0 and isinstance(
+            next(v for k, v in json.loads(result.stdout).items() if k != "format"), list
+        )
     result = invoke(
         world,
         tmp_path,

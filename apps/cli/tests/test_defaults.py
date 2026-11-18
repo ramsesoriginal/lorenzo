@@ -10,9 +10,9 @@ import httpx
 import pytest
 from typer.testing import CliRunner
 
-from lorenzo_cli import main as main_module
 from lorenzo_cli.auth.login import LoginError
 from lorenzo_cli.auth.store import CredentialsFile, StoredLogin
+from lorenzo_cli.commands import account as main_module
 from lorenzo_cli.config import ConfigError, Settings, SettingsFile, load_settings
 from lorenzo_cli.defaults import OFFICIAL_API_URL, OFFICIAL_CLIENT_ID, OFFICIAL_ISSUER
 from lorenzo_cli.main import Runtime, app
@@ -168,7 +168,9 @@ def test_a_read_goes_to_the_official_api_and_says_nothing(tmp_path: Path) -> Non
 def test_a_write_says_where_it_goes_once_on_stderr(tmp_path: Path) -> None:
     seen: list[httpx.Request] = []
     result = runner.invoke(
-        app, ["tenant", "create", "Core", "--slug", "core", "--json"], obj=runtime(tmp_path, seen)
+        app,
+        ["tenant", "create", "Core", "--slug", "core", "--json", "--yes"],
+        obj=runtime(tmp_path, seen),
     )
 
     assert result.exit_code == 0, result.output
@@ -181,7 +183,7 @@ def test_naming_the_api_silences_the_note_and_the_default(tmp_path: Path) -> Non
     seen: list[httpx.Request] = []
     result = runner.invoke(
         app,
-        ["--api-url", LOCAL, "tenant", "create", "Core", "--slug", "core"],
+        ["--api-url", LOCAL, "tenant", "create", "Core", "--slug", "core", "--yes"],
         obj=runtime(tmp_path, seen),
     )
 
@@ -193,7 +195,16 @@ def test_naming_the_api_silences_the_note_and_the_default(tmp_path: Path) -> Non
 def test_the_official_address_named_is_still_the_default_and_still_says_so(tmp_path: Path) -> None:
     result = runner.invoke(
         app,
-        ["--api-url", OFFICIAL_API_URL + "/", "tenant", "create", "Core", "--slug", "core"],
+        [
+            "--api-url",
+            OFFICIAL_API_URL + "/",
+            "tenant",
+            "create",
+            "Core",
+            "--slug",
+            "core",
+            "--yes",
+        ],
         obj=runtime(tmp_path),
     )
 
@@ -203,7 +214,9 @@ def test_the_official_address_named_is_still_the_default_and_still_says_so(tmp_p
 
 def test_api_says_so_for_anything_but_a_get(tmp_path: Path) -> None:
     read = runner.invoke(app, ["api", "GET", "/tenants"], obj=runtime(tmp_path))
-    write = runner.invoke(app, ["api", "POST", "/tenants", "--data", "{}"], obj=runtime(tmp_path))
+    write = runner.invoke(
+        app, ["api", "POST", "/tenants", "--data", "{}", "--yes"], obj=runtime(tmp_path)
+    )
 
     assert read.exit_code == 0 and write.exit_code == 0, (read.output, write.output)
     assert NOTE not in read.stderr
@@ -212,8 +225,12 @@ def test_api_says_so_for_anything_but_a_get(tmp_path: Path) -> None:
 
 def test_a_dry_run_says_nothing_where_the_same_command_would(tmp_path: Path) -> None:
     # Neither finds the tenant (the stub lists none), but the note comes before that.
-    dry = runner.invoke(app, ["seed", "--tenant", "core", "--dry-run"], obj=runtime(tmp_path))
-    real = runner.invoke(app, ["seed", "--tenant", "core", "--yes"], obj=runtime(tmp_path))
+    dry = runner.invoke(
+        app, ["apply", "--starter", "neutral", "-t", "core", "--dry-run"], obj=runtime(tmp_path)
+    )
+    real = runner.invoke(
+        app, ["apply", "--starter", "neutral", "-t", "core", "--yes"], obj=runtime(tmp_path)
+    )
 
     assert NOTE not in dry.output
     assert real.stderr.count(NOTE) == 1
@@ -234,7 +251,7 @@ def test_the_remembered_file_wins_over_the_default_and_is_not_announced(tmp_path
     rt = runtime(tmp_path, seen)
     assert rt.config is not None
     rt.config.save({"api_url": "https://mine.example"})
-    result = runner.invoke(app, ["tenant", "create", "Core", "--slug", "core"], obj=rt)
+    result = runner.invoke(app, ["tenant", "create", "Core", "--slug", "core", "--yes"], obj=rt)
 
     assert result.exit_code == 0, result.output
     assert seen[0].url.host == "mine.example"

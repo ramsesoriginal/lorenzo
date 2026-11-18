@@ -84,7 +84,7 @@ def test_a_player_imports_matches_placeholders_containers_and_notes(
     player, slug = table["player"], table["slug"]
     path = _write(tmp_path, FILE)
 
-    done = run_cli(stack, player, tmp_path, "inventory", "import", str(path), "-t", slug, "--yes")
+    done = run_cli(stack, player, tmp_path, "import", "inventory", str(path), "-t", slug, "--yes")
 
     assert done.exit_code == 0, done.output
     assert "Made 9 (2 unsorted)" in " ".join(done.output.split())
@@ -138,8 +138,8 @@ def test_a_dry_run_says_what_would_be_made_and_makes_nothing(stack: Stack, tmp_p
         stack,
         table["player"],
         tmp_path,
-        "inventory",
         "import",
+        "inventory",
         str(path),
         "-t",
         table["slug"],
@@ -165,8 +165,8 @@ def test_a_line_that_cannot_be_made_stops_everything(stack: Stack, tmp_path: Pat
         stack,
         table["player"],
         tmp_path,
-        "inventory",
         "import",
+        "inventory",
         str(path),
         "-t",
         table["slug"],
@@ -187,8 +187,8 @@ def test_a_library_without_the_unsorted_item_says_what_to_run(stack: Stack, tmp_
         stack,
         table["player"],
         tmp_path,
-        "inventory",
         "import",
+        "inventory",
         str(path),
         "-t",
         table["slug"],
@@ -204,7 +204,7 @@ def test_a_character_who_has_things_needs_add(stack: Stack, tmp_path: Path) -> N
     table = _table(stack)
     _library(stack, table)
     path = _write(tmp_path, FILE)
-    args = ("inventory", "import", str(path), "-t", table["slug"], "--yes")
+    args = ("import", "inventory", str(path), "-t", table["slug"], "--yes")
     assert run_cli(stack, table["player"], tmp_path, *args).exit_code == 0
 
     again = run_cli(stack, table["player"], tmp_path, *args)
@@ -223,12 +223,12 @@ def test_an_export_read_back_with_add_moves_what_it_names_and_makes_the_rest(
     path = _write(tmp_path, FILE)
     assert (
         run_cli(
-            stack, player, tmp_path, "inventory", "import", str(path), "-t", slug, "--yes"
+            stack, player, tmp_path, "import", "inventory", str(path), "-t", slug, "--yes"
         ).exit_code
         == 0
     )
 
-    exported = run_cli(stack, player, tmp_path, "inventory", "export", "-t", slug)
+    exported = run_cli(stack, player, tmp_path, "export", "inventory", "-t", slug)
 
     assert exported.exit_code == 0, exported.output
     inventory = parse(exported.stdout)
@@ -257,7 +257,7 @@ def test_an_export_read_back_with_add_moves_what_it_names_and_makes_the_rest(
     lines.insert(next(i for i, line in enumerate(lines) if line == "## Not carried"), "")
     text = "\n".join(lines) + "\n"
     again = run_cli(
-        stack, player, tmp_path, "inventory", "import", str(_write(tmp_path, text, "again.md")),
+        stack, player, tmp_path, "import", "inventory", str(_write(tmp_path, text, "again.md")),
         "-t", slug, "--add", "--yes",
     )  # fmt: skip
 
@@ -285,13 +285,13 @@ def test_the_json_form_goes_both_ways(stack: Stack, tmp_path: Path) -> None:
     }
     path = _write(tmp_path, json.dumps(document), "inventory.json")
 
-    done = run_cli(stack, player, tmp_path, "inventory", "import", str(path), "-t", slug, "--yes")
+    done = run_cli(stack, player, tmp_path, "import", "inventory", str(path), "-t", slug, "--yes")
 
     assert done.exit_code == 0, done.output
     made = _instances(stack, table)
     assert made["Rope"]["quantity"] == 3 and made["Trophy"]["container_entity_id"] is None
     exported = json.loads(
-        run_cli(stack, player, tmp_path, "inventory", "export", "-t", slug, "--json").stdout
+        run_cli(stack, player, tmp_path, "export", "inventory", "-t", slug, "--json").stdout
     )
     assert exported["equipped"][0]["contents"][0]["quantity"] == 3
     assert exported["not_carried"][0]["note"] == "a skull"
@@ -311,8 +311,8 @@ def test_a_file_for_another_library_is_refused(stack: Stack, tmp_path: Path) -> 
         stack,
         table["player"],
         tmp_path,
-        "inventory",
         "import",
+        "inventory",
         str(path),
         "-t",
         table["slug"],
@@ -337,7 +337,7 @@ def test_a_description_is_a_note_the_player_reads_and_an_export_writes_back(
     )  # the format's old name is still read (ADR 0226)
 
     done = run_cli(
-        stack, player, tmp_path, "inventory", "import", str(_write(tmp_path, text)), "-t", slug,
+        stack, player, tmp_path, "import", "inventory", str(_write(tmp_path, text)), "-t", slug,
         "--yes",
     )  # fmt: skip
 
@@ -347,7 +347,7 @@ def test_a_description_is_a_note_the_player_reads_and_an_export_writes_back(
         "Note": "from the cave",
         "Description": "A **curved** tooth.\n\nWarm to the touch.",
     }
-    exported = run_cli(stack, player, tmp_path, "inventory", "export", "-t", slug)
+    exported = run_cli(stack, player, tmp_path, "export", "inventory", "-t", slug)
     assert exported.exit_code == 0, exported.output
     assert exported.stdout.startswith("format: lorenzo-ledger/1\n")
     inventory = parse(exported.stdout)
@@ -377,7 +377,7 @@ def test_a_gm_imports_into_a_players_character_by_name_and_can_replace_what_is_t
     )
 
     # The GM does not play Ashfang and names it, as the file does (ADR 0232).
-    done = run_cli(stack, gm, tmp_path, "inventory", "import", str(first), "-t", slug, "--yes")
+    done = run_cli(stack, gm, tmp_path, "import", "inventory", str(first), "-t", slug, "--yes")
 
     assert done.exit_code == 0, done.output
     before = _instances(stack, table)
@@ -389,13 +389,13 @@ def test_a_gm_imports_into_a_players_character_by_name_and_can_replace_what_is_t
         "- Rope\n- Backpack\n  - Dagger\n",
         "second.md",
     )
-    refused = run_cli(stack, gm, tmp_path, "inventory", "import", str(second), "-t", slug, "--yes")
+    refused = run_cli(stack, gm, tmp_path, "import", "inventory", str(second), "-t", slug, "--yes")
     assert refused.exit_code == 1 and "--replace" in " ".join(refused.output.split())
     assert set(_instances(stack, table)) == {"Dagger", "Chest", "Spare cloak"}
 
     backup = tmp_path / "before.ledger.md"
     replaced = run_cli(
-        stack, gm, tmp_path, "inventory", "import", str(second), "-t", slug, "--replace",
+        stack, gm, tmp_path, "import", "inventory", str(second), "-t", slug, "--replace",
         "--backup", str(backup), "--yes",
     )  # fmt: skip
 
@@ -434,7 +434,7 @@ def test_replace_leaves_alone_what_holds_or_sits_in_someone_elses(
     )
     assert (
         run_cli(
-            stack, gm, tmp_path, "inventory", "import", str(first), "-t", slug, "--yes"
+            stack, gm, tmp_path, "import", "inventory", str(first), "-t", slug, "--yes"
         ).exit_code
         == 0
     )
@@ -458,7 +458,7 @@ def test_replace_leaves_alone_what_holds_or_sits_in_someone_elses(
         "second.md",
     )
     done = run_cli(
-        stack, gm, tmp_path, "inventory", "import", str(second), "-t", slug, "--replace", "--yes"
+        stack, gm, tmp_path, "import", "inventory", str(second), "-t", slug, "--replace", "--yes"
     )
 
     text = " ".join(done.output.split())

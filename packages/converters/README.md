@@ -1,7 +1,7 @@
 # lorenzo-converters
 
 Simple converters from files players already have into a
-[LorenzoLedger](../../docs/guides/inventory-file-format.md), for `lorenzo inventory import`
+[LorenzoLedger](../../docs/guides/inventory-file-format.md), for `lorenzo import inventory`
 ([RFC 0035](../../docs/rfcs/0035-inventory-files-and-placeholder-items.md),
 [ADR 0246](../../docs/adr/0246-lorenzo-converters-the-spreadsheet-converter.md)). A converter reads a
 file and writes a native document; it never talks to the API.
@@ -10,7 +10,7 @@ file and writes a native document; it never talks to the API.
 uv tool install "git+https://github.com/ramsesoriginal/lorenzo#subdirectory=packages/converters"
 
 lorenzo-convert sheet inventory.xlsx --owner Mira -O mira.md
-lorenzo inventory import mira.md --tenant my-library --dry-run
+lorenzo import inventory mira.md --tenant my-library --dry-run
 ```
 
 ## `sheet`
