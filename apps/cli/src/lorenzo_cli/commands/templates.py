@@ -30,6 +30,7 @@ from lorenzo_cli.library import templates
 from lorenzo_cli.library.document import TemplateRow
 from lorenzo_cli.runtime import _client, _reporting_errors, may_write
 from lorenzo_cli.self_service import SelfServiceError
+from lorenzo_cli.sheet_view import print_view
 from lorenzo_cli.tenants import resolve_tenant
 from lorenzo_cli.terminal_script import safe
 
@@ -267,44 +268,8 @@ def template_view(
             ops.READ_THROUGH_TEMPLATE,
             path={**library.path, "entity_id": library.entry_id(entry), "template_id": out.id},
         ).value
+        definitions = {} if as_json else {s.id: s for s in library.stats().values()}
     if as_json:
         console.emit(view.model_dump(mode="json"))
         return
-    console.out.print(Text(f"{safe(view.entity.name)} as {safe(view.template.name)}", style="bold"))
-    for slot in view.slots:
-        console.out.print(Text(f"\n{safe(slot.label or slot.kind.value)}", style="bold"))
-        _print_slot(slot)
-
-
-def _print_slot(slot: Any) -> None:
-    def value(v: Any) -> str:
-        return "unknown" if v is None else str(v)
-
-    if slot.stats or slot.tags:
-        table = Table("stat", "value", box=None, pad_edge=False)
-        for stat in [*(slot.stats or []), *(slot.tags or [])]:
-            dumped = stat.model_dump()
-            table.add_row(
-                Text(safe(str(dumped.get("label") or dumped.get("name", "")))),
-                value(dumped.get("value")),
-            )
-        console.out.print(table)
-    for info in slot.information or []:
-        console.out.print(Text(f"· {safe(info.title)}"))
-    if slot.rows:
-        columns = [c.model_dump() for c in slot.columns or []]
-        table = Table(
-            "name", *[str(c.get("label") or c.get("name", "")) for c in columns], box=None
-        )
-        for row in slot.rows:
-            dumped = row.model_dump()
-            cells = dumped.get("values") or dumped.get("cells") or []
-            table.add_row(
-                Text(safe(str(dumped.get("name", "")))),
-                *[value(c.get("value") if isinstance(c, dict) else c) for c in cells],
-            )
-        console.out.print(table)
-    for group in slot.feature_groups or []:
-        dumped = group.model_dump()
-        names = [str(f.get("name", "")) for f in dumped.get("features", [])]
-        console.out.print(Text(f"· {safe(str(dumped.get('name', '')))}: {', '.join(names)}"))
+    print_view(view, definitions)
