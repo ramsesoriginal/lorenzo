@@ -47,7 +47,7 @@ slug = "trooper"
 name = "Trooper"
 kinds = ["being"]
 parents = ["wg-archetype"]
-stats = { wg_agility = 4, wg_ballistic_skill = 3, wg_toughness = 3, wg_tier = 2 }
+stats = { wg_agility = 4, wg_ballistic_skill = 3, wg_toughness = 3, wg_tier = 2, wg_strength = 3, wg_strength_bonus = 1, wg_athletics = 2 }
 """,
         encoding="utf-8",
     )
@@ -66,6 +66,14 @@ stats = { wg_agility = 4, wg_ballistic_skill = 3, wg_toughness = 3, wg_tier = 2 
     assert str(value("wg_roll_ballistic_skill", "trooper")).lower() == "7d6"
     assert value("wg_max_wounds", "trooper") == 7  # tier 2 x 2 + toughness 3
     assert value("wg_resilience", "trooper") == 4  # toughness 3 + armour 0 + 1
+    # What the character starts with fills the rest: attributes at 1, skills at 0, Speed 6.
+    assert value("wg_pool_athletics", "trooper") == 6  # strength 3 + bonus 1 + athletics 2
+    assert value("wg_defence", "trooper") == 1  # initiative 1 - 1, and a trait is at least 1
+    assert value("wg_resolve", "trooper") == 1  # willpower 1 - 1, at least 1
+    assert value("wg_influence", "trooper") == 1  # fellowship 1 - 1, at least 1
+    assert value("wg_passive_awareness", "trooper") == 1  # half of intellect 1 + 0, rounded up
+    assert value("wg_max_traumatic_injuries", "trooper") == 3  # tier 2 + 1
+    assert value("wg_speed", "trooper") == 6  # no armour with Bulk
 
     sheets = json.loads(cli("template", "matching", "hero", "-t", tenant, "--json").stdout)
     assert "Character sheet (D&D 5e)" in {t["name"] for t in sheets["templates"]}
