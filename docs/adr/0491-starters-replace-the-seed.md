@@ -59,3 +59,8 @@ exists to take a layer out. Before launch there is no data to keep.
   is at least 1, written as a `max` over a step stat (group `wg_steps`); armour's Bulk lowers Speed and Powered adds to
   Strength; a ranged weapon has three ranges; Glory is the group's pool, so no character holds it. A character starts with the
   book's values (attributes 1, skills 0, Speed 6, Average size, 2 Wrath).
+- It holds the core rulebook's five species (Speed, the Astartes' +1 Resolve, the Primaris' +3 Wounds, their abilities), its 27
+  archetypes (Tier, XP cost, Keywords, attribute and skill ratings, Influence bonus, and the ability a grant rule gives) and its 91
+  talents and Faith talents (XP cost, requirements as text, and as prerequisites where they are ratings that all must hold), with
+  the page of each. No effect text: what a talent or an ability does is in the book. Generated from the book's text and checked
+  by eye; a requirement of Keywords, a Species or another talent is text only.
