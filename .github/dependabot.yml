@@ -118,6 +118,7 @@ updates:
       - "/packages/inventory-names"
       - "/packages/lorenzoscript"
       - "/packages/lorenzoscript-editor"
+      - "/packages/lorenzoscript-semilive-editor"
       - "/packages/stat-values"
       - "/packages/information-editor"
       - "/packages/app-shell"

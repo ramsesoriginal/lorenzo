@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <title>LorenzoScript semilive editor — demo</title>
+    <link rel="stylesheet" href="../../../apps/brand/normalize.css" />
+    <link rel="stylesheet" href="../../../apps/brand/tokens.css" />
+    <link rel="stylesheet" href="../../../apps/brand/fonts.css" />
+    <link rel="stylesheet" href="../../../apps/brand/base.css" />
+    <link rel="stylesheet" href="../../../apps/brand/layout.css" />
+    <link rel="stylesheet" href="../../../apps/brand/components.css" />
+  </head>
+  <body>
+    <main>
+      <div class="wrap stack">
+        <h1 class="display">✧ LorenzoScript, live</h1>
+        <p class="lede">
+          Every paragraph is shown formatted; click one, or move into it with
+          the arrow keys, and it becomes its source. Escape closes it.
+        </p>
+        <p id="unbuilt" class="card card-body">
+          This page needs its script. Run
+          <code>mise run //packages/lorenzoscript-semilive-editor:build</code>,
+          then reload.
+        </p>
+        <textarea id="source" aria-label="Text"></textarea>
+        <h2>The text</h2>
+        <pre id="out"></pre>
+      </div>
+    </main>
+    <script src="demo.js"></script>
+  </body>
+</html>

@@ -75,6 +75,9 @@ batch = "packages"
 [nodes."packages/lorenzoscript-editor"]
 batch = "packages"
 
+[nodes."packages/lorenzoscript-semilive-editor"]
+batch = "packages"
+
 [nodes."packages/stat-values"]
 batch = "packages"
 
