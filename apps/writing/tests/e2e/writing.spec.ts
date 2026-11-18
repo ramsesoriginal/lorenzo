@@ -625,6 +625,21 @@ test('an invited reviewer reads one Edition, writes private notes and loses acce
       reviewPage.getByText(/Your notes are private: only you and the Authors/),
     ).toBeVisible();
     await expect(reviewPage.getByLabel('Note on', { exact: true })).not.toHaveValue('');
+    await reviewPage.emulateMedia({ colorScheme: 'dark' });
+    await reviewPage.reload();
+    await reviewPage
+      .getByRole('button', { name: /^Add note on /i })
+      .first()
+      .click();
+    await expect(reviewPage.getByLabel('Note on', { exact: true })).toBeVisible();
+    expect(
+      (await new AxeBuilder({ page: reviewPage }).exclude('.shell-bottom').analyze()).violations,
+    ).toEqual([]);
+    for (const name of ['Save note', 'Close']) {
+      const box = await reviewPage.getByRole('button', { name, exact: true }).first().boundingBox();
+      expect(box?.height ?? 0, name).toBeGreaterThanOrEqual(44);
+    }
+    await reviewPage.emulateMedia({ colorScheme: 'light' });
     await page.reload();
     await expect(
       page.getByText('Could the bridge appear in Chapter one?', { exact: true }),
