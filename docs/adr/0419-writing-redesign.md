@@ -20,3 +20,7 @@ Lorenzo Writing is built in slices from RFC 0047. The maintainer asked for its i
 
 - The timer and session goal follow ADRs 0393 and 0394, which are on another branch; suggestions, updates and export are drawn from RFC 0047 alone, so their screens are proposals.
 - The old one-page-driven-by-query-string design is replaced by addresses for each work.
+
+## Addendum (2026-11-18): what the built features changed
+
+Every slice drawn in WR9 is now built, in the app's old one-page interface, and some are not what was drawn: the editor is a plain text area, so blocks are not split or joined by Enter and a text selection is not dragged out; extraction takes whole blocks; there is no operation that moves a block into another Chapter or that undoes a split, an extraction or a join; suggestions are three separate reviews and mark nothing in the text; export is a preview, a ZIP and the browser's print dialog, with no progress and no PDF file; review notes belong to a Chapter or Scene and are saved explicitly; the timer and the session goal live in Count. [WR11](../design/web/writing/README.md#wr11-what-the-built-features-changed-proposed) records each, with what the design now says. The decisions above stand; WR11 changes the drawing, not them. How the app moves onto the design is [ADR 0494](0494-writing-moves-into-the-web-shell.md).
