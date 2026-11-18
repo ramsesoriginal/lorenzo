@@ -180,6 +180,16 @@ export const STORAGE_KEYS: StorageEntry[] = [
     ],
   },
   {
+    key: 'lorenzo:writing:last',
+    store: 'localStorage',
+    purpose: bi(
+      'Merkt sich, welchen Text Sie in Lorenzo Writing zuletzt geöffnet haben, damit „Weiterschreiben“ ihn anbietet. Enthält keinen Text.',
+      'Remembers which text you opened last in Lorenzo Writing, so that Continue can offer it. Contains no text.',
+    ),
+    lasts: bi('Bis Sie die Browserdaten löschen', 'Until you clear your browser data'),
+    files: ['apps/writing/src/lib/shelf-list.ts'],
+  },
+  {
     key: 'lorenzo:writing-timer:*',
     store: 'sessionStorage',
     purpose: bi(
