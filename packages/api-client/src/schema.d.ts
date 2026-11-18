@@ -693,6 +693,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/me/writing-reviews": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * My Writing Reviews
+         * @description The Editions shared with the caller for review, in every library (ADR 0495). A grant is
+         *     all that is needed: the caller need not belong to the library, and sees of it only what a
+         *     review shows, the Edition's name, never the library's name or the Book. Authenticated but not
+         *     tenant-scoped, and resolved tenant by tenant for the reason `GET /me/managed` is. Not
+         *     paginated: bounded by the caller's own grants.
+         */
+        get: operations["my_writing_reviews"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/me/notifications": {
         parameters: {
             query?: never;
@@ -18177,6 +18201,24 @@ export interface components {
             prototype_ids: string[];
         };
         /**
+         * SharedForReviewOut
+         * @description An Edition shared with the caller for review: where to open it, and its name.
+         */
+        SharedForReviewOut: {
+            /**
+             * Tenant Id
+             * Format: uuid
+             */
+            tenant_id: string;
+            /**
+             * Edition Id
+             * Format: uuid
+             */
+            edition_id: string;
+            /** Name */
+            name: string;
+        };
+        /**
          * SheetOut
          * @description GET /tenants/{id}/beings/{id}/sheet (ADR 0281): the datasheet's weapons and abilities in
          *     one read. A section whose setting the library has not made is empty and says so.
@@ -22828,6 +22870,60 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    my_writing_reviews: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SharedForReviewOut"][];
+                };
             };
             /** @description Client Error */
             "4XX": {

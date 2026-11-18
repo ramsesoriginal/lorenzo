@@ -3803,6 +3803,12 @@ class SetPrototypesRequest(BaseModel):
     prototype_ids: list[UUID] | None = Field([], title="Prototype Ids")
 
 
+class SharedForReviewOut(BaseModel):
+    tenant_id: UUID = Field(..., title="Tenant Id")
+    edition_id: UUID = Field(..., title="Edition Id")
+    name: str = Field(..., title="Name")
+
+
 class ShowcaseEntryOut(BaseModel):
     id: UUID = Field(..., title="Id")
     name: str = Field(..., title="Name")

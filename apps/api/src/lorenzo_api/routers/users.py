@@ -3,7 +3,7 @@ from collections.abc import Sequence
 from datetime import UTC, datetime, timedelta
 from typing import Annotated
 
-from fastapi import APIRouter, Query, Request, UploadFile
+from fastapi import APIRouter, Query, Request, Response, UploadFile
 from fastapi_pagination import Page
 from fastapi_pagination.ext.sqlalchemy import apaginate
 from pydantic import AwareDatetime
@@ -33,6 +33,7 @@ from lorenzo_api.models import (
     CampaignGm,
     Character,
     CharacterPlayer,
+    Entity,
     EntityChange,
     Membership,
     MembershipRole,
@@ -40,6 +41,7 @@ from lorenzo_api.models import (
     Player,
     Tenant,
     User,
+    WritingReviewGrant,
 )
 from lorenzo_api.profile_pictures import (
     delete_user_profile_picture,
@@ -50,6 +52,7 @@ from lorenzo_api.schemas.changes import EntityChangeOut
 from lorenzo_api.schemas.managed import ManagedCampaignOut, ManagedScopeOut, ManagedTenantOut
 from lorenzo_api.schemas.notifications import NotificationOut
 from lorenzo_api.schemas.users import MeOut, ProfileUpdate, UserRefOut
+from lorenzo_api.schemas.writing_reviews import SharedForReviewOut
 
 router = APIRouter(tags=["users"])
 
@@ -290,6 +293,44 @@ async def delete_my_picture(user: CurrentUser, session: SessionDep) -> None:
     """
     await delete_user_profile_picture(session, user_id=user.id)
     await session.commit()
+
+
+@router.get("/me/writing-reviews")
+async def my_writing_reviews(
+    user: CurrentUser, session: SessionDep, response: Response
+) -> list[SharedForReviewOut]:
+    """The Editions shared with the caller for review, in every library (ADR 0495). A grant is
+    all that is needed: the caller need not belong to the library, and sees of it only what a
+    review shows, the Edition's name, never the library's name or the Book. Authenticated but not
+    tenant-scoped, and resolved tenant by tenant for the reason `GET /me/managed` is. Not
+    paginated: bounded by the caller's own grants."""
+    response.headers["Cache-Control"] = "private, no-store"
+    grants = (
+        await session.execute(
+            select(WritingReviewGrant.tenant_id, WritingReviewGrant.edition_id).where(
+                WritingReviewGrant.user_id == user.id
+            )
+        )
+    ).all()
+    by_tenant: dict[uuid.UUID, list[uuid.UUID]] = {}
+    for tenant_id, edition_id in grants:
+        by_tenant.setdefault(tenant_id, []).append(edition_id)
+    shared: list[SharedForReviewOut] = []
+    for tenant_id, editions in by_tenant.items():
+        await set_tenant_rls_context(session, tenant_id)
+        names = (
+            await session.execute(
+                select(Entity.id, Entity.name).where(
+                    Entity.tenant_id == tenant_id, Entity.id.in_(editions)
+                )
+            )
+        ).all()
+        shared.extend(
+            SharedForReviewOut(tenant_id=tenant_id, edition_id=identity, name=name)
+            for identity, name in names
+        )
+    shared.sort(key=lambda row: (row.name.casefold(), str(row.edition_id)))
+    return shared
 
 
 @router.get("/me/notifications")
