@@ -74,3 +74,6 @@ exists to take a layer out. Before launch there is no data to keep.
   (`max`); each way is a count of held features (`contents`, `feature_instance`), a `comparison`, a `sum` and a `product`, in the
   hidden group `dnd5e_steps`. The starter carries the SRD's Unarmored Defense (Barbarian, Monk), Draconic Resilience and Mage
   Armor (starting switched off); a character starts with every ability at 10 and level 1, so an unfinished one has an armour class.
+- A flat bonus goes on top of the best way: `dnd5e_ac_bonus` (always: a Ring of Protection) and `dnd5e_ac_bonus_armored` (while
+  body armour is worn: Defense, which the starter's Defense feature now carries), each summed over what the character holds,
+  switched on. A way's tag counts on a worn item as on a feature.
