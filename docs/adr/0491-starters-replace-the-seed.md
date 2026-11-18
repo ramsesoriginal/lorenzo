@@ -64,3 +64,7 @@ exists to take a layer out. Before launch there is no data to keep.
   talents and Faith talents (XP cost, requirements as text, and as prerequisites where they are ratings that all must hold), with
   the page of each. No effect text: what a talent or an ability does is in the book. Generated from the book's text and checked
   by eye; a requirement of Keywords, a Species or another talent is text only.
+- D&D's armour class reads what a character wears (2026-11-18): the best worn body armour's `dnd5e_armor` (10 with none),
+  the lowest Dexterity cap among it (light none, medium 2, heavy 0, set on the armour tiers), and the best worn shield's, as
+  `contents` formulas filtered by the tags `dnd5e_is_body_armor` and `dnd5e_is_shield`. The importer files any armour named with
+  the word "shield" as a shield.
