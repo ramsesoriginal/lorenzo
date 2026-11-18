@@ -1,4 +1,4 @@
-"""What the MPMB importer writes into (ADR 0490): the stats and categories of the `neutral` and
+"""What the MPMB importer writes into (ADR 0504): the stats and categories of the `neutral` and
 `dnd5e` starters, each with its part. A stat is the system half's when its group belongs to the
 document's system, a category when it is the system's document's entry; the rest is neutral. The
 seed's layers decided this before; the starters' systems decide it now."""

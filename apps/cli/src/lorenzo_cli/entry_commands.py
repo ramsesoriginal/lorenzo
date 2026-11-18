@@ -143,7 +143,7 @@ def show(
             if kind == "being"
             else None
         )
-        # A campaign or a template names the sheet: the being is read through it (ADR 0487).
+        # A campaign or a template names the sheet: the being is read through it (ADR 0501).
         view = (
             client.call(
                 ops.READ_THROUGH_TEMPLATE,

@@ -1,4 +1,4 @@
-"""`lorenzo feature`, `grant-rule` and `grants` (ADR 0488): what an entry has, the rules that give
+"""`lorenzo feature`, `grant-rule` and `grants` (ADR 0502): what an entry has, the rules that give
 it, and applying them, with a person choosing at a terminal or a script answering with `--pick`."""
 
 from __future__ import annotations

@@ -1,6 +1,6 @@
 # 0143 - `lorenzo seed`: the item taxonomy and the stat definitions
 
-Status: superseded by [ADR 0491](0491-starters-replace-the-seed.md): starters replace the seed (RFC 0057)
+Status: superseded by [ADR 0505](0505-starters-replace-the-seed.md): starters replace the seed (RFC 0057)
 
 Slice 5 of [RFC 0025](../rfcs/0025-lorenzo-cli-mpmb-item-importer.md) (R3, R8, R9). Builds on [ADR 0137](0137-lorenzo-cli-app-python-client-and-auth.md), and uses [ADR 0139](0139-name-an-item-when-it-is-created.md) and [ADR 0141](0141-fractional-weights-in-the-named-columns.md).
 

@@ -1,4 +1,4 @@
-"""`lorenzo check` (ADR 0489): the vocabulary check of RFC 0055 for a person and for CI. It
+"""`lorenzo check` (ADR 0503): the vocabulary check of RFC 0055 for a person and for CI. It
 reads; it writes and refuses nothing. Findings are grouped by entry, the library's own first,
 each with its severity as a symbol and a word, and a count at the end; `--fail-on` turns them
 into an exit code."""

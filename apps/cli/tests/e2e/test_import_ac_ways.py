@@ -1,4 +1,4 @@
-"""MPMB's ways of working out armour class, imported (RFC 0057, ADR 0490): an armour entry of the
+"""MPMB's ways of working out armour class, imported (RFC 0057, ADR 0504): an armour entry of the
 sheet's `firstlist` or with an AC formula becomes a feature under the D&D starter's armour class
 features, and a character who holds it gets that armour class."""
 

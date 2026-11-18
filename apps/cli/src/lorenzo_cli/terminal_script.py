@@ -33,7 +33,7 @@ class ScriptError(Exception):
 
 class Parser:
     def __init__(self) -> None:
-        # V8 loads with the first parser, not with every command that imports `safe` (ADR 0483).
+        # V8 loads with the first parser, not with every command that imports `safe` (ADR 0497).
         from py_mini_racer import MiniRacer
 
         self.context = MiniRacer()

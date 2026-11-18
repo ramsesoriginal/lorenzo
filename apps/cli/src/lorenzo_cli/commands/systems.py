@@ -1,4 +1,4 @@
-"""`lorenzo system` (ADR 0485): a library's game systems, one row at a time. A system groups stats
+"""`lorenzo system` (ADR 0499): a library's game systems, one row at a time. A system groups stats
 under its slug's prefix, picks a campaign's templates, and names the entry its content descends
 from (ADR 0448, ADR 0452)."""
 
@@ -36,7 +36,7 @@ from lorenzo_cli.terminal_script import safe
 app = typer.Typer(help="List, read, create, edit or delete a game system.", no_args_is_help=True)
 
 Json = Annotated[bool, typer.Option("--json", help="Print one JSON document.")]
-Yes = Annotated[bool, typer.Option("--yes", help="Don't ask before writing (ADR 0482).")]
+Yes = Annotated[bool, typer.Option("--yes", help="Don't ask before writing (ADR 0496).")]
 SystemArgument = Annotated[
     str, typer.Argument(help="The system: its slug or id.", autocompletion=completers.system)
 ]
@@ -146,7 +146,7 @@ def system_create(
     yes: Yes = False,
     as_json: Json = False,
 ) -> None:
-    """Create a system: a plan of one row through the library document's planner (ADR 0485)."""
+    """Create a system: a plan of one row through the library document's planner (ADR 0499)."""
     runtime: Runtime = ctx.obj
     with _reporting_errors():
         try:

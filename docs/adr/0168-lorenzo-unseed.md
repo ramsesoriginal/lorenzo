@@ -1,6 +1,6 @@
 # 0168 - `lorenzo unseed`
 
-Status: superseded by [ADR 0491](0491-starters-replace-the-seed.md): starters replace the seed (RFC 0057)
+Status: superseded by [ADR 0505](0505-starters-replace-the-seed.md): starters replace the seed (RFC 0057)
 
 The inverse of `lorenzo seed` ([ADR 0143](0143-lorenzo-seed-taxonomy-and-stats.md)), and the use of [ADR 0167](0167-the-api-deletes-an-unused-stat-definition-or-stat-group.md). Decided with the maintainer on 2026-10-04: after a layer went into a repository by mistake, "an unseed layer that needs confirmation and removes everything from a layer". Its sibling is [ADR 0166](0166-a-bare-seed-refuses-to-add-a-layer-to-a-tenant-that-holds-another.md), which makes that mistake harder to make.
 

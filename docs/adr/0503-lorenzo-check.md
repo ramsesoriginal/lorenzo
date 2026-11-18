@@ -1,8 +1,10 @@
-# 0489 - `lorenzo check`
+# 0503 - `lorenzo check`
 
-Status: accepted (2026-11-17), decided with the maintainer, not built. Slice C9 of [RFC 0057](../rfcs/0057-the-command-line-for-game-systems.md).
+Status: accepted (2026-11-17), decided with the maintainer, built (2026-11-18). Slice C9 of [RFC 0057](../rfcs/0057-the-command-line-for-game-systems.md).
 The client of [RFC 0055](../rfcs/0055-vocabulary-check.md) that RFC 0055 left to its own work; builds on [ADR 0458](0458-the-vocabulary-check-route-and-its-first-findings.md)
 to [ADR 0461](0461-warnings-on-the-writes-of-a-stat-and-of-a-formula.md).
+
+_Originally numbered 0489; renumbered before merge - the Maps ADRs 0481, 0482, 0490 and 0491 reached `main` first, so the RFC 0057 block moved as a whole to 0495-0507. Same precedent as ADR 0050/0054/0068/0069/0087._
 
 ## Context
 

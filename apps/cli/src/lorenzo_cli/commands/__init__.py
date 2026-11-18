@@ -1,1 +1,1 @@
-"""The command groups of `lorenzo`, each loaded only when it is named (ADR 0483)."""
+"""The command groups of `lorenzo`, each loaded only when it is named (ADR 0497)."""

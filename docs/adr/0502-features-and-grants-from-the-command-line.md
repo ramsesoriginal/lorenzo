@@ -1,8 +1,10 @@
-# 0488 - Features and grants from the command line
+# 0502 - Features and grants from the command line
 
-Status: accepted (2026-11-17), decided with the maintainer, not built. Slice C8 of [RFC 0057](../rfcs/0057-the-command-line-for-game-systems.md).
+Status: accepted (2026-11-17), decided with the maintainer, built (2026-11-18). Slice C8 of [RFC 0057](../rfcs/0057-the-command-line-for-game-systems.md).
 Builds on [ADR 0454](0454-features-two-kinds-and-what-a-holder-has.md) to [ADR 0457](0457-the-features-slot-of-a-template.md), [ADR 0467](0467-an-award-by-the-holders-controller.md)
 and [ADR 0468](0468-the-card-of-a-feature-shows-the-stats-a-template-names.md).
+
+_Originally numbered 0488; renumbered before merge - the Maps ADRs 0481, 0482, 0490 and 0491 reached `main` first, so the RFC 0057 block moved as a whole to 0495-0507. Same precedent as ADR 0050/0054/0068/0069/0087._
 
 ## Context
 
@@ -21,7 +23,7 @@ maximum) and options; a feature has prerequisites. `grants/apply` takes picks, `
 - **`lorenzo grant-rule list [--on ENTRY]`**, **`show`**, **`create --from FILE`**, **`delete`**; a rule is replaced whole, its source fixed.
 - **`lorenzo grants show HOLDER`** prints four sections: held (with how each came: awarded, granted by a rule from a source, picked),
   due, open choices (each with its rule, source, minimum, maximum, what is picked and the numbered options) and orphaned (with the reason).
-- **`lorenzo grants apply HOLDER`** follows [ADR 0482](0482-one-write-contract-for-every-cli-command.md): it asks the API for a dry run and
+- **`lorenzo grants apply HOLDER`** follows [ADR 0496](0496-one-write-contract-for-every-cli-command.md): it asks the API for a dry run and
   shows what would be created and revoked and the open choices; without `--yes` it stops there, exit 2 if anything is due. At a terminal
   with `--yes` absent and choices open it asks each choice as a numbered list, checking the count against the rule. `--pick "RULE=OPTION"`
   (a rule by label or id, an option by name, slug or id; repeated, or `RULE=A,B` for several) answers choices for a script; an open

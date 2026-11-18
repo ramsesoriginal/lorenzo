@@ -1,4 +1,4 @@
-"""What `lorenzo` loads before it does anything (ADR 0483).
+"""What `lorenzo` loads before it does anything (ADR 0497).
 
 Each case runs in a fresh interpreter, since this test session has imported everything already.
 A command group's modules, the generated models, the HTTP stack, the calendar engine and the MPMB

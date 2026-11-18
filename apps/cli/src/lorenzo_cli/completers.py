@@ -1,4 +1,4 @@
-"""Tab completion of names (ADR 0493): each completer reads the private cache, never the API.
+"""Tab completion of names (ADR 0507): each completer reads the private cache, never the API.
 
 Typer reads these functions' annotations to hand them the context, so this module does not
 postpone them (no `from __future__ import annotations`). It imports only what the root already

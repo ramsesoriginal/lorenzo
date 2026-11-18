@@ -52,7 +52,7 @@ def said(result: object) -> str:
 
 def run(tmp_path: Path, world: World, *args: str, interactive: bool | None = None, **kw: object):  # noqa: ANN201
     if args[:1] in (("publish",), ("unpublish",), ("grant",), ("revoke",)) and "--yes" not in args:
-        args = (*args, "--yes")  # writes, given --yes (ADR 0482)
+        args = (*args, "--yes")  # writes, given --yes (ADR 0496)
     return runner.invoke(
         app, ["repo", *args], obj=runtime(tmp_path, world, interactive=interactive), **kw
     )

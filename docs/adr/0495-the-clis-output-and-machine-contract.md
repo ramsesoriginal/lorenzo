@@ -1,8 +1,10 @@
-# 0481 - The CLI's output and machine contract
+# 0495 - The CLI's output and machine contract
 
-Status: accepted (2026-11-17), decided with the maintainer, not built. Slice C2 of [RFC 0057](../rfcs/0057-the-command-line-for-game-systems.md).
+Status: accepted (2026-11-17), decided with the maintainer, built (2026-11-18). Slice C2 of [RFC 0057](../rfcs/0057-the-command-line-for-game-systems.md).
 Generalises [ADR 0232](0232-inventory-import-any-being-replace-and-progress.md)'s progress bar and keeps [ADR 0156](0156-json-on-apply-and-pack-give.md)'s one
 document on stdout.
+
+_Originally numbered 0481; renumbered before merge - the Maps ADRs 0481, 0482, 0490 and 0491 reached `main` first, so the RFC 0057 block moved as a whole to 0495-0507. Same precedent as ADR 0050/0054/0068/0069/0087._
 
 ## Context
 
@@ -24,7 +26,7 @@ and prose to parse. Colour is the only signal in several places, and `NO_COLOR` 
 - **`--json`**: every document is an object with `"format": 1` beside what it reports; a list is under a key, never the top level. With
   `--json` a failure prints one object `{"format": 1, "error": {"status", "code", "message", "details"}}` on stdout, the API's problem
   document when there is one, and exits 1. stderr may still carry a line for a person.
-- **`lorenzo schema`** prints, as JSON Schema, the library document (ADR 0484) and the `--json` output of a named command, so a script
+- **`lorenzo schema`** prints, as JSON Schema, the library document (ADR 0498) and the `--json` output of a named command, so a script
   or an agent needs no README.
 - Text follows the identity's terminology (section 14): library, stat, formula, entry, check first; `tenant` stays in names (ADR 0194).
 

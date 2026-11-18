@@ -1,7 +1,9 @@
-# 0485 - Commands for systems and the stat vocabulary
+# 0499 - Commands for systems and the stat vocabulary
 
-Status: accepted (2026-11-17), decided with the maintainer, not built. Slice C5 of [RFC 0057](../rfcs/0057-the-command-line-for-game-systems.md).
+Status: accepted (2026-11-17), decided with the maintainer, built (2026-11-18). Slice C5 of [RFC 0057](../rfcs/0057-the-command-line-for-game-systems.md).
 Extends [ADR 0295](0295-cli-vocabulary-sheet-settings-and-reads.md).
+
+_Originally numbered 0485; renumbered before merge - the Maps ADRs 0481, 0482, 0490 and 0491 reached `main` first, so the RFC 0057 block moved as a whole to 0495-0507. Same precedent as ADR 0050/0054/0068/0069/0087._
 
 ## Context
 
@@ -22,8 +24,8 @@ Extends [ADR 0295](0295-cli-vocabulary-sheet-settings-and-reads.md).
   bounds. `--system SLUG` keeps the neutral rows and that system's, `--neutral` only the neutral ones, `--group` one group; the filter is
   the CLI's until the API has one (an API issue).
 - References are an id, a slug (a system) or an exact name ignoring case; an ambiguous name is refused with the candidates (ADR 0190).
-- Every write is a plan of one row through the document planner ([ADR 0484](0484-the-library-document.md)) and the write contract
-  ([ADR 0482](0482-one-write-contract-for-every-cli-command.md)).
+- Every write is a plan of one row through the document planner ([ADR 0498](0498-the-library-document.md)) and the write contract
+  ([ADR 0496](0496-one-write-contract-for-every-cli-command.md)).
 - `tenant sheet-settings` gains `--controllers-award-features` / `--no-controllers-award-features` (ADR 0467).
 
 ## Consequences

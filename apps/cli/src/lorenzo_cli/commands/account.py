@@ -255,7 +255,7 @@ def logout(ctx: typer.Context) -> None:
     cached = completion.cache_path(runtime.env, api_url, account) if api_url and account else None
     removed = runtime.store.delete()
     if cached is not None:
-        completion.forget(cached)  # ADR 0493: the names go with the login
+        completion.forget(cached)  # ADR 0507: the names go with the login
     _out.print("Signed out." if removed else "There was no stored login.")
     if stored is not None and stored.token_name is not None:
         _out.print(

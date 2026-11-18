@@ -1,4 +1,4 @@
-"""`lorenzo check` against the real API (ADR 0489): findings grouped by entry, filtered, counted,
+"""`lorenzo check` against the real API (ADR 0503): findings grouped by entry, filtered, counted,
 and an exit code for CI only when asked."""
 
 from __future__ import annotations

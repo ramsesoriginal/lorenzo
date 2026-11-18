@@ -1,4 +1,4 @@
-"""`lorenzo schema` (ADR 0481): the library document's JSON Schema, and the shape of a command's
+"""`lorenzo schema` (ADR 0495): the library document's JSON Schema, and the shape of a command's
 `--json` output, so a script or an agent needs no README."""
 
 from __future__ import annotations
@@ -104,7 +104,7 @@ def _print(schema: dict[str, Any]) -> None:
 
 @app.command("document")
 def schema_document() -> None:
-    """The library document's JSON Schema (ADR 0484), for an editor to check a file against."""
+    """The library document's JSON Schema (ADR 0498), for an editor to check a file against."""
     from lorenzo_cli.library.document import json_schema
 
     _print(json_schema())

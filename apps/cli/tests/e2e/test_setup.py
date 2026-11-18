@@ -1,5 +1,5 @@
 """The README's setup of the two repositories, run command for command against the real API
-(RFC 0033 §7, ADR 0183, ADR 0491), and what happens to a table's items when a repository is
+(RFC 0033 §7, ADR 0183, ADR 0505), and what happens to a table's items when a repository is
 corrected or grows later (§8).
 
 Every repository here is made the way a person makes it: `tenant create`, `apply --starter`,

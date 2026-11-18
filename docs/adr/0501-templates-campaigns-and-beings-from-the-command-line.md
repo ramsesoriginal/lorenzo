@@ -1,7 +1,9 @@
-# 0487 - Templates, campaigns and beings from the command line
+# 0501 - Templates, campaigns and beings from the command line
 
-Status: accepted (2026-11-17), decided with the maintainer, not built. Slice C7 of [RFC 0057](../rfcs/0057-the-command-line-for-game-systems.md).
+Status: accepted (2026-11-17), decided with the maintainer, built (2026-11-18). Slice C7 of [RFC 0057](../rfcs/0057-the-command-line-for-game-systems.md).
 Builds on [ADR 0451](0451-templates-a-sheet-as-data.md) and [ADR 0452](0452-a-campaign-names-a-system-and-the-sheet-reads-a-template.md).
+
+_Originally numbered 0487; renumbered before merge - the Maps ADRs 0481, 0482, 0490 and 0491 reached `main` first, so the RFC 0057 block moved as a whole to 0495-0507. Same precedent as ADR 0050/0054/0068/0069/0087._
 
 ## Context
 

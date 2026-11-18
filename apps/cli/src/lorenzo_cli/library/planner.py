@@ -1,4 +1,4 @@
-"""What applying a document to a library would do (ADR 0484): what it creates, changes and, with
+"""What applying a document to a library would do (ADR 0498): what it creates, changes and, with
 `--prune`, removes, in the order the writes depend on one another, and what it cannot do.
 
 A field the document names is set to its value; a field it leaves out is left as the library has
@@ -82,7 +82,7 @@ class Plan:
         return [by_level[level] for level in sorted(by_level)]
 
     def exit_code(self) -> int:
-        """0 nothing to do, 2 changes pending, 1 something it cannot do (ADR 0482)."""
+        """0 nothing to do, 2 changes pending, 1 something it cannot do (ADR 0496)."""
         if self.problems:
             return 1
         return 2 if self.actions else 0
@@ -117,7 +117,7 @@ def same(a: Any, b: Any) -> bool:
 def is_vocabulary_entry(entry: EntryState, children: dict[UUID, list[UUID]]) -> bool:
     """An entry a document describes: a feature, or one that others inherit from. A leaf item
     (an imported sword, a player's thing) is content, not vocabulary, and is never exported or
-    pruned (ADR 0484)."""
+    pruned (ADR 0498)."""
     return "feature" in entry.kinds or bool(children.get(entry.id))
 
 

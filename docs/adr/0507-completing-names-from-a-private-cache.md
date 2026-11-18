@@ -1,6 +1,8 @@
-# 0493 - Completing names from a private cache
+# 0507 - Completing names from a private cache
 
-Status: accepted (2026-11-17), decided with the maintainer, not built. Slice C12 of [RFC 0057](../rfcs/0057-the-command-line-for-game-systems.md).
+Status: accepted (2026-11-17), decided with the maintainer, built (2026-11-18). Slice C12 of [RFC 0057](../rfcs/0057-the-command-line-for-game-systems.md).
+
+_Originally numbered 0493; renumbered before merge - the Maps ADRs 0481, 0482, 0490 and 0491 reached `main` first, so the RFC 0057 block moved as a whole to 0495-0507. Same precedent as ADR 0050/0054/0068/0069/0087._
 
 ## Context
 
@@ -15,7 +17,7 @@ the API on every Tab press waits for the network and a token; completion today a
   every write updates it; `lorenzo tenant list` refreshes the slugs. Nothing is fetched only to fill the cache.
 - **Keyed and private.** One file per API address and account, readable only by the user, like `credentials.json`; a library's names
   sit under its id. `lorenzo logout` deletes the cache for that address and account.
-- **Fast.** The completion path imports neither a command group nor the client ([ADR 0483](0483-the-clis-start-up-and-request-budget.md))
+- **Fast.** The completion path imports neither a command group nor the client ([ADR 0497](0497-the-clis-start-up-and-request-budget.md))
   and reads one small file.
 
 ## Consequences

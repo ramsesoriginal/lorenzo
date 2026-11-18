@@ -15,7 +15,7 @@ lorenzo --help
 
 That installs the `lorenzo` command from this repository's `main` branch, into its own environment. It isn't on PyPI: it only works against a Lorenzo `apps/api`, and its client is generated from that API's schema, so the two move together. Put `@<tag>` (or `@<commit>`) before the `#` to pin a version, and update with `uv tool upgrade lorenzo-cli`. To run it from a checkout of the repository instead, see below.
 
-`lorenzo --version` says which one is installed. To complete commands and options with Tab, run `lorenzo --install-completion` once (it adds a line to your shell's startup file; `lorenzo --show-completion` prints the script instead, if you'd rather place it yourself). Library slugs, and a library's systems, stat groups, stats, templates, features and campaigns, complete from what earlier commands read or wrote: Tab never asks the API. They are kept in a file of their own per API and account under `$XDG_CACHE_HOME/lorenzo/` (`~/.cache/lorenzo/`), readable only by you like the login, and `lorenzo logout` deletes it. A name made elsewhere completes once a command has listed it (`lorenzo system list`, `stat-definition list`...; [ADR 0493](../../docs/adr/0493-completing-names-from-a-private-cache.md)).
+`lorenzo --version` says which one is installed. To complete commands and options with Tab, run `lorenzo --install-completion` once (it adds a line to your shell's startup file; `lorenzo --show-completion` prints the script instead, if you'd rather place it yourself). Library slugs, and a library's systems, stat groups, stats, templates, features and campaigns, complete from what earlier commands read or wrote: Tab never asks the API. They are kept in a file of their own per API and account under `$XDG_CACHE_HOME/lorenzo/` (`~/.cache/lorenzo/`), readable only by you like the login, and `lorenzo logout` deletes it. A name made elsewhere completes once a command has listed it (`lorenzo system list`, `stat-definition list`...; [ADR 0507](../../docs/adr/0507-completing-names-from-a-private-cache.md)).
 
 ## Before you start
 
@@ -99,16 +99,16 @@ Or pipe a token in with `--token-stdin`. A token from the stored login is used l
 | `lorenzo export inventory --tenant <tenant> [--owner CHARACTER] [--json] [-o FILE]` | Writes a character's inventory as a file: what they own, where it is, and what was noted, with each item's id so `import --add` reads it back as moves |
 | `lorenzo repo publish\|unpublish\|grant\|revoke\|subscribers --tenant <repository>` | The repository's own side: publish it as a release (`--label`, `--notes`, `--breaking`; again, to make the next one, [ADR 0207](../../docs/adr/0207-the-release-ledger.md); a release that removes or changes what libraries hold is refused until `--acknowledge-breaking`, [ADR 0208](../../docs/adr/0208-the-release-digest-and-the-breaking-change-detector.md)), withdraw it, give a tenant access, take it back, list who has it. Owners only |
 | `lorenzo repo list\|copy-plan\|copy\|updates --tenant <tenant>` | A tenant's side: which repositories it holds, what copying one would do, copying it, and taking what it changed since. `copy --again keep` or `purge` copies afresh a repository the tenant already copied. See [Publishing a repository](#publishing-a-repository) |
-| `lorenzo repo contents --tenant <repository>` | What a repository holds: published or a draft and who it is granted to, what it is built on, its systems, templates and roles, its stats by system, and how many entries, items, features, grant rules and attachments ([ADR 0492](../../docs/adr/0492-the-repository-commands-show-systems-templates-and-warnings.md)) |
+| `lorenzo repo contents --tenant <repository>` | What a repository holds: published or a draft and who it is granted to, what it is built on, its systems, templates and roles, its stats by system, and how many entries, items, features, grant rules and attachments ([ADR 0506](../../docs/adr/0506-the-repository-commands-show-systems-templates-and-warnings.md)) |
 | `lorenzo repo libraries --tenant <repository> --entry E\|--stat S\|--stat-group G` | How many libraries have copied an entry, a stat or a stat group, never which: what deleting it would mean to them. Nothing here blocks a delete ([ADR 0386](../../docs/adr/0386-how-many-libraries-hold-what-is-deleted.md)) |
 | `lorenzo repo offer <tenant> --tenant <repository>` | Grant it, then copy it into that tenant; a copy already there is a success, so it is safe to run again; `--apply-updates` also takes the updates that need no decision |
-| `lorenzo stat-group list\|show\|create\|edit\|delete`, `lorenzo stat-definition list\|show\|create\|edit\|delete` | A library's stat vocabulary: its groups and definitions, with systems, roles, bounds, display fields and hints ([ADR 0295](../../docs/adr/0295-cli-vocabulary-sheet-settings-and-reads.md), [ADR 0485](../../docs/adr/0485-system-and-vocabulary-commands.md)). See [Authoring the stat vocabulary and reading entries](#authoring-the-stat-vocabulary-and-reading-entries) |
+| `lorenzo stat-group list\|show\|create\|edit\|delete`, `lorenzo stat-definition list\|show\|create\|edit\|delete` | A library's stat vocabulary: its groups and definitions, with systems, roles, bounds, display fields and hints ([ADR 0295](../../docs/adr/0295-cli-vocabulary-sheet-settings-and-reads.md), [ADR 0499](../../docs/adr/0499-system-and-vocabulary-commands.md)). See [Authoring the stat vocabulary and reading entries](#authoring-the-stat-vocabulary-and-reading-entries) |
 | `lorenzo system list\|show\|create\|edit\|delete` | A library's game systems. See [Game systems and library documents](#game-systems-and-library-documents) |
-| `lorenzo plan\|apply FILE\|--starter NAME -t LIBRARY [--prune]`, `lorenzo export SLUG\|neutral -t LIBRARY` | A system or the neutral vocabulary as one document: what applying it would do, applying it, and writing it back ([ADR 0484](../../docs/adr/0484-the-library-document.md)) |
-| `lorenzo formula set\|show\|preview\|tree\|delete` | Formulas of every kind, one at a time ([ADR 0486](../../docs/adr/0486-formulas-from-the-command-line.md)) |
-| `lorenzo template list\|show\|create\|delete\|matching\|view`, `lorenzo campaign list\|create\|set-system`, `lorenzo being create\|show` | Templates, the system a campaign plays, and beings ([ADR 0487](../../docs/adr/0487-templates-campaigns-and-beings-from-the-command-line.md)) |
-| `lorenzo feature list\|show\|award\|activate\|deactivate\|remove`, `lorenzo grant-rule list\|show\|create\|delete`, `lorenzo grants show\|apply` | Features, the rules that grant them, and applying them with choices ([ADR 0488](../../docs/adr/0488-features-and-grants-from-the-command-line.md)) |
-| `lorenzo check -t LIBRARY [--code C] [--entry E] [--parent P] [--severity S] [--fail-on warning\|info]` | What a library's stats get wrong without saying so; exit 1 only with `--fail-on` ([ADR 0489](../../docs/adr/0489-lorenzo-check.md)) |
+| `lorenzo plan\|apply FILE\|--starter NAME -t LIBRARY [--prune]`, `lorenzo export SLUG\|neutral -t LIBRARY` | A system or the neutral vocabulary as one document: what applying it would do, applying it, and writing it back ([ADR 0498](../../docs/adr/0498-the-library-document.md)) |
+| `lorenzo formula set\|show\|preview\|tree\|delete` | Formulas of every kind, one at a time ([ADR 0500](../../docs/adr/0500-formulas-from-the-command-line.md)) |
+| `lorenzo template list\|show\|create\|delete\|matching\|view`, `lorenzo campaign list\|create\|set-system`, `lorenzo being create\|show` | Templates, the system a campaign plays, and beings ([ADR 0501](../../docs/adr/0501-templates-campaigns-and-beings-from-the-command-line.md)) |
+| `lorenzo feature list\|show\|award\|activate\|deactivate\|remove`, `lorenzo grant-rule list\|show\|create\|delete`, `lorenzo grants show\|apply` | Features, the rules that grant them, and applying them with choices ([ADR 0502](../../docs/adr/0502-features-and-grants-from-the-command-line.md)) |
+| `lorenzo check -t LIBRARY [--code C] [--entry E] [--parent P] [--severity S] [--fail-on warning\|info]` | What a library's stats get wrong without saying so; exit 1 only with `--fail-on` ([ADR 0503](../../docs/adr/0503-lorenzo-check.md)) |
 | `lorenzo starter list\|show`, `lorenzo schema document\|output COMMAND` | The documents that ship with the CLI, and the JSON Schemas of the document and of each command's `--json` output. Need no login |
 | `lorenzo tenant sheet-settings <tenant> [--being-stat-group G] [--weapon-stat-group G] [--ability-information-type T] [--clear-...] [--json]` | Reads a library's sheet settings, or changes only the ones named; each `--clear-...` unsets one |
 | `lorenzo item show <item>`, `lorenzo item-instance show <instance>`, `lorenzo being show <being>` `--tenant <tenant> [--json]` | Reads an item, an instance or a being by id, link name or exact name: resolved stats, inheritance, containment and notes, and for a being its equipped weapons and abilities |
@@ -157,7 +157,7 @@ Each step is in its own section below: [starters](#starters), [library documents
 
 ## Starters
 
-An import needs somewhere to put things: categories to descend from (weapon, container, martial...) and the stat definitions the values are written to. The CLI ships them as library documents, the **starters**, and nothing else seeds a library ([ADR 0491](../../docs/adr/0491-starters-replace-the-seed.md)):
+An import needs somewhere to put things: categories to descend from (weapon, container, martial...) and the stat definitions the values are written to. The CLI ships them as library documents, the **starters**, and nothing else seeds a library ([ADR 0505](../../docs/adr/0505-starters-replace-the-seed.md)):
 
 | Starter | Holds |
 | --- | --- |
@@ -186,7 +186,7 @@ lorenzo system show ds -t my-library          # its groups, templates and campai
 lorenzo system edit ds -t my-library --root ds-root
 ```
 
-A whole system, or the neutral vocabulary, is one TOML document ([ADR 0484](../../docs/adr/0484-the-library-document.md)): the system, its stat groups and stats (with roles, bounds and dice), entries with parents, values, tags and a description, and parents added to entries another document owns. Everything is named by name or slug, never by id, so one document applies to any library and a second apply finds what the first made.
+A whole system, or the neutral vocabulary, is one TOML document ([ADR 0498](../../docs/adr/0498-the-library-document.md)): the system, its stat groups and stats (with roles, bounds and dice), entries with parents, values, tags and a description, and parents added to entries another document owns. Everything is named by name or slug, never by id, so one document applies to any library and a second apply finds what the first made.
 
 ```toml
 format = 1
@@ -267,7 +267,7 @@ lorenzo being show hale -t lib --campaign league       # the sheet as the campai
 
 ### Features and grants
 
-A feature is an entry of kind `feature`; an entry holds one when it is awarded, granted by a rule on something it inherits from or holds, or picked from a rule's choice ([ADR 0488](../../docs/adr/0488-features-and-grants-from-the-command-line.md)). In a document a feature has `prerequisites`, and a `[[grant_rule]]` sits `on` an entry with a `label`, a `mode` (`all`, or `choose` with `min` and `max`), its `options` (or an `option_category`) and its `conditions`:
+A feature is an entry of kind `feature`; an entry holds one when it is awarded, granted by a rule on something it inherits from or holds, or picked from a rule's choice ([ADR 0502](../../docs/adr/0502-features-and-grants-from-the-command-line.md)). In a document a feature has `prerequisites`, and a `[[grant_rule]]` sits `on` an entry with a `label`, a `mode` (`all`, or `choose` with `min` and `max`), its `options` (or an `option_category`) and its `conditions`:
 
 ```toml
 [[grant_rule]]
@@ -294,7 +294,7 @@ lorenzo grant-rule create --from rule.toml -t lib
 
 ### Checking a library
 
-`lorenzo check` is the vocabulary check of RFC 0055: what a library's stats get wrong without saying so. It reads; nothing is refused or written ([ADR 0489](../../docs/adr/0489-lorenzo-check.md)).
+`lorenzo check` is the vocabulary check of RFC 0055: what a library's stats get wrong without saying so. It reads; nothing is refused or written ([ADR 0503](../../docs/adr/0503-lorenzo-check.md)).
 
 ```bash
 lorenzo check -t lib                                    # grouped by entry, with a count at the end
@@ -307,7 +307,7 @@ The codes are `unset-input`, `own-value-shadows-formula` and `tie` (warnings), a
 
 ### Formulas
 
-A formula is one of the API's curated kinds with its fields, never an expression ([ADR 0486](../../docs/adr/0486-formulas-from-the-command-line.md), RFC 0016): `linear`, `comparison`, `sum`, `contents`, `min`, `max`, `product`, `ratio`, `select`, `dice_value` and `dice`. In a document it is a `[[formula]]` with `on` (the entry), `stat`, `kind` and the kind's fields, a stat named by its name (`source`, `left`, `right`, `numerator`, `denominator`, `count`, `sides`, `where`, a term's or input's `stat`, `factors`) and `round` for the rounding:
+A formula is one of the API's curated kinds with its fields, never an expression ([ADR 0500](../../docs/adr/0500-formulas-from-the-command-line.md), RFC 0016): `linear`, `comparison`, `sum`, `contents`, `min`, `max`, `product`, `ratio`, `select`, `dice_value` and `dice`. In a document it is a `[[formula]]` with `on` (the entry), `stat`, `kind` and the kind's fields, a stat named by its name (`source`, `left`, `right`, `numerator`, `denominator`, `count`, `sides`, `where`, a term's or input's `stat`, `factors`) and `round` for the rounding:
 
 ```toml
 [[formula]]
@@ -435,7 +435,7 @@ Without `--part` an item is written with everything the sheet says of it, on one
 
 A second run of either pass finds what the first made and attaches nothing twice. `plan` and `apply` say which half they are for, `--json` has `header.part` (`neutral`, `system` or `all`), and a held item says which pass held it: a price that can't be read holds only the system pass, a value no row knows holds both. `--public-catalog` is refused with `--part system`.
 
-What is whose is decided by the starters ([ADR 0490](../../docs/adr/0490-the-importers-move-under-lorenzo-import.md)): a stat is the system's when its group belongs to a system (`dnd5e_price` and `dnd5e_damage` are D&D's, `own_weight` is neutral), a category the system's when it comes from the `dnd5e` starter, and a category a map row mints the part of its axis (`proficiency`, `tier` and `property` are the system's, `form` and `material` are neutral). A row says `part = "neutral"` or `"system"` only for what no starter decides: text, and a stat or a parent the starters don't have (neutral if it says nothing). Where a starter does decide, a `part` on the row is a map error. `[system_namespaces]` names the prototypes' namespace per file (`srd5e` for the sheet's own data, else the file's namespace and `-5e`), and `[system] label = "..."` the label in their names:
+What is whose is decided by the starters ([ADR 0504](../../docs/adr/0504-the-importers-move-under-lorenzo-import.md)): a stat is the system's when its group belongs to a system (`dnd5e_price` and `dnd5e_damage` are D&D's, `own_weight` is neutral), a category the system's when it comes from the `dnd5e` starter, and a category a map row mints the part of its axis (`proficiency`, `tier` and `property` are the system's, `form` and `material` are neutral). A row says `part = "neutral"` or `"system"` only for what no starter decides: text, and a stat or a parent the starters don't have (neutral if it says nothing). Where a starter does decide, a `part` on the row is a map error. `[system_namespaces]` names the prototypes' namespace per file (`srd5e` for the sheet's own data, else the file's namespace and `-5e`), and `[system] label = "..."` the label in their names:
 
 ```toml
 [namespaces]
@@ -466,7 +466,7 @@ lorenzo repo copy my-homebrew --tenant table-one --dry-run      # every check, t
 lorenzo repo copy my-homebrew --tenant table-one --on-collision merge
 ```
 
-A copy makes the repository's content the tenant's own, so a stat group, stat, role, template or slug that the tenant already has needs a choice (rename, merge or skip) before anything is written. `copy-plan --json` lists each collision with its `source_id` and the choices it allows; give them back in a file (`--choices choices.json`, a list of `{"kind", "source_id", "action", "name"}`) or answer all of them with `--on-collision merge|skip` (a slug can't be merged). With no answer, nothing is copied and the exit code is 2. A step's line counts its systems and templates, and what it leaves out is counted by kind with the reason (grant rules and prerequisites among them; the ids are in `--json`). A stat merged into one here whose unit or bounds differ keeps yours and is said as a warning (``` `height`: here in cm, incoming with no unit; merged, yours kept ```); `--strict-units` on `copy-plan`, `copy` and `offer` makes it a name to answer instead ([ADR 0492](../../docs/adr/0492-the-repository-commands-show-systems-templates-and-warnings.md)).
+A copy makes the repository's content the tenant's own, so a stat group, stat, role, template or slug that the tenant already has needs a choice (rename, merge or skip) before anything is written. `copy-plan --json` lists each collision with its `source_id` and the choices it allows; give them back in a file (`--choices choices.json`, a list of `{"kind", "source_id", "action", "name"}`) or answer all of them with `--on-collision merge|skip` (a slug can't be merged). With no answer, nothing is copied and the exit code is 2. A step's line counts its systems and templates, and what it leaves out is counted by kind with the reason (grant rules and prerequisites among them; the ids are in `--json`). A stat merged into one here whose unit or bounds differ keeps yours and is said as a warning (``` `height`: here in cm, incoming with no unit; merged, yours kept ```); `--strict-units` on `copy-plan`, `copy` and `offer` makes it a name to answer instead ([ADR 0506](../../docs/adr/0506-the-repository-commands-show-systems-templates-and-warnings.md)).
 
 When the repository publishes again, `lorenzo repo list --tenant table-one` says "updated since":
 
@@ -486,11 +486,11 @@ lorenzo repo updates my-homebrew --tenant table-one --actions mine.json   # deci
 lorenzo repo contents --tenant common-fantasy-eq
 ```
 
-It reads one repository tenant and says whether it is published (or a draft) and how many tenants it is granted to; which repositories it is built on, that is the ones it has copied, with the date and whether they have published since; its systems with their roots, its templates, its stat groups and stats counted by system (`neutral` for those of none), the roles its stats and groups hold; and how many entries, items (categories included), features and grant rules it holds and how many parents it attaches to items it copied (attachments, said only when there are some; `holds.attachments` in `--json`). `--json` prints the same as data. It only reads ([ADR 0169](../../docs/adr/0169-seed-list-and-repo-contents.md), [ADR 0492](../../docs/adr/0492-the-repository-commands-show-systems-templates-and-warnings.md)).
+It reads one repository tenant and says whether it is published (or a draft) and how many tenants it is granted to; which repositories it is built on, that is the ones it has copied, with the date and whether they have published since; its systems with their roots, its templates, its stat groups and stats counted by system (`neutral` for those of none), the roles its stats and groups hold; and how many entries, items (categories included), features and grant rules it holds and how many parents it attaches to items it copied (attachments, said only when there are some; `holds.attachments` in `--json`). `--json` prints the same as data. It only reads ([ADR 0169](../../docs/adr/0169-seed-list-and-repo-contents.md), [ADR 0506](../../docs/adr/0506-the-repository-commands-show-systems-templates-and-warnings.md)).
 
 ### Equipment and rules as two repositories
 
-What is meant to be published is split in two, by starter ([RFC 0033](../../docs/rfcs/0033-item-repositories-common-equipment-rules-and-bridge.md), [ADR 0491](../../docs/adr/0491-starters-replace-the-seed.md)):
+What is meant to be published is split in two, by starter ([RFC 0033](../../docs/rfcs/0033-item-repositories-common-equipment-rules-and-bridge.md), [ADR 0505](../../docs/adr/0505-starters-replace-the-seed.md)):
 
 | Repository | Holds | Built on |
 | --- | --- | --- |
@@ -631,9 +631,9 @@ calendar entry's own Information. Imported audiences remain restricted unless ex
 
 ## Scripting
 
-- **Writing.** Every command that writes shows what it will do, then asks once at a terminal; `--yes` skips the question, and `--dry-run`, where a command has it, never writes. With no terminal and no `--yes` it writes nothing and exits 2 ([ADR 0482](../../docs/adr/0482-one-write-contract-for-every-cli-command.md)). `lorenzo api` asks too, for anything but `GET`.
+- **Writing.** Every command that writes shows what it will do, then asks once at a terminal; `--yes` skips the question, and `--dry-run`, where a command has it, never writes. With no terminal and no `--yes` it writes nothing and exits 2 ([ADR 0496](../../docs/adr/0496-one-write-contract-for-every-cli-command.md)). `lorenzo api` asks too, for anything but `GET`.
 - **Exit codes.** 0 is done or nothing to do, 2 is something to do or to decide that was not done, and 1 is refused or failed. Each command's `--help` says what 0 and 2 mean for it.
-- **`--json`** (on every command that prints a result) prints exactly one JSON object on stdout, with `"format": 1` beside what it reports; a list is under a key (`{"format": 1, "tenants": [...]}`). A failure under `--json` is one object too, `{"format": 1, "error": {"status", "code", "message", "details"}}`, with exit 1. It never asks a question, so a command that writes needs `--yes` with it. A file a command writes (a calendar, a ledger) and `lorenzo api`'s answer keep their own shape ([ADR 0481](../../docs/adr/0481-the-clis-output-and-machine-contract.md)).
+- **`--json`** (on every command that prints a result) prints exactly one JSON object on stdout, with `"format": 1` beside what it reports; a list is under a key (`{"format": 1, "tenants": [...]}`). A failure under `--json` is one object too, `{"format": 1, "error": {"status", "code", "message", "details"}}`, with exit 1. It never asks a question, so a command that writes needs `--yes` with it. A file a command writes (a calendar, a ledger) and `lorenzo api`'s answer keep their own shape ([ADR 0495](../../docs/adr/0495-the-clis-output-and-machine-contract.md)).
 - **Feedback.** Whatever is for a person goes to stderr: notices, warnings (`⚠`), errors (`✗`), questions, and progress: a spinner while the API takes a moment, a bar with a count for a batch. Nothing animates when stderr is not a terminal, with `NO_COLOR`, with `--json`, or with `--no-progress` before the command (a wait is then one plain line); `--quiet` before the command drops notices and progress and keeps the result, warnings and errors.
 - **`lorenzo api`** is for everything else, with the login you already have, so no token is pasted into a shell:
 

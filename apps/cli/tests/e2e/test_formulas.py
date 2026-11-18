@@ -1,4 +1,4 @@
-"""Formulas against the real API (ADR 0486): in a document, applied, found again and exported; and
+"""Formulas against the real API (ADR 0500): in a document, applied, found again and exported; and
 one at a time with `lorenzo formula`."""
 
 from __future__ import annotations

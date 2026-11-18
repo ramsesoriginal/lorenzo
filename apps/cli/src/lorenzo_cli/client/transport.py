@@ -94,7 +94,7 @@ class LorenzoClient:
     ) -> None:
         self._tokens = tokens
         self._max_attempts = max_attempts
-        # Told of every answered operation: the completion cache listens here (ADR 0493).
+        # Told of every answered operation: the completion cache listens here (ADR 0507).
         self.observer: Observer | None = None
         self._sleep = sleep
         self._http = httpx.Client(

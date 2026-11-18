@@ -1,5 +1,5 @@
 """A plan and its result, for a person (a table with a symbol and a word on every row) and as
-`--json` (ADR 0481)."""
+`--json` (ADR 0495)."""
 
 from __future__ import annotations
 

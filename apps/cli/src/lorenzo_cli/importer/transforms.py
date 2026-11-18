@@ -147,7 +147,7 @@ def _damage(rule: Rule, attribute: str, value: Any, ctx: Context) -> Effect:
         return _bad(effect, "damage", attribute, value, "damage isn't [dice, die, type]")
     dice, die, kind = value
     if _number(dice) is not None and _number(die) is not None and die > 0:
-        # One dice value, as the dnd5e starter holds it (ADR 0462, ADR 0490).
+        # One dice value, as the dnd5e starter holds it (ADR 0462, ADR 0504).
         effect.stats["dnd5e_damage"] = f"{int(dice)}d{int(die)}"
     else:
         effect.notes.append(f"damage {value!r} isn't a dice roll, so its amount isn't stored")

@@ -1,4 +1,4 @@
-"""Carrying a plan out (ADR 0483, ADR 0484): level by level, up to four requests at a time within a
+"""Carrying a plan out (ADR 0497, ADR 0498): level by level, up to four requests at a time within a
 level, and the result listed in the plan's order whatever order the requests finished in. A failure
 stops the levels after its own; what was written stays, and the next apply finds it.
 """

@@ -1,4 +1,4 @@
-"""`lorenzo formula` (ADR 0486): set, show, preview, trace and delete one formula on an entry.
+"""`lorenzo formula` (ADR 0500): set, show, preview, trace and delete one formula on an entry.
 
 A formula is its kind and that kind's fields, as options for the kinds whose fields are flat, or
 from a file for the rest (a `select` and its steps). No notation (RFC 0016).

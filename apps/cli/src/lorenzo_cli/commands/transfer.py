@@ -1,4 +1,4 @@
-"""`lorenzo import` and `lorenzo export` (ADR 0484, ADR 0490): what comes in from a file and
+"""`lorenzo import` and `lorenzo export` (ADR 0498, ADR 0504): what comes in from a file and
 goes out to one. Both are lazy groups, so `lorenzo import calendar` loads the calendar code and
 nothing of the MPMB importer's."""
 
@@ -39,7 +39,7 @@ class ImportGroup(LazyGroup):
 
 
 class ExportGroup(LazyGroup):
-    """`lorenzo export SLUG` is `lorenzo export system SLUG` (ADR 0484): a name that is not one of
+    """`lorenzo export SLUG` is `lorenzo export system SLUG` (ADR 0498): a name that is not one of
     the group's commands is a system's slug."""
 
     registry = EXPORTS

@@ -1,5 +1,5 @@
 """A command group whose commands are imported only when one is run or its own help is shown
-(ADR 0483). The root and the `import` and `export` groups are such groups; each lists its commands
+(ADR 0497). The root and the `import` and `export` groups are such groups; each lists its commands
 in a registry, with the short help its listing and a completion show without importing anything."""
 
 from __future__ import annotations

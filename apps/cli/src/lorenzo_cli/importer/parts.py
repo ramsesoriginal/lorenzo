@@ -1,7 +1,7 @@
 """Whose each thing an item is made of is (RFC 0033 section 6, ADR 0182): the neutral half, true
 anywhere, or the system's, D&D's.
 
-The starters decide it where they can (ADR 0490): a stat of a group of D&D 5e's system is the
+The starters decide it where they can (ADR 0504): a stat of a group of D&D 5e's system is the
 system's, a category of the dnd5e starter is the system's, the rest is neutral. A row says it only
 for what they do not decide (text, a stat or a parent they don't know), so a map can't say what the
 starters contradict.

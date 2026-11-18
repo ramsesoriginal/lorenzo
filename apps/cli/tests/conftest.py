@@ -1,4 +1,4 @@
-"""Every test runs with a home of its own, so the completion cache (ADR 0493), which a command
+"""Every test runs with a home of its own, so the completion cache (ADR 0507), which a command
 writes under `~/.cache/lorenzo/` when nothing else is named, never lands in the real one."""
 
 from __future__ import annotations

@@ -1,4 +1,4 @@
-"""The library document against the real API (ADR 0484, ADR 0485): applied, applied again with
+"""The library document against the real API (ADR 0498, ADR 0499): applied, applied again with
 nothing to do, exported back to the same document, and edited one row at a time."""
 
 from __future__ import annotations

@@ -28,7 +28,7 @@ app = typer.Typer(help="Import and export authored calendar documents.", no_args
 @contextmanager
 def activity(description: str, *, as_json: bool) -> Iterator[None]:
     """The API applies one transaction; show elapsed activity, never invented note progress."""
-    del as_json  # the console knows a `--json` run (ADR 0481)
+    del as_json  # the console knows a `--json` run (ADR 0495)
     with console.waiting(description.removesuffix("…")):
         yield
 

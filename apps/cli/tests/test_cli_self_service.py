@@ -158,7 +158,7 @@ class World:
 
 
 def run(world: World, tmp_path: Path, *args: str):
-    """`item add` is a write, so it is given --yes (ADR 0482); the contract has its own test."""
+    """`item add` is a write, so it is given --yes (ADR 0496); the contract has its own test."""
     if args[:2] == ("item", "add"):
         args = (*args, "--yes")
     runtime = Runtime(

@@ -1,4 +1,4 @@
-"""Features, grant rules and grants against the real API (ADR 0488): in a document, applied, found
+"""Features, grant rules and grants against the real API (ADR 0502): in a document, applied, found
 again and exported; a choice answered with --pick; a feature awarded, switched off and removed."""
 
 from __future__ import annotations

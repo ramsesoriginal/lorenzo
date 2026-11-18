@@ -1,4 +1,4 @@
-"""Everything `lorenzo` prints goes through here (ADR 0481).
+"""Everything `lorenzo` prints goes through here (ADR 0495).
 
 - stdout carries the result and nothing else; notices, warnings, errors, questions and progress
   go to stderr.

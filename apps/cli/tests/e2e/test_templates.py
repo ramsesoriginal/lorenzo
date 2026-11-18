@@ -1,4 +1,4 @@
-"""Templates, campaigns and beings against the real API (ADR 0487): a template in a document,
+"""Templates, campaigns and beings against the real API (ADR 0501): a template in a document,
 applied, found again and exported; one from a file; a campaign playing the system; a being made
 under the system's types and read as the campaign shows it."""
 

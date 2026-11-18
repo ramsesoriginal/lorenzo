@@ -1,7 +1,7 @@
 # 0057 - The command line for game systems
 
-Status: accepted (2026-11-17), decided with the maintainer, not built (slices C1 to C13).
-Decisions: [ADR 0481](../adr/0481-the-clis-output-and-machine-contract.md) to [ADR 0493](../adr/0493-completing-names-from-a-private-cache.md).
+Status: accepted (2026-11-17), decided with the maintainer, built in slices C1 to C13 (2026-11-18).
+Decisions: [ADR 0495](../adr/0495-the-clis-output-and-machine-contract.md) to [ADR 0507](../adr/0507-completing-names-from-a-private-cache.md).
 Builds on [RFC 0052](0052-game-systems-in-one-library.md), [RFC 0053](0053-formula-kinds-min-max-product-ratio-select-and-held-aggregation.md),
 [RFC 0054](0054-features-grants-and-choices.md), [RFC 0055](0055-vocabulary-check.md) and [RFC 0056](0056-dice-values.md), which built the
 API this covers, and on [RFC 0025](0025-lorenzo-cli-mpmb-item-importer.md) and [RFC 0033](0033-item-repositories-common-equipment-rules-and-bridge.md),
@@ -110,18 +110,18 @@ tests against the real API (`tests/e2e`), and the generated client in step with 
 
 | Slice | What | ADR | Builds on |
 | --- | --- | --- | --- |
-| C1 | `main.py` split by command group, groups and models loaded on use, the start-up test | 0483 | |
-| C2 | The console module, the write contract, `--json` failures and format numbers, applied to every existing command | 0481, 0482 | C1 |
-| C3 | The MPMB, inventory and calendar commands under `lorenzo import` and `lorenzo export` | 0490 | C2 |
+| C1 | `main.py` split by command group, groups and models loaded on use, the start-up test | 0497 | |
+| C2 | The console module, the write contract, `--json` failures and format numbers, applied to every existing command | 0495, 0496 | C1 |
+| C3 | The MPMB, inventory and calendar commands under `lorenzo import` and `lorenzo export` | 0504 | C2 |
 | C4 | Typed operations for every route of RFC 0052 to RFC 0056 | | C3 |
-| C5 | The document planner for the vocabulary, `plan`/`apply`/`export`, `lorenzo schema`, `system`, `stat-group`, `stat-definition` | 0484, 0485 | C4 |
-| C6 | Formulas in the document and `lorenzo formula` | 0486 | C5 |
-| C7 | Templates, campaigns and beings in the document and their commands; `--system`, `--template`, `--campaign` on reads | 0487 | C6 |
-| C8 | Features, grant rules, prerequisites and grants | 0488 | C7 |
-| C9 | `lorenzo check` | 0489 | C8 |
-| C10 | The three starters; the seed, its layers and `unseed` removed; the importers on the new names | 0491, 0490 | C9 |
-| C11 | `repo copy-plan`, `copy`, `updates` and `contents` with systems, templates and warnings | 0492 | C10 |
-| C12 | Completion of names from a private cache | 0493 | C11 |
+| C5 | The document planner for the vocabulary, `plan`/`apply`/`export`, `lorenzo schema`, `system`, `stat-group`, `stat-definition` | 0498, 0499 | C4 |
+| C6 | Formulas in the document and `lorenzo formula` | 0500 | C5 |
+| C7 | Templates, campaigns and beings in the document and their commands; `--system`, `--template`, `--campaign` on reads | 0501 | C6 |
+| C8 | Features, grant rules, prerequisites and grants | 0502 | C7 |
+| C9 | `lorenzo check` | 0503 | C8 |
+| C10 | The three starters; the seed, its layers and `unseed` removed; the importers on the new names | 0505, 0504 | C9 |
+| C11 | `repo copy-plan`, `copy`, `updates` and `contents` with systems, templates and warnings | 0506 | C10 |
+| C12 | Completion of names from a private cache | 0507 | C11 |
 | C13 | README, guides and the walkthrough, with its end-to-end test | | C12 |
 
 The first step is C1: it changes no behaviour, and every later slice prints through what C2 builds on it.
@@ -164,9 +164,9 @@ All thirteen slices are built as stacked pull requests, C1 to C13, each with an 
 short:
 
 - Completing a name loads the command's group, since the completer sits on its parameter: about 280 ms against about 100 ms for
-  the root; it reads only the cache file (ADR 0493).
+  the root; it reads only the cache file (ADR 0507).
 - The API reports a merged stat's unit warning only for a merge it is told to make, so `copy --on-collision merge --dry-run` shows
-  it and a plain `copy-plan` does not (ADR 0492).
-- The published repositories are two, the equipment and the rules, not four (ADR 0491).
+  it and a plain `copy-plan` does not (ADR 0506).
+- The published repositories are two, the equipment and the rules, not four (ADR 0505).
 - Found on the way: a concurrent write of two values on one entry answers 500 (the writer serializes per row; issue #1282), and
   inventory-web still names the removed `lorenzo seed` (issue #1287).

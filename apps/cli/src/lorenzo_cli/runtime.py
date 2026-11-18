@@ -1,7 +1,7 @@
 """What every command runs against: the consoles, the Runtime, the API client, and how an expected
 failure is reported. Imported by the root, so it imports nothing a command group needs only for
 itself: the HTTP stack, the token sources and the MPMB engine load when they are first used
-(ADR 0483)."""
+(ADR 0497)."""
 
 from __future__ import annotations
 
@@ -29,7 +29,7 @@ if TYPE_CHECKING:
     from lorenzo_cli.completion import Recorder
     from lorenzo_cli.evalworker import Engine, EvalRequest, EvalResult
 
-# The two consoles every command prints through (ADR 0481); the names stay for the modules that
+# The two consoles every command prints through (ADR 0495); the names stay for the modules that
 # already use them.
 _out = console.out
 _err = console.err
@@ -40,7 +40,7 @@ def _warn(message: str) -> None:
 
 
 def may_write(runtime: Runtime, *, yes: bool, question: str, default: bool = False) -> None:
-    """The write contract (ADR 0482), once the plan has been shown: `--yes` writes; at a terminal
+    """The write contract (ADR 0496), once the plan has been shown: `--yes` writes; at a terminal
     the question is asked once; anywhere else nothing is written and the command exits 2, as it
     does when the answer is no. `default` is True only where the plan is a single row."""
     if yes:
@@ -186,7 +186,7 @@ def _code(exc: BaseException) -> str:
 
 
 def _fail(message: str, status_code: int | None, code: str, details: object) -> None:
-    """One line on stderr, and under `--json` one error document on stdout (ADR 0481)."""
+    """One line on stderr, and under `--json` one error document on stdout (ADR 0495)."""
     console.error(message)
     if console.settings.json:
         console.emit_error(status_code, code, message, details)
@@ -229,7 +229,7 @@ def _client(runtime: Runtime, *, writes: bool = False) -> Iterator[LorenzoClient
 
 
 def names_cache_path(runtime: Runtime, base_url: str) -> Path | None:
-    """The completion cache for this API and account (ADR 0493); None when the account can't be
+    """The completion cache for this API and account (ADR 0507); None when the account can't be
     known without asking, as with a token piped in."""
     from lorenzo_cli import completion
 

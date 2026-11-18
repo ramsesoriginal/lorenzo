@@ -1,7 +1,9 @@
-# 0482 - One write contract for every CLI command
+# 0496 - One write contract for every CLI command
 
-Status: accepted (2026-11-17), decided with the maintainer, not built. Slice C2 of [RFC 0057](../rfcs/0057-the-command-line-for-game-systems.md).
+Status: accepted (2026-11-17), decided with the maintainer, built (2026-11-18). Slice C2 of [RFC 0057](../rfcs/0057-the-command-line-for-game-systems.md).
 Generalises [ADR 0144](0144-lorenzo-import-mapping-identity-plan-apply.md)'s non-interactive contract to every writing command.
+
+_Originally numbered 0482; renumbered before merge - the Maps ADRs 0481, 0482, 0490 and 0491 reached `main` first, so the RFC 0057 block moved as a whole to 0495-0507. Same precedent as ADR 0050/0054/0068/0069/0087._
 
 ## Context
 

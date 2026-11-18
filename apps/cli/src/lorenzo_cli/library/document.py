@@ -1,4 +1,4 @@
-"""The library document's tables and the checks that need no library (ADR 0484).
+"""The library document's tables and the checks that need no library (ADR 0498).
 
 A row names others by name (a group, a stat) or by slug (an entry, a system), never by id, so one
 document applies to any library and a second apply finds what the first made.
@@ -104,7 +104,7 @@ class EntryRow(_Row):
 
 
 class FormulaRow(BaseModel):
-    """A formula on an entry (ADR 0486): `on` the entry's slug, `stat` the stat it computes, `kind`,
+    """A formula on an entry (ADR 0500): `on` the entry's slug, `stat` the stat it computes, `kind`,
     and that kind's fields as `library.formulas` names them."""
 
     model_config = ConfigDict(extra="allow")

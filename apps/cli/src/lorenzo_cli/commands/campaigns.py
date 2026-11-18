@@ -1,4 +1,4 @@
-"""`lorenzo campaign` (ADR 0487): list, create, and the system a campaign plays, which picks the
+"""`lorenzo campaign` (ADR 0501): list, create, and the system a campaign plays, which picks the
 templates its beings' sheets are read through (ADR 0452)."""
 
 from __future__ import annotations

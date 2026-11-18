@@ -1,4 +1,4 @@
-"""The completion cache against the real API (ADR 0493): the commands a person already runs fill it,
+"""The completion cache against the real API (ADR 0507): the commands a person already runs fill it,
 and a delete takes a name out again."""
 
 from __future__ import annotations

@@ -1,4 +1,4 @@
-"""What applying a document would do to a library (ADR 0484), against libraries built by hand."""
+"""What applying a document would do to a library (ADR 0498), against libraries built by hand."""
 
 from __future__ import annotations
 

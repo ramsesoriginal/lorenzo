@@ -1,4 +1,4 @@
-"""Templates as a document writes them (ADR 0487): stat groups and stats by name, the ancestor by
+"""Templates as a document writes them (ADR 0501): stat groups and stats by name, the ancestor by
 slug, the system by slug or as the document's own; and the API's template the same way back."""
 
 from __future__ import annotations

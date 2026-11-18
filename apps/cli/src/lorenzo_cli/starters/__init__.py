@@ -1,4 +1,4 @@
-"""The library documents that ship with the CLI (ADR 0491): one TOML file each in this package,
+"""The library documents that ship with the CLI (ADR 0505): one TOML file each in this package,
 named by its file. `lorenzo starter list|show` reads them without a login; `--starter NAME` on
 `plan` and `apply` stands for one."""
 

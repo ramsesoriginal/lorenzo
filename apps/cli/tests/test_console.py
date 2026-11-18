@@ -1,4 +1,4 @@
-"""The output, machine and write contracts every command shares (ADR 0481, ADR 0482)."""
+"""The output, machine and write contracts every command shares (ADR 0495, ADR 0496)."""
 
 from __future__ import annotations
 

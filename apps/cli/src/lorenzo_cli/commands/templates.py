@@ -1,4 +1,4 @@
-"""`lorenzo template` (ADR 0487): a library's templates, what an entry matches, and an entry
+"""`lorenzo template` (ADR 0501): a library's templates, what an entry matches, and an entry
 read through one. A template's slots are many and nested, so it is written in a file, as in a
 document."""
 

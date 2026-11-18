@@ -96,7 +96,7 @@ class VocabularyWorld(World):
 
 
 def invoke(world: VocabularyWorld, tmp_path: Path, *args: str):
-    """Writes are given --yes (ADR 0482); a read with --yes is the same read."""
+    """Writes are given --yes (ADR 0496); a read with --yes is the same read."""
     if args[1:2] in (("create",), ("edit",)) or args[1:2] == ("sheet-settings",):
         args = (*args, "--yes")
     runtime = Runtime(

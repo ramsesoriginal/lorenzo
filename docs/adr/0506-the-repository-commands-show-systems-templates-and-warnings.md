@@ -1,8 +1,10 @@
-# 0492 - The repository commands show systems, templates and warnings
+# 0506 - The repository commands show systems, templates and warnings
 
-Status: accepted (2026-11-17), decided with the maintainer, not built. Slice C11 of [RFC 0057](../rfcs/0057-the-command-line-for-game-systems.md).
+Status: accepted (2026-11-17), decided with the maintainer, built (2026-11-18). Slice C11 of [RFC 0057](../rfcs/0057-the-command-line-for-game-systems.md).
 Amends [ADR 0159](0159-lorenzo-repo-commands.md), [ADR 0169](0169-seed-list-and-repo-contents.md) (`repo contents`) and
 [ADR 0174](0174-the-cli-shows-attachments.md); builds on [ADR 0453](0453-repositories-carry-systems-and-templates.md) and [ADR 0469](0469-updates-track-game-systems-and-templates.md).
+
+_Originally numbered 0492; renumbered before merge - the Maps ADRs 0481, 0482, 0490 and 0491 reached `main` first, so the RFC 0057 block moved as a whole to 0495-0507. Same precedent as ADR 0050/0054/0068/0069/0087._
 
 ## Context
 

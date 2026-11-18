@@ -1,6 +1,6 @@
 """The `lorenzo` command line (ADR 0137). Each command group is a module of its own, imported only
 when it is run or its own help is shown, so `--version`, `--help` and a completion load none of
-them (ADR 0483)."""
+them (ADR 0497)."""
 
 from __future__ import annotations
 
@@ -122,7 +122,7 @@ def main(
     quiet: Annotated[
         bool,
         typer.Option(
-            "--quiet", "-q", help="Print the result only: no notices and no progress (ADR 0481)."
+            "--quiet", "-q", help="Print the result only: no notices and no progress (ADR 0495)."
         ),
     ] = False,
     no_progress: Annotated[

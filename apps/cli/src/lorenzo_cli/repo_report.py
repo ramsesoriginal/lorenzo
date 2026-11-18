@@ -124,7 +124,7 @@ def _step_line(step: CopyStepOut, *, verb: str | None = None) -> str:
         (step.templates or 0, "template", "templates"),
     ):
         if count:
-            # Said only when there are, like attachments (ADR 0492).
+            # Said only when there are, like attachments (ADR 0506).
             counts += f", {count} {one if count == 1 else many}"
     if step.attachments:
         # The parents it adds to items copied from elsewhere (ADR 0172): said only when there are.
@@ -147,7 +147,7 @@ def _kind(kind: Any) -> str:
 
 
 def print_dropped(console: Console, dropped: Sequence[DroppedOut], *, verb: str) -> None:
-    """What a step leaves out, counted by kind and reason (ADR 0492); `--json` has every id."""
+    """What a step leaves out, counted by kind and reason (ADR 0506); `--json` has every id."""
     counted = Counter((_kind(row.kind), row.reason) for row in dropped)
     for (kind, reason), count in sorted(counted.items()):
         console.print(f"  {verb} {count} × {kind}: {reason}", highlight=False)

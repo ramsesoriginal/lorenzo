@@ -1,7 +1,9 @@
-# 0483 - The CLI's start-up and request budget
+# 0497 - The CLI's start-up and request budget
 
-Status: accepted (2026-11-17), decided with the maintainer, not built. Slices C1 (start-up) and C5 (requests) of
+Status: accepted (2026-11-17), decided with the maintainer, built (2026-11-18). Slices C1 (start-up) and C5 (requests) of
 [RFC 0057](../rfcs/0057-the-command-line-for-game-systems.md).
+
+_Originally numbered 0483; renumbered before merge - the Maps ADRs 0481, 0482, 0490 and 0491 reached `main` first, so the RFC 0057 block moved as a whole to 0495-0507. Same precedent as ADR 0050/0054/0068/0069/0087._
 
 ## Context
 
@@ -25,7 +27,7 @@ about 6 s, `apply` of 14 items 84, and every command spends two on finding the t
   the cache. The tenant is found by one request where a slug is given (`GET /tenants?slug=` when the API has it, the list otherwise).
 - **Bounded concurrency.** A plan's writes are ordered by what they depend on (system, group, stat, entry, parents, formulas,
   templates, features and rules); within one level up to four run at once. Output and `--json` list them in the plan's order, whatever
-  order they finished in. A failure stops the levels after it; what was written stays, as ADR 0482 says.
+  order they finished in. A failure stops the levels after it; what was written stays, as ADR 0496 says.
 - Where the API already does a batch (the bulk effective-stat read, repository copy, grants apply) the CLI makes that one request.
 
 ## Consequences

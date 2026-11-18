@@ -1,4 +1,4 @@
-"""The starters against the real API (ADR 0491): each applies to an empty library on top of the
+"""The starters against the real API (ADR 0505): each applies to an empty library on top of the
 neutral one, a second apply finds nothing to do, and what they set up works: modifiers, proficiency,
 armour class, dice pools, the sheet templates and the choices."""
 

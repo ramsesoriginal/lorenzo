@@ -1,10 +1,12 @@
-# 0491 - Starters replace the seed
+# 0505 - Starters replace the seed
 
-Status: accepted (2026-11-17), decided with the maintainer, not built. Slice C10 of [RFC 0057](../rfcs/0057-the-command-line-for-game-systems.md).
+Status: accepted (2026-11-17), decided with the maintainer, built (2026-11-18). Slice C10 of [RFC 0057](../rfcs/0057-the-command-line-for-game-systems.md).
 Supersedes [ADR 0143](0143-lorenzo-seed-taxonomy-and-stats.md), [ADR 0162](0162-the-dnd5e-layer-is-its-own-repository-a-bridge-over-core.md),
 [ADR 0166](0166-a-bare-seed-refuses-to-add-a-layer-to-a-tenant-that-holds-another.md), [ADR 0168](0168-lorenzo-unseed.md),
 [ADR 0181](0181-the-seeds-four-layers-and-a-system-root.md) and [ADR 0183](0183-setting-up-the-four-repositories-and-what-trying-it-showed.md),
 and the `seed --list` and per-layer half of [ADR 0169](0169-seed-list-and-repo-contents.md).
+
+_Originally numbered 0491; renumbered before merge - the Maps ADRs 0481, 0482, 0490 and 0491 reached `main` first, so the RFC 0057 block moved as a whole to 0495-0507. Same precedent as ADR 0050/0054/0068/0069/0087._
 
 ## Context
 
@@ -15,7 +17,7 @@ exists to take a layer out. Before launch there is no data to keep.
 
 ## Decision
 
-- **Three starters**, library documents ([ADR 0484](0484-the-library-document.md)) that ship in the wheel:
+- **Three starters**, library documents ([ADR 0498](0498-the-library-document.md)) that ship in the wheel:
   - **`neutral`**: the groups `physical` and `tags` (holding their roles) and `sourcebook`; `own_weight`, `weight` (role `weight`),
     `contents_weight`, `bundle_amount`, `height` (role `height`), `is_container` (role `is_container`), `is_consumable`, `is_magical`,
     `is_silvered`, `is_adamantine`, `sourcebook`; the weight recipe (`contents` and `sum`) on `physical-object`; the forms and materials

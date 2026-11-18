@@ -43,7 +43,7 @@ Tenant = Annotated[
     ),
 ]
 Json = Annotated[bool, typer.Option("--json", help="Print one JSON document.")]
-Yes = Annotated[bool, typer.Option("--yes", help="Don't ask before writing (ADR 0482).")]
+Yes = Annotated[bool, typer.Option("--yes", help="Don't ask before writing (ADR 0496).")]
 groups_app = typer.Typer(help="Read, create and edit stat groups.", no_args_is_help=True)
 stats_app = typer.Typer(
     help="Read, create and edit stat definitions and their hints.", no_args_is_help=True
@@ -157,7 +157,7 @@ def output(value: BaseModel | list[Any], as_json: bool, key: str = "rows") -> No
 
 
 def ask(ctx: typer.Context, yes: bool, question: str, *, default: bool = True) -> None:
-    """One row to write: asked at a terminal, default yes (ADR 0482)."""
+    """One row to write: asked at a terminal, default yes (ADR 0496)."""
     from lorenzo_cli.runtime import may_write
 
     may_write(ctx.obj, yes=yes, question=question, default=default)

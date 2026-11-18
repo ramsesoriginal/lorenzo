@@ -1,4 +1,4 @@
-"""Completing names from a private cache (ADR 0493).
+"""Completing names from a private cache (ADR 0507).
 
 Tab never asks the API: library slugs, and per library its systems, stat groups, stats, templates,
 features and campaigns, are completed from one small file under `$XDG_CACHE_HOME/lorenzo/`. The

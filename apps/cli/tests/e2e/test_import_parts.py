@@ -1,4 +1,4 @@
-"""The importer's two passes against the real API (ADR 0182, ADR 0490): the neutral half into the
+"""The importer's two passes against the real API (ADR 0182, ADR 0504): the neutral half into the
 equipment repository, the system's half into the rules repository that takes the equipment and
 attaches it, and a table that takes the equipment first and the rules after.
 

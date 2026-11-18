@@ -1,4 +1,4 @@
-"""A library's system, or its neutral vocabulary, written back as a document (ADR 0484).
+"""A library's system, or its neutral vocabulary, written back as a document (ADR 0498).
 
 A system's document holds its row, its groups and their stats, and the entries under its root that
 are vocabulary: features and what others inherit from, not the leaf items imported under it. The

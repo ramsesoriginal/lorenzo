@@ -1,4 +1,4 @@
-"""Formulas as a document writes them (ADR 0486): stats by name, the API's fields otherwise, every
+"""Formulas as a document writes them (ADR 0500): stats by name, the API's fields otherwise, every
 kind checked against the API's own model before anything is sent."""
 
 from __future__ import annotations

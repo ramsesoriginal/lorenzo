@@ -1,4 +1,4 @@
-"""Formulas as a person writes them (ADR 0486): the API's fields for each kind, with a stat named
+"""Formulas as a person writes them (ADR 0500): the API's fields for each kind, with a stat named
 instead of identified. No notation: a formula is its kind and that kind's fields (RFC 0016).
 
 A field `<x>_stat_definition_id` is written `<x>` (`source`, `left`, `right`, `numerator`,

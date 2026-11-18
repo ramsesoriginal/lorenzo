@@ -1,4 +1,4 @@
-"""The library document's own checks, before any library is read (ADR 0484)."""
+"""The library document's own checks, before any library is read (ADR 0498)."""
 
 from __future__ import annotations
 

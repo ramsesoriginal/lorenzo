@@ -1,4 +1,4 @@
-# The neutral starter (ADR 0491): what is true of a thing in any game. Physical stats with
+# The neutral starter (ADR 0505): what is true of a thing in any game. Physical stats with
 # their roles, the weight recipe, the forms and materials of equipment, and the placeholder
 # for a player's own item. Apply it to a repository, publish it, and let libraries copy it.
 

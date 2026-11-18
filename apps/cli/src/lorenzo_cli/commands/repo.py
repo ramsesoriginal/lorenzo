@@ -116,7 +116,7 @@ StrictUnitsOption = Annotated[
 def _may_write(
     runtime: Runtime, *, yes: bool, as_json: bool, prompt: str, default: bool = False
 ) -> None:
-    """The write contract (ADR 0482): `--yes` writes, a terminal is asked, anything else exits 2."""
+    """The write contract (ADR 0496): `--yes` writes, a terminal is asked, anything else exits 2."""
     del as_json  # the console knows a `--json` run
     may_write(runtime, yes=yes, question=prompt, default=default)
 

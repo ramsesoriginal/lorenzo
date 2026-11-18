@@ -1,4 +1,4 @@
-"""What a repository tenant holds (ADR 0169, ADR 0492): whether it is published and to whom it is
+"""What a repository tenant holds (ADR 0169, ADR 0506): whether it is published and to whom it is
 granted, what it is built on, its systems and templates, its stats by system, the roles they hold,
 and how much of each other kind of row it holds. Read from the API, not from a file shipped with
 the CLI."""
@@ -113,7 +113,7 @@ def read_contents(client: LorenzoClient, repository: TenantOut) -> Contents:
             row for row in repos.list_repositories(client, repository.id) if row.copied_at
         ],
     }
-    # Independent reads, four at a time (ADR 0483).
+    # Independent reads, four at a time (ADR 0497).
     with ThreadPoolExecutor(max_workers=4) as pool:
         futures = {name: pool.submit(read) for name, read in reads.items()}
         got = {name: future.result() for name, future in futures.items()}

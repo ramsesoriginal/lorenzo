@@ -1,4 +1,4 @@
-"""The library document (ADR 0484): a system or the neutral vocabulary as one TOML file, planned
+"""The library document (ADR 0498): a system or the neutral vocabulary as one TOML file, planned
 against a library, applied to it and exported from it.
 
 - `document` is the file: its tables, and the checks that need no library.

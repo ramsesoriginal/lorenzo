@@ -1,8 +1,10 @@
-# 0484 - The library document: `lorenzo plan`, `apply` and `export`
+# 0498 - The library document: `lorenzo plan`, `apply` and `export`
 
-Status: accepted (2026-11-17), decided with the maintainer, not built. Slice C5 of [RFC 0057](../rfcs/0057-the-command-line-for-game-systems.md),
+Status: accepted (2026-11-17), decided with the maintainer, built (2026-11-18). Slice C5 of [RFC 0057](../rfcs/0057-the-command-line-for-game-systems.md),
 grown by C6 (formulas), C7 (templates) and C8 (features and grant rules). Replaces the seed file of
 [ADR 0143](0143-lorenzo-seed-taxonomy-and-stats.md) and [ADR 0181](0181-the-seeds-four-layers-and-a-system-root.md).
+
+_Originally numbered 0484; renumbered before merge - the Maps ADRs 0481, 0482, 0490 and 0491 reached `main` first, so the RFC 0057 block moved as a whole to 0495-0507. Same precedent as ADR 0050/0054/0068/0069/0087._
 
 ## Context
 
@@ -20,17 +22,17 @@ describe only groups, stats, categories, two formula kinds and attachments. The 
     `max`, `max_hint`, `min_hint`, `resolved_hint`, `adjustable_in_play`, `pin`, `signed`, `position`;
   - `[[entry]]` `slug`, `name`, `kinds`, `parents`, `public`, `stats`, `tags`, `description`, and for a feature `repeatable`,
     `starts_inactive` and `prerequisites`;
-  - `[[formula]]` `on` (an entry), `stat`, `kind` and the fields of that kind, with stats named by name ([ADR 0486](0486-formulas-from-the-command-line.md));
-  - `[[template]]` with `[[template.slot]]` ([ADR 0487](0487-templates-campaigns-and-beings-from-the-command-line.md));
-  - `[[grant_rule]]` with `conditions` ([ADR 0488](0488-features-and-grants-from-the-command-line.md));
+  - `[[formula]]` `on` (an entry), `stat`, `kind` and the fields of that kind, with stats named by name ([ADR 0500](0500-formulas-from-the-command-line.md));
+  - `[[template]]` with `[[template.slot]]` ([ADR 0501](0501-templates-campaigns-and-beings-from-the-command-line.md));
+  - `[[grant_rule]]` with `conditions` ([ADR 0502](0502-features-and-grants-from-the-command-line.md));
   - `[[attach]]` `entry`, `parent`: a parent added to an entry another document owns (ADR 0172).
 - **Identity.** A system by slug, a group and a stat by name, an entry by slug, a formula by entry and stat, a template by name, a
   grant rule by its entry and label, prerequisites as a feature's whole list. Every entry the document names has a slug.
 - **`lorenzo plan FILE -t LIBRARY`** reads the library and lists what applying would create (`+`), change (`~`) and, with `--prune`,
   remove (`-`), and what it cannot do (a stat's type or group differs, which the API does not change; a name the prefix rule refuses;
   a role held by another stat). Exit 0 nothing to do, 2 changes pending, 1 something it cannot do.
-- **`lorenzo apply`** writes the plan under [ADR 0482](0482-one-write-contract-for-every-cli-command.md) in the order of
-  [ADR 0483](0483-the-clis-start-up-and-request-budget.md). A field the document names is set to the document's value; a field it does
+- **`lorenzo apply`** writes the plan under [ADR 0496](0496-one-write-contract-for-every-cli-command.md) in the order of
+  [ADR 0497](0497-the-clis-start-up-and-request-budget.md). A field the document names is set to the document's value; a field it does
   not name is left as the library has it. **It never deletes.** `--prune` removes the rows of the document's system (or, for a document
   without one, the rows it made, by name and slug) that the document no longer names, after showing them and the number of libraries
   that copied each (ADR 0386).
@@ -38,7 +40,7 @@ describe only groups, stats, categories, two formula kinds and attachments. The 
   the entries under its root, the formulas, grant rules and prerequisites on those entries and its templates; for `neutral`, the
   groups of no system, their stats and the entries outside every system's root that carry their values. `requires` names the documents
   the export refers to that it does not contain. Applying an export to an empty library and exporting again gives the same document.
-- **`--starter NAME`** stands for a document that ships with the CLI ([ADR 0491](0491-starters-replace-the-seed.md)); `lorenzo starter
+- **`--starter NAME`** stands for a document that ships with the CLI ([ADR 0505](0505-starters-replace-the-seed.md)); `lorenzo starter
   list|show NAME` lists and prints them and needs no login.
 - **Validation before the API.** The document is checked against its JSON Schema (`lorenzo schema document`) and the API's rules the
   CLI can know (the slug pattern, the `<slug>_` prefix, formula limits, a role's type) before any request.

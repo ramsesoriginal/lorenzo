@@ -1,4 +1,4 @@
-"""`lorenzo plan`, `apply`, `export system|neutral` and `starter` (ADR 0484): a library document
+"""`lorenzo plan`, `apply`, `export system|neutral` and `starter` (ADR 0498): a library document
 planned against a library, applied to it, and written back from it."""
 
 from __future__ import annotations
@@ -38,7 +38,7 @@ PruneOption = Annotated[
     bool,
     typer.Option(
         "--prune",
-        help="Also remove what the document's system no longer names (shown first; ADR 0484).",
+        help="Also remove what the document's system no longer names (shown first; ADR 0498).",
     ),
 ]
 JsonOption = Annotated[bool, typer.Option("--json", help="Print the plan as one JSON document.")]

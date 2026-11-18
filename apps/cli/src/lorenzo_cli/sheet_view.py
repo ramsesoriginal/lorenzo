@@ -1,4 +1,4 @@
-"""An entry read through a template, drawn slot by slot as a sheet (ADR 0451, ADR 0487): for
+"""An entry read through a template, drawn slot by slot as a sheet (ADR 0451, ADR 0501): for
 `template view`, and for `being show` when a campaign or a template names the sheet."""
 
 from __future__ import annotations

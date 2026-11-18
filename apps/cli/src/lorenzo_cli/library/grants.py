@@ -1,4 +1,4 @@
-"""Grant rules and prerequisites as a document writes them (ADR 0488): stats by name, entries by
+"""Grant rules and prerequisites as a document writes them (ADR 0502): stats by name, entries by
 slug; and the API's the same way back."""
 
 from __future__ import annotations

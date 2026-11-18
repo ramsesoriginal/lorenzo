@@ -5,7 +5,7 @@ path-level safety packages/api-client gets from its generated types. Add an oper
 a command first needs it, not before.
 
 Models are named, not imported: the generated module is the largest the CLI loads, so it is
-imported the first time an operation is called, not when a command group is (ADR 0483).
+imported the first time an operation is called, not when a command group is (ADR 0497).
 """
 
 from __future__ import annotations

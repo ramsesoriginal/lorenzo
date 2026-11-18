@@ -67,7 +67,7 @@ _WRITES = {
 
 
 def _writes(args: tuple[str, ...]) -> bool:
-    """A single write that asks at a terminal (ADR 0482). Run with nobody to ask, it is given
+    """A single write that asks at a terminal (ADR 0496). Run with nobody to ask, it is given
     --yes, as a script would; the contract itself is tested in the unit tests."""
     if tuple(args[:2]) in _WRITES:
         return "--dry-run" not in args
@@ -179,7 +179,7 @@ def golden_repository(stack: Stack) -> SharedRepository:
 
 def copy_of_seeded(stack: Stack, token: str, tmp_path: Path, kind: str = "repository") -> str:
     """A new tenant of the test's owner that starts as a copy of the seeded repository: the way a
-    table gets the starters (ADR 0491), in a few requests where applying them makes hundreds. For
+    table gets the starters (ADR 0505), in a few requests where applying them makes hundreds. For
     the tests of what a tenant does with a seed it has, not of the seed itself."""
     golden = golden_repository(stack)
     slug = f"e2e-{uuid.uuid4().hex[:10]}"

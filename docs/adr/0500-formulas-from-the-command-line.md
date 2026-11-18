@@ -1,8 +1,10 @@
-# 0486 - Formulas from the command line
+# 0500 - Formulas from the command line
 
-Status: accepted (2026-11-17), decided with the maintainer, not built. Slice C6 of [RFC 0057](../rfcs/0057-the-command-line-for-game-systems.md).
+Status: accepted (2026-11-17), decided with the maintainer, built (2026-11-18). Slice C6 of [RFC 0057](../rfcs/0057-the-command-line-for-game-systems.md).
 Keeps [RFC 0016](../rfcs/0016-stats-computed-values-and-crud-api.md) and [RFC 0053](../rfcs/0053-formula-kinds-min-max-product-ratio-select-and-held-aggregation.md):
 curated kinds, no interpreter.
+
+_Originally numbered 0486; renumbered before merge - the Maps ADRs 0481, 0482, 0490 and 0491 reached `main` first, so the RFC 0057 block moved as a whole to 0495-0507. Same precedent as ADR 0050/0054/0068/0069/0087._
 
 ## Context
 
@@ -25,7 +27,7 @@ a preview that shows the value and its inputs, and a dependents read. The CLI wr
   to evaluate it for that entry, or a formula given with the same options before it is saved, and prints the value with each input and
   its value (a dice value as its notation, `3d8`). **`formula tree STAT --on ENTRY`** prints the chain down to own values and, below it,
   the formulas that read the stat (the dependents read). **`formula delete`** follows the write contract.
-- Writes send `?warnings=true` when `--warnings` is given and print the findings ([ADR 0489](0489-lorenzo-check.md)).
+- Writes send `?warnings=true` when `--warnings` is given and print the findings ([ADR 0503](0503-lorenzo-check.md)).
 
 ## Consequences
 

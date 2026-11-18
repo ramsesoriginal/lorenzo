@@ -1,4 +1,4 @@
-"""Completing names from the private cache (ADR 0493): what the client's replies write to it, how
+"""Completing names from the private cache (ADR 0507): what the client's replies write to it, how
 it is keyed and kept private, and what Tab offers from it."""
 
 from __future__ import annotations
