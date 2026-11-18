@@ -272,6 +272,7 @@ def test_gear_armour_tools_ammo_and_packs(stack: Stack, tmp_path: Path) -> None:
         robe = by_slug(api, tid, "basic-armour-violet-robe")
         assert parent_names(robe) == ["Armor"]
         assert "dnd5e_armor" not in own_stats(robe)  # a formula has no number to store
+        assert own_stats(robe)["dnd5e_ac_10_dex_wis"] is True  # its way, while it is worn
         backpack = by_slug(api, tid, "basic-gear-backpack")
         assert parent_names(backpack) == ["Container", "Gear"]
         assert backpack["name"] == "Backpack"

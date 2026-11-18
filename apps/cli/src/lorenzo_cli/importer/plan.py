@@ -164,8 +164,14 @@ def _final_slugs(
     while True:
         slugs = assign_slugs([(d.namespace, d.list_name, d.key) for d in drafts], taken)
         found = tenant_view.resolve_slugs(client, tenant_id, list(slugs.values()))
+        # What each slug should hold: an item, or for a way of working out armour class a feature.
+        wanted = {
+            slugs[(d.list_name, d.key)]: "feature" if d.armor_class_way else "item" for d in drafts
+        }
         held_by_others = {
-            slug for slug, hit in found.items() if "item" not in {kind.value for kind in hit.kinds}
+            slug
+            for slug, hit in found.items()
+            if wanted.get(slug, "item") not in {kind.value for kind in hit.kinds}
         }
         # A base slug someone else holds: every member of it takes a suffix.
         newly = {s for s in held_by_others if s not in taken}
@@ -212,6 +218,9 @@ def build_plan(
     if options.part == "neutral":
         for item in live:
             item.draft = part_view(item.draft, "neutral", parts)
+            if item.draft.skip_reason is not None:
+                item.status = "skipped"  # a way of working out armour class: the system's alone
+        live = [item for item in live if item.draft.skip_reason is None]
     elif options.part == "system":
         live, found = _system_items(client, tenant.id, live, parts)
 
@@ -257,6 +266,8 @@ def _system_items(
     neutral = tenant_view.resolve_slugs(client, tenant_id, [i.neutral_slug for i in prototypes])
     for item in prototypes:
         item.slug = slugs[(item.draft.list_name, item.draft.key)]
+        if item.draft.armor_class_way:
+            continue  # a feature of its own: there is no neutral item to attach it to
         hit = neutral.get(item.neutral_slug)
         if hit is None or "item" not in {kind.value for kind in hit.kinds}:
             item.draft.issues.append(
@@ -365,7 +376,9 @@ def _decide(
     placed = {p.id for p in detail.prototypes if p.id in managed_ids}
     if placed != wanted and len(wanted) == len(draft.parents):
         item.reparent = True
-    if system:
+    if draft.armor_class_way:
+        incomplete = any(stat not in item.have_stats for stat in draft.stats)
+    elif system:
         # The attachment is the system pass's last step, so it is what says a prototype is done.
         assert item.neutral_id is not None
         neutral = tenant_view.entity_detail(client, tenant_id, item.neutral_id)

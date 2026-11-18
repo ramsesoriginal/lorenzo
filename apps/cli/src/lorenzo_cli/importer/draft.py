@@ -83,6 +83,9 @@ class ItemDraft:
     aliases_part: Part = "neutral"
     # The neutral item's name, in the system pass, where `name` is the prototype's.
     neutral_name: str | None = None
+    # A way of working out armour class, not an item: written as a feature of the system's (the D&D
+    # starter's armour class features), with its way's tag or a natural armour class.
+    armor_class_way: bool = False
 
 
 class Ancestry:
@@ -131,6 +134,15 @@ def part_view(draft: ItemDraft, part: Part, parts: Parts) -> ItemDraft:
     def stat_part(stat: str) -> Part:
         return parts.stat(stat) or draft.stat_parts.get(stat, "neutral")
 
+    if draft.armor_class_way:
+        # A way of working out armour class is the system's whole: no neutral item, no label.
+        if part == "neutral":
+            return replace(
+                draft,
+                skip_reason=draft.skip_reason
+                or "a way of working out armour class is the system's: the system pass writes it",
+            )
+        return replace(draft, namespace=draft.system_namespace)
     minted = {c.slug: part_of_axis(c.axis) for c in draft.categories}
 
     def parent_part(slug: str) -> Part:
@@ -210,6 +222,8 @@ def _classify(
             )
         elif row.disposition == "attach-form-only":
             draft.uncategorised = True
+        elif row.disposition == "armor-class-way":
+            draft.armor_class_way = True
         elif row.disposition == "create-under":
             assert row.axis and row.slug and row.name
             draft.categories.append(NewCategory(row.slug, row.name, roots[row.axis], row.axis))
@@ -294,6 +308,14 @@ def draft_item(
         draft.names = sorted({*draft.names, *aliases})
 
     classified, replace_form, explicit_reach = _classify(list_name, entry, mapping, draft)
+    if draft.armor_class_way:
+        return _as_armor_class_way(draft, entry)
+    # Armour whose AC is a formula (`10+Wis`, a robe) gives that way while worn: its tag, not text.
+    if list_name == "armour" and "dnd5e_armor_formula" in draft.stats:
+        way = _way_stats(entry)
+        if way:
+            del draft.stats["dnd5e_armor_formula"]
+            draft.stats.update(way)
     parents |= classified
     parents |= _text_rule_parents(list_name, entry, draft, mapping)
 
@@ -317,6 +339,83 @@ def draft_item(
     for category in draft.categories:
         ancestry.add(category.slug, category.parent)
     draft.parents = ancestry.reduce(parents)
+    return draft
+
+
+# The D&D starter's armour class features, and the tag of each way (MPMB adds Dexterity to an
+# armour class unless its `dex` is -10, so "10+Con" is 10 + Dexterity + Constitution).
+ARMOR_CLASS_FEATURES = "dnd5e-armor-class-features"
+ARMOR_CLASS_WAYS = {
+    "10+con": "dnd5e_ac_10_dex_con",
+    "10+dex+con": "dnd5e_ac_10_dex_con",
+    "10+wis": "dnd5e_ac_10_dex_wis",
+    "10+dex+wis": "dnd5e_ac_10_dex_wis",
+    "13": "dnd5e_ac_13_dex",
+    "13+dex": "dnd5e_ac_13_dex",
+}
+NO_DEXTERITY = -10
+
+
+def _no_dexterity(entry: dict[str, Any]) -> bool:
+    dex = entry.get("dex")
+    return isinstance(dex, int | float) and not isinstance(dex, bool) and dex <= NO_DEXTERITY
+
+
+def _way_stats(entry: dict[str, Any]) -> dict[str, StatValue] | None:
+    """The stat that says an entry's way of working out armour class: a way's tag, or a natural
+    armour class when Dexterity doesn't count; `{}` for 10 + Dexterity, which every character
+    has; None for a way the starter has no tag for."""
+    key = re.sub(r"\s+", "", str(entry.get("ac")).lower()).replace("dexterity", "dex")
+    if _no_dexterity(entry) and key.isdigit():
+        return {"dnd5e_ac_natural": int(key)}
+    if key == "10":
+        return {}
+    if key in ARMOR_CLASS_WAYS:
+        return {ARMOR_CLASS_WAYS[key]: True}
+    return None
+
+
+def _as_armor_class_way(draft: ItemDraft, entry: dict[str, Any]) -> ItemDraft:
+    """An armour entry that is only a way of working out armour class (MPMB's `firstlist` and
+    `magic`, which the sheet offers instead of armour): a feature under the starter's armour
+    class features, with its way's tag or a natural armour class."""
+    ac, no_dex = entry.get("ac"), _no_dexterity(entry)
+    way = _way_stats(entry)
+    stats: dict[str, StatValue] = way or {}
+    if way == {}:
+        draft.skip_reason = "10 + Dexterity is the way every character has, so it isn't written"
+    elif way is None:
+        draft.issues.append(
+            Issue(
+                "value",
+                "ac",
+                repr(ac),
+                "a way of working out armour class the dnd5e starter has no tag for",
+                "give the feature a tag of its own way by hand, or leave it out with\n"
+                "[classify.armour.list]\n"
+                '"..." = "skip"',
+                "system",
+            )
+        )
+    same = next(
+        (
+            node.slug
+            for node in load_vocabulary().nodes
+            if ARMOR_CLASS_FEATURES in node.parents
+            and node.name.lower() == (draft.name or "").lower()
+        ),
+        None,
+    )
+    if same is not None and draft.skip_reason is None:
+        draft.skip_reason = f"the dnd5e starter has it already: {same}"
+    draft.stats = stats
+    draft.stat_types, draft.stat_groups, draft.stat_parts = {}, {}, {}
+    draft.parents = [ARMOR_CLASS_FEATURES]
+    draft.parent_parts = {ARMOR_CLASS_FEATURES: "system"}
+    draft.categories, draft.information = [], []
+    draft.description = f"Armour class: {ac}" + (", without Dexterity" if no_dex else "") + "."
+    draft.description_part = "system"
+    draft.uncategorised = False
     return draft
 
 
