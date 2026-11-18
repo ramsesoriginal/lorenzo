@@ -57,6 +57,16 @@ def find(client: LorenzoClient, tid: UUID, reference: str) -> SystemOut:
     return found
 
 
+def _root(client: LorenzoClient, tid: UUID, system: SystemOut) -> str | None:
+    """The root entry's slug (or its name, when it has none): what a person wrote."""
+    if system.root_entry_id is None:
+        return None
+    entry = client.call(
+        ops.GET_ENTITY, path={"tenant_id": tid, "entity_id": system.root_entry_id}
+    ).value
+    return entry.slug or entry.name
+
+
 def _users(client: LorenzoClient, tid: UUID, system: SystemOut) -> dict[str, list[str]]:
     """What names the system: its groups, its templates and the campaigns that play it."""
     path = {"tenant_id": tid}
@@ -90,15 +100,18 @@ def system_list(ctx: typer.Context, tenant: TenantOption, as_json: Json = False)
     with _reporting_errors(), _client(ctx.obj) as client:
         target = resolve_tenant(client, tenant)
         systems = _systems(client, target.id)
+        roots = {s.id: _root(client, target.id, s) for s in systems}
     if as_json:
-        console.emit({"systems": [s.model_dump(mode="json") for s in systems]})
+        console.emit(
+            {"systems": [{**s.model_dump(mode="json"), "root": roots[s.id]} for s in systems]}
+        )
         return
     if not systems:
         console.out.print("No systems yet: `lorenzo system create SLUG NAME`.")
         return
-    table = Table("slug", "name", "id", box=None, pad_edge=False)
+    table = Table("slug", "name", "root", box=None, pad_edge=False)
     for system in systems:
-        table.add_row(system.slug, Text(safe(system.name)), str(system.id))
+        table.add_row(system.slug, Text(safe(system.name)), Text(safe(roots[system.id] or "-")))
     console.out.print(table)
 
 
@@ -111,11 +124,12 @@ def system_show(
         target = resolve_tenant(client, tenant)
         found = find(client, target.id, system)
         users = _users(client, target.id, found)
+        root = _root(client, target.id, found)
     if as_json:
-        console.emit({**found.model_dump(mode="json"), **users})
+        console.emit({**found.model_dump(mode="json"), "root": root, **users})
         return
     console.out.print(Text(f"{found.slug}  {safe(found.name)}"))
-    console.out.print(f"Root: {found.root_entry_id or 'none'}")
+    console.out.print(Text(f"Root: {safe(root) if root else 'none'}"))
     for what, names in users.items():
         console.out.print(Text(f"{what.capitalize()}: {', '.join(names) if names else 'none'}"))
 

@@ -294,6 +294,7 @@ def test_contents_says_the_systems_templates_roles_and_stats_by_system(
     assert holds["entries"] >= holds["items"] > 20
     assert "System dnd5e (D&D 5e), root dnd5e-system." in said
     assert "Roles: " in said and "Templates: " in said
+    assert "weight (stat)" in said and "physical (stat group)" in said
 
 
 def test_a_merged_stat_whose_unit_differs_is_a_warning_and_strict_units_makes_it_a_choice(

@@ -481,8 +481,10 @@ def print_contents(console: Console, contents: Contents) -> None:
             highlight=False,
         )
     if contents.roles:
+        # "price by dnd5e_price (stat, dnd5e)"; a holder named as its role is not named twice.
         said = ", ".join(
-            f"{r.role} ({r.name}{'' if r.system == 'neutral' else ', ' + r.system})"
+            f"{r.role}{'' if r.name == r.role else ' by ' + r.name} "
+            f"({r.holder}{'' if r.system == 'neutral' else ', ' + r.system})"
             for r in contents.roles
         )
         console.print(f"Roles: {said}.", highlight=False)
