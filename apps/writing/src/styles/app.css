@@ -91,3 +91,49 @@
   width: 100%;
   resize: none;
 }
+
+/* The outline beside a work's pages (ADR 0494, W4). Pinned from 1100px by the script. */
+.outline-frame {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-6);
+}
+
+.outline-panel {
+  display: none;
+}
+
+.outline-panel[data-docked="true"],
+.outline-panel[data-open="true"] {
+  display: block;
+}
+
+.outline-panel[data-docked="false"][data-open="true"] {
+  padding-bottom: var(--space-4);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.outline-tree ul {
+  margin: 0;
+  padding-inline-start: var(--space-4);
+  list-style: none;
+}
+
+.outline-tree > ul {
+  padding-inline-start: 0;
+}
+
+.outline-tree .row {
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.outline-tree [aria-current="page"] {
+  font-weight: 600;
+}
+
+@media (min-width: 721px) {
+  .outline-frame[data-outline="true"]:has(.outline-panel[data-docked="true"]) {
+    grid-template-columns: minmax(12rem, 18rem) minmax(0, 1fr);
+  }
+}

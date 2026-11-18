@@ -2830,3 +2830,35 @@ test('the Live layout shows paragraphs formatted and opens the one clicked as it
     await context.close();
   }
 });
+
+test('the outline stands beside a Book’s pages and is a panel below 1100px', async ({
+  browser,
+}) => {
+  test.setTimeout(120000);
+  const { page, context, tenant } = await world(browser);
+  try {
+    await page.goto(`/?tenant=${tenant.id}`);
+    await startAs(page, 'book', 'Tree book');
+    await page.getByRole('link', { name: 'Outline', exact: true }).click();
+    await page.getByLabel('New chapter title').fill('First chapter');
+    await page.getByRole('button', { name: 'Add chapter', exact: true }).click();
+    await page.getByRole('link', { name: 'First chapter', exact: true }).click();
+    const tree = page.getByRole('navigation', { name: 'Outline' });
+    await expect(tree).toBeVisible();
+    await expect(tree.getByRole('link', { name: /Go to .*Tree book/ })).toBeVisible();
+    await expect(tree.getByRole('link', { name: /Go to .*First chapter/ })).toHaveAttribute(
+      'aria-current',
+      'page',
+    );
+    // The page keeps its width beside the outline and its drawer.
+    expect((await page.locator('.work-frame').boundingBox())?.width).toBeGreaterThan(500);
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expect(tree).toBeHidden();
+    await page.getByRole('button', { name: 'Outline', exact: true }).click();
+    await expect(tree).toBeVisible();
+    const axe = await new AxeBuilder({ page }).exclude('.shell-bottom').analyze();
+    expect(axe.violations).toEqual([]);
+  } finally {
+    await context.close();
+  }
+});

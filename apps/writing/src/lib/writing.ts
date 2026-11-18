@@ -30,6 +30,7 @@ import {
 import { linkReview } from './link-review';
 import { countSources } from './manuscript-count';
 import { exportControls } from './manuscript-export';
+import { outlineTree } from './outline-tree';
 import { reviewAddress, reviewScreen } from './review';
 import { shelf } from './shelf';
 import { LAYOUTS, rememberLayout, rememberWork, savedLayout } from './shelf-list';
@@ -147,11 +148,47 @@ export async function start() {
 
     if (entry) {
       rememberWork(tenant, entry);
+      // The outline of the work stands beside every page of it (ADR 0494, W4).
+      const frame = element('div', '', 'outline-frame');
+      const rail = element('div', '', 'stack-tight');
+      const panel = element('aside', '', 'outline-panel');
+      panel.setAttribute('aria-label', 'Outline');
+      panel.id = 'outline-panel';
+      panel.dataset.open = 'false';
+      const wide = window.matchMedia('(min-width: 1100px)');
+      const toggle = button('Outline', () => {
+        const open = panel.dataset.open !== 'true';
+        panel.dataset.open = String(open);
+        toggle.setAttribute('aria-expanded', String(open));
+      });
+      toggle.setAttribute('aria-controls', 'outline-panel');
+      toggle.setAttribute('aria-expanded', 'false');
+      toggle.hidden = true;
+      const dock = () => {
+        panel.dataset.docked = String(wide.matches);
+        toggle.hidden = wide.matches || !panel.firstChild;
+      };
+      wide.addEventListener('change', dock);
+      dock();
+      rail.append(toggle, panel);
+      rail.hidden = true;
+      const page = element('div', '', 'stack');
+      frame.append(rail, page);
+      host.replaceChildren(frame);
+      void outlineTree(tenant, entry)
+        .then((tree) => {
+          if (!tree) return;
+          panel.append(tree);
+          rail.hidden = false;
+          frame.dataset.outline = 'true';
+          dock();
+        })
+        .catch(() => {});
       try {
         const view = params.get('view') ?? (location.pathname.startsWith('/read') ? 'read' : null);
         if (view === 'outline' || view === 'read')
-          await compositionScreen(host, tenant, entry, view === 'read');
-        else await manuscript(host, me.id, tenant, entry, shell);
+          await compositionScreen(page, tenant, entry, view === 'read');
+        else await manuscript(page, me.id, tenant, entry, shell);
       } catch (error) {
         if (error instanceof LorenzoApiError && [401, 403, 404].includes(error.status))
           await forgetDrafts(draftKey(API_BASE_URL, me.id, tenant, entry)).catch(() => {});
