@@ -6,16 +6,9 @@ from enum import StrEnum
 from typing import Annotated, Any, Literal
 from uuid import UUID
 
-from pydantic import (
-    AwareDatetime,
-    BaseModel,
-    ConfigDict,
-    Field,
-    RootModel,
-    confloat,
-    conint,
-    constr,
-)
+from pydantic import AwareDatetime, ConfigDict, Field, RootModel, confloat, conint, constr
+
+from lorenzo_cli.client.base import BaseModel
 
 
 class Accepted(BaseModel):
