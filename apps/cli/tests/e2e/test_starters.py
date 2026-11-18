@@ -46,8 +46,15 @@ stats = { dnd5e_dexterity = 15, dnd5e_strength = 8, dnd5e_level = 5 }
 slug = "trooper"
 name = "Trooper"
 kinds = ["being"]
-parents = ["wg-archetype"]
+parents = ["wg-archetype-imperial-guardsman"]
 stats = { wg_agility = 4, wg_ballistic_skill = 3, wg_toughness = 3, wg_tier = 2, wg_strength = 3, wg_strength_bonus = 1, wg_athletics = 2 }
+
+[[entry]]
+slug = "scout"
+name = "Scout"
+kinds = ["being"]
+parents = ["wg-archetype-space-marine-scout"]
+stats = { wg_tier = 2 }
 """,
         encoding="utf-8",
     )
@@ -79,8 +86,24 @@ stats = { wg_agility = 4, wg_ballistic_skill = 3, wg_toughness = 3, wg_tier = 2,
     assert "Character sheet (D&D 5e)" in {t["name"] for t in sheets["templates"]}
     choices = json.loads(cli("grants", "show", "hero", "-t", tenant, "--json").stdout)
     assert [c["label"] for c in choices["open_choices"]] == ["Fighting style"]
-    talent = json.loads(cli("grants", "show", "trooper", "-t", tenant, "--json").stdout)
-    assert [c["label"] for c in talent["open_choices"]] == ["Talent"]
+    # An archetype brings its ratings and its ability; a Species its Speed, Resolve and abilities.
+    assert value("wg_pool_ballistic_skill", "scout") == 7  # the archetype's agility 4 + skill 3
+    assert value("wg_resolve", "scout") == 3  # willpower 3 - 1, +1 for an Astartes
+    assert value("wg_speed", "scout") == 7
+    assert value("wg_influence", "scout") == 1  # fellowship 1 - 1 + the archetype's +1
+    guard = json.loads(cli("grants", "show", "trooper", "-t", tenant, "--json").stdout)
+    assert [d["feature"]["name"] for d in guard["due"]] == ["Look Out, Sir!"]
+    scout = json.loads(cli("grants", "show", "scout", "-t", tenant, "--json").stdout)
+    assert {d["feature"]["name"] for d in scout["due"]} == {
+        "Use the Terrain",
+        "Defender of Humanity",
+        "Honour the Chapter",
+        "Space Marine Implants",
+    }
+    fearless = json.loads(
+        cli("feature", "show", "wg-talent-fearless", "-t", tenant, "--json").stdout
+    )
+    assert "wg_willpower" in json.dumps(fearless)  # Willpower Rating 4+, checked by the API
 
     listed = json.loads(cli("starter", "list", "--json").stdout)
     assert [s["name"] for s in listed["starters"]] == ["dnd5e", "neutral", "wrath-and-glory"]
