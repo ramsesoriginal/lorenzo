@@ -108,10 +108,11 @@ light = ["dnd5e-light-armor"]
 medium = ["dnd5e-medium-armor"]
 heavy = ["dnd5e-heavy-armor"]
 
-# `firstlist` (unarmoured) and `magic` (mage armor) are ways the sheet works out AC, not items.
+# `firstlist` (unarmoured) and `magic` (mage armor) are ways the sheet works out AC, not items:
+# they become armour class features of the D&D starter, by what their `ac` says.
 [classify.armour.list]
-firstlist = "skip"
-magic = "skip"
+firstlist = "armor-class-way"
+magic = "armor-class-way"
 
 [classify.tools.type]
 "artisan's tools" = ["dnd5e-artisans-tools"]

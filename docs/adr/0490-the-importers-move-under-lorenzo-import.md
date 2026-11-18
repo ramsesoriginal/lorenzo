@@ -42,3 +42,7 @@ values to stats named before the prefix rule and the dice type.
 - A library without the starters' stats is refused with the commands that add them.
 - Found while building it: a validation error from the API now names its fields in the message, and a formula read back keeps the
   fields its kind requires (a linear formula's multiplier of 1 was dropped, from slice C6).
+- MPMB's ways of working out armour class (2026-11-18): the map's new disposition `armor-class-way` (the armour list's `firstlist`
+  and `magic`) makes an entry a feature under `dnd5e-armor-class-features`, created as an entry of the kind `feature` in the system
+  pass (or a run without `--part`) and never attached to a neutral item; its tag comes from its `ac` (`10+Con`, `10+Wis`, `13`, or a
+  natural number with `dex` -10). Armour with a formula AC stays an item and carries the tag.
