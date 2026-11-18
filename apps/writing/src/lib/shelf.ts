@@ -22,7 +22,7 @@ function el<K extends keyof HTMLElementTagNameMap>(tag: K, text = '', className 
 }
 
 const address = (tenant: string, entry?: string) =>
-  `/?${new URLSearchParams({ tenant, ...(entry ? { entry } : {}) })}`;
+  `${entry ? '/write/' : '/'}?${new URLSearchParams({ tenant, ...(entry ? { entry } : {}) })}`;
 
 const message = (error: unknown) =>
   error instanceof Error ? error.message : 'This could not be completed.';

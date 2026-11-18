@@ -18,7 +18,9 @@ const node = <K extends keyof HTMLElementTagNameMap>(tag: K, text = '') => {
   return el;
 };
 export const writingAddress = (tenant: string, entry: string, view = '') =>
-  `/?${new URLSearchParams({ tenant, entry, ...(view ? { view } : {}) })}`;
+  view === 'read'
+    ? `/read/?${new URLSearchParams({ tenant, entry })}`
+    : `/write/?${new URLSearchParams({ tenant, entry, ...(view ? { view } : {}) })}`;
 const link = (title: string, href: string) => {
   const a = node('a', title);
   a.href = href;

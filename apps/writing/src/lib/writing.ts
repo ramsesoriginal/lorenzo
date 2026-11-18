@@ -1,5 +1,5 @@
 import { getAppLinks } from '@lorenzo/api-client';
-import { bindShell } from '@lorenzo/app-shell';
+import { bindShell, confirmDialog } from '@lorenzo/app-shell';
 import {
   type BundleReceipt,
   type DraftPayload,
@@ -11,6 +11,7 @@ import {
 } from '@lorenzo/information-editor';
 import { parse, render } from '@lorenzo/lorenzoscript';
 import { createEditor } from '@lorenzo/lorenzoscript-editor';
+import { modernAddress } from './addresses';
 import { client, fetchAllPages, LorenzoApiError, loadFile, unwrap } from './api';
 import { isAuthConfigured, isAuthenticated, login, logout } from './auth';
 import { compositionScreen, outlineOf, writingAddress } from './composition';
@@ -25,6 +26,7 @@ import {
   writeDraft,
 } from './drafts';
 import { linkReview } from './link-review';
+import { countSources } from './manuscript-count';
 import { exportControls } from './manuscript-export';
 import { reviewAddress, reviewScreen } from './review';
 import { shelf } from './shelf';
@@ -53,7 +55,7 @@ function button(label: string, action: () => void) {
 }
 
 const address = (tenant: string, entry?: string) =>
-  `/?${new URLSearchParams({ tenant, ...(entry ? { entry } : {}) })}`;
+  `${entry ? '/write/' : '/'}?${new URLSearchParams({ tenant, ...(entry ? { entry } : {}) })}`;
 
 const fingerprint = (payloads: DraftPayload[]) =>
   JSON.stringify(
@@ -66,6 +68,11 @@ const fingerprint = (payloads: DraftPayload[]) =>
 export async function start() {
   const host = document.querySelector<HTMLElement>('#writing');
   if (!host) return;
+  const modern = modernAddress(location);
+  if (modern) {
+    location.replace(modern);
+    return;
+  }
 
   const shell = bindShell({
     themeKey: 'lorenzo:writing:theme',
@@ -139,10 +146,10 @@ export async function start() {
     if (entry) {
       rememberWork(tenant, entry);
       try {
-        const view = params.get('view');
+        const view = params.get('view') ?? (location.pathname.startsWith('/read') ? 'read' : null);
         if (view === 'outline' || view === 'read')
           await compositionScreen(host, tenant, entry, view === 'read');
-        else await manuscript(host, me.id, tenant, entry);
+        else await manuscript(host, me.id, tenant, entry, shell);
       } catch (error) {
         if (error instanceof LorenzoApiError && [401, 403, 404].includes(error.status))
           await forgetDrafts(draftKey(API_BASE_URL, me.id, tenant, entry)).catch(() => {});
@@ -158,7 +165,13 @@ export async function start() {
   }
 }
 
-async function manuscript(host: HTMLElement, account: string, tenant: string, entry: string) {
+async function manuscript(
+  host: HTMLElement,
+  account: string,
+  tenant: string,
+  entry: string,
+  shell: ReturnType<typeof bindShell>,
+) {
   const path = { tenant_id: tenant, entity_id: entry };
 
   const entityResult = await client.GET('/tenants/{tenant_id}/entities/{entity_id}', {
@@ -423,6 +436,8 @@ async function manuscript(host: HTMLElement, account: string, tenant: string, en
       node.hidden = active;
 
     back.hidden = active;
+    drawer.hidden = active;
+    sideToggle.hidden = active;
     details.hidden = active;
     history.hidden = active;
     exports.hidden = active;
@@ -466,19 +481,74 @@ async function manuscript(host: HTMLElement, account: string, tenant: string, en
   );
   count.element.append(sessionGoal.element);
   count.element.append(writingTimer(API_BASE_URL, account, tenant));
-  host.replaceChildren(
-    back,
-    heading,
-    actions,
-    status,
-    warning,
-    conflicts,
-    area,
-    count.element,
-    details,
-    exports,
-    history,
-  );
+  // The page head: the way back, the title, the mode and the actions (ADR 0494, W2). The side
+  // views are one drawer, docked from 1100px and a sheet below it, in place of closed panels.
+  const head = element('header', '', 'page-head');
+  const headTitle = element('div', '', 'stack-tight');
+  headTitle.append(back, heading);
+  const drawer = element('aside', '', 'side-drawer');
+  drawer.id = 'side-views';
+  drawer.setAttribute('aria-label', 'Side views');
+  const sideToggle = button('Side views', () => {
+    const open = drawer.dataset.open !== 'true';
+    drawer.dataset.open = String(open);
+    sideToggle.setAttribute('aria-expanded', String(open));
+  });
+  sideToggle.classList.add('side-toggle');
+  sideToggle.setAttribute('aria-controls', 'side-views');
+  sideToggle.setAttribute('aria-expanded', 'false');
+  const sideClose = button('Close side views', () => {
+    drawer.dataset.open = 'false';
+    sideToggle.setAttribute('aria-expanded', 'false');
+  });
+  sideClose.classList.add('side-close');
+  drawer.dataset.open = 'false';
+  drawer.append(sideClose, count.element, details, exports, history);
+  const wide = window.matchMedia('(min-width: 1100px)');
+  const dock = () => {
+    drawer.dataset.docked = String(wide.matches);
+  };
+  dock();
+  wide.addEventListener('change', dock);
+  actions.append(sideToggle);
+  head.append(headTitle, actions);
+  const main = element('div', '', 'stack');
+  main.append(status, warning, conflicts, area);
+  const frame = element('div', '', 'work-frame');
+  frame.append(main, drawer);
+  host.replaceChildren(head, frame);
+
+  // What the status bar says of the save and of the length.
+  const syncOf = (text: string) =>
+    text.includes('changed elsewhere')
+      ? 'conflict'
+      : text.includes('Your draft is kept')
+        ? 'offline'
+        : text === 'Saved' || text.startsWith('Recovered')
+          ? 'synced'
+          : 'waiting';
+  const tell = () =>
+    shell?.statusBar({
+      sync: syncOf(status.textContent ?? ''),
+      ...(syncOf(status.textContent ?? '') === 'synced' ? { syncedAt: new Date() } : {}),
+    });
+  new MutationObserver(tell).observe(status, {
+    childList: true,
+    characterData: true,
+    subtree: true,
+  });
+  tell();
+  let lengthTimer: ReturnType<typeof setTimeout> | undefined;
+  const refreshCount = () => {
+    count.refresh();
+    clearTimeout(lengthTimer);
+    lengthTimer = setTimeout(() => {
+      const n = countSources(
+        editor.read().flatMap((p) => (p.kind === 'description' ? [p.content] : [])),
+      );
+      shell?.statusBar({ meta: `${n} ${n === 1 ? 'word' : 'words'}` });
+    }, 400);
+  };
 
   let editor: ReturnType<typeof renderBundleEditor>;
 
@@ -553,7 +623,7 @@ async function manuscript(host: HTMLElement, account: string, tenant: string, en
 
     area.replaceChildren(editor.element);
     sessionGoal.rebase();
-    count.refresh();
+    refreshCount();
     observed = fingerprint(editor.read());
   }
 
@@ -564,7 +634,7 @@ async function manuscript(host: HTMLElement, account: string, tenant: string, en
     if (next === observed) return;
     observed = next;
     sessionGoal.changed();
-    count.refresh();
+    refreshCount();
     dirty = true;
 
     void persist();
@@ -871,11 +941,39 @@ async function manuscript(host: HTMLElement, account: string, tenant: string, en
     })();
   });
 
+  let leaving = false;
   window.addEventListener('beforeunload', (event) => {
-    if (dirty && !persisted) {
+    if (dirty && !persisted && !leaving) {
       event.preventDefault();
     }
   });
+
+  // Leaving by a link with changes that were not kept anywhere asks first, in words (ADR 0494, W2).
+  document.addEventListener(
+    'click',
+    (event) => {
+      const link = (event.target as Element | null)?.closest?.(
+        'a[href]',
+      ) as HTMLAnchorElement | null;
+      if (!link || !dirty || persisted || leaving) return;
+      if (link.target === '_blank' || link.origin !== location.origin) return;
+      if (link.pathname === location.pathname && link.search === location.search) return;
+      event.preventDefault();
+      event.stopPropagation();
+      void confirmDialog({
+        title: 'Leave without saving?',
+        body: 'Your latest changes are not saved yet, and could not be kept in this browser.',
+        confirm: 'Leave anyway',
+        cancel: 'Stay',
+        danger: true,
+      }).then((go) => {
+        if (!go) return;
+        leaving = true;
+        location.assign(link.href);
+      });
+    },
+    true,
+  );
 
   const stop = () => {
     alive = false;

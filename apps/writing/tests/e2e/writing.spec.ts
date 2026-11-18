@@ -46,6 +46,14 @@ const STARTS: Record<string, string> = {
   biography: 'Character biography',
 };
 
+// Below 1100px the side views are a sheet that opens on request (ADR 0494, W2).
+async function openSideViews(page: Page) {
+  const toggle = page.getByRole('button', { name: 'Side views', exact: true });
+  await toggle.waitFor({ timeout: 15000 }).catch(() => {});
+  if ((await toggle.count()) && (await toggle.getAttribute('aria-expanded')) === 'false')
+    await toggle.click();
+}
+
 async function startAs(page: Page, kind: string, title: string) {
   await page.getByLabel('New draft title').fill(title);
   if (kind === 'scene') {
@@ -732,6 +740,7 @@ test('extract complete prose and a child into a Chapter without changing the rea
     await page.getByRole('link', { name: 'Outline', exact: true }).click();
     await page.getByRole('link', { name: 'At sea', exact: true }).click();
     await expect(manuscript).toHaveValue(prose);
+    await openSideViews(page);
     await page.getByText('Word count', { exact: true }).click();
     await page.getByText('Writing session', { exact: true }).click();
     await expect(page.getByText('Session progress · 0 words', { exact: true })).toBeVisible();
@@ -1461,6 +1470,7 @@ test('personal timer pauses, resumes, survives reload and stays separate from an
     await page.clock.install({ time: now });
     await page.clock.pauseAt(now);
     const openTimer = async () => {
+      await openSideViews(page);
       await page.getByText('Word count', { exact: true }).click();
       await page.getByText('Writing timer', { exact: true }).click();
     };
@@ -1494,6 +1504,7 @@ test('personal timer pauses, resumes, survives reload and stays separate from an
     await expect(page.getByRole('timer')).toHaveText('1:00');
     await page.clock.resume();
     await page.setViewportSize({ width: 390, height: 844 });
+    await openSideViews(page);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
       true,
     );
@@ -1983,6 +1994,7 @@ test('an author reviews existing calendar dates before setting a Scene period', 
     await setPeriod(null);
     await check.click();
     await page.setViewportSize({ width: 390, height: 844 });
+    await openSideViews(page);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
       true,
     );
@@ -1995,6 +2007,7 @@ test('an author reviews existing calendar dates before setting a Scene period', 
     await expect(draft).toHaveValue(`${source} Tomorrow.`);
     await expect(page.getByText('Saved', { exact: true })).toBeVisible();
     await page.reload();
+    await openSideViews(page);
     await page.getByText('Details', { exact: true }).click();
     await expect(page.getByText('Period: 3 Frost 42', { exact: true })).toBeVisible();
     await page.getByRole('button', { name: 'Clear period', exact: true }).click();
@@ -2173,6 +2186,7 @@ for (const variant of ['draft', 'placed', 'nested', 'parent']) {
       await expect(take).toBeVisible();
       await expect(draft).toHaveValue('My saved crossing.');
       await page.setViewportSize({ width: 390, height: 844 });
+      await openSideViews(page);
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
         true,
       );
@@ -2442,6 +2456,7 @@ test('saved export preview downloads source and prepares a clean printable manus
       await printed.pdf({ path: process.env.E2E_EXPORT_PDF, format: 'A4', printBackground: true });
     await printed.close();
     await page.setViewportSize({ width: 390, height: 844 });
+    await openSideViews(page);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
       true,
     );
@@ -2682,6 +2697,32 @@ test('the shelf filters by kind, searches, and continues the work last opened', 
     await expect(page.getByRole('link', { name: 'Shelf chapter', exact: true })).toHaveCount(0);
     await page.getByLabel('Search your writing').fill('nothing like this');
     await expect(page.getByText('No writing match')).toBeVisible();
+    const axe = await new AxeBuilder({ page }).exclude('.shell-bottom').analyze();
+    expect(axe.violations).toEqual([]);
+  } finally {
+    await context.close();
+  }
+});
+
+test('old addresses open the new ones and a work has a head, a drawer and a status bar', async ({
+  browser,
+}) => {
+  const { page, context, tenant } = await world(browser);
+  try {
+    const entry = new URL(page.url()).searchParams.get('entry');
+    expect(new URL(page.url()).pathname).toBe('/write/');
+    await page.goto(`/?tenant=${tenant.id}&entry=${entry}`);
+    await expect(page).toHaveURL(new RegExp(`/write/\\?tenant=${tenant.id}&entry=${entry}$`));
+    await expect(page.getByRole('textbox', { name: 'Manuscript', exact: true })).toBeVisible();
+    await page.getByRole('textbox', { name: 'Manuscript', exact: true }).fill('Three little words');
+    await expect(page.getByText('3 words', { exact: true })).toBeVisible();
+    await expect(page.getByText(/^Synced/)).toBeVisible();
+    // Docked from 1100px, a sheet below it.
+    await expect(page.getByRole('complementary', { name: 'Side views' })).toBeVisible();
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expect(page.getByRole('complementary', { name: 'Side views' })).toBeHidden();
+    await page.getByRole('button', { name: 'Side views', exact: true }).click();
+    await expect(page.getByRole('complementary', { name: 'Side views' })).toBeVisible();
     const axe = await new AxeBuilder({ page }).exclude('.shell-bottom').analyze();
     expect(axe.violations).toEqual([]);
   } finally {
