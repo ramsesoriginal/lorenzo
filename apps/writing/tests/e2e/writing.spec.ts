@@ -3038,3 +3038,29 @@ test('any work has a Write and Read switch in its page head', async ({ browser }
     await context.close();
   }
 });
+
+test('a made Chapter can be taken back from the page it leads to', async ({ browser }) => {
+  test.setTimeout(120000);
+  const { page, context, tenant } = await world(browser);
+  try {
+    await page.goto(`/?tenant=${tenant.id}`);
+    await startAs(page, 'chapter', 'Take back chapter');
+    const first = page.getByRole('textbox', { name: 'Manuscript', exact: true });
+    await first.fill('First part.');
+    await page.getByRole('button', { name: 'Add text', exact: true }).click();
+    await page.getByRole('textbox', { name: 'Text 2', exact: true }).fill('Second part.');
+    await expect(page.getByRole('status', { name: 'Save status' })).toHaveText('Saved');
+    await page.getByRole('button', { name: 'Block options' }).nth(1).click();
+    await page.getByRole('menuitem', { name: 'Make a Chapter' }).click();
+    await page.getByRole('dialog').getByLabel('Title').fill('Carved back');
+    await page.getByRole('dialog').getByRole('button', { name: 'Make a Chapter' }).click();
+    await expect(page.getByRole('button', { name: 'Undo Chapter', exact: true })).toBeVisible();
+    await expect(page.getByRole('textbox', { name: 'Text 2', exact: true })).toHaveCount(0);
+    await page.getByRole('button', { name: 'Undo Chapter', exact: true }).click();
+    await expect(page.getByRole('textbox', { name: 'Text 2', exact: true })).toHaveValue(
+      'Second part.',
+    );
+  } finally {
+    await context.close();
+  }
+});

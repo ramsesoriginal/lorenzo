@@ -647,7 +647,16 @@ async function manuscript(
       const title = await askTitle(`Name the new ${kind}`, `Make a ${kind}`);
       if (!title) return;
       await settle();
-      await extractParts(tenant, entry, await outlineOf(tenant, entry), ids, kind, title);
+      const operation = await extractParts(
+        tenant,
+        entry,
+        await outlineOf(tenant, entry),
+        ids,
+        kind,
+        title,
+      );
+      // A Chapter can be taken back; a Scene extraction has no undo yet (ADR 0515).
+      if (kind === 'Chapter') rememberSplit(entry, operation, 'extractions');
       location.reload();
     });
   const selection = element('div', '', 'row');
@@ -667,12 +676,19 @@ async function manuscript(
   if (splitMade) {
     const line = element('p');
     line.setAttribute('role', 'status');
-    line.append('Text split. ');
+    const chapter = splitMade.kind === 'extractions';
+    line.append(chapter ? 'Chapter made. ' : 'Text split. ');
     line.append(
-      button('Undo split', () =>
+      button(chapter ? 'Undo Chapter' : 'Undo split', () =>
         job(async () => {
           await settle();
-          await undoSplit(tenant, entry, splitMade, (await outlineOf(tenant, entry)).version);
+          await undoSplit(
+            tenant,
+            entry,
+            splitMade.operation,
+            (await outlineOf(tenant, entry)).version,
+            splitMade.kind,
+          );
           location.reload();
         }),
       ),

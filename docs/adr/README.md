@@ -1,2 +1,2 @@
 
-- [0514 - `[[` name completion in the LorenzoScript editor](0514-lorenzoscript-editor-name-completion.md) — ADR 0494 B3: the opt-in `completeNames` option offers names after `[[`; Writing passes the entries lookup.
+- [0515 - Undo a Chapter extraction](0515-undo-a-chapter-extraction.md) — ADR 0494 Q2, in part: `DELETE .../extractions/{operation_id}` puts an extracted range back and removes the new Chapter, once, while nothing has changed since.

@@ -61,7 +61,7 @@ export async function extractParts(
   ids: string[],
   kind: 'Chapter' | 'Scene',
   title: string,
-): Promise<void> {
+): Promise<string> {
   const at = ids.map((id) => outline.elements.findIndex((e) => e.id === id));
   if (at.some((i) => i < 0))
     throw new Error('Save this page first: a part that is not saved yet cannot be moved.');
@@ -73,8 +73,9 @@ export async function extractParts(
       `Choose parts that follow one another: ${kind === 'Chapter' ? 'a Chapter' : 'a Scene'} is made from a run of the page.`,
     );
   const elements = outline.elements.slice(first, last + 1).map((e) => e.id);
+  const operation = crypto.randomUUID();
   const params = {
-    path: { tenant_id: tenant, id: entry, operation_id: crypto.randomUUID() },
+    path: { tenant_id: tenant, id: entry, operation_id: operation },
     header: { 'if-match': outline.version },
   };
   if (kind === 'Scene')
@@ -99,6 +100,7 @@ export async function extractParts(
         body: { chapter_id: crypto.randomUUID(), name: title, elements },
       }),
     );
+  return operation;
 }
 
 /** Split a saved text block at the start of the section the caret is in. */
@@ -141,20 +143,31 @@ export async function splitAtCaret(
 const SPLIT = 'lorenzo:writing:split';
 
 /** Keep the receipt of a split for this tab, so the page it reloads to can offer Undo. */
-export function rememberSplit(entry: string, operation: string) {
+export function rememberSplit(
+  entry: string,
+  operation: string,
+  kind: 'splits' | 'extractions' = 'splits',
+) {
   try {
-    sessionStorage.setItem(SPLIT, JSON.stringify({ entry, operation }));
+    sessionStorage.setItem(SPLIT, JSON.stringify({ entry, operation, kind }));
   } catch {
     // Undo is a convenience.
   }
 }
 
 /** The split this tab made on `entry`, once: reading it forgets it. */
-export function takeSplit(entry: string): string | null {
+export function takeSplit(
+  entry: string,
+): { operation: string; kind: 'splits' | 'extractions' } | null {
   try {
     const value = JSON.parse(sessionStorage.getItem(SPLIT) ?? 'null');
     sessionStorage.removeItem(SPLIT);
-    return value?.entry === entry && typeof value.operation === 'string' ? value.operation : null;
+    return value?.entry === entry && typeof value.operation === 'string'
+      ? {
+          operation: value.operation,
+          kind: value.kind === 'extractions' ? 'extractions' : 'splits',
+        }
+      : null;
   } catch {
     return null;
   }
@@ -166,13 +179,22 @@ export async function undoSplit(
   entry: string,
   operation: string,
   version: string,
+  kind: 'splits' | 'extractions' = 'splits',
 ): Promise<void> {
-  await unwrap(
-    await client.DELETE('/tenants/{tenant_id}/writing/entries/{id}/splits/{operation_id}', {
-      params: {
-        path: { tenant_id: tenant, id: entry, operation_id: operation },
-        header: { 'if-match': version },
-      },
-    }),
-  );
+  const params = {
+    path: { tenant_id: tenant, id: entry, operation_id: operation },
+    header: { 'if-match': version },
+  };
+  if (kind === 'extractions')
+    await unwrap(
+      await client.DELETE('/tenants/{tenant_id}/writing/entries/{id}/extractions/{operation_id}', {
+        params,
+      }),
+    );
+  else
+    await unwrap(
+      await client.DELETE('/tenants/{tenant_id}/writing/entries/{id}/splits/{operation_id}', {
+        params,
+      }),
+    );
 }
