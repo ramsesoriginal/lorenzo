@@ -19,6 +19,8 @@ const node = <K extends keyof HTMLElementTagNameMap>(tag: K, text = '') => {
   el.textContent = text;
   return el;
 };
+/** The drag type of a Chapter dragged from an outline page: its page, then the Chapter. */
+export const CHAPTER_DRAG = 'application/x-lorenzo-chapter';
 export const writingAddress = (tenant: string, entry: string, view = '') =>
   view === 'read'
     ? `/read/?${new URLSearchParams({ tenant, entry })}`
@@ -402,6 +404,8 @@ export async function compositionScreen(
       });
     li.addEventListener('dragstart', (event) => {
       event.dataTransfer?.setData('text/plain', item.id);
+      // A Chapter can also be dropped on the outline tree beside the page, to nest it there.
+      if (item.kind === 'chapter') event.dataTransfer?.setData(CHAPTER_DRAG, `${id}|${item.id}`);
       if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move';
       li.dataset.dragging = 'true';
     });

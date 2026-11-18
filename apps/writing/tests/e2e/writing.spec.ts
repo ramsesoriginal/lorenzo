@@ -3060,6 +3060,48 @@ test('a part dragged on the outline page lands where it is dropped, and can be u
   }
 });
 
+test('a Chapter dropped on the outline tree is nested there', async ({ browser }) => {
+  test.setTimeout(120000);
+  const { page, context, tenant } = await world(browser);
+  try {
+    await page.goto(`/?tenant=${tenant.id}`);
+    await startAs(page, 'book', 'Nest book');
+    await expect(page.getByRole('heading', { name: 'Nest book' })).toBeVisible();
+    await page.getByRole('link', { name: 'Outline', exact: true }).click();
+    for (const name of ['Dawn', 'Dusk']) {
+      await page.getByLabel('New chapter title').fill(name);
+      await page.getByRole('button', { name: 'Add chapter', exact: true }).click();
+      await expect(page.getByRole('button', { name: new RegExp(`^Drag: ${name}`) })).toBeVisible();
+    }
+    await page.reload();
+    const tree = page.getByRole('navigation', { name: 'Outline' });
+    await expect(tree.getByRole('link', { name: /Go to Dawn/ })).toBeVisible();
+    await page.evaluate(() => {
+      const item = [...document.querySelectorAll('ol > li')].find((li) =>
+        /Dusk/.test(li.textContent ?? ''),
+      ) as HTMLElement;
+      const target = document
+        .querySelector('nav[aria-label="Outline"] a[aria-label^="Go to Dawn"]')
+        ?.closest('div') as HTMLElement;
+      const data = new DataTransfer();
+      item.dispatchEvent(new DragEvent('dragstart', { dataTransfer: data, bubbles: true }));
+      target.dispatchEvent(
+        new DragEvent('dragover', { dataTransfer: data, bubbles: true, cancelable: true }),
+      );
+      target.dispatchEvent(
+        new DragEvent('drop', { dataTransfer: data, bubbles: true, cancelable: true }),
+      );
+    });
+    await expect(page.getByRole('button', { name: /^Drag: Dusk/ })).toHaveCount(0);
+    await page.getByRole('link', { name: 'Dawn', exact: true }).first().click();
+    await expect(
+      page.getByRole('navigation', { name: 'Outline' }).getByRole('link', { name: /Go to Dusk/ }),
+    ).toBeVisible();
+  } finally {
+    await context.close();
+  }
+});
+
 test('any work has a Write and Read switch in its page head', async ({ browser }) => {
   const { page, context, tenant } = await world(browser);
   try {

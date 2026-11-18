@@ -1,7 +1,9 @@
 // The outline of the work a page belongs to, as a tree beside the page (ADR 0494, W4): the
 // Edition or Chapter at the top, its Chapters under it, each opened on demand, with its number
 // and a mark on the page you are on. Pinned open from 1100px, a panel below it.
-import { entityOf, outlineOf, writingAddress } from './composition';
+
+import { client, unwrap } from './api';
+import { CHAPTER_DRAG, entityOf, outlineOf, writingAddress } from './composition';
 import { countSources } from './manuscript-count';
 import { numberedTitle, numberingOf } from './numbering';
 
@@ -48,6 +50,34 @@ export async function outlineTree(tenant: string, current: string): Promise<HTML
   };
   const nav = el('nav', '', 'outline-tree');
   nav.setAttribute('aria-label', 'Outline');
+  const dropStatus = el('p', '', 'caption');
+  dropStatus.setAttribute('role', 'status');
+  nav.append(dropStatus);
+  /** Nest the Chapter `dragged` (from the page `from`) at the end of `target`, with the move write. */
+  const nest = async (from: string, dragged: string, target: string) => {
+    const [child, source, destination] = await Promise.all([
+      outlineOf(tenant, dragged),
+      outlineOf(tenant, from),
+      outlineOf(tenant, target),
+    ]);
+    dropStatus.textContent = `Moving ${child.name} into ${destination.name}`;
+    await unwrap(
+      await client.POST('/tenants/{tenant_id}/writing/entries/{id}/moves/{operation_id}', {
+        params: {
+          path: { tenant_id: tenant, id: dragged, operation_id: crypto.randomUUID() },
+          header: { 'if-match': child.version },
+        },
+        body: {
+          source_parent_id: source.id,
+          destination_parent_id: destination.id,
+          source_version: source.version,
+          destination_version: destination.version,
+          before_element_id: null,
+        },
+      }),
+    );
+    location.reload();
+  };
   const list = el('ul');
   list.setAttribute('role', 'tree');
   nav.append(list);
@@ -90,6 +120,31 @@ export async function outlineTree(tenant: string, current: string): Promise<HTML
       item.setAttribute('aria-expanded', 'false');
     }
     line.append(link);
+    // A Chapter dragged from the page is dropped on a Chapter or Edition of the tree to nest it.
+    if (expandable) {
+      line.addEventListener('dragover', (event) => {
+        if (!event.dataTransfer?.types.includes(CHAPTER_DRAG)) return;
+        event.preventDefault();
+        line.dataset.drop = 'into';
+      });
+      line.addEventListener('dragleave', () => {
+        delete line.dataset.drop;
+      });
+      line.addEventListener('drop', (event) => {
+        delete line.dataset.drop;
+        const [from, dragged] = (event.dataTransfer?.getData(CHAPTER_DRAG) ?? '').split('|');
+        if (!from || !dragged) return;
+        event.preventDefault();
+        if (dragged === entry.id || from === entry.id) {
+          dropStatus.textContent = 'It is already there.';
+          return;
+        }
+        void nest(from, dragged, entry.id).catch((error: unknown) => {
+          dropStatus.textContent =
+            error instanceof Error ? error.message : 'This move could not be completed.';
+        });
+      });
+    }
     // The words of this entry's own text, found a little after the page has settled and one row
     // at a time, so the outline never competes with the page for the server (the API has no count).
     const words = el('span', '', 'caption');

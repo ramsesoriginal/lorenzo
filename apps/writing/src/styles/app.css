@@ -222,3 +222,8 @@ textarea.ls-hl-text {
     border-top: 1px solid var(--border-subtle);
   }
 }
+
+/* A Chapter dragged over a Chapter or Edition of the outline tree: it would be nested there. */
+.outline-tree [data-drop="into"] {
+  background: var(--fill-soft);
+}
