@@ -620,6 +620,11 @@ test('an invited reviewer reads one Edition, writes private notes and loses acce
     await expect(
       reviewPage.getByText(/Your notes are private: only you and the Authors/),
     ).toBeVisible();
+    await reviewPage
+      .getByRole('button', { name: /^Add note on /i })
+      .first()
+      .click();
+    await expect(reviewPage.getByLabel('Note on', { exact: true })).not.toHaveValue('');
     await page.reload();
     await expect(
       page.getByText('Could the bridge appear in Chapter one?', { exact: true }),

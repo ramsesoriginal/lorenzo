@@ -105,6 +105,19 @@ export async function reviewScreen(
         node('p', 'Review — manuscript and private notes'),
         exportControls(tenant, edition, true),
       );
+      // A note on a part, one press away: the note's target is set and the cursor is in it.
+      const addNoteButton = (entry: { id: string; name: string }) => {
+        const add = node('button', 'Add note');
+        add.type = 'button';
+        add.className = 'btn btn-secondary';
+        add.setAttribute('aria-label', `Add note on ${entry.name}`);
+        add.addEventListener('click', () => {
+          draft = { ...draft, entry: entry.id };
+          if (select) select.value = entry.id;
+          input?.focus();
+        });
+        return add;
+      };
       const passages: HTMLElement[] = [];
       const article = node('article');
       article.className = 'ls-content';
@@ -122,7 +135,9 @@ export async function reviewScreen(
           if (entry.id !== edition) {
             const title = node('h2', numberedTitle(entry.name, entry.number));
             title.id = `review-entry-${entry.id}`;
-            article.append(title);
+            article.append(title, addNoteButton(entry));
+          } else {
+            article.append(addNoteButton(entry));
           }
           if (entry.contents)
             article.append(
