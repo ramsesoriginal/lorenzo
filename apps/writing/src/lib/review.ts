@@ -114,6 +114,9 @@ export async function reviewScreen(
         add.addEventListener('click', () => {
           draft = { ...draft, entry: entry.id };
           if (select) select.value = entry.id;
+          const sheet = document.getElementById('review-composer');
+          if (sheet) sheet.dataset.open = 'true';
+          document.querySelector('.review-toggle')?.setAttribute('aria-expanded', 'true');
           input?.focus();
         });
         return add;
@@ -206,12 +209,37 @@ export async function reviewScreen(
           );
         host.append(section);
       }
-      host.append(
+      // The note composer: beside the writing on a wide screen, a sheet from the bottom on a phone,
+      // opened by "Write a note" or by an Add note on a part (ADR 0494, W7).
+      const composer = node('section');
+      composer.className = 'review-composer';
+      composer.dataset.open = 'false';
+      composer.id = 'review-composer';
+      const toggle = node('button', 'Write a note');
+      toggle.type = 'button';
+      toggle.className = 'btn btn-primary review-toggle';
+      toggle.setAttribute('aria-controls', 'review-composer');
+      toggle.setAttribute('aria-expanded', 'false');
+      toggle.addEventListener('click', () => {
+        const open = composer.dataset.open !== 'true';
+        composer.dataset.open = String(open);
+        toggle.setAttribute('aria-expanded', String(open));
+      });
+      const closeSheet = node('button', 'Close');
+      closeSheet.type = 'button';
+      closeSheet.className = 'btn btn-secondary review-close';
+      closeSheet.addEventListener('click', () => {
+        composer.dataset.open = 'false';
+        toggle.setAttribute('aria-expanded', 'false');
+      });
+      composer.append(
+        closeSheet,
         node(
           'p',
           'Your notes are private: only you and the Authors of this library can read them. A note is kept when you choose Save note.',
         ),
       );
+      host.append(toggle, composer);
       select = node('select');
       select.setAttribute('aria-label', 'Note on');
       for (const entry of data.entries) {
@@ -220,18 +248,18 @@ export async function reviewScreen(
         select.append(option);
       }
       select.value = draft.entry;
-      host.append(select);
+      composer.append(select);
       input = node('textarea');
       input.setAttribute('aria-label', 'Review note');
       input.value = draft.content;
-      host.append(input);
+      composer.append(input);
       editor = createEditor({
         textarea: input,
         layout: 'tabs',
         toolbar: ['bold', 'italic', 'bullets', 'undo', 'redo'],
         render: (source) => render(parse(source), { externalImages: false }),
       });
-      host.append(
+      composer.append(
         action('Save note', async () => {
           remember();
           status.textContent = 'Saving';

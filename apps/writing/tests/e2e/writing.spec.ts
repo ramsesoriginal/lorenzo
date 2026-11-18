@@ -617,13 +617,13 @@ test('an invited reviewer reads one Edition, writes private notes and loses acce
       path: test.info().outputPath('review-phone.png'),
       fullPage: true,
     });
-    await expect(
-      reviewPage.getByText(/Your notes are private: only you and the Authors/),
-    ).toBeVisible();
     await reviewPage
       .getByRole('button', { name: /^Add note on /i })
       .first()
       .click();
+    await expect(
+      reviewPage.getByText(/Your notes are private: only you and the Authors/),
+    ).toBeVisible();
     await expect(reviewPage.getByLabel('Note on', { exact: true })).not.toHaveValue('');
     await page.reload();
     await expect(
@@ -3156,6 +3156,34 @@ test('the source shows its markers quietly, in the same place as the text', asyn
     expect(colours[0]).not.toBe(colours[1]);
     const axe = await new AxeBuilder({ page }).exclude('.shell-bottom').analyze();
     expect(axe.violations).toEqual([]);
+  } finally {
+    await context.close();
+  }
+});
+
+test('on a phone the reviewer writes a note in a sheet', async ({ browser }) => {
+  test.setTimeout(150000);
+  const { page, context, tenant } = await world(browser);
+  try {
+    await page.goto(`/?tenant=${tenant.id}`);
+    await startAs(page, 'book', 'Sheet book');
+    await expect(page.getByRole('heading', { name: 'Sheet book' })).toBeVisible();
+    const edition = new URL(page.url()).searchParams.get('entry');
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto(`/?tenant=${tenant.id}&review=${edition}`);
+    const note = page.getByLabel('Review note', { exact: true });
+    await expect(note).toBeHidden();
+    await page.getByRole('button', { name: 'Write a note', exact: true }).click();
+    await expect(note).toBeVisible();
+    const axe = await new AxeBuilder({ page }).exclude('.shell-bottom').analyze();
+    expect(axe.violations).toEqual([]);
+    await page.getByRole('button', { name: 'Close', exact: true }).click();
+    await expect(note).toBeHidden();
+    await page
+      .getByRole('button', { name: /^Add note on /i })
+      .first()
+      .click();
+    await expect(note).toBeVisible();
   } finally {
     await context.close();
   }

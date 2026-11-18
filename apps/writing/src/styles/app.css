@@ -185,3 +185,40 @@ textarea.ls-hl-text {
 .ls-hl-link {
   color: var(--text-secondary);
 }
+
+/* The reviewer's note composer: in the page on a wide screen, a sheet from the bottom on a phone
+   (ADR 0494, W7). */
+.review-toggle,
+.review-close {
+  display: none;
+}
+
+@media (max-width: 720px) {
+  .review-toggle {
+    display: inline-flex;
+    position: sticky;
+    bottom: var(--space-4);
+    z-index: 2;
+  }
+
+  .review-close {
+    display: inline-flex;
+  }
+
+  .review-composer {
+    display: none;
+  }
+
+  .review-composer[data-open="true"] {
+    display: block;
+    position: fixed;
+    inset-inline: 0;
+    bottom: 0;
+    z-index: 3;
+    max-height: 80vh;
+    overflow-y: auto;
+    padding: var(--space-4);
+    background: var(--fill-soft);
+    border-top: 1px solid var(--border-subtle);
+  }
+}
