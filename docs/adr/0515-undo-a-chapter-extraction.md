@@ -1,6 +1,6 @@
 # 0515 - Undo a Chapter extraction
 
-Status: accepted, the second part of the undo operation of [ADR 0494](0494-writing-moves-into-the-web-shell.md) (its Q2), after [ADR 0513](0513-undo-a-manuscript-split.md). Undo for a Scene extraction and for a join is not built.
+Status: accepted, the second part of the undo operation of [ADR 0494](0494-writing-moves-into-the-web-shell.md) (its Q2), after [ADR 0513](0513-undo-a-manuscript-split.md). Undo for a Scene extraction is [ADR 0517](0517-undo-a-scene-extraction.md); for a join it is not built.
 
 ## Context
 

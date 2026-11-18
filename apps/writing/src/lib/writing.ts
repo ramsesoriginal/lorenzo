@@ -655,8 +655,7 @@ async function manuscript(
         kind,
         title,
       );
-      // A Chapter can be taken back; a Scene extraction has no undo yet (ADR 0515).
-      if (kind === 'Chapter') rememberSplit(entry, operation, 'extractions');
+      rememberSplit(entry, operation, 'extractions', kind);
       location.reload();
     });
   const selection = element('div', '', 'row');
@@ -677,9 +676,9 @@ async function manuscript(
     const line = element('p');
     line.setAttribute('role', 'status');
     const chapter = splitMade.kind === 'extractions';
-    line.append(chapter ? 'Chapter made. ' : 'Text split. ');
+    line.append(chapter ? `${splitMade.part} made. ` : 'Text split. ');
     line.append(
-      button(chapter ? 'Undo Chapter' : 'Undo split', () =>
+      button(chapter ? `Undo ${splitMade.part}` : 'Undo split', () =>
         job(async () => {
           await settle();
           await undoSplit(

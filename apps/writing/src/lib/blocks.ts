@@ -147,9 +147,10 @@ export function rememberSplit(
   entry: string,
   operation: string,
   kind: 'splits' | 'extractions' = 'splits',
+  part: 'Chapter' | 'Scene' = 'Chapter',
 ) {
   try {
-    sessionStorage.setItem(SPLIT, JSON.stringify({ entry, operation, kind }));
+    sessionStorage.setItem(SPLIT, JSON.stringify({ entry, operation, kind, part }));
   } catch {
     // Undo is a convenience.
   }
@@ -158,7 +159,7 @@ export function rememberSplit(
 /** The split this tab made on `entry`, once: reading it forgets it. */
 export function takeSplit(
   entry: string,
-): { operation: string; kind: 'splits' | 'extractions' } | null {
+): { operation: string; kind: 'splits' | 'extractions'; part: 'Chapter' | 'Scene' } | null {
   try {
     const value = JSON.parse(sessionStorage.getItem(SPLIT) ?? 'null');
     sessionStorage.removeItem(SPLIT);
@@ -166,6 +167,7 @@ export function takeSplit(
       ? {
           operation: value.operation,
           kind: value.kind === 'extractions' ? 'extractions' : 'splits',
+          part: value.part === 'Scene' ? 'Scene' : 'Chapter',
         }
       : null;
   } catch {

@@ -383,15 +383,23 @@ async def undo_extraction(
 ) -> ExtractionAcknowledgement:
     """Puts an extracted Chapter's writing back where it was and removes the Chapter (ADR 0515).
 
-    For a Chapter extraction by the caller, while the source is as the caller last read it and the
-    new Chapter is still exactly what the extraction made. A Scene extraction has no undo yet.
+    For a Chapter or a Scene extraction by the caller, while the source is as the caller last read
+    it and the new Chapter or Scene is still exactly what the extraction made (ADR 0517).
     """
     await author(session, tenant_id, user)
     source = await entry(session, tenant_id, id, user, lock=True)
     receipt = await existing_in_tenant(session, ManuscriptExtraction, operation_id, tenant_id)
+    telling_id: uuid.UUID | None = None
+    if receipt is None:
+        receipt = await existing_in_tenant(
+            session, ManuscriptSceneExtraction, operation_id, tenant_id
+        )
     if receipt is None or receipt.source_id != id or receipt.actor_id != user.id:
         raise EntityNotFoundError(detail="No such extraction to undo.")
-    target_id = receipt.chapter_id
+    if isinstance(receipt, ManuscriptSceneExtraction):
+        target_id, telling_id = receipt.scene_id, receipt.telling_id
+    else:
+        target_id = receipt.chapter_id
     info, payloads = await manuscript_payloads(session, tenant_id, id, lock=True)
     if info:
         await authorize_information_edit(session, tenant_id=tenant_id, user=user, information=info)
@@ -401,6 +409,8 @@ async def undo_extraction(
     target = await result(session, tenant_id, target_id, user, Response())
     before = [uuid.UUID(x) for x in receipt.checkpoint["before"][str(id)]]
     after_source = [uuid.UUID(x) for x in receipt.checkpoint["after"][str(id)]]
+    if telling_id is not None:
+        await entry(session, tenant_id, telling_id, user, lock=True)
     after_target = [uuid.UUID(x) for x in receipt.checkpoint["after"][str(target_id)]]
     if [el.id for el in current.elements] != after_source or [
         el.id for el in target.elements
@@ -436,6 +446,9 @@ async def undo_extraction(
         )
     place(session, tenant_id, id, before, set(wanted))
     await session.flush()
+    if telling_id is not None:
+        await session.delete(await session.get_one(Entity, telling_id))
+        await session.flush()
     await session.delete(await session.get_one(Entity, target_id))
     source.updated_at = datetime.now(UTC)
     source.updated_by = user.id

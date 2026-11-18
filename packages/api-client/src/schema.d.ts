@@ -3399,8 +3399,8 @@ export interface paths {
          * Undo Extraction
          * @description Puts an extracted Chapter's writing back where it was and removes the Chapter (ADR 0515).
          *
-         *     For a Chapter extraction by the caller, while the source is as the caller last read it and the
-         *     new Chapter is still exactly what the extraction made. A Scene extraction has no undo yet.
+         *     For a Chapter or a Scene extraction by the caller, while the source is as the caller last read
+         *     it and the new Chapter or Scene is still exactly what the extraction made (ADR 0517).
          */
         delete: operations["undo_extraction"];
         options?: never;
