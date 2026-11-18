@@ -592,7 +592,7 @@ export async function compositionScreen(
     );
   }
 }
-async function entityOf(tenant: string, id: string) {
+export async function entityOf(tenant: string, id: string) {
   return unwrap(
     await client.GET('/tenants/{tenant_id}/entities/{entity_id}', {
       params: { path: { tenant_id: tenant, entity_id: id } },

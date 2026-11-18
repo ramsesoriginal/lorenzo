@@ -2852,6 +2852,7 @@ test('the outline stands beside a Book’s pages and is a panel below 1100px', a
     );
     // The page keeps its width beside the outline and its drawer.
     expect((await page.locator('.work-frame').boundingBox())?.width).toBeGreaterThan(500);
+    await expect(tree.getByText(/^\d+ words?$/).first()).toBeVisible();
     await page.setViewportSize({ width: 390, height: 844 });
     await expect(tree).toBeHidden();
     await page.getByRole('button', { name: 'Outline', exact: true }).click();

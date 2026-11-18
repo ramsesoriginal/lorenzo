@@ -1,7 +1,8 @@
 // The outline of the work a page belongs to, as a tree beside the page (ADR 0494, W4): the
 // Edition or Chapter at the top, its Chapters under it, each opened on demand, with its number
 // and a mark on the page you are on. Pinned open from 1100px, a panel below it.
-import { outlineOf, writingAddress } from './composition';
+import { entityOf, outlineOf, writingAddress } from './composition';
+import { countSources } from './manuscript-count';
 import { numberedTitle, numberingOf } from './numbering';
 
 type Entry = Awaited<ReturnType<typeof outlineOf>>;
@@ -79,6 +80,19 @@ export async function outlineTree(tenant: string, current: string): Promise<HTML
       item.setAttribute('aria-expanded', 'false');
     }
     line.append(link);
+    // The words of this entry's own text, found when the row is opened (the API has no count).
+    const words = el('span', '', 'caption');
+    line.append(words);
+    void entityOf(tenant, entry.id)
+      .then((own) => {
+        const texts = own.information
+          .filter((i) => i.type === 'manuscript')
+          .flatMap((i) => i.payloads)
+          .flatMap((p) => (p.kind === 'description' ? [p.content] : []));
+        const n = countSources(texts);
+        words.textContent = `${n} ${n === 1 ? 'word' : 'words'}`;
+      })
+      .catch(() => {});
     item.append(line, children);
     if (expandable && open.has(entry.id) && entry.id !== current) void show(true);
     if (expandable && entry.id === current) void show(true);
