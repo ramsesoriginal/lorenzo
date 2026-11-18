@@ -2358,6 +2358,17 @@ test("composition updates preserve stable elements and protect another tab's dra
     await expect(reviewPage.locator('.repo-review')).toContainText('Extracted passage', {
       timeout: 15000,
     });
+    // Select all clean only ticks, and never applies.
+    const allClean = reviewPage.getByRole('button', { name: 'Select all clean' });
+    if (await allClean.count()) {
+      await allClean.click();
+      await expect(
+        reviewPage.getByText(/clean changes? selected\. Nothing is applied/),
+      ).toBeVisible();
+      await expect(
+        reviewPage.getByRole('button', { name: 'Apply selected updates' }),
+      ).toBeEnabled();
+    }
     for (const radio of await reviewPage.locator('.repo-review input[value="theirs"]').all())
       await radio.check();
     await reviewPage.getByRole('button', { name: 'Apply selected updates' }).click();

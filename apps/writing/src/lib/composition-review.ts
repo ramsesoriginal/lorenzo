@@ -179,6 +179,29 @@ export function compositionReview(tenant: string, id: string, apply?: ApplyRepos
       status.textContent = comparison.rows.length
         ? 'Choose what to keep and what to take.'
         : 'No composition updates to review.';
+      // Select all clean ticks the changes only the repository made, and nothing else; it never
+      // applies them (ADR 0494, Q6).
+      const clean = comparison.rows.filter(
+        (row) => row.selectable && row.baseline_known && row.state === 'upstream',
+      );
+      if (clean.length) {
+        const all = node('button', 'Select all clean');
+        all.type = 'button';
+        all.className = 'btn btn-secondary';
+        all.addEventListener('click', () => {
+          for (const row of clean) {
+            const radio = result.querySelector<HTMLInputElement>(
+              `[data-review-item="${CSS.escape(row.id)}"] input[type=radio][value=theirs]`,
+            );
+            if (radio && !radio.checked) {
+              radio.checked = true;
+              radio.dispatchEvent(new Event('change'));
+            }
+          }
+          status.textContent = `${clean.length} clean ${clean.length === 1 ? 'change' : 'changes'} selected. Nothing is applied until you choose Apply selected updates.`;
+        });
+        result.append(all);
+      }
       if (comparison.rows.some((row) => row.selectable)) result.append(accept);
       accept.addEventListener('click', async () => {
         accept.disabled = true;
