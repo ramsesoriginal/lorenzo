@@ -127,6 +127,11 @@ def test_templates_campaigns_and_beings(stack: Stack, tmp_path: Path) -> None:
         cli("being", "show", "hale", "-t", tenant, "--campaign", "league", "--json").stdout
     )
     assert sheet["sheet"]["template"]["name"] == "Datacard"
+    assert {s["name"] for s in sheet["view"]["slots"][0]["stats"]} == {"kt_move", "kt_wounds"}
+    drawn = " ".join(
+        cli("being", "show", "hale", "-t", tenant, "--campaign", "league").output.split()
+    )
+    assert "Hale as Datacard" in drawn and "Contains" not in drawn
 
     cleared = cli("campaign", "set-system", "league", "-t", tenant, "--none", "--yes", "--json")
     assert cleared.exit_code == 0, cleared.output
