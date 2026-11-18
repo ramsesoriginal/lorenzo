@@ -279,7 +279,7 @@ parents = ["adamantine"]
 
 [[name_rule]]
 in_list = "armour"
-starts_with = ["shield"]
+words = ["shield"]  # "Shield", "Tower shield": D&D adds its armour class to the wearer's
 parents = ["shield"]
 
 # -- gear: kinds of gear, from a curated list of names --
