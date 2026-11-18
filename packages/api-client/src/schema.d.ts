@@ -702,7 +702,7 @@ export interface paths {
         };
         /**
          * My Writing Reviews
-         * @description The Editions shared with the caller for review, in every library (ADR 0495). A grant is
+         * @description The Editions shared with the caller for review, in every library (ADR 0508). A grant is
          *     all that is needed: the caller need not belong to the library, and sees of it only what a
          *     review shows, the Edition's name, never the library's name or the Book. Authenticated but not
          *     tenant-scoped, and resolved tenant by tenant for the reason `GET /me/managed` is. Not
