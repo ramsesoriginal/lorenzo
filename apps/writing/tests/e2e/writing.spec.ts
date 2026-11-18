@@ -3019,3 +3019,18 @@ test('a part dragged on the outline page lands where it is dropped, and can be u
     await context.close();
   }
 });
+
+test('any work has a Write and Read switch in its page head', async ({ browser }) => {
+  const { page, context, tenant } = await world(browser);
+  try {
+    const text = page.getByRole('textbox', { name: 'Manuscript', exact: true });
+    await text.fill('Readable words.');
+    await page.getByRole('link', { name: 'Read', exact: true }).click();
+    await expect(page.locator('article')).toContainText('Readable words.');
+    await expect(page).toHaveURL(new RegExp(`/read/\\?tenant=${tenant.id}`));
+    await page.getByRole('link', { name: 'Write', exact: true }).click();
+    await expect(text).toHaveValue('Readable words.');
+  } finally {
+    await context.close();
+  }
+});

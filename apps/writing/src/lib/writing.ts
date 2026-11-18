@@ -502,26 +502,28 @@ async function manuscript(
     void save();
   });
   actions.append(focus, saveButton);
-  if (structured)
-    for (const [label, view] of [
-      ['Outline', 'outline'],
-      ['Read', 'read'],
-    ]) {
-      const link = element('a', label);
-      link.href = writingAddress(tenant, entry, view);
-      link.addEventListener('click', (event) => {
-        event.preventDefault();
-        void (async () => {
-          if (saving) {
-            warning.textContent = 'Wait for this save before changing views.';
-            return;
-          }
-          if (dirty) await save();
-          if (!dirty) location.assign(link.href);
-        })();
-      });
-      actions.append(link);
-    }
+  // Write and Read are the two modes of every work; a structured one also has its outline.
+  for (const [label, view] of structured
+    ? [
+        ['Outline', 'outline'],
+        ['Read', 'read'],
+      ]
+    : [['Read', 'read']]) {
+    const link = element('a', label);
+    link.href = writingAddress(tenant, entry, view);
+    link.addEventListener('click', (event) => {
+      event.preventDefault();
+      void (async () => {
+        if (saving) {
+          warning.textContent = 'Wait for this save before changing views.';
+          return;
+        }
+        if (dirty) await save();
+        if (!dirty) location.assign(link.href);
+      })();
+    });
+    actions.append(link);
+  }
 
   const count = draftCount(
     () => editor.read().flatMap((p) => (p.kind === 'description' ? [p.content] : [])),
