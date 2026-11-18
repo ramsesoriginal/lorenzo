@@ -3069,3 +3069,32 @@ test('a made Chapter can be taken back from the page it leads to', async ({ brow
     await context.close();
   }
 });
+
+test('the new pages pass axe in the dark theme and their controls are 44px on a phone', async ({
+  browser,
+}) => {
+  test.setTimeout(150000);
+  const { page, context, tenant } = await world(browser);
+  try {
+    await page.emulateMedia({ colorScheme: 'dark' });
+    const axe = async () =>
+      expect(
+        (await new AxeBuilder({ page }).exclude('.shell-bottom').analyze()).violations,
+      ).toEqual([]);
+    await page.setViewportSize({ width: 390, height: 844 });
+    const small = async (names: string[]) => {
+      for (const name of names) {
+        const box = await page.getByRole('button', { name, exact: true }).first().boundingBox();
+        expect(box?.height ?? 0, name).toBeGreaterThanOrEqual(44);
+      }
+    };
+    await page.getByRole('textbox', { name: 'Manuscript', exact: true }).fill('Dark words.');
+    await axe();
+    await small(['Layout', 'Side views', 'Rename', 'Block options', 'Add text']);
+    await page.goto(`/?tenant=${tenant.id}`);
+    await axe();
+    await small(['Start writing', 'Start something else']);
+  } finally {
+    await context.close();
+  }
+});
