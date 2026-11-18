@@ -267,4 +267,10 @@ export {
   saveInformationBundle,
 } from './bundles';
 
-export { renderBundleEditor, renderInformationPayloads, validatePicture } from './payloads';
+export {
+  type BlockItem,
+  type BlockOptions,
+  renderBundleEditor,
+  renderInformationPayloads,
+  validatePicture,
+} from './payloads';

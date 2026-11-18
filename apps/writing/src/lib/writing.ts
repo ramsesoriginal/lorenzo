@@ -1,5 +1,5 @@
 import { getAppLinks } from '@lorenzo/api-client';
-import { bindShell, confirmDialog } from '@lorenzo/app-shell';
+import { bindShell, confirmDialog, openMenu } from '@lorenzo/app-shell';
 import {
   type BundleReceipt,
   type DraftPayload,
@@ -14,8 +14,9 @@ import { createEditor } from '@lorenzo/lorenzoscript-editor';
 import { modernAddress } from './addresses';
 import { client, fetchAllPages, LorenzoApiError, loadFile, unwrap } from './api';
 import { isAuthConfigured, isAuthenticated, login, logout } from './auth';
+import { askTitle, extractParts, splitAtCaret } from './blocks';
 import { compositionScreen, outlineOf, writingAddress } from './composition';
-import { API_BASE_URL } from './config';
+import { API_BASE_URL, BRANDING_CSS_URL } from './config';
 import {
   draftKey,
   forgetDrafts,
@@ -550,6 +551,43 @@ async function manuscript(
     }, 400);
   };
 
+  // The page's parts act on saved text, so a change in the editor is saved first (ADR 0494, W3).
+  let selected: string[] = [];
+  const job = (run: () => Promise<void>) => {
+    warning.textContent = '';
+    void run().catch((error: unknown) => {
+      warning.textContent = message(error);
+    });
+  };
+  const settle = async () => {
+    for (let wait = 0; wait < 40 && (saving || dirty) && !blocked; wait++) {
+      if (saving) await new Promise((resolve) => setTimeout(resolve, 150));
+      else await save();
+    }
+    if (dirty || blocked || saving)
+      throw new Error('Save your changes first, and settle any conflict, then try again.');
+  };
+  const makeFrom = (ids: string[], kind: 'Chapter' | 'Scene') =>
+    job(async () => {
+      const title = await askTitle(`Name the new ${kind}`, `Make a ${kind}`);
+      if (!title) return;
+      await settle();
+      await extractParts(tenant, entry, await outlineOf(tenant, entry), ids, kind, title);
+      location.reload();
+    });
+  const selection = element('div', '', 'row');
+  selection.setAttribute('role', 'region');
+  selection.setAttribute('aria-label', 'Selected blocks');
+  selection.hidden = true;
+  const selectionCount = element('span');
+  selection.append(
+    selectionCount,
+    button('Make a Chapter', () => makeFrom(selected, 'Chapter')),
+    button('Make a Scene', () => makeFrom(selected, 'Scene')),
+    button('Clear selection', () => editor.clearSelection()),
+  );
+  main.prepend(selection);
+
   let editor: ReturnType<typeof renderBundleEditor>;
 
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -590,6 +628,46 @@ async function manuscript(
       content: '',
       textLabel: 'Manuscript',
       loadFile,
+      blocks: {
+        openMenu: (anchor, items) =>
+          openMenu(
+            anchor,
+            items.filter((item) => !item.disabled),
+            { label: 'Block options', sprite: `${BRANDING_CSS_URL}/icons.svg` },
+          ),
+        extraItems: (payload, caret) => [
+          ...(payload.kind === 'description'
+            ? [
+                {
+                  label: 'Split here',
+                  run: () =>
+                    job(async () => {
+                      await settle();
+                      await splitAtCaret(tenant, entry, payload.id, caret ?? 0);
+                      location.reload();
+                    }),
+                },
+              ]
+            : []),
+          { label: 'Make a Chapter', run: () => makeFrom([payload.id], 'Chapter') },
+          { label: 'Make a Scene', run: () => makeFrom([payload.id], 'Scene') },
+          {
+            label: 'Copy link',
+            run: () =>
+              job(async () => {
+                await navigator.clipboard.writeText(
+                  `${location.origin}${writingAddress(tenant, entry, 'read')}#element-${payload.id}`,
+                );
+                warning.textContent = 'Link copied.';
+              }),
+          },
+        ],
+        onSelect: (ids) => {
+          selection.hidden = ids.length === 0;
+          selectionCount.textContent = `${ids.length} ${ids.length === 1 ? 'block' : 'blocks'} selected`;
+          selected = ids;
+        },
+      },
 
       createTextEditor(container, label, content) {
         const text = element('textarea');
@@ -616,6 +694,7 @@ async function manuscript(
         return {
           value: () => text.value,
           focus: () => text.focus(),
+          caret: () => text.selectionStart,
           destroy: () => control.destroy(),
         };
       },

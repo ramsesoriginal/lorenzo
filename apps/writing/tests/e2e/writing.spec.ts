@@ -210,12 +210,12 @@ test('an unsent picture survives reload and saves with its text', async ({ brows
       'Use Save now to retry',
     );
     await page.reload();
-    await expect(page.getByRole('button', { name: 'Remove picture' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Block options' }).last()).toBeVisible();
     await page.unroute(`${API_URL}/tenants/**/information/*/payloads`);
     await page.getByRole('button', { name: 'Save now', exact: true }).click();
     await expect(page.getByRole('status', { name: 'Save status' })).toHaveText('Saved');
     await page.reload();
-    await expect(page.getByRole('button', { name: 'Remove picture' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Block options' }).last()).toBeVisible();
   } finally {
     await context.close();
   }
@@ -990,7 +990,7 @@ test('extract a reusable Scene and make its second telling independent', async (
         'base64',
       ),
     });
-    await expect(page.getByRole('button', { name: 'Remove picture' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Block options' }).last()).toBeVisible();
     await expect(page.getByRole('status', { name: 'Save status' })).toHaveText('Saved');
     const edition = new URL(page.url()).searchParams.get('entry');
     await page.getByRole('link', { name: 'Outline', exact: true }).click();
@@ -1021,7 +1021,7 @@ test('extract a reusable Scene and make its second telling independent', async (
     await page.getByRole('link', { name: 'At the crossing', exact: true }).last().click();
     await expect(page.locator('article')).toContainText('The river remembers.');
     await page.getByRole('button', { name: 'Make independent', exact: true }).click();
-    await expect(page.getByRole('button', { name: 'Remove picture' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Block options' }).last()).toBeVisible();
     await expect(manuscript).toHaveValue(prose);
     await manuscript.fill('The ferryman remembers.');
     await expect(page.getByRole('status', { name: 'Save status' })).toHaveText('Saved');
@@ -2530,7 +2530,7 @@ test('export repeats composition with distinct footnotes, contents and original 
       mimeType: 'image/png',
       buffer: Buffer.from(image, 'base64'),
     });
-    await expect(page.getByRole('button', { name: 'Remove picture' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Block options' }).last()).toBeVisible();
     await expect(page.getByRole('status', { name: 'Save status' })).toHaveText('Saved');
     const book = await ok(
       api.POST('/tenants/{tenant_id}/writing/books', {
@@ -2725,6 +2725,80 @@ test('old addresses open the new ones and a work has a head, a drawer and a stat
     await expect(page.getByRole('complementary', { name: 'Side views' })).toBeVisible();
     const axe = await new AxeBuilder({ page }).exclude('.shell-bottom').analyze();
     expect(axe.violations).toEqual([]);
+  } finally {
+    await context.close();
+  }
+});
+
+test('blocks move by Alt and the arrow keys, are selected, and become a Chapter', async ({
+  browser,
+}) => {
+  test.setTimeout(120000);
+  const { page, context, tenant } = await world(browser);
+  try {
+    await page.goto(`/?tenant=${tenant.id}`);
+    await startAs(page, 'chapter', 'Blocks chapter');
+    const first = page.getByRole('textbox', { name: 'Manuscript', exact: true });
+    await first.fill('First part.');
+    await page.getByRole('button', { name: 'Add text', exact: true }).click();
+    const second = page.getByRole('textbox', { name: 'Text 2', exact: true });
+    await second.fill('Second part.');
+    await expect(page.getByRole('status', { name: 'Save status' })).toHaveText('Saved');
+    await second.press('Alt+ArrowUp');
+    await expect(page.getByRole('textbox', { name: /^(Manuscript|Text \d)$/ }).first()).toHaveValue(
+      'Second part.',
+    );
+    await expect(page.getByRole('status', { name: 'Save status' })).toHaveText('Saved');
+    await page.getByRole('button', { name: 'Add a block here' }).click();
+    await page.getByRole('menuitem', { name: 'Add text' }).click();
+    await expect(page.getByRole('textbox', { name: /^(Manuscript|Text \d)$/ })).toHaveCount(3);
+    await page.getByRole('button', { name: 'Block options' }).nth(1).click();
+    await page.getByRole('menuitem', { name: 'Remove text' }).click();
+    await expect(page.getByRole('textbox', { name: /^(Manuscript|Text \d)$/ })).toHaveCount(2);
+    await page.getByRole('button', { name: 'Block options' }).first().click();
+    await page.getByRole('menuitem', { name: 'Select this block' }).click();
+    await expect(page.getByText('1 block selected')).toBeVisible();
+    const axe = await new AxeBuilder({ page }).exclude('.shell-bottom').analyze();
+    expect(axe.violations).toEqual([]);
+    await page
+      .getByRole('region', { name: 'Selected blocks' })
+      .getByRole('button', { name: 'Make a Chapter' })
+      .click();
+    const dialog = page.getByRole('dialog');
+    await dialog.getByLabel('Title').fill('Carved out');
+    await dialog.getByRole('button', { name: 'Make a Chapter' }).click();
+    await expect(page.getByText('1 block selected')).toHaveCount(0);
+    await page.getByRole('link', { name: 'Outline', exact: true }).click();
+    await expect(page.getByRole('link', { name: 'Carved out', exact: true })).toBeVisible();
+  } finally {
+    await context.close();
+  }
+});
+
+test('a text block splits from its menu at the section the cursor is in, and says why not', async ({
+  browser,
+}) => {
+  test.setTimeout(120000);
+  const { page, context, tenant } = await world(browser);
+  try {
+    await page.goto(`/?tenant=${tenant.id}`);
+    await startAs(page, 'chapter', 'Split chapter');
+    const text = page.getByRole('textbox', { name: 'Manuscript', exact: true });
+    await text.fill('Alpha section.\n\nBeta section.');
+    await expect(page.getByRole('status', { name: 'Save status' })).toHaveText('Saved');
+    await text.evaluate((el: HTMLTextAreaElement) => el.setSelectionRange(2, 2));
+    await page.getByRole('button', { name: 'Block options' }).first().click();
+    await page.getByRole('menuitem', { name: 'Split here' }).click();
+    await expect(page.getByRole('alert').filter({ hasText: 'Put the cursor' })).toBeVisible();
+    await text.evaluate((el: HTMLTextAreaElement) => el.setSelectionRange(20, 20));
+    await page.getByRole('button', { name: 'Block options' }).first().click();
+    await page.getByRole('menuitem', { name: 'Split here' }).click();
+    await expect(page.getByRole('textbox', { name: 'Text 2', exact: true })).toHaveValue(
+      'Beta section.',
+    );
+    await expect(page.getByRole('textbox', { name: 'Manuscript', exact: true })).toHaveValue(
+      'Alpha section.\n\n',
+    );
   } finally {
     await context.close();
   }
