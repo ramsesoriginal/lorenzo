@@ -39,3 +39,13 @@ test('unsafe link targets lose the link, and plain text is not worth converting'
   expect(worthConverting('<p>just words</p>')).toBe(false);
   expect(worthConverting('<p><b>words</b></p>')).toBe(true);
 });
+
+test('entities decode, code is kept, scripts and comments are dropped, broken HTML does not throw', () => {
+  expect(htmlToScript('<p>a &amp; b &lt;c&gt; &#8212; &nbsp;<code>x &lt; y</code></p>')).toBe(
+    'a & b <c> — `x < y`',
+  );
+  expect(htmlToScript('<p>hi<script>alert(1)</script><!-- note --> there</p>')).toBe('hi there');
+  expect(htmlToScript('<p>open <b>bold <i>both</p> after')).toBe('open **bold *both***\n\nafter');
+  expect(htmlToScript('<p>cut <a href="https://e.org')).toBe('cut');
+  expect(htmlToScript('<!-- <!-- <!-- '.repeat(5000))).toBe('');
+});
