@@ -1,14 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { type BBox, type Cell, cellCentre, type GridSpec } from '@lorenzo/map-renderer';
 import { describe, expect, it } from 'vitest';
-import {
-  cellFill,
-  MAX_REGION_CELLS,
-  MAX_TILE_CELLS,
-  regionCells,
-  type Tile,
-  TONES,
-} from '../../src/lib/cell-fill';
+import { cellFill, MAX_REGION_CELLS, regionCells, type Tile, TONES } from '../../src/lib/cell-fill';
 import { directionsOf, neighbour, opposite } from '../../src/lib/cell-neighbours';
 import { collapse, learn, NOTHING, obeys, TRIES } from '../../src/lib/collapse';
 import { regionOf } from '../../src/lib/generator';
@@ -331,18 +324,50 @@ describe('what a fill does to a Map (ADR 0479)', () => {
     expect(fill.tiles.reduce((sum, tile) => sum + tile.gained.length, 0)).toBeLessThanOrEqual(24);
   });
 
-  it('refuses a tile that would hold more than a drawing does, naming it', () => {
+  it('writes a tile of a whole sheet as one outline, which a drawing holds (ADR 0481)', () => {
     // One tile and nothing else in the example: the whole sheet of 320 cells would all be it.
     const all: Tile = { id: 'sea', name: 'The sea', cells: block(0, 0, 3, 3) };
     const fill = cellFill(square, extent, [all], new Map([['sea', all.cells]]), whole, 1);
 
+    expect(fill.ok).toBe(true);
+    expect(fill.tiles[0]?.cells).toHaveLength(320);
+  });
+
+  it('refuses a tile whose cells would be more pieces than a drawing holds, naming it', () => {
+    // A chequer of small squares: every cell of a tile stands alone, 4,000 of them.
+    const fine: GridSpec = { kind: 'square', cell: { size: 10 } };
+    const chequer: Tile[] = [
+      {
+        id: 'a',
+        name: 'Black',
+        cells: [
+          [0, 0],
+          [1, 1],
+        ],
+      },
+      {
+        id: 'b',
+        name: 'White',
+        cells: [
+          [1, 0],
+          [0, 1],
+        ],
+      },
+    ];
+    const fill = cellFill(
+      fine,
+      extent,
+      chequer,
+      new Map(chequer.map((tile) => [tile.id, tile.cells])),
+      whole,
+      1,
+    );
+
     expect(fill.ok).toBe(false);
     if (fill.ok) return;
-    expect(fill.why).toBe(
-      'The sea would hold 320 cells, and a drawing holds 256. Select a smaller area first.',
+    expect(fill.why).toMatch(
+      /^(Black|White): This is \d+ pieces, and a drawing holds 1024\. Select a smaller area first\.$/,
     );
-    expect(fill.tiles[0]?.gained).toHaveLength(320);
-    expect(MAX_TILE_CELLS).toBe(256);
   });
 
   it('says what is missing: no example, a region too large, or no tiling', () => {

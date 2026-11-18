@@ -1,10 +1,12 @@
 // The Freehand tool's line (ADR 0472): a dragged stroke simplified into a polyline that always
 // fits a placement. Pure: nothing here touches the page.
 
+import { LIMITS } from './validate';
+
 type Pt = readonly [number, number];
 
-/** A placement holds at most this many vertices (ADR 0337). */
-export const MAX_VERTICES = 2000;
+/** A placement holds at most this many vertices (ADR 0337, ADR 0481). */
+export const MAX_VERTICES: number = LIMITS.vertices;
 
 const round2 = (n: number): number => Math.round(n * 100) / 100;
 

@@ -307,12 +307,24 @@ describe('the Fill by marching squares generator (ADR 0477)', () => {
     expect(def?.run(whole, 12, set({ scale: 3, lines: 2 })).needs).toBe(
       'Height lines need a first height, a step and a unit: give all three, or set Height lines to 0.',
     );
-    // The finest noise with every height line has more points than a drawing holds.
+    // Even the finest noise with every height line fits a drawing since ADR 0481; one over the
+    // limit is still named.
     const many = def?.run(whole, 3, set({ scale: 20, lines: 8, first: 0, step: 1 }, 'm'));
 
-    expect(fits(many?.geometry ?? null, def?.hints as never)).toEqual({
+    expect(fits(many?.geometry ?? null, def?.hints as never)).toEqual({ ok: true });
+    expect(
+      fits(
+        {
+          format: 'lorenzo.geometry/1',
+          parts: [
+            { shape: 'polyline', pts: Array.from({ length: 8001 }, (_, i) => [i, i % 2] as const) },
+          ],
+        } as never,
+        def?.hints as never,
+      ),
+    ).toEqual({
       ok: false,
-      why: 'This has more than the 2000 points a drawing holds. Lower Height lines, or raise Scale.',
+      why: 'This has more than the 8000 points a drawing holds. Lower Height lines, or raise Scale.',
     });
   });
 });
@@ -355,7 +367,7 @@ describe('a field over a region, and its decimals (ADR 0476, ADR 0477)', () => {
     expect(fieldOver(regionOf(null, [0, 0, 1000, 10]), 10)?.rows).toBe(4);
   });
 
-  it('keeps two decimals, more for a fine field, and none far out', () => {
+  it('keeps two decimals, and more for a fine field, however far out it lies', () => {
     const over = (bounds: Sheet) => fieldOver(regionOf(null, bounds), FILL_COLS) as never;
 
     expect(decimalsFor(over(sheet))).toBe(2);
@@ -365,8 +377,9 @@ describe('a field over a region, and its decimals (ADR 0476, ADR 0477)', () => {
     expect(decimalsFor(over([0, 0, 0.000001, 0.000001]), 16)).toBe(6);
     // Without steps to keep apart, two decimals whatever the cell.
     expect(decimalsFor(over([0, 0, 0.5, 0.4]))).toBe(2);
-    expect(decimalsFor(over([0, 0, 9_000_000, 7_000_000]), 16)).toBe(0);
-    expect(decimalsFor(over([-2_000_000, 0, -1_999_000, 800]), 16)).toBe(0);
+    // Far out as near: the validator takes two decimals there too (#1255).
+    expect(decimalsFor(over([0, 0, 9_000_000, 7_000_000]), 16)).toBe(2);
+    expect(decimalsFor(over([-2_000_000, 0, -1_999_000, 800]), 16)).toBe(2);
     expect(decimalsFor(over([999_000, 0, 1_000_000, 800]), 16)).toBe(2);
   });
 

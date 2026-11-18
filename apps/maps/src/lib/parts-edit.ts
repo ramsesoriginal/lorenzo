@@ -4,6 +4,7 @@
 import type { Geometry, Part } from '@lorenzo/map-renderer';
 import { type Editable, editableOf, type Pt, round2, toGeometry, valued } from './geometry-edit';
 import { splineCurve, splineOf } from './spline';
+import { LIMITS } from './validate';
 
 /** A part of a geometry, and for an area which ring of it: 0 the outline, 1 and on its holes. */
 export type PartRef = { part: number; ring: number };
@@ -288,8 +289,8 @@ export function isHeightLines(geometry: Geometry): boolean {
   );
 }
 
-/** A placement holds at most this many parts (ADR 0337). */
-export const MAX_PARTS = 256;
+/** A placement holds at most this many parts (ADR 0337, ADR 0481). */
+export const MAX_PARTS: number = LIMITS.parts;
 
 /** The geometry with the parts of another added after its own. */
 export function withParts(geometry: Geometry, more: Geometry): Geometry {

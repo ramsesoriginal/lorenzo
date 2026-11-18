@@ -14,11 +14,15 @@ from lorenzo_map import (
     cell_count,
     cell_polygon,
     in_grid,
+    validate_geometry,
     validate_system,
     validate_view,
 )
 
 GOLDEN = json.loads((Path(__file__).parents[1] / "golden" / "cells.json").read_text("utf-8"))
+OUTLINES = json.loads(
+    (Path(__file__).parents[1] / "golden" / "cell-outlines.json").read_text("utf-8")
+)
 COLLAPSE = json.loads((Path(__file__).parents[1] / "golden" / "collapse.json").read_text("utf-8"))
 F = "lorenzo.map-system/1"
 
@@ -153,7 +157,20 @@ def test_what_the_wave_function_collapse_generator_fills_are_cells_of_the_grid(c
         assert len(set(cells)) == len(cells)
         assert all(in_grid(grid, extent, cell) for cell in cells)
     if case["ok"]:
-        # No cell of the region goes to two entries, and no entry is left with nothing to draw
-        # beyond what a drawing holds.
+        # No cell of the region goes to two entries.
         assert len(set(gained)) == len(gained)
-        assert all(len(tile["cells"]) <= 256 for tile in case["tiles"])
+
+
+@pytest.mark.parametrize("case", OUTLINES["cases"], ids=lambda c: c["name"])
+def test_the_outlines_of_cells_are_accepted_and_run_along_the_cells(case):
+    """Lorenzo Maps writes a region of cells as outlines (ADR 0481): what it writes is held to this
+    validator, and every corner of it is a corner of one of the cells, so it runs along the grid."""
+    grid, extent = case["grid"], OUTLINES["extent"]
+    checked = validate_geometry(case["geometry"])
+    assert checked.geometry == case["geometry"]
+    corners = [p for cell in case["cells"] for p in cell_polygon(grid, extent, tuple(cell))]
+    for part in case["geometry"]["parts"]:
+        for ring in part["rings"]:
+            for x, y in ring:
+                assert any(abs(x - cx) <= 0.011 and abs(y - cy) <= 0.011 for cx, cy in corners)
+    assert len(case["geometry"]["parts"]) <= len(case["cells"])
