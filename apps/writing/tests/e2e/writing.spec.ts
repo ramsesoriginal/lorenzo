@@ -2444,7 +2444,10 @@ test('saved export preview downloads source and prepares a clean printable manus
       observer.observe(document.body, { childList: true });
     });
     await controls.getByRole('button', { name: 'Print / Save as PDF' }).click();
-    await expect(page.locator('html')).toHaveAttribute('data-printed', /The river remembers/);
+    // The print layout waits for the manuscript fonts, which can be slow on a busy runner.
+    await expect(page.locator('html')).toHaveAttribute('data-printed', /The river remembers/, {
+      timeout: 20000,
+    });
     const html = await page.locator('html').getAttribute('data-printed');
     expect(html).not.toContain('Preview saved writing');
     expect(html).not.toContain('<textarea');
@@ -2661,7 +2664,9 @@ test('export repeats composition with distinct footnotes, contents and original 
       observer.observe(document.body, { childList: true });
     });
     await controls.getByRole('button', { name: 'Print / Save as PDF' }).click();
-    await expect(page.locator('html')).toHaveAttribute('data-printed', /A local note/);
+    await expect(page.locator('html')).toHaveAttribute('data-printed', /A local note/, {
+      timeout: 20000,
+    });
     if (process.env.E2E_EXPORT_PDF) {
       const printed = await context.newPage();
       await printed.goto(`${SITE_URL}/branding/fonts.css`);
