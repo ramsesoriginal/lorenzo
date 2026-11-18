@@ -1,6 +1,6 @@
 # 0144 - `lorenzo plan` and `lorenzo apply`: the mapping file, identity, and the non-interactive contract
 
-Status: accepted
+Status: accepted; the commands are renamed `lorenzo import mpmb plan|apply` by [ADR 0504](0504-the-importers-move-under-lorenzo-import.md)
 
 Slice 4 of [RFC 0025](../rfcs/0025-lorenzo-cli-mpmb-item-importer.md) (R4, R5, R6). Builds on [ADR 0138](0138-lorenzo-cli-js-host.md) (evaluation), [ADR 0143](0143-lorenzo-seed-taxonomy-and-stats.md) (the taxonomy and stats it writes into), and the `apps/api` additions of [ADR 0139](0139-name-an-item-when-it-is-created.md) to [ADR 0142](0142-acquiring-a-stat-group-on-the-generic-stat-put.md).
 

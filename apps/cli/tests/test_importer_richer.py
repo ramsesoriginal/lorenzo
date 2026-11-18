@@ -6,7 +6,7 @@ from typing import Any
 
 from lorenzo_cli.importer.draft import Ancestry, ItemDraft, draft_item
 from lorenzo_cli.importer.mapping import load_mapping
-from lorenzo_cli.seed import load_builtin
+from lorenzo_cli.importer.vocabulary import load as load_builtin
 
 BUILTIN = load_mapping().mapping
 ANCESTRY = load_builtin()
@@ -105,7 +105,7 @@ def test_every_property_word_is_recognised_and_only_whole_words() -> None:
 def test_versatile_gives_the_two_handed_die() -> None:
     result = draft("weapons", "x", {**PLAIN, "description": "Versatile (1d10)"})
 
-    assert result.stats["damage_versatile_die"] == 10
+    assert result.stats["dnd5e_damage_versatile"] == "1d10"
     assert result.description == "Versatile (1d10)"
 
 
@@ -132,7 +132,7 @@ def test_the_ammunition_a_weapon_fires_is_a_stat_and_the_property_comes_from_its
     result = draft("weapons", "shortbow", entry)
 
     assert "dnd5e-uses-ammunition" in result.parents
-    assert result.stats["ammo_type"] == "arrow"
+    assert result.stats["dnd5e_ammo_type"] == "arrow"
 
 
 def test_a_thrown_flask_that_names_itself_as_ammo_does_not_use_ammunition() -> None:
@@ -141,7 +141,7 @@ def test_a_thrown_flask_that_names_itself_as_ammo_does_not_use_ammunition() -> N
     result = draft("weapons", "acid", entry)
 
     assert "dnd5e-uses-ammunition" not in result.parents
-    assert result.stats["ammo_type"] == "Acid"
+    assert result.stats["dnd5e_ammo_type"] == "Acid"
 
 
 def test_what_the_source_says_about_a_weapon_is_kept_as_stats() -> None:
@@ -157,12 +157,12 @@ def test_what_the_source_says_about_a_weapon_is_kept_as_stats() -> None:
 
     stats = draft("weapons", "x", entry).stats
 
-    assert stats["attack_ability"] == "Dexterity"
-    assert stats["ability_to_damage"] is True
-    assert stats["is_monk_weapon"] is True
-    assert stats["is_not_weapon"] is True
-    assert stats["has_save_dc"] is True
-    assert stats["base_weapon"] == "longsword"
+    assert stats["dnd5e_attack_ability"] == "Dexterity"
+    assert stats["dnd5e_ability_to_damage"] is True
+    assert stats["dnd5e_is_monk_weapon"] is True
+    assert stats["dnd5e_is_not_weapon"] is True
+    assert stats["dnd5e_has_save_dc"] is True
+    assert stats["dnd5e_base_weapon"] == "longsword"
 
 
 def test_other_names_become_an_entry_and_the_chosen_name_is_not_among_them() -> None:
@@ -209,15 +209,15 @@ def test_what_armour_asks_and_does_is_kept() -> None:
 
     stats = draft("armour", "chain mail", entry).stats
 
-    assert stats["strength_required"] == 13
-    assert stats["stealth_disadvantage"] is True
-    assert stats["adds_modifier"] is True
+    assert stats["dnd5e_strength_required"] == 13
+    assert stats["dnd5e_stealth_disadvantage"] is True
+    assert stats["dnd5e_adds_modifier"] is True
 
 
 def test_a_strength_of_zero_is_not_a_requirement() -> None:
     result = draft("armour", "padded", {"name": "Padded", "strReq": 0})
 
-    assert "strength_required" not in result.stats
+    assert "dnd5e_strength_required" not in result.stats
 
 
 def test_a_material_in_the_name_is_a_category() -> None:

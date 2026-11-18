@@ -13,9 +13,8 @@ import typer
 from lorenzo_calendar import CalendarDefinition, Periodic, RecurrenceRule
 from lorenzo_calendar.document import Annotation, CalendarDocument, parse_document
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
-from rich.progress import Progress, SpinnerColumn, TextColumn, TimeElapsedColumn
-from rich.text import Text
 
+from lorenzo_cli import console
 from lorenzo_cli.client import ops
 from lorenzo_cli.client.errors import LorenzoConnectionError
 from lorenzo_cli.client.models import CalendarImportApply, CalendarImportPlan, CalendarImportRequest
@@ -29,20 +28,8 @@ app = typer.Typer(help="Import and export authored calendar documents.", no_args
 @contextmanager
 def activity(description: str, *, as_json: bool) -> Iterator[None]:
     """The API applies one transaction; show elapsed activity, never invented note progress."""
-    from lorenzo_cli.main import _err
-
-    if _err.is_terminal and not as_json:
-        with Progress(
-            SpinnerColumn(),
-            TextColumn("{task.description}"),
-            TimeElapsedColumn(),
-            console=_err,
-            transient=True,
-        ) as progress:
-            progress.add_task(description, total=None)
-            yield
-    else:
-        _err.print(Text(description))
+    del as_json  # the console knows a `--json` run (ADR 0495)
+    with console.waiting(description.removesuffix("…")):
         yield
 
 
@@ -176,7 +163,7 @@ def calendar_import(
     ] = False,
     as_json: Json = False,
 ) -> None:
-    from lorenzo_cli.main import _reporting_errors
+    from lorenzo_cli.runtime import _reporting_errors
 
     with _reporting_errors():
         try:
@@ -234,20 +221,16 @@ def calendar_import(
                 )
             if dry_run:
                 if as_json:
-                    typer.echo(planned.model_dump_json(indent=2))
+                    console.emit(planned.model_dump(mode="json"))
                 return
             if not planned.ready:
                 raise SelfServiceError(
                     "The plan needs warning acknowledgements or conflict choices; "
                     "no changes were applied"
                 )
-            if not yes:
-                if as_json or not ctx.obj.interactive:
-                    raise SelfServiceError(
-                        "Review with --dry-run, then use --yes to apply a ready plan"
-                    )
-                if not typer.confirm("Apply this calendar import?", default=False):
-                    raise typer.Exit(0)
+            from lorenzo_cli.runtime import may_write
+
+            may_write(ctx.obj, yes=yes, question="Apply this calendar import?")
             try:
                 with activity(
                     "Saving calendar and dated notes; waiting for API confirmation…",
@@ -270,7 +253,7 @@ def calendar_import(
                     "Use --timeout for a longer wait."
                 ) from error
             if as_json:
-                typer.echo(applied.model_dump_json(indent=2))
+                console.emit(applied.model_dump(mode="json"))
             else:
                 typer.echo(
                     f"Imported {len(applied.created)} new units; changed {len(applied.changed)}, "

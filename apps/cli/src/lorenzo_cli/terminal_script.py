@@ -13,7 +13,6 @@ from datetime import date
 from importlib import resources
 from typing import Any
 
-from py_mini_racer import JSEvalException, JSOOMException, JSTimeoutException, MiniRacer
 from rich.console import Console, Group, RenderableType
 from rich.padding import Padding
 from rich.panel import Panel
@@ -34,6 +33,9 @@ class ScriptError(Exception):
 
 class Parser:
     def __init__(self) -> None:
+        # V8 loads with the first parser, not with every command that imports `safe` (ADR 0497).
+        from py_mini_racer import MiniRacer
+
         self.context = MiniRacer()
         self.context.set_hard_memory_limit(64 * 1024 * 1024)
         source = resources.files("lorenzo_cli").joinpath("lorenzoscript.js").read_text("utf-8")
@@ -46,6 +48,8 @@ class Parser:
     def parse(self, text: str) -> dict[str, Any]:
         if len(text) > 1_000_000:
             raise ScriptError("Text is too long to render in the terminal.")
+        from py_mini_racer import JSEvalException, JSOOMException, JSTimeoutException
+
         try:
             result = json.loads(self.context.call("terminalParse", safe(text), timeout_sec=5))
         except (JSEvalException, JSOOMException, JSTimeoutException) as error:

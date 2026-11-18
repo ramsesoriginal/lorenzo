@@ -47,7 +47,7 @@ def test_calendar_import_choices_reload_export_and_retry(stack: Stack, tmp_path:
         ),
         encoding="utf-8",
     )
-    args = ["calendar", "import", str(file), "--tenant", slug, "--choices", str(choices)]
+    args = ["import", "calendar", str(file), "--tenant", slug, "--choices", str(choices)]
     preview = run_cli(stack, token, tmp_path, *args, "--dry-run", "--json")
     assert preview.exit_code == 0, preview.output
     assert json.loads(preview.stdout)["ready"]
@@ -56,7 +56,7 @@ def test_calendar_import_choices_reload_export_and_retry(stack: Stack, tmp_path:
     repeated = run_cli(stack, token, tmp_path, *args, "--yes", "--json")
     assert repeated.exit_code == 0, repeated.output
     assert json.loads(repeated.stdout)["created"] == []
-    exported = run_cli(stack, token, tmp_path, "calendar", "export", "isles", "--tenant", slug)
+    exported = run_cli(stack, token, tmp_path, "export", "calendar", "isles", "--tenant", slug)
     assert exported.exit_code == 0, exported.output
     native = CalendarDocument.model_validate_json(exported.stdout)
     assert [a.classification for a in native.annotations] == ["event", "event"]
@@ -91,7 +91,7 @@ def test_forty_ordinary_notes_are_saved_with_the_calendar_and_survive_retry(
     }
     file = tmp_path / "calendar.json"
     file.write_text(json.dumps(document), encoding="utf-8")
-    args = ["calendar", "import", str(file), "--tenant", slug, "--yes", "--json"]
+    args = ["import", "calendar", str(file), "--tenant", slug, "--yes", "--json"]
     imported = run_cli(stack, token, tmp_path, *args)
     assert imported.exit_code == 0, imported.output
     receipt = json.loads(imported.stdout)

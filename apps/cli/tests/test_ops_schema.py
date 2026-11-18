@@ -81,9 +81,9 @@ def test_op_matches_the_schema(op: Op[Any], schema: dict[str, Any]) -> None:
     else:
         assert body is not None
         actual = _ref_name(body["content"]["application/json"]["schema"])
-        assert actual == _expected_name(op.request_type)
+        assert actual == _expected_name(op.request)
 
     success = next(code for code in operation["responses"] if code.startswith("2"))
     content = operation["responses"][success].get("content", {})
     actual_response = _ref_name(content.get("application/json", {}).get("schema"))
-    assert actual_response == _expected_name(op.response_type)
+    assert actual_response == _expected_name(op.response)

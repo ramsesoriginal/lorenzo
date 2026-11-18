@@ -37,7 +37,7 @@ from lorenzo_cli.importer.packs import (
 from lorenzo_cli.importer.parts import Parts
 from lorenzo_cli.importer.slugs import LIST_TOKENS, assign_slugs
 from lorenzo_cli.importer.transforms import Issue
-from lorenzo_cli.seed import SeedSpec
+from lorenzo_cli.importer.vocabulary import Vocabulary as SeedSpec
 
 Status = Literal["create", "complete", "retitle", "exists", "held", "skipped", "moved"]
 # Written last: an existing item without it is one an earlier run stopped part-way through.
@@ -164,8 +164,14 @@ def _final_slugs(
     while True:
         slugs = assign_slugs([(d.namespace, d.list_name, d.key) for d in drafts], taken)
         found = tenant_view.resolve_slugs(client, tenant_id, list(slugs.values()))
+        # What each slug should hold: an item, or for a way of working out armour class a feature.
+        wanted = {
+            slugs[(d.list_name, d.key)]: "feature" if d.armor_class_way else "item" for d in drafts
+        }
         held_by_others = {
-            slug for slug, hit in found.items() if "item" not in {kind.value for kind in hit.kinds}
+            slug
+            for slug, hit in found.items()
+            if wanted.get(slug, "item") not in {kind.value for kind in hit.kinds}
         }
         # A base slug someone else holds: every member of it takes a suffix.
         newly = {s for s in held_by_others if s not in taken}
@@ -212,6 +218,9 @@ def build_plan(
     if options.part == "neutral":
         for item in live:
             item.draft = part_view(item.draft, "neutral", parts)
+            if item.draft.skip_reason is not None:
+                item.status = "skipped"  # a way of working out armour class: the system's alone
+        live = [item for item in live if item.draft.skip_reason is None]
     elif options.part == "system":
         live, found = _system_items(client, tenant.id, live, parts)
 
@@ -257,6 +266,8 @@ def _system_items(
     neutral = tenant_view.resolve_slugs(client, tenant_id, [i.neutral_slug for i in prototypes])
     for item in prototypes:
         item.slug = slugs[(item.draft.list_name, item.draft.key)]
+        if item.draft.armor_class_way:
+            continue  # a feature of its own: there is no neutral item to attach it to
         hit = neutral.get(item.neutral_slug)
         if hit is None or "item" not in {kind.value for kind in hit.kinds}:
             item.draft.issues.append(
@@ -265,8 +276,8 @@ def _system_items(
                     "",
                     item.neutral_slug,
                     f"its neutral item {item.neutral_slug} isn't in this tenant",
-                    "run `lorenzo apply --part neutral` in the equipment repository, and take "
-                    "it here with `lorenzo repo copy` or `lorenzo repo updates`",
+                    "run `lorenzo import mpmb apply --part neutral` in the equipment repository, "
+                    "and take it here with `lorenzo repo copy` or `lorenzo repo updates`",
                 )
             )
         else:
@@ -282,7 +293,7 @@ def _check_seeded(
     tenant_defs: dict[str, StatDefinitionOut],
     seed: SeedSpec,
 ) -> None:
-    """The import needs the seed's categories and stats to be there. Say so once, plainly."""
+    """The import needs the starters' categories and stats to be there. Say so once, plainly."""
     missing_parents = [p for p in needed_parents if p not in present_parents]
     seed_types = {d.name: (d.value_type, d.group) for d in seed.definitions}
     wanted: dict[str, tuple[str, str | None]] = {}
@@ -320,9 +331,10 @@ def _check_seeded(
     if missing_parents or missing_stats:
         shown = ", ".join([*missing_parents[:6], *missing_stats[:6]])
         plan.problems.append(
-            f"This tenant hasn't been seeded: it lacks {shown}"
+            f"This library lacks {shown}"
             f"{' and more' if len(missing_parents) + len(missing_stats) > 12 else ''}. "
-            "Run `lorenzo seed` on it first."
+            "Apply the starters first: `lorenzo apply --starter neutral` (and `--starter dnd5e` "
+            "for D&D's half), or copy a repository that holds them."
         )
 
 
@@ -364,7 +376,9 @@ def _decide(
     placed = {p.id for p in detail.prototypes if p.id in managed_ids}
     if placed != wanted and len(wanted) == len(draft.parents):
         item.reparent = True
-    if system:
+    if draft.armor_class_way:
+        incomplete = any(stat not in item.have_stats for stat in draft.stats)
+    elif system:
         # The attachment is the system pass's last step, so it is what says a prototype is done.
         assert item.neutral_id is not None
         neutral = tenant_view.entity_detail(client, tenant_id, item.neutral_id)

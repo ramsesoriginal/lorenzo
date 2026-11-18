@@ -24,8 +24,9 @@ class World:
         self.token = stack.creator_token(f"owner-{uuid.uuid4().hex[:8]}")
         self.repository = make_tenant(stack, self.token, "repository")
         self.target = make_tenant(stack, self.token, "play")
-        seeded = self.cli("seed", "--tenant", self.repository, "--yes")
-        assert seeded.exit_code == 0, seeded.output
+        for starter in ("neutral", "dnd5e"):
+            started = self.cli("apply", "--starter", starter, "-t", self.repository, "--yes")
+            assert started.exit_code == 0, started.output
         if published:
             published_ok = self.cli("repo", "publish", "--tenant", self.repository)
             assert published_ok.exit_code == 0, published_ok.output
@@ -66,7 +67,9 @@ def test_a_repository_is_offered_and_copied_and_offering_again_changes_nothing(
     refused = world.cli("repo", "offer", world.target, "--tenant", world.repository, "--yes")
     assert refused.exit_code == 1
     assert "isn't published yet" in " ".join(refused.output.split())
-    assert world.json("repo", "subscribers", "--tenant", world.repository)[1] == []  # no grant
+    assert (
+        world.json("repo", "subscribers", "--tenant", world.repository)[1]["subscribers"] == []
+    )  # no grant
 
     assert world.cli("repo", "publish", "--tenant", world.repository).exit_code == 0
     code, document = world.json(
@@ -80,7 +83,7 @@ def test_a_repository_is_offered_and_copied_and_offering_again_changes_nothing(
     weapon = world.entity(world.target, "weapon")  # as the tenant's own, by its slug
     assert weapon["name"]
 
-    held = world.json("repo", "list", "--tenant", world.target)[1]
+    held = world.json("repo", "list", "--tenant", world.target)[1]["repositories"]
     assert held[0]["repository"]["slug"] == world.repository
     assert held[0]["copied_at"] is not None
 
@@ -115,7 +118,10 @@ def test_names_already_in_use_need_a_choice_and_merging_answers_them(
     nothing = world.cli("repo", "copy", world.repository, "--tenant", world.target, "--yes")
     assert nothing.exit_code == 2
     assert "Nothing was copied" in " ".join(nothing.output.split())
-    assert world.json("repo", "list", "--tenant", world.target)[1][0]["copied_at"] is None
+    assert (
+        world.json("repo", "list", "--tenant", world.target)[1]["repositories"][0]["copied_at"]
+        is None
+    )
 
     dry = world.cli(
         "repo", "copy", world.repository, "--tenant", world.target,
@@ -123,7 +129,10 @@ def test_names_already_in_use_need_a_choice_and_merging_answers_them(
     )  # fmt: skip
     assert dry.exit_code == 0, dry.output
     assert "Would copy" in dry.output
-    assert world.json("repo", "list", "--tenant", world.target)[1][0]["copied_at"] is None
+    assert (
+        world.json("repo", "list", "--tenant", world.target)[1]["repositories"][0]["copied_at"]
+        is None
+    )
 
     copied = world.cli(
         "repo", "copy", world.repository, "--tenant", world.target,
@@ -162,7 +171,7 @@ def test_updates_are_found_taken_and_a_conflict_waits_until_it_is_named(
         assert added.status_code == 201, added.text
     assert world.cli("repo", "publish", "--tenant", world.repository).exit_code == 0
 
-    listed = world.json("repo", "list", "--tenant", world.target)[1]
+    listed = world.json("repo", "list", "--tenant", world.target)[1]["repositories"]
     assert listed[0]["repository"]["published_at"] > listed[0]["copied_at"]
     shown = world.cli("repo", "list", "--tenant", world.target)
     assert "updated since" in " ".join(shown.output.split())
@@ -235,7 +244,7 @@ def test_grant_publish_unpublish_and_revoke_round_trip(stack: Stack, tmp_path: P
     assert "isn't published yet" in " ".join(granted.output.split())
     again = world.cli("repo", "grant", world.target, "--tenant", world.repository)
     assert "already had access" in " ".join(again.output.split())
-    subscribers = world.json("repo", "subscribers", "--tenant", world.repository)[1]
+    subscribers = world.json("repo", "subscribers", "--tenant", world.repository)[1]["subscribers"]
     assert [s["tenant_id"] for s in subscribers] == [target_id]
 
     # A draft is invisible to the tenant it is granted to, whatever the grant says.
@@ -250,7 +259,7 @@ def test_grant_publish_unpublish_and_revoke_round_trip(stack: Stack, tmp_path: P
 
     revoked = world.cli("repo", "revoke", world.target, "--tenant", world.repository)
     assert revoked.exit_code == 0, revoked.output
-    assert world.json("repo", "subscribers", "--tenant", world.repository)[1] == []
+    assert world.json("repo", "subscribers", "--tenant", world.repository)[1]["subscribers"] == []
 
 
 def test_a_slug_that_is_not_one_of_the_tenants_repositories_is_named(
@@ -262,3 +271,71 @@ def test_a_slug_that_is_not_one_of_the_tenants_repositories_is_named(
 
     assert result.exit_code == 1
     assert "no repository “no-such-repository”" in " ".join(result.output.split())
+
+
+def test_contents_says_the_systems_templates_roles_and_stats_by_system(
+    stack: Stack, tmp_path: Path
+) -> None:
+    world = World(stack, tmp_path)
+
+    code, contents = world.json("repo", "contents", "--tenant", world.repository)
+    said = " ".join(world.cli("repo", "contents", "--tenant", world.repository).output.split())
+
+    assert code == 0, contents
+    assert contents["systems"] == [{"slug": "dnd5e", "name": "D&D 5e", "root": "dnd5e-system"}]
+    assert {t["system"] for t in contents["templates"]} == {"dnd5e"}
+    assert set(contents["by_system"]) == {"dnd5e", "neutral"}
+    assert contents["by_system"]["dnd5e"]["stat_definitions"] > 20
+    assert {"role": "weight", "holder": "stat", "name": "weight", "system": "neutral"} in contents[
+        "roles"
+    ]
+    holds = contents["holds"]
+    assert holds["features"] >= 1 and holds["grant_rules"] >= 1
+    assert holds["entries"] >= holds["items"] > 20
+    assert "System dnd5e (D&D 5e), root dnd5e-system." in said
+    assert "Roles: " in said and "Templates: " in said
+    assert "weight (stat)" in said and "physical (stat group)" in said
+
+
+def test_a_merged_stat_whose_unit_differs_is_a_warning_and_strict_units_makes_it_a_choice(
+    stack: Stack, tmp_path: Path
+) -> None:
+    world = World(stack, tmp_path)
+    _, target_id = world.ids()
+    with world.api() as api:
+        group = api.post(
+            f"/tenants/{target_id}/stat-groups", json={"name": "physical", "priority": 0}
+        ).json()
+        made = api.post(
+            f"/tenants/{target_id}/stat-definitions",
+            json={
+                "name": "height",
+                "stat_group_id": group["id"],
+                "value_type": "float",
+                "unit": "cm",
+            },
+        )
+        assert made.status_code == 201, made.text
+    assert world.cli("repo", "grant", world.target, "--tenant", world.repository).exit_code == 0
+
+    merging = (
+        "repo",
+        "copy",
+        world.repository,
+        "--tenant",
+        world.target,
+        "--on-collision",
+        "merge",
+    )
+    _, dry = world.json(*merging, "--dry-run")
+    said = " ".join(world.cli(*merging, "--dry-run").output.split())
+    _, strict = world.json(
+        "repo", "copy-plan", world.repository, "--tenant", world.target, "--strict-units"
+    )
+
+    # A warning comes with the merge that keeps the library's unit, so a dry run says it.
+    assert [w["name"] for w in dry["warnings"]] == ["height"]
+    assert "`height`: here in cm, incoming with no unit; merged, yours kept" in said
+    height = next(c for c in strict["collisions"] if c["name"] == "height")
+    assert "merge" not in height["choices"]
+    assert strict["warnings"] == []

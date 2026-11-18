@@ -50,6 +50,9 @@ class ReadWorld(World):
         if request.url.path.endswith("/sheet"):
             self.seen.append(request)
             return httpx.Response(200, json=self.sheet)
+        if request.url.path.endswith("/features"):
+            holder = {"id": self.entity["id"], "name": self.entity["name"]}
+            return httpx.Response(200, json={"holder": holder, "features": []})
         if request.url.path in (base + "/stat-definitions", base + "/stat-groups"):
             return httpx.Response(200, json=page([]))
         if request.url.path == f"{base}/item-instances/{self.entity['id']}":

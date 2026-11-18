@@ -1,6 +1,6 @@
 # 0169 - `lorenzo seed --list` and `lorenzo repo contents`
 
-Status: accepted
+Status: accepted; `seed --list` and the per-layer report superseded by [ADR 0505](0505-starters-replace-the-seed.md), `repo contents` amended by [ADR 0506](0506-the-repository-commands-show-systems-templates-and-warnings.md)
 
 Two read-only views, decided with the maintainer on 2026-10-04, after a bare `seed` put a layer into the wrong repository and the process "felt a bit cumbersome and unnecessary, and also a bit intransparent": what the seed contains, and what a repository holds. Built on [ADR 0143](0143-lorenzo-seed-taxonomy-and-stats.md) (the seed), [ADR 0162](0162-the-dnd5e-layer-is-its-own-repository-a-bridge-over-core.md) (its layers as repositories) and [ADR 0159](0159-lorenzo-repo-commands.md) (`lorenzo repo`). It writes nothing, so it needs no new API.
 

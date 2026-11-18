@@ -108,10 +108,11 @@ light = ["dnd5e-light-armor"]
 medium = ["dnd5e-medium-armor"]
 heavy = ["dnd5e-heavy-armor"]
 
-# `firstlist` (unarmoured) and `magic` (mage armor) are ways the sheet works out AC, not items.
+# `firstlist` (unarmoured) and `magic` (mage armor) are ways the sheet works out AC, not items:
+# they become armour class features of the D&D starter, by what their `ac` says.
 [classify.armour.list]
-firstlist = "skip"
-magic = "skip"
+firstlist = "armor-class-way"
+magic = "armor-class-way"
 
 [classify.tools.type]
 "artisan's tools" = ["dnd5e-artisans-tools"]
@@ -279,7 +280,7 @@ parents = ["adamantine"]
 
 [[name_rule]]
 in_list = "armour"
-starts_with = ["shield"]
+words = ["shield"]  # "Shield", "Tower shield": D&D adds its armour class to the wearer's
 parents = ["shield"]
 
 # -- gear: kinds of gear, from a curated list of names --
@@ -359,7 +360,7 @@ weight = "own_weight"
 # The text is the description; "Versatile (1d10)" also gives the two-handed die.
 description = [
   { transform = "description", part = "system" },
-  { transform = "regex_extract", pattern = "(?i)versatile \\(1d(\\d+)\\)", group = 1, stat = "damage_versatile_die", as = "int", examples = [{ input = "Versatile (1d10)", output = "10" }, { input = "Finesse, versatile (1d8)", output = "8" }] },
+  { transform = "regex_extract", pattern = "(?i)versatile \\((1d\\d+)\\)", group = 1, stat = "dnd5e_damage_versatile", examples = [{ input = "Versatile (1d10)", output = "1d10" }, { input = "Finesse, versatile (1d8)", output = "1d8" }] },
 ]
 damage = "damage"
 range = "range"
@@ -368,13 +369,13 @@ list = "classify"
 special = "classify"
 # What the weapon draws on ("arrow"). A thrown flask names itself, so this alone does not make a
 # weapon one that uses ammunition: the description's word "Ammunition" does.
-ammo = { transform = "text", stat = "ammo_type" }
-ability = { transform = "ability_name", stat = "attack_ability" }
-abilitytodamage = { transform = "bool", stat = "ability_to_damage" }
-monkweapon = { transform = "bool", stat = "is_monk_weapon" }
-isNotWeapon = { transform = "bool", stat = "is_not_weapon" }
-dc = { transform = "bool", stat = "has_save_dc" }
-baseWeapon = { transform = "text", stat = "base_weapon" }
+ammo = { transform = "text", stat = "dnd5e_ammo_type" }
+ability = { transform = "ability_name", stat = "dnd5e_attack_ability" }
+abilitytodamage = { transform = "bool", stat = "dnd5e_ability_to_damage" }
+monkweapon = { transform = "bool", stat = "dnd5e_is_monk_weapon" }
+isNotWeapon = { transform = "bool", stat = "dnd5e_is_not_weapon" }
+dc = { transform = "bool", stat = "dnd5e_has_save_dc" }
+baseWeapon = { transform = "text", stat = "dnd5e_base_weapon" }
 tooltip = { transform = "information", type = "note", title = "Special rules", part = "system" }
 nameAlt = "aliases"
 # What the PDF uses to recognise the weapon in a text field; nothing here needs it.
@@ -388,10 +389,10 @@ weight = "own_weight"
 ac = "armor"
 type = "classify"
 list = "classify"
-strReq = { transform = "int", stat = "strength_required", minimum = 1 }
-stealthdis = { transform = "bool", stat = "stealth_disadvantage" }
-addMod = { transform = "bool", stat = "adds_modifier" }
-affectsWildShape = { transform = "bool", stat = "affects_wild_shape" }
+strReq = { transform = "int", stat = "dnd5e_strength_required", minimum = 1 }
+stealthdis = { transform = "bool", stat = "dnd5e_stealth_disadvantage" }
+addMod = { transform = "bool", stat = "dnd5e_adds_modifier" }
+affectsWildShape = { transform = "bool", stat = "dnd5e_affects_wild_shape" }
 isMagicArmor = { transform = "bool", stat = "is_magical" }
 regExpSearch = "drop"
 

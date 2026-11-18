@@ -93,7 +93,7 @@ def test_it_asks_for_the_slug_and_then_deletes(tmp_path: Path) -> None:
     assert result.exit_code == 0, result.output
     assert [r.url.path for r in deletes(seen)] == [f"/tenants/{TENANT_ID}"]
     text = plain(result.output)
-    assert "This deletes “Sunken Vale” and everything in it." in text
+    assert "this deletes “Sunken Vale” and everything in it." in text
     assert "Deleted sunken-vale" in text
 
 
@@ -106,8 +106,8 @@ def test_a_wrong_slug_deletes_nothing(tmp_path: Path) -> None:
         input="sunken\n",
     )
 
-    assert result.exit_code == 1
-    assert "Nothing was deleted." in plain(result.output)
+    assert result.exit_code == 2
+    assert "nothing was deleted." in plain(result.output)
     assert deletes(seen) == []
 
 
@@ -135,7 +135,7 @@ def test_where_nothing_can_be_asked_it_needs_yes_and_sends_nothing(tmp_path: Pat
     )
 
     for result in (asked, as_json):
-        assert result.exit_code == 1
+        assert result.exit_code == 2
         assert "run again with --yes" in plain(result.output)
     assert deletes(seen) == []
 
