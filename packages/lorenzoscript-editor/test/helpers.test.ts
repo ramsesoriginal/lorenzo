@@ -41,3 +41,26 @@ test('find and replace opens with Ctrl+H and replaces all', () => {
   [...bar.querySelectorAll('button')].find((b) => b.textContent === 'Replace all')?.click();
   expect(t.value).toBe('ember and ember');
 });
+
+test('[[ offers names, and Enter writes the chosen one', async () => {
+  document.body.innerHTML = '<textarea id="t"></textarea>';
+  const t = document.querySelector('#t') as HTMLTextAreaElement;
+  createEditor({
+    textarea: t,
+    completeNames: async (q) =>
+      ['Ashfang', 'Ashes'].filter((n) => n.toLowerCase().startsWith(q.toLowerCase())),
+  });
+  t.value = 'See [[As';
+  t.setSelectionRange(8, 8);
+  t.dispatchEvent(new Event('input'));
+  await new Promise((r) => setTimeout(r, 250));
+  const list = document.querySelector('.ls-complete') as HTMLElement;
+  expect(list.hidden).toBe(false);
+  expect([...list.querySelectorAll('li')].map((li) => li.textContent)).toEqual([
+    'Ashfang',
+    'Ashes',
+  ]);
+  t.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+  expect(t.value).toBe('See [[Ashfang]]');
+  expect(list.hidden).toBe(true);
+});

@@ -2913,3 +2913,22 @@ test('a split can be undone once from the page it leads to', async ({ browser })
     await context.close();
   }
 });
+
+test('[[ offers the names of entries and writes the chosen one', async ({ browser }) => {
+  test.setTimeout(120000);
+  const { page, context, tenant } = await world(browser);
+  try {
+    await page.goto(`/?tenant=${tenant.id}`);
+    await startAs(page, 'chapter', 'Findable chapter');
+    await expect(page.getByRole('heading', { name: 'Findable chapter' })).toBeVisible();
+    await page.goto(`/?tenant=${tenant.id}`);
+    await page.getByRole('button', { name: 'Start writing', exact: true }).click();
+    const text = page.getByRole('textbox', { name: 'Manuscript', exact: true });
+    await text.pressSequentially('See [[Findable');
+    await expect(page.getByRole('listbox', { name: 'Names' })).toBeVisible();
+    await page.getByRole('option', { name: 'Findable chapter' }).click();
+    await expect(text).toHaveValue('See [[Findable chapter]]');
+  } finally {
+    await context.close();
+  }
+});

@@ -2,6 +2,7 @@
 // helpers, and a live preview. Every edit itself is a pure action from ./actions.
 import { parse, render as renderScript } from '@lorenzo/lorenzoscript';
 import { ACTIONS, type ActionName, type State } from './actions';
+import { complete, completionContext } from './complete';
 import { findAll, replaceMatches } from './find';
 import { keyAction } from './keys';
 import { htmlToScript, worthConverting } from './paste';
@@ -25,6 +26,8 @@ export type EditorOptions = {
   pasteFromWord?: boolean;
   /** Ctrl/Cmd+H opens find and replace over the text (ADR 0512). Off by default. */
   findReplace?: boolean;
+  /** Names to offer after `[[`, for the words typed so far (ADR 0514). Off by default. */
+  completeNames?: (query: string) => Promise<string[]>;
 };
 
 export type Editor = {
@@ -152,6 +155,83 @@ export function createEditor(options: EditorOptions): Editor {
     });
   };
   if (options.pasteFromWord) textarea.addEventListener('paste', onPaste);
+
+  // `[[` completion: a list under the text, picked by Arrow keys and Enter or Tab.
+  const lookup = options.completeNames;
+  const list = make('ul', 'ls-complete', { role: 'listbox', 'aria-label': 'Names' });
+  list.hidden = true;
+  let names: string[] = [];
+  let choice = 0;
+  let asked = 0;
+  let askTimer: ReturnType<typeof setTimeout> | undefined;
+  const hideList = () => {
+    asked++;
+    clearTimeout(askTimer);
+    list.hidden = true;
+    names = [];
+  };
+  // A blur that gives the focus straight back (a block moved in the page) does not close it.
+  const onBlur = () => {
+    setTimeout(() => {
+      if (doc.activeElement !== textarea) hideList();
+    }, 120);
+  };
+  const showList = () => {
+    list.replaceChildren(
+      ...names.map((name, i) => {
+        const item = make('li', '', { role: 'option', 'aria-selected': String(i === choice) });
+        item.textContent = name;
+        item.addEventListener('mousedown', (e) => {
+          e.preventDefault();
+          pick(name);
+        });
+        return item;
+      }),
+    );
+    list.hidden = names.length === 0;
+  };
+  const pick = (name: string) => {
+    const done = complete(textarea.value, textarea.selectionStart, name);
+    hideList();
+    if (done) apply({ text: done.text, start: done.caret, end: done.caret });
+  };
+  const onComplete = () => {
+    if (!lookup) return;
+    const at = completionContext(textarea.value, textarea.selectionStart);
+    if (!at?.query.trim()) return hideList();
+    const mine = ++asked;
+    clearTimeout(askTimer);
+    // A short pause, so a word typed quickly is asked for once.
+    askTimer = setTimeout(() => {
+      void lookup(at.query).then((found) => {
+        if (mine !== asked) return;
+        const next = found.slice(0, 8);
+        if (next.join('\n') === names.join('\n') && !list.hidden) return;
+        names = next;
+        choice = 0;
+        showList();
+      });
+    }, 150);
+  };
+  const onCompleteKey = (e: KeyboardEvent) => {
+    if (list.hidden) return;
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      choice = (choice + (e.key === 'ArrowDown' ? 1 : names.length - 1)) % names.length;
+      showList();
+    } else if ((e.key === 'Enter' || e.key === 'Tab') && names[choice] !== undefined) {
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      pick(names[choice] as string);
+    } else if (e.key === 'Escape') hideList();
+  };
+  if (lookup) {
+    // Before the editor's own key rules, so Enter picks rather than continues a list.
+    textarea.addEventListener('keydown', onCompleteKey, true);
+    textarea.addEventListener('input', onComplete);
+    textarea.addEventListener('blur', onBlur);
+    panes.before(list);
+  }
 
   const finder = options.findReplace ? findBar() : null;
   const onFind = (e: KeyboardEvent) => {
@@ -314,6 +394,10 @@ export function createEditor(options: EditorOptions): Editor {
       clearTimeout(timer);
       textarea.removeEventListener('keydown', onKey);
       textarea.removeEventListener('paste', onPaste);
+      textarea.removeEventListener('keydown', onCompleteKey, true);
+      textarea.removeEventListener('input', onComplete);
+      textarea.removeEventListener('blur', onBlur);
+      list.remove();
       textarea.removeEventListener('keydown', onFind);
       finder?.element.remove();
       textarea.removeEventListener('input', onInput);

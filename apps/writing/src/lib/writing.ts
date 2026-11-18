@@ -766,6 +766,14 @@ async function manuscript(
         const control = (layout === 'live' ? createLiveEditor : createEditor)({
           textarea: text,
           reviewEntitySelection: () => review.open(),
+          completeNames: async (q) =>
+            (
+              await unwrap(
+                await client.GET('/tenants/{tenant_id}/entities', {
+                  params: { path: { tenant_id: tenant }, query: { q, page: 1, size: 8 } },
+                }),
+              )
+            ).items.map((entry) => entry.name),
           pasteFromWord: true,
           findReplace: true,
           layout: layout === 'split' ? 'split' : 'tabs',

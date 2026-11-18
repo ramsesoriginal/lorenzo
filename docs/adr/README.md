@@ -1,2 +1,2 @@
 
-- [0513 - Undo a manuscript split](0513-undo-a-manuscript-split.md) — ADR 0494 Q2, in part: `DELETE .../splits/{operation_id}` joins the two texts a split made, once, while the entry is as the caller last read it.
+- [0514 - `[[` name completion in the LorenzoScript editor](0514-lorenzoscript-editor-name-completion.md) — ADR 0494 B3: the opt-in `completeNames` option offers names after `[[`; Writing passes the entries lookup.
