@@ -3109,3 +3109,19 @@ test('the new pages pass axe in the dark theme and their controls are 44px on a 
     await context.close();
   }
 });
+
+test('the Edition menu opens a section of the outline page', async ({ browser }) => {
+  test.setTimeout(120000);
+  const { page, context, tenant } = await world(browser);
+  try {
+    await page.goto(`/?tenant=${tenant.id}`);
+    await startAs(page, 'book', 'Menu book');
+    await expect(page.getByRole('heading', { name: 'Menu book' })).toBeVisible();
+    await page.getByRole('link', { name: 'Outline', exact: true }).click();
+    await page.getByRole('button', { name: 'Edition menu', exact: true }).click();
+    await page.getByRole('menuitem', { name: 'Numbering' }).click();
+    await expect(page.locator('details[open] > summary', { hasText: 'Numbering' })).toBeVisible();
+  } finally {
+    await context.close();
+  }
+});

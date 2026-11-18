@@ -1,7 +1,9 @@
+import { openMenu } from '@lorenzo/app-shell';
 import { parse, render } from '@lorenzo/lorenzoscript';
 import { client, LorenzoApiError, loadFile, unwrap } from './api';
 import { carrierOutline } from './carriers';
 import { compositionReview } from './composition-review';
+import { BRANDING_CSS_URL } from './config';
 import { type Contents, contentsControls, contentsNavigation, contentsOf } from './contents';
 import { exportControls } from './manuscript-export';
 import { extractionControls } from './manuscript-extraction';
@@ -78,6 +80,36 @@ export async function compositionScreen(
     nav.append(link('Up to parent', writingAddress(tenant, current.parent_id, 'outline')));
   if (current.kind === 'edition')
     nav.append(link('Review and reviewers', reviewAddress(tenant, id)));
+  // One menu for the sections of this outline page (ADR 0494, W6): each opens and is shown.
+  if (!reading && !current.joined && ['edition', 'chapter'].includes(current.kind)) {
+    const menu = button(current.kind === 'edition' ? 'Edition menu' : 'Chapter menu', async () => {
+      const sections = [...host.querySelectorAll<HTMLDetailsElement>('details')].filter((d) =>
+        [
+          'Composition updates',
+          'Numbering',
+          'Contents',
+          'Export',
+          'Move',
+          'Extract a Chapter',
+          'Extract a Scene',
+        ].includes(d.querySelector(':scope > summary')?.textContent ?? ''),
+      );
+      openMenu(
+        menu,
+        sections.map((d) => ({
+          label: d.querySelector(':scope > summary')?.textContent ?? '',
+          run: () => {
+            d.open = true;
+            d.scrollIntoView({ block: 'start' });
+            d.querySelector('summary')?.focus();
+          },
+        })),
+        { label: 'Sections', sprite: `${BRANDING_CSS_URL}/icons.svg` },
+      );
+    });
+    menu.setAttribute('aria-haspopup', 'menu');
+    nav.append(menu);
+  }
   const status = node('p');
   status.setAttribute('role', 'status');
   const report = (error: unknown) => {
