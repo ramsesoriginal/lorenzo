@@ -7,7 +7,10 @@ document.querySelector('#unbuilt')?.remove();
 if (textarea && out) {
   textarea.value =
     '# A river crossing\n\nThe ferryman knew **every** crossing, and none of them twice.\n\n- a lantern\n- a rope\n\n> "The water remembers," he said.[^1]\n\n[^1]: He said it often.';
-  createEditor({ textarea, toolbar: ['bold', 'italic', 'heading', 'bullets', '|', 'undo', 'redo'] });
+  createEditor({
+    textarea,
+    toolbar: ['bold', 'italic', 'heading', 'bullets', '|', 'undo', 'redo'],
+  });
   const show = () => {
     out.textContent = textarea.value;
   };
