@@ -201,6 +201,9 @@ def test_a_shield_is_found_by_its_name() -> None:
     result = draft("armour", "shield", {"name": "Shield", "ac": 2, "weight": 6})
 
     assert result.parents == ["shield"]  # the armor form is implied
+    # D&D adds a shield's armour class to the wearer's, whatever the shield is called.
+    tower = draft("armour", "tower shield", {"name": "Tower shield", "type": "", "ac": 3})
+    assert tower.parents == ["shield"] and tower.stats["dnd5e_armor"] == 3
 
 
 def test_gear_takes_its_name_and_price_from_the_display_string_and_its_weight_times_amount() -> (

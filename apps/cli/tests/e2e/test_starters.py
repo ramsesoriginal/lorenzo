@@ -7,7 +7,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from e2e.helpers import make_tenant, run_cli
+from e2e.helpers import by_slug, make_tenant, run_cli, tenant_id
 from e2e.stack import Stack
 
 
@@ -107,3 +107,92 @@ stats = { wg_tier = 2 }
 
     listed = json.loads(cli("starter", "list", "--json").stdout)
     assert [s["name"] for s in listed["starters"]] == ["dnd5e", "neutral", "wrath-and-glory"]
+
+
+ARMOURY = """
+format = 1
+name = "armoury"
+requires = ["dnd5e"]
+
+[[entry]]
+slug = "chain-mail"
+name = "Chain mail"
+parents = ["armor", "dnd5e-heavy-armor"]
+stats = { dnd5e_armor = 16 }
+
+[[entry]]
+slug = "leather"
+name = "Leather"
+parents = ["armor", "dnd5e-light-armor"]
+stats = { dnd5e_armor = 11 }
+
+[[entry]]
+slug = "shield"
+name = "Shield"
+parents = ["armor"]
+stats = { dnd5e_armor = 2 }
+
+[[entry]]
+slug = "knight"
+name = "Knight"
+kinds = ["being"]
+parents = ["dnd5e-fighter"]
+stats = { dnd5e_dexterity = 14 }
+
+[[entry]]
+slug = "rogue"
+name = "Rogue"
+kinds = ["being"]
+parents = ["dnd5e-character"]
+stats = { dnd5e_dexterity = 16 }
+"""
+
+
+def test_dnd_armor_class_comes_from_what_is_worn(stack: Stack, tmp_path: Path) -> None:
+    token = stack.creator_token("armour")
+    tenant = make_tenant(stack, token, kind="play")
+    for starter in ("neutral", "dnd5e"):
+        applied = run_cli(
+            stack, token, tmp_path, "apply", "--starter", starter, "-t", tenant, "--yes"
+        )
+        assert applied.exit_code == 0, applied.output
+    armoury = tmp_path / "armoury.toml"
+    armoury.write_text(ARMOURY, encoding="utf-8")
+    assert (
+        run_cli(stack, token, tmp_path, "apply", str(armoury), "-t", tenant, "--yes").exit_code == 0
+    )
+
+    def armor_class(being: str) -> object:
+        found = run_cli(
+            stack, token, tmp_path, "formula", "preview", "dnd5e_armor_class", "--on", being,
+            "-t", tenant, "--json",
+        )  # fmt: skip
+        assert found.exit_code == 0, found.output
+        return json.loads(found.stdout)["value"]
+
+    assert armor_class("knight") == 12  # nothing worn: 10 + Dexterity +2
+
+    with stack.api(token) as api:
+        tid = tenant_id(api, tenant)
+
+        def wear(item: str, being: str, active: bool = True) -> None:
+            made = api.post(
+                f"/tenants/{tid}/item-instances",
+                json={
+                    "prototype_id": by_slug(api, tid, item)["id"],
+                    "container_entity_id": by_slug(api, tid, being)["id"],
+                    "active": active,
+                },
+            )
+            assert made.status_code == 201, made.text
+            return str(
+                made.json()["entity_id"] if "entity_id" in made.json() else made.json()["id"]
+            )
+
+        wear("chain-mail", "knight")
+        wear("shield", "knight")
+        wear("leather", "rogue")
+        wear("chain-mail", "rogue", active=False)  # carried, not worn
+
+    assert armor_class("knight") == 18  # chain mail 16, no Dexterity for heavy armor, shield +2
+    assert armor_class("rogue") == 14  # leather 11 + Dexterity +3; the chain mail is not worn
