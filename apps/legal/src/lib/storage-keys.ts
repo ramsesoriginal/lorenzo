@@ -190,6 +190,16 @@ export const STORAGE_KEYS: StorageEntry[] = [
     files: ['apps/writing/src/lib/shelf-list.ts'],
   },
   {
+    key: 'lorenzo:writing:layout',
+    store: 'localStorage',
+    purpose: bi(
+      'Merkt sich, wie Sie in Lorenzo Writing schreiben: Quelltext, geteilt oder live. Enthält keinen Text.',
+      'Remembers how you write in Lorenzo Writing: source, split or live. Contains no text.',
+    ),
+    lasts: bi('Bis Sie die Browserdaten löschen', 'Until you clear your browser data'),
+    files: ['apps/writing/src/lib/shelf-list.ts'],
+  },
+  {
     key: 'lorenzo:writing-timer:*',
     store: 'sessionStorage',
     purpose: bi(
