@@ -2970,3 +2970,51 @@ test('a work is renamed from its page head', async ({ browser }) => {
     await context.close();
   }
 });
+
+test('a part dragged on the outline page lands where it is dropped, and can be undone', async ({
+  browser,
+}) => {
+  test.setTimeout(120000);
+  const { page, context, tenant } = await world(browser);
+  try {
+    await page.goto(`/?tenant=${tenant.id}`);
+    await startAs(page, 'book', 'Drag book');
+    await expect(page.getByRole('heading', { name: 'Drag book' })).toBeVisible();
+    await page.getByRole('link', { name: 'Outline', exact: true }).click();
+    for (const name of ['One', 'Two']) {
+      await page.getByLabel('New chapter title').fill(name);
+      await page.getByRole('button', { name: 'Add chapter', exact: true }).click();
+      await expect(page.getByRole('button', { name: new RegExp(`^Drag: ${name}`) })).toBeVisible();
+    }
+    const chapters = page
+      .locator('ol > li')
+      .filter({ has: page.getByRole('link', { name: /One|Two/ }) });
+    await expect(chapters.first()).toContainText('One');
+    // The native drag events, driven directly.
+    await page.evaluate(() => {
+      const items = [...document.querySelectorAll('ol > li')].filter((li) =>
+        /One|Two/.test(li.textContent ?? ''),
+      );
+      const [one, two] = items as HTMLElement[];
+      const data = new DataTransfer();
+      one?.dispatchEvent(new DragEvent('dragstart', { dataTransfer: data, bubbles: true }));
+      const box = two?.getBoundingClientRect();
+      two?.dispatchEvent(
+        new DragEvent('dragover', {
+          dataTransfer: data,
+          bubbles: true,
+          cancelable: true,
+          clientY: (box?.bottom ?? 0) - 1,
+        }),
+      );
+      two?.dispatchEvent(
+        new DragEvent('drop', { dataTransfer: data, bubbles: true, cancelable: true }),
+      );
+    });
+    await expect(chapters.first()).toContainText('Two');
+    await page.getByRole('button', { name: 'Undo', exact: true }).click();
+    await expect(chapters.first()).toContainText('One');
+  } finally {
+    await context.close();
+  }
+});

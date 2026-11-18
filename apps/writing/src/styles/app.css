@@ -137,3 +137,16 @@
     grid-template-columns: minmax(12rem, 18rem) minmax(0, 1fr);
   }
 }
+
+/* A part dragged on the outline page, and where it would land (ADR 0494, W5). */
+li[data-dragging] {
+  opacity: 0.5;
+}
+
+li[data-drop="before"] {
+  border-top: 2px solid var(--border-subtle);
+}
+
+li[data-drop="after"] {
+  border-bottom: 2px solid var(--border-subtle);
+}

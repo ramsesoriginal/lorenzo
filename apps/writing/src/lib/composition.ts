@@ -339,8 +339,50 @@ export async function compositionScreen(
     li.append(
       item.kind !== 'payload' ? link(label, writingAddress(tenant, item.id)) : node('span', label),
     );
+    // Drag a part by its grip to a new place on the page (ADR 0494, W5). The Up and Down buttons
+    // remain the keyboard way; the drop says what will happen as it is hovered.
+    const grip = button('⋮⋮', async () => {});
+    grip.setAttribute('aria-label', `Drag: ${item.name ?? 'text or picture'}`);
+    grip.title = 'Drag to move';
+    grip.addEventListener('pointerdown', () => {
+      li.draggable = true;
+    });
+    for (const end of ['pointerup', 'pointercancel'])
+      grip.addEventListener(end, () => {
+        li.draggable = false;
+      });
+    li.addEventListener('dragstart', (event) => {
+      event.dataTransfer?.setData('text/plain', item.id);
+      if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move';
+      li.dataset.dragging = 'true';
+    });
+    li.addEventListener('dragend', () => {
+      li.draggable = false;
+      delete li.dataset.dragging;
+      for (const other of list.querySelectorAll('[data-drop]')) other.removeAttribute('data-drop');
+    });
+    li.addEventListener('dragover', (event) => {
+      if (!list.querySelector('[data-dragging]')) return;
+      event.preventDefault();
+      const box = li.getBoundingClientRect();
+      const after = event.clientY > box.top + box.height / 2;
+      for (const other of list.querySelectorAll('[data-drop]')) other.removeAttribute('data-drop');
+      li.dataset.drop = after ? 'after' : 'before';
+      status.textContent = `Drop to place it ${after ? 'after' : 'before'} ${label}.`;
+    });
+    li.addEventListener('drop', (event) => {
+      const moved = event.dataTransfer?.getData('text/plain');
+      const after = li.dataset.drop === 'after';
+      event.preventDefault();
+      if (!moved || moved === item.id) return;
+      const ids = current.elements.map((x) => x.id).filter((x) => x !== moved);
+      const at = ids.indexOf(item.id) + (after ? 1 : 0);
+      ids.splice(at, 0, moved);
+      void saveOrder(ids, 'Moved by dragging');
+    });
     const controls = node('div');
     controls.className = 'row';
+    controls.append(grip);
     for (const [label, delta] of [
       ['Up', -1],
       ['Down', 1],
