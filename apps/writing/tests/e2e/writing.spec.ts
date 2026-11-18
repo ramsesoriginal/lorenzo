@@ -2889,3 +2889,27 @@ test('a reorder can be undone from the outline page', async ({ browser }) => {
     await context.close();
   }
 });
+
+test('a split can be undone once from the page it leads to', async ({ browser }) => {
+  test.setTimeout(120000);
+  const { page, context, tenant } = await world(browser);
+  try {
+    await page.goto(`/?tenant=${tenant.id}`);
+    await startAs(page, 'chapter', 'Undo split chapter');
+    const text = page.getByRole('textbox', { name: 'Manuscript', exact: true });
+    await text.fill('Alpha section.\n\nBeta section.');
+    await expect(page.getByRole('status', { name: 'Save status' })).toHaveText('Saved');
+    await text.evaluate((el: HTMLTextAreaElement) => el.setSelectionRange(20, 20));
+    await page.getByRole('button', { name: 'Block options' }).first().click();
+    await page.getByRole('menuitem', { name: 'Split here' }).click();
+    await expect(page.getByRole('textbox', { name: 'Text 2', exact: true })).toBeVisible();
+    await page.getByRole('button', { name: 'Undo split', exact: true }).click();
+    await expect(page.getByRole('textbox', { name: 'Text 2', exact: true })).toHaveCount(0);
+    await expect(page.getByRole('textbox', { name: 'Manuscript', exact: true })).toHaveValue(
+      'Alpha section.\n\nBeta section.',
+    );
+    await expect(page.getByRole('button', { name: 'Undo split', exact: true })).toHaveCount(0);
+  } finally {
+    await context.close();
+  }
+});

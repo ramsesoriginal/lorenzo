@@ -106,7 +106,7 @@ export async function splitAtCaret(
   entry: string,
   payload: string,
   caret: number,
-): Promise<void> {
+): Promise<string> {
   const available = await unwrap(
     await client.GET(
       '/tenants/{tenant_id}/writing/entries/{id}/payloads/{payload_id}/split-points',
@@ -124,13 +124,54 @@ export async function splitAtCaret(
     throw new Error(
       'Put the cursor in the section that should start the second block. A split falls between whole sections, after a blank line, never inside a list, a quotation or a footnote.',
     );
+  const operation = crypto.randomUUID();
   await unwrap(
     await client.POST('/tenants/{tenant_id}/writing/entries/{id}/splits/{operation_id}', {
       params: {
-        path: { tenant_id: tenant, id: entry, operation_id: crypto.randomUUID() },
+        path: { tenant_id: tenant, id: entry, operation_id: operation },
         header: { 'if-match': available.version },
       },
       body: { payload_id: payload, second_payload_id: crypto.randomUUID(), offset },
+    }),
+  );
+  return operation;
+}
+
+const SPLIT = 'lorenzo:writing:split';
+
+/** Keep the receipt of a split for this tab, so the page it reloads to can offer Undo. */
+export function rememberSplit(entry: string, operation: string) {
+  try {
+    sessionStorage.setItem(SPLIT, JSON.stringify({ entry, operation }));
+  } catch {
+    // Undo is a convenience.
+  }
+}
+
+/** The split this tab made on `entry`, once: reading it forgets it. */
+export function takeSplit(entry: string): string | null {
+  try {
+    const value = JSON.parse(sessionStorage.getItem(SPLIT) ?? 'null');
+    sessionStorage.removeItem(SPLIT);
+    return value?.entry === entry && typeof value.operation === 'string' ? value.operation : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Join the two texts a split made, while the entry is as `version` says. */
+export async function undoSplit(
+  tenant: string,
+  entry: string,
+  operation: string,
+  version: string,
+): Promise<void> {
+  await unwrap(
+    await client.DELETE('/tenants/{tenant_id}/writing/entries/{id}/splits/{operation_id}', {
+      params: {
+        path: { tenant_id: tenant, id: entry, operation_id: operation },
+        header: { 'if-match': version },
+      },
     }),
   );
 }

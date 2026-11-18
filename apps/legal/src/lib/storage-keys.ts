@@ -200,6 +200,16 @@ export const STORAGE_KEYS: StorageEntry[] = [
     files: ['apps/writing/src/lib/shelf-list.ts'],
   },
   {
+    key: 'lorenzo:writing:split',
+    store: 'sessionStorage',
+    purpose: bi(
+      'Merkt sich in diesem Tab die Kennung der letzten Textteilung, damit sie rückgängig gemacht werden kann. Enthält keinen Text.',
+      'Remembers in this tab the id of the last text split, so that it can be undone. Contains no text.',
+    ),
+    lasts: bi('Bis der Tab geschlossen wird', 'Until the tab is closed'),
+    files: ['apps/writing/src/lib/blocks.ts'],
+  },
+  {
     key: 'lorenzo:writing-timer:*',
     store: 'sessionStorage',
     purpose: bi(

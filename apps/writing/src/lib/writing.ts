@@ -15,7 +15,14 @@ import { createEditor as createLiveEditor } from '@lorenzo/lorenzoscript-semiliv
 import { modernAddress } from './addresses';
 import { client, fetchAllPages, LorenzoApiError, loadFile, unwrap } from './api';
 import { isAuthConfigured, isAuthenticated, login, logout } from './auth';
-import { askTitle, extractParts, splitAtCaret } from './blocks';
+import {
+  askTitle,
+  extractParts,
+  rememberSplit,
+  splitAtCaret,
+  takeSplit,
+  undoSplit,
+} from './blocks';
 import { compositionScreen, outlineOf, writingAddress } from './composition';
 import { API_BASE_URL, BRANDING_CSS_URL } from './config';
 import {
@@ -643,6 +650,23 @@ async function manuscript(
     button('Clear selection', () => editor.clearSelection()),
   );
   main.prepend(selection);
+  // After a split, this tab can undo it once (ADR 0513).
+  const splitMade = takeSplit(entry);
+  if (splitMade) {
+    const line = element('p');
+    line.setAttribute('role', 'status');
+    line.append('Text split. ');
+    line.append(
+      button('Undo split', () =>
+        job(async () => {
+          await settle();
+          await undoSplit(tenant, entry, splitMade, (await outlineOf(tenant, entry)).version);
+          location.reload();
+        }),
+      ),
+    );
+    main.prepend(line);
+  }
 
   let editor: ReturnType<typeof renderBundleEditor>;
 
@@ -699,7 +723,10 @@ async function manuscript(
                   run: () =>
                     job(async () => {
                       await settle();
-                      await splitAtCaret(tenant, entry, payload.id, caret ?? 0);
+                      rememberSplit(
+                        entry,
+                        await splitAtCaret(tenant, entry, payload.id, caret ?? 0),
+                      );
                       location.reload();
                     }),
                 },
