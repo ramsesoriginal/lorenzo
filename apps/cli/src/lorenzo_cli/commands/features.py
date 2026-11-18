@@ -141,7 +141,13 @@ def feature_list(
         console.out.print("No features yet.")
         return
     prefix = f"{system}_" if system else ""
-    table = Table("name", "slug", "under", "values", box=None, pad_edge=False)
+    # The slug is what a person types next, so it is never cut; the rest wraps.
+    longest = max((len(row["slug"] or "-") for row in listed), default=4)
+    table = Table(box=None, pad_edge=False)
+    table.add_column("name")
+    table.add_column("slug", no_wrap=True, min_width=longest)
+    table.add_column("under")
+    table.add_column("values")
     for row in listed:
         values = ", ".join(
             f"{name.removeprefix(prefix)} {value}" for name, value in row["values"].items()
