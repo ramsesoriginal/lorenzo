@@ -388,7 +388,9 @@ async def undo_extraction(
     """
     await author(session, tenant_id, user)
     source = await entry(session, tenant_id, id, user, lock=True)
-    receipt = await existing_in_tenant(session, ManuscriptExtraction, operation_id, tenant_id)
+    receipt: ManuscriptExtraction | ManuscriptSceneExtraction | None = await existing_in_tenant(
+        session, ManuscriptExtraction, operation_id, tenant_id
+    )
     telling_id: uuid.UUID | None = None
     if receipt is None:
         receipt = await existing_in_tenant(
