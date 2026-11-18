@@ -54,4 +54,8 @@ exists to take a layer out. Before launch there is no data to keep.
 - `seed`, `unseed`, the `seed/` package and its tests are gone; `tenant create` points to `lorenzo apply --starter neutral`.
 - The four published repositories are two: the equipment (`neutral` and the neutral pass) and the rules, which copy the equipment
   and add `dnd5e` and the system pass. `repo contents` no longer counts seed layers.
-- The `wrath-and-glory` starter holds names and numbers only, marked to be checked against the book.
+- The `wrath-and-glory` starter holds names and numbers only, checked against the core rulebook and its character sheets
+  (2026-11-18): an attribute is a rating, a bonus and their total, which the skills and traits read; every trait but Corruption
+  is at least 1, written as a `max` over a step stat (group `wg_steps`); armour's Bulk lowers Speed and Powered adds to
+  Strength; a ranged weapon has three ranges; Glory is the group's pool, so no character holds it. A character starts with the
+  book's values (attributes 1, skills 0, Speed 6, Average size, 2 Wrath).
