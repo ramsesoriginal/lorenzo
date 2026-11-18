@@ -1,2 +1,2 @@
 
-- [0511 - The semilive LorenzoScript editor](0511-the-semilive-lorenzoscript-editor.md) — ADR 0494 W3a: a second editor package with the same options and object, every paragraph formatted and the open one as source; the original text area stays the text.
+- [0512 - Paste from Word, and find and replace, in the LorenzoScript editor](0512-lorenzoscript-editor-paste-and-find.md) — ADR 0494 B1 and B2: two opt-in options of `createEditor`, `pasteFromWord` and `findReplace`, with their pure functions exported.

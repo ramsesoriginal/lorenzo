@@ -2,7 +2,9 @@
 // helpers, and a live preview. Every edit itself is a pure action from ./actions.
 import { parse, render as renderScript } from '@lorenzo/lorenzoscript';
 import { ACTIONS, type ActionName, type State } from './actions';
+import { findAll, replaceMatches } from './find';
 import { keyAction } from './keys';
+import { htmlToScript, worthConverting } from './paste';
 
 export type Tool = ActionName | 'undo' | 'redo' | '|';
 
@@ -19,6 +21,10 @@ export type EditorOptions = {
   render?: (source: string) => string | Promise<string>;
   /** Milliseconds after the last keystroke before the preview re-renders. */
   delay?: number;
+  /** Pasted HTML from Word, Google Docs or a page becomes LorenzoScript (ADR 0512). Off by default. */
+  pasteFromWord?: boolean;
+  /** Ctrl/Cmd+H opens find and replace over the text (ADR 0512). Off by default. */
+  findReplace?: boolean;
 };
 
 export type Editor = {
@@ -80,7 +86,7 @@ export function createEditor(options: EditorOptions): Editor {
     if (prev !== next.text) {
       textarea.setSelectionRange(a, prev.length - b);
       const insert = next.text.slice(a, next.text.length - b);
-      doc.execCommand(insert ? 'insertText' : 'delete', false, insert);
+      doc.execCommand?.(insert ? 'insertText' : 'delete', false, insert);
       // Where insertText isn't supported: the same result, without native undo.
       if (textarea.value !== next.text) {
         textarea.value = next.text;
@@ -130,6 +136,127 @@ export function createEditor(options: EditorOptions): Editor {
     apply(result.state);
   };
   textarea.addEventListener('keydown', onKey);
+
+  const onPaste = (e: ClipboardEvent) => {
+    const html = e.clipboardData?.getData('text/html') ?? '';
+    if (!html || !worthConverting(html)) return;
+    const converted = htmlToScript(html);
+    if (!converted) return;
+    e.preventDefault();
+    const current = state();
+    const end = current.start + converted.length;
+    apply({
+      text: current.text.slice(0, current.start) + converted + current.text.slice(current.end),
+      start: end,
+      end,
+    });
+  };
+  if (options.pasteFromWord) textarea.addEventListener('paste', onPaste);
+
+  const finder = options.findReplace ? findBar() : null;
+  const onFind = (e: KeyboardEvent) => {
+    if ((e.ctrlKey || e.metaKey) && !e.altKey && e.key.toLowerCase() === 'h') {
+      e.preventDefault();
+      finder?.open();
+    }
+  };
+  if (finder) {
+    textarea.addEventListener('keydown', onFind);
+    root.insertBefore(finder.element, panes);
+  }
+
+  /** The find and replace bar: Find, Replace, Next, Replace, Replace all, and a count. */
+  function findBar() {
+    const element = make('div', 'row ls-find', {
+      role: 'search',
+      'aria-label': 'Find and replace',
+    });
+    element.hidden = true;
+    const field = (label: string) => {
+      const input = make('input', 'text-input', {
+        type: 'text',
+        'aria-label': label,
+        placeholder: label,
+      });
+      return input as HTMLInputElement;
+    };
+    const find = field('Find');
+    const replace = field('Replace with');
+    const count = make('span', 'caption', { role: 'status' });
+    const button = (label: string, run: () => void) => {
+      const b = make('button', 'btn btn-secondary', { type: 'button' });
+      b.textContent = label;
+      b.addEventListener('click', run);
+      return b;
+    };
+    const matches = () => findAll(textarea.value, find.value);
+    const refresh = () => {
+      const n = matches().length;
+      count.textContent = find.value ? `${n} ${n === 1 ? 'match' : 'matches'}` : '';
+    };
+    const next = () => {
+      const all = matches();
+      const from = textarea.selectionEnd;
+      const hit = all.find(([start]) => start >= from) ?? all[0];
+      if (!hit) return refresh();
+      textarea.focus();
+      textarea.setSelectionRange(hit[0], hit[1]);
+    };
+    const replaceOne = () => {
+      const selected = textarea.value.slice(textarea.selectionStart, textarea.selectionEnd);
+      if (find.value && selected.toLocaleLowerCase() === find.value.toLocaleLowerCase()) {
+        const text = textarea.value;
+        apply({
+          text:
+            text.slice(0, textarea.selectionStart) +
+            replace.value +
+            text.slice(textarea.selectionEnd),
+          start: textarea.selectionStart + replace.value.length,
+          end: textarea.selectionStart + replace.value.length,
+        });
+      }
+      next();
+      refresh();
+    };
+    const replaceEvery = () => {
+      const result = replaceMatches(textarea.value, find.value, replace.value);
+      if (!result.count) return refresh();
+      apply({ text: result.text, start: 0, end: 0 });
+      count.textContent = `${result.count} replaced`;
+    };
+    find.addEventListener('input', refresh);
+    find.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        next();
+      }
+      if (e.key === 'Escape') close();
+    });
+    const close = () => {
+      element.hidden = true;
+      textarea.focus();
+    };
+    element.append(
+      find,
+      replace,
+      button('Next', next),
+      button('Replace', replaceOne),
+      button('Replace all', replaceEvery),
+      button('Close', close),
+      count,
+    );
+    return {
+      element,
+      open() {
+        element.hidden = false;
+        const word = textarea.value.slice(textarea.selectionStart, textarea.selectionEnd);
+        if (word && !word.includes('\n')) find.value = word;
+        refresh();
+        find.focus();
+        find.select();
+      },
+    };
+  }
 
   let version = 0;
   const refresh = async () => {
@@ -186,6 +313,9 @@ export function createEditor(options: EditorOptions): Editor {
     destroy() {
       clearTimeout(timer);
       textarea.removeEventListener('keydown', onKey);
+      textarea.removeEventListener('paste', onPaste);
+      textarea.removeEventListener('keydown', onFind);
+      finder?.element.remove();
       textarea.removeEventListener('input', onInput);
       textarea.classList.remove('editor-content');
       textarea.hidden = false;

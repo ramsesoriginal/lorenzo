@@ -739,6 +739,8 @@ async function manuscript(
         const control = (layout === 'live' ? createLiveEditor : createEditor)({
           textarea: text,
           reviewEntitySelection: () => review.open(),
+          pasteFromWord: true,
+          findReplace: true,
           layout: layout === 'split' ? 'split' : 'tabs',
           toolbar: ['bold', 'italic', 'heading', 'bullets', '|', 'link', 'entity', 'undo'],
 
