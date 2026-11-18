@@ -4,6 +4,7 @@ and an exit code for CI only when asked."""
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 
 from e2e.helpers import make_tenant, run_cli
@@ -76,3 +77,36 @@ def test_the_check_reports_and_fails_only_when_asked(stack: Stack, tmp_path: Pat
     assert for_ci.exit_code == 1  # unset-input is a warning
     read = cli("check", "-t", tenant)
     assert "Big thing" in read.output and "in 2 entries" in read.output
+
+
+def test_a_finding_many_entries_share_is_said_once_with_where(stack: Stack, tmp_path: Path) -> None:
+    token = stack.creator_token("check-fold")
+    tenant = make_tenant(stack, token, "repository")
+    children = "".join(
+        f'\n[[entry]]\nslug = "fold-{n}"\nname = "Child {n}"\nparents = ["fold-root"]\n'
+        for n in range(8)
+    )
+    document = tmp_path / "fold.toml"
+    document.write_text(
+        'format = 1\nname = "fold"\ngroup = [{ name = "fold" }]\n'
+        'stat = [{ name = "own_weight", group = "fold", type = "float" },'
+        ' { name = "weight", group = "fold", type = "float" }]\n'
+        '\n[[entry]]\nslug = "fold-root"\nname = "Root"\n'
+        + children
+        + '\n[[formula]]\non = "fold-root"\nstat = "weight"\nkind = "linear"\n'
+        'source = "own_weight"\nmultiplier = 1\n',
+        encoding="utf-8",
+    )
+    applied = run_cli(stack, token, tmp_path, "apply", str(document), "-t", tenant, "--yes")
+    assert applied.exit_code == 0, applied.output
+
+    folded = " ".join(run_cli(stack, token, tmp_path, "check", "-t", tenant).output.split())
+    each = " ".join(
+        run_cli(stack, token, tmp_path, "check", "-t", tenant, "--by-entry").output.split()
+    )
+
+    # Every child leaves its own weight unset: one line, then where, not one per child.
+    assert folded.count("weight has no value because own_weight has none") == 1
+    assert re.search(r"on \d+ entries: .*, and \d+ more", folded)
+    assert each.count("weight has no value because own_weight has none") >= 5
+    assert "Child 3 ⚠ warning unset-input" in each

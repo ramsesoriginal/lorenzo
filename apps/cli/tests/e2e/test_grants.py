@@ -133,3 +133,7 @@ def test_features_rules_and_grants(stack: Stack, tmp_path: Path) -> None:
     assert [r["label"] for r in feature["granted_by"]] == ["Fighting style"]
     listed = json.loads(cli("feature", "list", "-t", tenant, "--system", "ft", "--json").stdout)
     assert {f["name"] for f in listed["features"]} == {"Archery", "Defence", "Second wind"}
+    archery = next(f for f in listed["features"] if f["name"] == "Archery")
+    assert archery["slug"] == "ft-archery" and archery["under"] == ["Fighting styles"]
+    table = " ".join(cli("feature", "list", "-t", tenant, "--system", "ft").output.split())
+    assert "Archery ft-archery Fighting styles" in table
