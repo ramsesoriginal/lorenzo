@@ -1,4 +1,4 @@
-"""What a reviewer is told of the writing shared with them (ADR 0495)."""
+"""What a reviewer is told of the writing shared with them (ADR 0508)."""
 
 import uuid
 

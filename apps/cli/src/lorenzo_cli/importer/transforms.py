@@ -147,12 +147,12 @@ def _damage(rule: Rule, attribute: str, value: Any, ctx: Context) -> Effect:
         return _bad(effect, "damage", attribute, value, "damage isn't [dice, die, type]")
     dice, die, kind = value
     if _number(dice) is not None and _number(die) is not None and die > 0:
-        effect.stats["damage_dice_count"] = int(dice)
-        effect.stats["damage_die"] = int(die)
+        # One dice value, as the dnd5e starter holds it (ADR 0462, ADR 0504).
+        effect.stats["dnd5e_damage"] = f"{int(dice)}d{int(die)}"
     else:
         effect.notes.append(f"damage {value!r} isn't a dice roll, so its amount isn't stored")
     if isinstance(kind, str) and kind.strip():
-        effect.stats["damage_type"] = kind.strip().lower()
+        effect.stats["dnd5e_damage_type"] = kind.strip().lower()
     return effect
 
 
@@ -169,9 +169,9 @@ def _range(rule: Rule, attribute: str, value: Any, ctx: Context) -> Effect:
     distance = _DISTANCE.search(value)
     if distance:
         effect.parents.add("ranged-weapon")
-        effect.stats["range_normal"] = int(distance.group(1))
+        effect.stats["dnd5e_range_normal"] = int(distance.group(1))
         if distance.group(2):
-            effect.stats["range_long"] = int(distance.group(2))
+            effect.stats["dnd5e_range_long"] = int(distance.group(2))
     elif value.strip() and not effect.parents:
         effect.notes.append(f"range {value!r} isn't a reach or a distance, so it isn't stored")
     return effect
@@ -181,11 +181,11 @@ def _armor(rule: Rule, attribute: str, value: Any, ctx: Context) -> Effect:
     """A number is the armour class; a formula (`10+Wis`) is kept as text: no number is right."""
     number = _number(value)
     if number is not None and float(number).is_integer():
-        return Effect(stats={"armor": int(number)})
+        return Effect(stats={"dnd5e_armor": int(number)})
     text = _text(value)
     if text is None:
         return Effect()
-    return Effect(stats={"armor_formula": text})
+    return Effect(stats={"dnd5e_armor_formula": text})
 
 
 def _pack_contents(rule: Rule, attribute: str, value: Any, ctx: Context) -> Effect:
@@ -259,7 +259,7 @@ def _name_and_price(rule: Rule, attribute: str, value: Any, ctx: Context) -> Eff
         effect.issues.append(_price_issue(attribute, value, price))
         return effect
     effect.name = _text(value[: price.span[0]] + value[price.span[1] :]) or text
-    effect.stats["price"] = price.copper
+    effect.stats["dnd5e_price"] = price.copper
     return effect
 
 

@@ -16,8 +16,8 @@ from test_importer_give import ALICE, PACK, answer
 from test_importer_review import VALUE, item, make_plan
 from typer.testing import CliRunner
 
-from lorenzo_cli import main as main_module
 from lorenzo_cli.auth.store import CredentialsFile
+from lorenzo_cli.commands import mpmb as main_module
 from lorenzo_cli.importer.apply import ApplyReport
 from lorenzo_cli.importer.plan import ImportPlan
 from lorenzo_cli.importer.review import plan_json
@@ -76,7 +76,7 @@ def patched(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, applying: Applying)
     monkeypatch.setattr(main_module, "apply_import", applying.apply)
 
 
-ARGS = ["apply", "--tenant", "repo", "--base", "x.js", "--json"]
+ARGS = ["import", "mpmb", "apply", "--tenant", "repo", "--base", "x.js", "--json"]
 
 
 @pytest.fixture(autouse=True)
@@ -121,7 +121,7 @@ def test_progress_and_review_notices_stay_off_stdout(
     result = runner.invoke(app, [*ARGS, "--yes"], obj=runtime(tmp_path))
 
     json.loads(result.stdout)  # nothing but the document
-    assert "1/2 basic-weapons-a" in result.stderr
+    assert "Importing: 1" in result.stderr
     assert "need a decision" in result.stderr
     assert "Plan" not in result.stdout
 
@@ -162,7 +162,7 @@ def test_json_never_asks_so_without_yes_nothing_is_written(
 
     result = runner.invoke(app, ARGS, obj=rt)
 
-    assert result.exit_code == 1
+    assert result.exit_code == 2
     document = json.loads(result.stdout)
     assert document["applied"] is None
     assert document["plan"]["header"]["counts"]["create"] == 1
@@ -215,7 +215,9 @@ def test_without_json_apply_still_says_it_in_words(
     patched(monkeypatch, tmp_path, Applying(make_plan(item("a", "create"))))
 
     result = runner.invoke(
-        app, ["apply", "--tenant", "repo", "--base", "x.js", "--yes"], obj=runtime(tmp_path)
+        app,
+        ["import", "mpmb", "apply", "--tenant", "repo", "--base", "x.js", "--yes"],
+        obj=runtime(tmp_path),
     )
 
     assert result.exit_code == 0, result.output
@@ -267,7 +269,7 @@ def pack_api(sent: list[httpx.Request]) -> httpx.MockTransport:
     return httpx.MockTransport(handler)
 
 
-GIVE = ["pack", "give", "explorers-pack", "--tenant", str(TENANT), "--owner", "alice"]
+GIVE = ["pack", "give", "explorers-pack", "--tenant", str(TENANT), "--owner", "alice", "--yes"]
 
 
 def test_pack_give_json_is_what_the_api_made_and_nothing_else(tmp_path: Path) -> None:

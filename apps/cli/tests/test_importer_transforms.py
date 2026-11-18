@@ -63,7 +63,7 @@ def test_name_and_price_splits_a_display_string() -> None:
     effect = run("name_and_price", "Bullets, Violet (10) [5 sp]")
 
     assert effect.name == "Bullets, Violet (10)"
-    assert effect.stats == {"price": 50}
+    assert effect.stats == {"dnd5e_price": 50}
     assert effect.issues == []
 
 
@@ -71,7 +71,7 @@ def test_a_display_string_without_a_price_keeps_its_name_and_asks() -> None:
     effect = run("name_and_price", "Chain (10 feet) [3 marks]")
 
     assert effect.name == "Chain (10 feet) [3 marks]"
-    assert "price" not in effect.stats
+    assert "dnd5e_price" not in effect.stats
     issue = effect.issues[0]
     assert issue.kind == "price"
     assert "[3 marks]" in issue.reason and "[currencies]" in issue.suggestion
@@ -119,16 +119,15 @@ def test_a_missing_weight_is_nothing_and_a_wrong_one_is_an_issue() -> None:
 
 def test_damage_dice_and_type() -> None:
     assert run("damage", [1, 8, "Slashing"]).stats == {
-        "damage_dice_count": 1,
-        "damage_die": 8,
-        "damage_type": "slashing",
+        "dnd5e_damage": "1d8",
+        "dnd5e_damage_type": "slashing",
     }
 
 
 def test_damage_that_is_not_dice_keeps_its_type_and_says_so() -> None:
     effect = run("damage", [1, "", "fire"])
 
-    assert effect.stats == {"damage_type": "fire"}
+    assert effect.stats == {"dnd5e_damage_type": "fire"}
     assert "isn't a dice roll" in effect.notes[0]
     assert run("damage", "1d6").issues[0].kind == "damage"
 
@@ -140,10 +139,10 @@ def test_damage_that_is_not_dice_keeps_its_type_and_says_so() -> None:
         (
             "Melee, 20/60 ft",
             {"melee-weapon", "ranged-weapon"},
-            {"range_normal": 20, "range_long": 60},
+            {"dnd5e_range_normal": 20, "dnd5e_range_long": 60},
         ),
-        ("150/600 ft", {"ranged-weapon"}, {"range_normal": 150, "range_long": 600}),
-        ("60 ft", {"ranged-weapon"}, {"range_normal": 60}),
+        ("150/600 ft", {"ranged-weapon"}, {"dnd5e_range_normal": 150, "dnd5e_range_long": 600}),
+        ("60 ft", {"ranged-weapon"}, {"dnd5e_range_normal": 60}),
         ("melee", {"melee-weapon"}, {}),
         ("", set(), {}),
     ],
@@ -163,9 +162,9 @@ def test_a_range_that_says_nothing_readable_is_noted() -> None:
 
 
 def test_an_armour_class_that_is_a_number_is_stored_and_a_formula_is_kept_as_text() -> None:
-    assert run("armor", 16).stats == {"armor": 16}
+    assert run("armor", 16).stats == {"dnd5e_armor": 16}
     effect = run("armor", "10+Wis")
-    assert effect.stats == {"armor_formula": "10+Wis"}
+    assert effect.stats == {"dnd5e_armor_formula": "10+Wis"}
     assert effect.notes == []
 
 
@@ -269,12 +268,14 @@ def test_drop_and_classify_have_no_effect_of_their_own() -> None:
     [(1, "Strength"), (2, "Dexterity"), (3, "Constitution"), (4, "Intelligence"), (6, "Charisma")],
 )
 def test_an_ability_number_becomes_its_name(value: int, name: str) -> None:
-    assert run("ability_name", value, stat="attack_ability").stats == {"attack_ability": name}
+    assert run("ability_name", value, stat="dnd5e_attack_ability").stats == {
+        "dnd5e_attack_ability": name
+    }
 
 
 @pytest.mark.parametrize("value", [0, 7, "", None, True, "Strength"])
 def test_an_ability_that_isnt_one_of_the_six_says_nothing(value: Any) -> None:
-    effect = run("ability_name", value, stat="attack_ability")
+    effect = run("ability_name", value, stat="dnd5e_attack_ability")
 
     assert effect.stats == {}
 
@@ -303,13 +304,15 @@ def test_information_with_no_text_is_nothing() -> None:
 
 
 def test_a_number_below_the_minimum_is_not_worth_a_stat() -> None:
-    assert run("int", 0, stat="strength_required", minimum=1).stats == {}
-    assert run("int", 13, stat="strength_required", minimum=1).stats == {"strength_required": 13}
+    assert run("int", 0, stat="dnd5e_strength_required", minimum=1).stats == {}
+    assert run("int", 13, stat="dnd5e_strength_required", minimum=1).stats == {
+        "dnd5e_strength_required": 13
+    }
     assert run("int", 1, stat="bundle_amount", minimum=2).stats == {}
     assert run("int", 20, stat="bundle_amount", minimum=2).stats == {"bundle_amount": 20}
 
 
 def test_an_empty_value_writes_no_stat() -> None:
-    assert run("text", "", stat="ammo_type").stats == {}
-    assert run("text", None, stat="ammo_type").stats == {}
-    assert run("int", "", stat="strength_required").stats == {}
+    assert run("text", "", stat="dnd5e_ammo_type").stats == {}
+    assert run("text", None, stat="dnd5e_ammo_type").stats == {}
+    assert run("int", "", stat="dnd5e_strength_required").stats == {}

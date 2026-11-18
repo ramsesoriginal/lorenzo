@@ -1,4 +1,4 @@
-"""The Editions shared with a reviewer, across libraries (ADR 0495)."""
+"""The Editions shared with a reviewer, across libraries (ADR 0508)."""
 
 from _author_world import make_world
 from _fake_jwks import FakeJwksServer

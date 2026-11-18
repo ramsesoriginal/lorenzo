@@ -106,7 +106,7 @@ Numbers count every month and festival in the order of the definition, including
 
 ## Import with the command line
 
-Calendars has no import screen. The `lorenzo calendar import` command reads a native calendar file, previews what it would change with `--dry-run`, and applies it only after the reviewed plan is confirmed. Repeating an import creates no duplicates, and imported audiences stay restricted unless chosen otherwise. Notes arrive on their dates, so look for them in the year and month they came from. The file format is in [Native calendar files](calendar-file-format.md); the command itself is in the [CLI README](../../apps/cli/README.md#calendar-files), which also covers converting a saved donjon export.
+Calendars has no import screen. The `lorenzo import calendar` command reads a native calendar file, previews what it would change with `--dry-run`, and applies it only after the reviewed plan is confirmed. Repeating an import creates no duplicates, and imported audiences stay restricted unless chosen otherwise. Notes arrive on their dates, so look for them in the year and month they came from. The file format is in [Native calendar files](calendar-file-format.md); the command itself is in the [CLI README](../../apps/cli/README.md#calendar-files), which also covers converting a saved donjon export.
 
 ## What Calendars does not do
 

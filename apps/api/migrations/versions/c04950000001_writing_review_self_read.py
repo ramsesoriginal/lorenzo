@@ -1,4 +1,4 @@
-"""A reviewer may read their own review grants in every tenant (ADR 0495).
+"""A reviewer may read their own review grants in every tenant (ADR 0508).
 
 `GET /me/writing-reviews` lists the Editions shared with the caller across libraries, so it asks
 for the caller's own `writing_review_grant` rows before any one tenant is set, as `GET /tenants`

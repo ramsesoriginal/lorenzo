@@ -1,21 +1,17 @@
 """Whose each thing an item is made of is (RFC 0033 section 6, ADR 0182): the neutral half, true
 anywhere, or the system's, D&D's.
 
-The seed decides it where it can: a stat has the part of its definition's layer, a category the
-part of its node's. A row says it only for what no layer decides (text, a stat or a parent the
-seed doesn't know), so a map can't say what the seed contradicts.
+The starters decide it where they can (ADR 0504): a stat of a group of D&D 5e's system is the
+system's, a category of the dnd5e starter is the system's, the rest is neutral. A row says it only
+for what they do not decide (text, a stat or a parent they don't know), so a map can't say what the
+starters contradict.
 """
 
 from __future__ import annotations
 
 from lorenzo_cli.importer.mapping import SYSTEM_AXES, Part, Rule
 from lorenzo_cli.importer.transforms import Issue
-from lorenzo_cli.seed import SeedSpec
-from lorenzo_cli.seed.spec import Layer, is_system_layer
-
-
-def part_of_layer(layer: Layer) -> Part:
-    return "system" if is_system_layer(layer) else "neutral"
+from lorenzo_cli.importer.vocabulary import Vocabulary
 
 
 def part_of_axis(axis: str) -> Part:
@@ -24,11 +20,11 @@ def part_of_axis(axis: str) -> Part:
 
 
 class Parts:
-    """The part of the seed's stats and categories."""
+    """The part of the starters' stats and categories."""
 
-    def __init__(self, seed: SeedSpec) -> None:
-        self._stats = {d.name: part_of_layer(d.layer) for d in seed.definitions}
-        self._nodes = {n.slug: part_of_layer(n.layer) for n in seed.nodes}
+    def __init__(self, vocabulary: Vocabulary) -> None:
+        self._stats = {d.name: d.part for d in vocabulary.definitions}
+        self._nodes = {n.slug: n.part for n in vocabulary.nodes}
 
     def stat(self, name: str) -> Part | None:
         """The part of one of the seed's stats, or None where the seed doesn't have it."""

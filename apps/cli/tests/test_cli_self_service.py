@@ -158,6 +158,9 @@ class World:
 
 
 def run(world: World, tmp_path: Path, *args: str):
+    """`item add` is a write, so it is given --yes (ADR 0496); the contract has its own test."""
+    if args[:2] == ("item", "add"):
+        args = (*args, "--yes")
     runtime = Runtime(
         env={"LORENZO_API_URL": "https://api.example", "LORENZO_TOKEN": "tok"},
         stdin=io.StringIO(),
@@ -184,7 +187,7 @@ def test_item_list_passes_the_query_on_and_can_print_json(tmp_path: Path) -> Non
     result = run(world, tmp_path, "item", "list", "-t", "table-one", "-q", "tor", "--json")
 
     assert result.exit_code == 0, result.output
-    assert [row["title"] for row in json.loads(result.stdout)] == ["Torch"]
+    assert [row["title"] for row in json.loads(result.stdout)["items"]] == ["Torch"]
 
 
 def test_item_list_says_when_the_catalog_is_empty(tmp_path: Path) -> None:
@@ -200,8 +203,11 @@ def test_character_list_is_yours_unless_all_is_asked_for(tmp_path: Path) -> None
     mine = run(World(), tmp_path, "character", "list", "-t", "table-one", "--json")
     everyone = run(World(), tmp_path, "character", "list", "-t", "table-one", "--all", "--json")
 
-    assert [row["name"] for row in json.loads(mine.stdout)] == ["Ashfang"]
-    assert [row["name"] for row in json.loads(everyone.stdout)] == ["Ashfang", "Brisk"]
+    assert [row["name"] for row in json.loads(mine.stdout)["characters"]] == ["Ashfang"]
+    assert [row["name"] for row in json.loads(everyone.stdout)["characters"]] == [
+        "Ashfang",
+        "Brisk",
+    ]
 
 
 # --- item add -----------------------------------------------------------------------------------
@@ -339,3 +345,18 @@ def test_add_prints_the_instance_as_json(tmp_path: Path) -> None:
 
     assert result.exit_code == 0, result.output
     assert json.loads(result.stdout)["owner_entity_id"] == str(ASHFANG)
+
+
+def test_add_without_yes_and_without_a_terminal_writes_nothing(tmp_path: Path) -> None:
+    world = World()
+    runtime = Runtime(
+        env={"LORENZO_API_URL": "https://api.example", "LORENZO_TOKEN": "tok"},
+        stdin=io.StringIO(),
+        store=CredentialsFile(tmp_path / "credentials.json"),
+        transport=httpx.MockTransport(world.handler),
+    )
+    result = runner.invoke(app, ["item", "add", "rope", "-t", "table-one"], obj=runtime)
+
+    assert result.exit_code == 2
+    assert "--yes" in result.output
+    assert world.posts() == []

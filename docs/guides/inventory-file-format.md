@@ -2,7 +2,7 @@
 
 A plain text file that lists what one character carries and owns: what it is, how many, what it is in, and what is known about it. Lorenzo reads it to fill in a character's inventory, and writes the same file back out when you ask it to. You can write one by hand, or have anything (a spreadsheet export, a script, an assistant) produce it from this page. The format is called **LorenzoLedger**, a file is a *ledger*, and the suggested names are `name.ledger.md` and `name.ledger.json`.
 
-> **Status:** implemented from [RFC 0035](../rfcs/0035-inventory-files-and-placeholder-items.md), recorded in [ADR 0191](../adr/0191-inventory-file-format-v1.md), named and given descriptions by [ADR 0226](../adr/0226-lorenzoledger.md). `lorenzo inventory import` and `export` read and write it ([ADR 0193](../adr/0193-lorenzo-inventory-import-and-export.md)). CSV/Excel conversion lives in [`packages/converters`](../../packages/converters/README.md) (`lorenzo-convert sheet`, ADR 0246). Other converters can live outside this repository; the first, for D&D Beyond, is [`lorenzo-beyond`](https://github.com/ramsesoriginal/lorenzo-beyond) ([PyPI](https://pypi.org/project/lorenzo-beyond/)). Until the one you need exists, write the file by hand or make a small script of your own.
+> **Status:** implemented from [RFC 0035](../rfcs/0035-inventory-files-and-placeholder-items.md), recorded in [ADR 0191](../adr/0191-inventory-file-format-v1.md), named and given descriptions by [ADR 0226](../adr/0226-lorenzoledger.md). `lorenzo import inventory` and `export` read and write it ([ADR 0193](../adr/0193-lorenzo-inventory-import-and-export.md)). CSV/Excel conversion lives in [`packages/converters`](../../packages/converters/README.md) (`lorenzo-convert sheet`, ADR 0246). Other converters can live outside this repository; the first, for D&D Beyond, is [`lorenzo-beyond`](https://github.com/ramsesoriginal/lorenzo-beyond) ([PyPI](https://pypi.org/project/lorenzo-beyond/)). Until the one you need exists, write the file by hand or make a small script of your own.
 
 ## The shortest useful file
 
@@ -131,7 +131,7 @@ A line's `note` is kept as a note titled “Note”, its description as one titl
 
 ## The JSON form
 
-The same file as JSON, for scripts. `lorenzo inventory export --json` writes it, and import reads it (detected by a leading `{`).
+The same file as JSON, for scripts. `lorenzo export inventory --json` writes it, and import reads it (detected by a leading `{`).
 
 ```json
 {
@@ -216,7 +216,7 @@ where the quiver had to be written in, because a stack of 98 needs something to 
 
 ## Converters
 
-Turning a spreadsheet, a document or a character sheet into this format is a conversion step of its own, and `lorenzo inventory import` only ever reads this format. A spreadsheet or CSV becomes a ledger with `lorenzo-convert sheet` in [`packages/converters`](../../packages/converters/README.md). [`lorenzo-beyond`](https://github.com/ramsesoriginal/lorenzo-beyond) converts a public D&D Beyond character: `uvx lorenzo-beyond` writes a ledger, with each item's text as its description, and `lorenzo inventory import` makes it. It is a package of its own, in its own repository. LaTeX lists have no converter yet. If you want to write one yourself, this page is the specification, and the examples above are a test you can check yours against.
+Turning a spreadsheet, a document or a character sheet into this format is a conversion step of its own, and `lorenzo import inventory` only ever reads this format. A spreadsheet or CSV becomes a ledger with `lorenzo-convert sheet` in [`packages/converters`](../../packages/converters/README.md). [`lorenzo-beyond`](https://github.com/ramsesoriginal/lorenzo-beyond) converts a public D&D Beyond character: `uvx lorenzo-beyond` writes a ledger, with each item's text as its description, and `lorenzo import inventory` makes it. It is a package of its own, in its own repository. LaTeX lists have no converter yet. If you want to write one yourself, this page is the specification, and the examples above are a test you can check yours against.
 
 ## Versions
 
