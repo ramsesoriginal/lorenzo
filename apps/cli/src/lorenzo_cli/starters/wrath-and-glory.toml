@@ -1,8 +1,8 @@
 # The Wrath & Glory starter (ADR 0491). Requires the neutral starter.
 # Mechanics, numbers and stat names only: no rules text, setting text or setting names. The
-# values (bounds, the traits' formulas, the dice pools) are written from the rules as the
-# maintainer reviews them; check them against your rulebook. The archetype and the talents
-# are examples to rename and fill.
+# attributes and skills, the traits' formulas, the bounds and the wargear profile were checked
+# against the core rulebook and its character sheets. The archetype and the talents are
+# examples to rename and fill.
 
 format = 1
 name = "wrath-and-glory"
@@ -15,6 +15,7 @@ group = [
     { name = "wg_traits", system = true },
     { name = "wg_pools", system = true },
     { name = "wg_progress", system = true },
+    { name = "wg_steps", system = true },
     { name = "wg_gear", system = true },
     { name = "wg_features", system = true },
 ]
@@ -32,11 +33,33 @@ min = 1
 max = 12
 
 [[stat]]
+name = "wg_strength_bonus"
+group = "wg_attributes"
+type = "int"
+signed = true
+
+[[stat]]
+name = "wg_strength_total"
+group = "wg_attributes"
+type = "int"
+
+[[stat]]
 name = "wg_toughness"
 group = "wg_attributes"
 type = "int"
 min = 1
 max = 12
+
+[[stat]]
+name = "wg_toughness_bonus"
+group = "wg_attributes"
+type = "int"
+signed = true
+
+[[stat]]
+name = "wg_toughness_total"
+group = "wg_attributes"
+type = "int"
 
 [[stat]]
 name = "wg_agility"
@@ -46,11 +69,33 @@ min = 1
 max = 12
 
 [[stat]]
+name = "wg_agility_bonus"
+group = "wg_attributes"
+type = "int"
+signed = true
+
+[[stat]]
+name = "wg_agility_total"
+group = "wg_attributes"
+type = "int"
+
+[[stat]]
 name = "wg_initiative"
 group = "wg_attributes"
 type = "int"
 min = 1
 max = 12
+
+[[stat]]
+name = "wg_initiative_bonus"
+group = "wg_attributes"
+type = "int"
+signed = true
+
+[[stat]]
+name = "wg_initiative_total"
+group = "wg_attributes"
+type = "int"
 
 [[stat]]
 name = "wg_willpower"
@@ -60,6 +105,17 @@ min = 1
 max = 12
 
 [[stat]]
+name = "wg_willpower_bonus"
+group = "wg_attributes"
+type = "int"
+signed = true
+
+[[stat]]
+name = "wg_willpower_total"
+group = "wg_attributes"
+type = "int"
+
+[[stat]]
 name = "wg_intellect"
 group = "wg_attributes"
 type = "int"
@@ -67,11 +123,33 @@ min = 1
 max = 12
 
 [[stat]]
+name = "wg_intellect_bonus"
+group = "wg_attributes"
+type = "int"
+signed = true
+
+[[stat]]
+name = "wg_intellect_total"
+group = "wg_attributes"
+type = "int"
+
+[[stat]]
 name = "wg_fellowship"
 group = "wg_attributes"
 type = "int"
 min = 1
 max = 12
+
+[[stat]]
+name = "wg_fellowship_bonus"
+group = "wg_attributes"
+type = "int"
+signed = true
+
+[[stat]]
+name = "wg_fellowship_total"
+group = "wg_attributes"
+type = "int"
 
 [[stat]]
 name = "wg_athletics"
@@ -225,12 +303,17 @@ group = "wg_traits"
 type = "int"
 
 [[stat]]
-name = "wg_resolve"
+name = "wg_max_traumatic_injuries"
 group = "wg_traits"
 type = "int"
 
 [[stat]]
 name = "wg_conviction"
+group = "wg_traits"
+type = "int"
+
+[[stat]]
+name = "wg_resolve"
 group = "wg_traits"
 type = "int"
 
@@ -260,6 +343,19 @@ group = "wg_traits"
 type = "int"
 
 [[stat]]
+name = "wg_size"
+group = "wg_traits"
+type = "enum"
+values = [
+    "Tiny",
+    "Small",
+    "Average",
+    "Large",
+    "Huge",
+    "Gargantuan",
+]
+
+[[stat]]
 name = "wg_tier"
 group = "wg_progress"
 type = "int"
@@ -281,11 +377,28 @@ min = 0
 adjustable_in_play = true
 
 [[stat]]
-name = "wg_glory"
+name = "wg_wounds"
 group = "wg_progress"
 type = "int"
 min = 0
 adjustable_in_play = true
+max_hint = "wg_max_wounds"
+
+[[stat]]
+name = "wg_shock"
+group = "wg_progress"
+type = "int"
+min = 0
+adjustable_in_play = true
+max_hint = "wg_max_shock"
+
+[[stat]]
+name = "wg_traumatic_injuries"
+group = "wg_progress"
+type = "int"
+min = 0
+adjustable_in_play = true
+max_hint = "wg_max_traumatic_injuries"
 
 [[stat]]
 name = "wg_corruption"
@@ -295,25 +408,83 @@ min = 0
 adjustable_in_play = true
 
 [[stat]]
-name = "wg_wounds"
+name = "wg_faith"
 group = "wg_progress"
 type = "int"
 min = 0
-max_hint = "wg_max_wounds"
 adjustable_in_play = true
 
 [[stat]]
-name = "wg_shock"
+name = "wg_ammo"
 group = "wg_progress"
 type = "int"
 min = 0
-max_hint = "wg_max_shock"
 adjustable_in_play = true
+
+[[stat]]
+name = "wg_stealth_score"
+group = "wg_progress"
+type = "int"
+min = 0
+adjustable_in_play = true
+
+[[stat]]
+name = "wg_xp_earned"
+group = "wg_progress"
+type = "int"
+min = 0
+
+[[stat]]
+name = "wg_xp"
+group = "wg_progress"
+type = "int"
+min = 0
+adjustable_in_play = true
+
+[[stat]]
+name = "wg_defence_base"
+group = "wg_steps"
+type = "int"
+
+[[stat]]
+name = "wg_resolve_base"
+group = "wg_steps"
+type = "int"
+
+[[stat]]
+name = "wg_influence_base"
+group = "wg_steps"
+type = "int"
+
+[[stat]]
+name = "wg_influence_bonus"
+group = "wg_steps"
+type = "int"
+
+[[stat]]
+name = "wg_speed_base"
+group = "wg_steps"
+type = "int"
+
+[[stat]]
+name = "wg_bulk_worn"
+group = "wg_steps"
+type = "int"
+
+[[stat]]
+name = "wg_powered_worn"
+group = "wg_steps"
+type = "int"
 
 [[stat]]
 name = "wg_damage"
 group = "wg_gear"
 type = "int"
+
+[[stat]]
+name = "wg_adds_strength"
+group = "wg_gear"
+type = "bool"
 
 [[stat]]
 name = "wg_extra_damage_dice"
@@ -330,16 +501,33 @@ type = "dice"
 name = "wg_armour_penetration"
 group = "wg_gear"
 type = "int"
+signed = true
 
 [[stat]]
 name = "wg_salvo"
 group = "wg_gear"
 type = "int"
+min = 0
 
 [[stat]]
-name = "wg_range"
+name = "wg_range_short"
 group = "wg_gear"
 type = "int"
+min = 0
+unit = "m"
+
+[[stat]]
+name = "wg_range_medium"
+group = "wg_gear"
+type = "int"
+min = 0
+unit = "m"
+
+[[stat]]
+name = "wg_range_long"
+group = "wg_gear"
+type = "int"
+min = 0
 unit = "m"
 
 [[stat]]
@@ -347,6 +535,41 @@ name = "wg_armour_rating"
 group = "wg_gear"
 type = "int"
 min = 0
+
+[[stat]]
+name = "wg_invulnerable"
+group = "wg_gear"
+type = "bool"
+
+[[stat]]
+name = "wg_bulk"
+group = "wg_gear"
+type = "int"
+min = 0
+
+[[stat]]
+name = "wg_powered"
+group = "wg_gear"
+type = "int"
+min = 0
+
+[[stat]]
+name = "wg_value"
+group = "wg_gear"
+type = "int"
+min = 0
+
+[[stat]]
+name = "wg_rarity"
+group = "wg_gear"
+type = "enum"
+values = [
+    "Common",
+    "Uncommon",
+    "Rare",
+    "Very Rare",
+    "Unique",
+]
 
 [[stat]]
 name = "wg_uses"
@@ -548,9 +771,48 @@ parents = [
 ]
 
 [entry.stats]
-wg_speed = 6
+wg_strength = 1
+wg_toughness = 1
+wg_agility = 1
+wg_initiative = 1
+wg_willpower = 1
+wg_intellect = 1
+wg_fellowship = 1
+wg_strength_bonus = 0
+wg_toughness_bonus = 0
+wg_agility_bonus = 0
+wg_initiative_bonus = 0
+wg_willpower_bonus = 0
+wg_intellect_bonus = 0
+wg_fellowship_bonus = 0
+wg_athletics = 0
+wg_awareness = 0
+wg_ballistic_skill = 0
+wg_cunning = 0
+wg_deception = 0
+wg_insight = 0
+wg_intimidation = 0
+wg_investigation = 0
+wg_leadership = 0
+wg_medicae = 0
+wg_persuasion = 0
+wg_pilot = 0
+wg_psychic_mastery = 0
+wg_scholar = 0
+wg_stealth = 0
+wg_survival = 0
+wg_tech = 0
+wg_weapon_skill = 0
+wg_influence_bonus = 0
+wg_speed_base = 6
+wg_size = "Average"
 wg_tier = 1
 wg_rank = 1
+wg_wrath = 2
+wg_wounds = 0
+wg_shock = 0
+wg_traumatic_injuries = 0
+wg_corruption = 0
 
 [[entry]]
 slug = "wg-archetype"
@@ -594,6 +856,36 @@ parents = [
     "weapon",
 ]
 
+[entry.stats]
+wg_extra_damage_dice = 0
+wg_armour_penetration = 0
+wg_salvo = 0
+
+[[entry]]
+slug = "wg-melee-weapon"
+name = "Melee weapon (Wrath & Glory)"
+parents = [
+    "wg-weapon",
+    "melee-weapon",
+]
+
+[entry.stats]
+wg_adds_strength = true
+wg_range_short = 1
+wg_range_medium = 1
+wg_range_long = 1
+
+[[entry]]
+slug = "wg-ranged-weapon"
+name = "Ranged weapon (Wrath & Glory)"
+parents = [
+    "wg-weapon",
+    "ranged-weapon",
+]
+
+[entry.stats]
+wg_adds_strength = false
+
 [[entry]]
 slug = "wg-armour"
 name = "Armour (Wrath & Glory)"
@@ -602,13 +894,75 @@ parents = [
     "armor",
 ]
 
+[entry.stats]
+wg_armour_rating = 0
+wg_invulnerable = false
+wg_bulk = 0
+wg_powered = 0
+
 [[formula]]
 on = "wg-character"
-stat = "wg_defence"
-kind = "linear"
-source = "wg_initiative"
-multiplier = 1
-offset = -1
+stat = "wg_strength_total"
+kind = "sum"
+terms = [
+    "wg_strength",
+    "wg_strength_bonus",
+    "wg_powered_worn",
+]
+
+[[formula]]
+on = "wg-character"
+stat = "wg_toughness_total"
+kind = "sum"
+terms = [
+    "wg_toughness",
+    "wg_toughness_bonus",
+]
+
+[[formula]]
+on = "wg-character"
+stat = "wg_agility_total"
+kind = "sum"
+terms = [
+    "wg_agility",
+    "wg_agility_bonus",
+]
+
+[[formula]]
+on = "wg-character"
+stat = "wg_initiative_total"
+kind = "sum"
+terms = [
+    "wg_initiative",
+    "wg_initiative_bonus",
+]
+
+[[formula]]
+on = "wg-character"
+stat = "wg_willpower_total"
+kind = "sum"
+terms = [
+    "wg_willpower",
+    "wg_willpower_bonus",
+]
+
+[[formula]]
+on = "wg-character"
+stat = "wg_intellect_total"
+kind = "sum"
+terms = [
+    "wg_intellect",
+    "wg_intellect_bonus",
+]
+
+[[formula]]
+on = "wg-character"
+stat = "wg_fellowship_total"
+kind = "sum"
+terms = [
+    "wg_fellowship",
+    "wg_fellowship_bonus",
+]
 
 [[formula]]
 on = "wg-character"
@@ -621,10 +975,45 @@ if_none = 0
 
 [[formula]]
 on = "wg-character"
+stat = "wg_bulk_worn"
+kind = "contents"
+source = "wg_bulk"
+aggregate = "max"
+only_active = true
+if_none = 0
+
+[[formula]]
+on = "wg-character"
+stat = "wg_powered_worn"
+kind = "contents"
+source = "wg_powered"
+aggregate = "max"
+only_active = true
+if_none = 0
+
+[[formula]]
+on = "wg-character"
+stat = "wg_defence_base"
+kind = "linear"
+source = "wg_initiative_total"
+multiplier = 1
+offset = -1
+
+[[formula]]
+on = "wg-character"
+stat = "wg_defence"
+kind = "max"
+inputs = [
+    "wg_defence_base",
+    1,
+]
+
+[[formula]]
+on = "wg-character"
 stat = "wg_resilience"
 kind = "sum"
 terms = [
-    "wg_toughness",
+    "wg_toughness_total",
     "wg_armour",
 ]
 offset = 1
@@ -633,7 +1022,7 @@ offset = 1
 on = "wg-character"
 stat = "wg_determination"
 kind = "linear"
-source = "wg_toughness"
+source = "wg_toughness_total"
 multiplier = 1
 
 [[formula]]
@@ -642,7 +1031,7 @@ stat = "wg_max_wounds"
 kind = "sum"
 terms = [
     { stat = "wg_tier", coefficient = 2 },
-    "wg_toughness",
+    "wg_toughness_total",
 ]
 
 [[formula]]
@@ -650,24 +1039,41 @@ on = "wg-character"
 stat = "wg_max_shock"
 kind = "sum"
 terms = [
-    "wg_willpower",
+    "wg_willpower_total",
     "wg_tier",
 ]
 
 [[formula]]
 on = "wg-character"
-stat = "wg_resolve"
+stat = "wg_max_traumatic_injuries"
 kind = "linear"
-source = "wg_willpower"
+source = "wg_tier"
 multiplier = 1
-offset = -1
+offset = 1
 
 [[formula]]
 on = "wg-character"
 stat = "wg_conviction"
 kind = "linear"
-source = "wg_willpower"
+source = "wg_willpower_total"
 multiplier = 1
+
+[[formula]]
+on = "wg-character"
+stat = "wg_resolve_base"
+kind = "linear"
+source = "wg_willpower_total"
+multiplier = 1
+offset = -1
+
+[[formula]]
+on = "wg-character"
+stat = "wg_resolve"
+kind = "max"
+inputs = [
+    "wg_resolve_base",
+    1,
+]
 
 [[formula]]
 on = "wg-character"
@@ -679,11 +1085,22 @@ round = "ceil"
 
 [[formula]]
 on = "wg-character"
-stat = "wg_influence"
-kind = "linear"
-source = "wg_fellowship"
-multiplier = 1
+stat = "wg_influence_base"
+kind = "sum"
+terms = [
+    "wg_fellowship_total",
+    "wg_influence_bonus",
+]
 offset = -1
+
+[[formula]]
+on = "wg-character"
+stat = "wg_influence"
+kind = "max"
+inputs = [
+    "wg_influence_base",
+    1,
+]
 
 [[formula]]
 on = "wg-character"
@@ -694,10 +1111,19 @@ multiplier = 1
 
 [[formula]]
 on = "wg-character"
+stat = "wg_speed"
+kind = "sum"
+terms = [
+    "wg_speed_base",
+    { stat = "wg_bulk_worn", coefficient = -1 },
+]
+
+[[formula]]
+on = "wg-character"
 stat = "wg_pool_athletics"
 kind = "sum"
 terms = [
-    "wg_strength",
+    "wg_strength_total",
     "wg_athletics",
 ]
 
@@ -713,7 +1139,7 @@ on = "wg-character"
 stat = "wg_pool_awareness"
 kind = "sum"
 terms = [
-    "wg_intellect",
+    "wg_intellect_total",
     "wg_awareness",
 ]
 
@@ -729,7 +1155,7 @@ on = "wg-character"
 stat = "wg_pool_ballistic_skill"
 kind = "sum"
 terms = [
-    "wg_agility",
+    "wg_agility_total",
     "wg_ballistic_skill",
 ]
 
@@ -745,7 +1171,7 @@ on = "wg-character"
 stat = "wg_pool_cunning"
 kind = "sum"
 terms = [
-    "wg_fellowship",
+    "wg_fellowship_total",
     "wg_cunning",
 ]
 
@@ -761,7 +1187,7 @@ on = "wg-character"
 stat = "wg_pool_deception"
 kind = "sum"
 terms = [
-    "wg_fellowship",
+    "wg_fellowship_total",
     "wg_deception",
 ]
 
@@ -777,7 +1203,7 @@ on = "wg-character"
 stat = "wg_pool_insight"
 kind = "sum"
 terms = [
-    "wg_fellowship",
+    "wg_fellowship_total",
     "wg_insight",
 ]
 
@@ -793,7 +1219,7 @@ on = "wg-character"
 stat = "wg_pool_intimidation"
 kind = "sum"
 terms = [
-    "wg_willpower",
+    "wg_willpower_total",
     "wg_intimidation",
 ]
 
@@ -809,7 +1235,7 @@ on = "wg-character"
 stat = "wg_pool_investigation"
 kind = "sum"
 terms = [
-    "wg_intellect",
+    "wg_intellect_total",
     "wg_investigation",
 ]
 
@@ -825,7 +1251,7 @@ on = "wg-character"
 stat = "wg_pool_leadership"
 kind = "sum"
 terms = [
-    "wg_willpower",
+    "wg_willpower_total",
     "wg_leadership",
 ]
 
@@ -841,7 +1267,7 @@ on = "wg-character"
 stat = "wg_pool_medicae"
 kind = "sum"
 terms = [
-    "wg_intellect",
+    "wg_intellect_total",
     "wg_medicae",
 ]
 
@@ -857,7 +1283,7 @@ on = "wg-character"
 stat = "wg_pool_persuasion"
 kind = "sum"
 terms = [
-    "wg_fellowship",
+    "wg_fellowship_total",
     "wg_persuasion",
 ]
 
@@ -873,7 +1299,7 @@ on = "wg-character"
 stat = "wg_pool_pilot"
 kind = "sum"
 terms = [
-    "wg_agility",
+    "wg_agility_total",
     "wg_pilot",
 ]
 
@@ -889,7 +1315,7 @@ on = "wg-character"
 stat = "wg_pool_psychic_mastery"
 kind = "sum"
 terms = [
-    "wg_willpower",
+    "wg_willpower_total",
     "wg_psychic_mastery",
 ]
 
@@ -905,7 +1331,7 @@ on = "wg-character"
 stat = "wg_pool_scholar"
 kind = "sum"
 terms = [
-    "wg_intellect",
+    "wg_intellect_total",
     "wg_scholar",
 ]
 
@@ -921,7 +1347,7 @@ on = "wg-character"
 stat = "wg_pool_stealth"
 kind = "sum"
 terms = [
-    "wg_agility",
+    "wg_agility_total",
     "wg_stealth",
 ]
 
@@ -937,7 +1363,7 @@ on = "wg-character"
 stat = "wg_pool_survival"
 kind = "sum"
 terms = [
-    "wg_willpower",
+    "wg_willpower_total",
     "wg_survival",
 ]
 
@@ -953,7 +1379,7 @@ on = "wg-character"
 stat = "wg_pool_tech"
 kind = "sum"
 terms = [
-    "wg_intellect",
+    "wg_intellect_total",
     "wg_tech",
 ]
 
@@ -969,7 +1395,7 @@ on = "wg-character"
 stat = "wg_pool_weapon_skill"
 kind = "sum"
 terms = [
-    "wg_initiative",
+    "wg_initiative_total",
     "wg_weapon_skill",
 ]
 
@@ -1005,6 +1431,11 @@ group = "wg_skills"
 
 [[template.slot]]
 kind = "stats"
+label = "Dice pools"
+group = "wg_pools"
+
+[[template.slot]]
+kind = "stats"
 label = "Traits"
 group = "wg_traits"
 
@@ -1023,6 +1454,12 @@ kind = "held"
 label = "Wargear"
 stats = [
     "wg_damage",
+    "wg_extra_damage_dice",
+    "wg_armour_penetration",
+    "wg_salvo",
+    "wg_range_short",
+    "wg_range_medium",
+    "wg_range_long",
     "wg_armour_rating",
     "weight",
 ]
