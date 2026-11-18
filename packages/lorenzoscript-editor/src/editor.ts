@@ -1,7 +1,8 @@
 // The DOM layer (ADR 0106): enhances an existing <textarea> with a toolbar, keyboard
 // helpers, and a live preview. Every edit itself is a pure action from ./actions.
 import { parse, render as renderScript } from '@lorenzo/lorenzoscript';
-import { ACTIONS, type ActionName, indent, newline, type State } from './actions';
+import { ACTIONS, type ActionName, type State } from './actions';
+import { keyAction } from './keys';
 
 export type Tool = ActionName | 'undo' | 'redo' | '|';
 
@@ -37,9 +38,6 @@ export const DEFAULT_TOOLBAR: Tool[] = [
 ];
 
 const HISTORY = { undo: { label: '↶', title: 'Undo' }, redo: { label: '↷', title: 'Redo' } };
-const SHORTCUTS = new Map(
-  Object.entries(ACTIONS).flatMap(([name, a]) => ('key' in a ? [[a.key, name as ActionName]] : [])),
-);
 
 export function createEditor(options: EditorOptions): Editor {
   const { textarea, toolbar = DEFAULT_TOOLBAR, layout = 'split', delay = 150 } = options;
@@ -126,23 +124,10 @@ export function createEditor(options: EditorOptions): Editor {
   const onKey = (e: KeyboardEvent) => {
     const wasEscaped = escaped;
     escaped = e.key === 'Escape';
-    const modified = e.ctrlKey || e.metaKey || e.altKey;
-    if (e.key === 'Tab' && !modified) {
-      // Escape, then Tab, leaves the editor: taking Tab over must not trap keyboard users.
-      if (wasEscaped) return;
-      e.preventDefault();
-      apply(indent(e.shiftKey)(state()));
-    } else if (e.key === 'Enter' && !modified && !e.shiftKey && !e.isComposing) {
-      const next = newline(state());
-      if (!next) return;
-      e.preventDefault();
-      apply(next);
-    } else if ((e.ctrlKey || e.metaKey) && !e.altKey) {
-      const name = SHORTCUTS.get(e.key.toLowerCase());
-      if (!name) return;
-      e.preventDefault();
-      apply(ACTIONS[name].run(state()));
-    }
+    const result = keyAction(e, state(), wasEscaped);
+    if (!result.handled) return;
+    e.preventDefault();
+    apply(result.state);
   };
   textarea.addEventListener('keydown', onKey);
 

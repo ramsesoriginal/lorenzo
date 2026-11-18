@@ -36,6 +36,8 @@ Author ids are rendered as `ls-<id>`. Author classes (`{.class}`, `{{.class …}
 
 `statNames` is exported next to `references`: the stats a text names with `{weight}`, for a caller to fetch before rendering. The resolver has four hooks: `entity`, `image`, `calendar` (a calendar expression, as text or a link) and `stat` (a stat of the entry the text belongs to, as text to show); a `{weight}` without one renders as written.
 
+`blockRanges(source)` says which lines each top-level block covers, `{ type, start, end }`, with a footnote or abbreviation definition as type `definition` ([ADR 0509](../../docs/adr/0509-lorenzoscript-block-ranges.md)).
+
 `slugify` is exported too: it's the rule `[[Name]]` and heading ids use, for anything that needs to suggest a slug from a name.
 
 The package ships TypeScript source (no build step), so consumers need a bundler that compiles it; every app in this repo already has one. Internal to this workspace, not published.

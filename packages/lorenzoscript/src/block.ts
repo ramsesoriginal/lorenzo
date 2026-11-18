@@ -62,6 +62,42 @@ export function parse(source: string): Document {
   return doc;
 }
 
+/** Which lines of the source a top-level block covers (ADR 0509). */
+export type BlockRange = {
+  /** The block's type; a footnote or abbreviation definition, which is no block, is `definition`. */
+  type: Block['type'] | 'definition';
+  /** The first line, from 0. */
+  start: number;
+  /** One past the last line; blank lines after a block are not part of it. */
+  end: number;
+};
+
+/**
+ * The top-level blocks of a source, each with the lines it covers, in the line numbering of
+ * `source` after CRLF is made LF. Blank lines belong to no range. Additive: `parse` is unchanged.
+ */
+export function blockRanges(source: string): BlockRange[] {
+  const text = source.replace(/\r\n?/g, '\n').replace(/\0/g, String.fromCharCode(0xfffd));
+  const lines = text.replace(/\n$/, '').split('\n').map(expandTabs);
+  footnotes = new Map();
+  abbreviations = new Map();
+  const ranges: BlockRange[] = [];
+  let i = 0;
+  while (i < lines.length) {
+    if (blank(lines[i] as string)) {
+      i++;
+      continue;
+    }
+    const found = match(lines, i);
+    const [block, next] = found ? found[0].parse(lines, i, found[1]) : paragraph(lines, i);
+    let end = next;
+    while (end > i + 1 && blank(lines[end - 1] as string)) end--;
+    ranges.push({ type: block ? block.type : 'definition', start: i, end });
+    i = next;
+  }
+  return ranges;
+}
+
 /** Every heading gets an id: its explicit one, else a de-duplicated slug of its text. */
 function assignIds(doc: Document): void {
   const used = new Set<string>();
