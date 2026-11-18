@@ -2932,3 +2932,24 @@ test('[[ offers the names of entries and writes the chosen one', async ({ browse
     await context.close();
   }
 });
+
+test('selected words show a quiet bar to link them or make them bold', async ({ browser }) => {
+  test.setTimeout(120000);
+  const { page, context } = await world(browser);
+  try {
+    const text = page.getByRole('textbox', { name: 'Manuscript', exact: true });
+    await text.fill('The ferryman waits.');
+    const bar = page.getByRole('group', { name: 'Selected words' });
+    await expect(bar).toBeHidden();
+    await text.evaluate((el: HTMLTextAreaElement) => {
+      el.focus();
+      el.setSelectionRange(4, 12);
+      el.dispatchEvent(new Event('select'));
+    });
+    await expect(bar).toBeVisible();
+    await bar.getByRole('button', { name: 'Make bold' }).click();
+    await expect(text).toHaveValue('The **ferryman** waits.');
+  } finally {
+    await context.close();
+  }
+});

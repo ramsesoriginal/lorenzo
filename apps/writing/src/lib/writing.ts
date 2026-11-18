@@ -785,6 +785,31 @@ async function manuscript(
         const review = linkReview(tenant, text, control);
         container.append(review.element);
 
+        // A quiet bar when words are selected: link them to an entity, or make them bold or slanted
+        // (ADR 0494, W3). It sits above the text, so it never covers what is being read.
+        const bubble = element('div', '', 'row');
+        bubble.setAttribute('role', 'group');
+        bubble.setAttribute('aria-label', 'Selected words');
+        bubble.hidden = true;
+        const around = (mark: string) => () => {
+          const chosen = text.value.slice(text.selectionStart, text.selectionEnd);
+          if (chosen) control.replaceSelection(`${mark}${chosen}${mark}`);
+        };
+        bubble.append(
+          button('Link these words', () => review.open()),
+          button('Make bold', around('**')),
+          button('Make italic', around('*')),
+        );
+        for (const node of bubble.querySelectorAll('button'))
+          node.addEventListener('mousedown', (event) => event.preventDefault());
+        const sync = () => {
+          bubble.hidden =
+            document.activeElement !== text || text.selectionStart === text.selectionEnd;
+        };
+        for (const type of ['select', 'keyup', 'mouseup', 'focus', 'blur', 'input'])
+          text.addEventListener(type, () => setTimeout(sync, 0));
+        container.prepend(bubble);
+
         return {
           value: () => text.value,
           focus: () => text.focus(),
