@@ -19,6 +19,7 @@ from lorenzo_api.dependencies import (
 )
 from lorenzo_api.exceptions import (
     ClientIdUnavailableError,
+    EntityNotFoundError,
     ManuscriptMoveConflictError,
 )
 from lorenzo_api.manuscript_access import require_no_new_readers
@@ -279,6 +280,13 @@ async def join(
     )
     anchor = source_ids[0]
     own = {p.id for p in source_payloads}
+    retargeted = list(
+        await session.scalars(
+            select(ManuscriptRedirect.source_id).where(
+                ManuscriptRedirect.tenant_id == tenant_id, ManuscriptRedirect.destination_id == id
+            )
+        )
+    )
     await session.execute(
         update(ManuscriptRedirect)
         .where(ManuscriptRedirect.tenant_id == tenant_id, ManuscriptRedirect.destination_id == id)
@@ -312,6 +320,7 @@ async def join(
                     str(body.destination_id): [str(v) for v in combined],
                     str(body.parent_id): [str(v) for v in parent_after],
                 },
+                "retargeted": [str(v) for v in retargeted],
             },
         ),
     )
@@ -320,4 +329,128 @@ async def join(
     del response.headers["ETag"]
     return JoinAcknowledgement(
         operation_id=operation_id, source_id=id, destination_id=body.destination_id
+    )
+
+
+@router.delete("/entries/{id}/joins/{operation_id}")
+async def undo_join(
+    tenant_id: uuid.UUID,
+    id: uuid.UUID,
+    operation_id: uuid.UUID,
+    response: Response,
+    session: SessionDep,
+    user: CurrentUser,
+    if_match: Annotated[str | None, Header()] = None,
+) -> JoinAcknowledgement:
+    """Splits a joined Chapter back out and restores the outlines as they were (ADR 0518).
+
+    For a join by the caller made after joins recorded their redirects, while the joined Chapter is
+    still empty and the destination and the parent are exactly what the join left. `If-Match`
+    carries the destination's version as last read, since the joined Chapter itself reads as a
+    redirect.
+    """
+    await author(session, tenant_id, user)
+    receipt = await existing_in_tenant(session, ManuscriptJoin, operation_id, tenant_id)
+    if receipt is None or receipt.source_id != id or receipt.actor_id != user.id:
+        raise EntityNotFoundError(detail="No such join to undo.")
+    if "retargeted" not in receipt.checkpoint:
+        raise ManuscriptMoveConflictError(detail="This join was made before joins could be undone.")
+    destination_id = receipt.destination_id
+    # Lift the guard first, in this transaction: a joined Chapter cannot be read as itself.
+    await session.execute(
+        delete(ManuscriptRedirect).where(
+            ManuscriptRedirect.tenant_id == tenant_id,
+            ManuscriptRedirect.source_id == id,
+            ManuscriptRedirect.destination_id == destination_id,
+        )
+    )
+    await session.flush()
+    before = {
+        uuid.UUID(k): [uuid.UUID(x) for x in v] for k, v in receipt.checkpoint["before"].items()
+    }
+    after = {
+        uuid.UUID(k): [uuid.UUID(x) for x in v] for k, v in receipt.checkpoint["after"].items()
+    }
+    rows = {
+        key: await entry(session, tenant_id, key, user, lock=True)
+        for key in sorted({id, destination_id, *before, *after})
+    }
+    response.headers["Cache-Control"] = "private, no-store"
+    payload_ids: set[uuid.UUID] = set()
+    infos: dict[uuid.UUID, Information | None] = {}
+    payloads_of: dict[uuid.UUID, list[Any]] = {}
+    for key in rows:
+        info, payloads = await manuscript_payloads(session, tenant_id, key, lock=True)
+        if info:
+            await authorize_information_edit(
+                session, tenant_id=tenant_id, user=user, information=info
+            )
+        infos[key] = info
+        payloads_of[key] = list(payloads)
+        payload_ids |= {p.id for p in payloads}
+    for key in rows:
+        if key == id:
+            # A joined Chapter reads as a redirect, so its emptiness is checked directly.
+            if payloads_of[key] or await children(session, tenant_id, key):
+                raise ManuscriptMoveConflictError(
+                    detail="The joined Chapter changed since, so the join cannot be undone."
+                )
+            continue
+        outline = await result(session, tenant_id, key, user, Response())
+        if key == destination_id:
+            require_version(if_match, outline.version)
+        if key in after and [el.id for el in outline.elements] != after[key]:
+            raise ManuscriptMoveConflictError(
+                detail="The outline changed since the join, so it cannot be undone."
+            )
+    source_info = infos[id]
+    destination_info = infos[destination_id]
+    everything = [p for key in (id, destination_id) for p in payloads_of[key]]
+    by_id = {p.id: p for p in everything}
+    if any(p.id in before.get(id, []) and source_info is None for p in everything):
+        raise ManuscriptMoveConflictError(
+            detail="The joined Chapter has no manuscript to return to."
+        )
+    floor = min((p.order for p in everything), default=0) - len(everything) - 1
+    for n, payload in enumerate(everything):
+        payload.order = floor + n
+    await session.flush()
+    for key, info in ((id, source_info), (destination_id, destination_info)):
+        order = 0
+        for element in before.get(key, []):
+            if element in by_id and info is not None:
+                by_id[element].information_id = info.id
+                by_id[element].order = order
+                by_id[element].updated_at = datetime.now(UTC)
+                order += 1
+        if info is not None:
+            info.updated_at = datetime.now(UTC)
+    await session.flush()
+    await session.execute(
+        delete(ManuscriptPlacement).where(
+            ManuscriptPlacement.tenant_id == tenant_id,
+            ManuscriptPlacement.parent_entity_id.in_(set(before)),
+        )
+    )
+    for key, ids in before.items():
+        place(session, tenant_id, key, ids, {x for x in ids if x in payload_ids})
+    await session.flush()
+    retargeted = [uuid.UUID(x) for x in receipt.checkpoint["retargeted"]]
+    if retargeted:
+        await session.execute(
+            update(ManuscriptRedirect)
+            .where(
+                ManuscriptRedirect.tenant_id == tenant_id,
+                ManuscriptRedirect.source_id.in_(retargeted),
+            )
+            .values(destination_id=id)
+        )
+    for row in rows.values():
+        row.updated_at = datetime.now(UTC)
+        row.updated_by = user.id
+    await session.delete(receipt)
+    await session.commit()
+    await set_tenant_rls_context(session, tenant_id)
+    return JoinAcknowledgement(
+        operation_id=operation_id, source_id=id, destination_id=destination_id
     )

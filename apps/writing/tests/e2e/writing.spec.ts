@@ -3127,6 +3127,40 @@ test('a made Scene can be taken back from the page it leads to', async ({ browse
   }
 });
 
+test('a join can be taken back from the outline it was made on', async ({ browser }) => {
+  test.setTimeout(150000);
+  const { page, context, tenant } = await world(browser);
+  try {
+    await page.goto(`/?tenant=${tenant.id}`);
+    await startAs(page, 'book', 'Undone join');
+    const text = page.getByRole('textbox', { name: 'Manuscript', exact: true });
+    await expect(text).toBeVisible();
+    const edition = new URL(page.url()).searchParams.get('entry');
+    for (const [name, prose] of [
+      ['Dawn', 'Dawn words.'],
+      ['Dusk', 'Dusk words.'],
+    ]) {
+      await page.goto(`/?tenant=${tenant.id}&entry=${edition}&view=outline`);
+      await page.getByLabel('New chapter title').fill(name);
+      await page.getByRole('button', { name: 'Add chapter', exact: true }).click();
+      await page.getByRole('link', { name, exact: true }).click();
+      await expect(text).toBeVisible();
+      await text.fill(prose);
+      await expect(page.getByRole('status', { name: 'Save status' })).toHaveText('Saved');
+    }
+    await page.goto(`/?tenant=${tenant.id}&entry=${edition}&view=outline`);
+    await page.getByText('Join with previous', { exact: true }).click();
+    await page.getByRole('button', { name: 'Join chapters', exact: true }).click();
+    await expect(page.getByRole('link', { name: 'Dusk', exact: true })).toHaveCount(0);
+    await page.getByRole('button', { name: 'Undo join', exact: true }).click();
+    await expect(page.getByRole('link', { name: 'Dusk', exact: true })).toBeVisible();
+    await page.getByRole('link', { name: 'Dusk', exact: true }).click();
+    await expect(text).toHaveValue('Dusk words.');
+  } finally {
+    await context.close();
+  }
+});
+
 test('the new pages pass axe in the dark theme and their controls are 44px on a phone', async ({
   browser,
 }) => {

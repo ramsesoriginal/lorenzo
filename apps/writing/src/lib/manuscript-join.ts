@@ -1,5 +1,35 @@
 import { client, unwrap } from './api';
 
+let lastJoin: { parent: string; source: string; destination: string; operation: string } | null =
+  null;
+
+/** The join this page just made on `parent`, once: reading it forgets it. */
+export function takeJoin(parent: string) {
+  const join = lastJoin?.parent === parent ? lastJoin : null;
+  lastJoin = null;
+  return join;
+}
+
+/** Take back a join, while the destination is as `version` says (ADR 0518). */
+export async function undoJoin(
+  tenant: string,
+  join: { source: string; destination: string; operation: string },
+): Promise<void> {
+  const destination = await unwrap(
+    await client.GET('/tenants/{tenant_id}/writing/entries/{id}', {
+      params: { path: { tenant_id: tenant, id: join.destination } },
+    }),
+  );
+  await unwrap(
+    await client.DELETE('/tenants/{tenant_id}/writing/entries/{id}/joins/{operation_id}', {
+      params: {
+        path: { tenant_id: tenant, id: join.source, operation_id: join.operation },
+        header: { 'if-match': destination.version },
+      },
+    }),
+  );
+}
+
 export function joinControls(
   tenant: string,
   parent: string,
@@ -52,6 +82,12 @@ export function joinControls(
               },
             }),
           );
+          lastJoin = {
+            parent,
+            source: source.id,
+            destination: destination.id,
+            operation,
+          };
           await done();
         })()
           .catch((error: unknown) => {

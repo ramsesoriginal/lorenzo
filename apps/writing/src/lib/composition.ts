@@ -7,7 +7,7 @@ import { BRANDING_CSS_URL } from './config';
 import { type Contents, contentsControls, contentsNavigation, contentsOf } from './contents';
 import { exportControls } from './manuscript-export';
 import { extractionControls } from './manuscript-extraction';
-import { joinControls } from './manuscript-join';
+import { joinControls, takeJoin, undoJoin } from './manuscript-join';
 import { moveControls } from './manuscript-move';
 import { splitControls } from './manuscript-split';
 import { numberedTitle, numberingControls, numberingOf } from './numbering';
@@ -350,6 +350,23 @@ export async function compositionScreen(
               body: { elements: undo.before },
             }),
           );
+          await compositionScreen(host, tenant, id, false);
+        } catch (error) {
+          report(error);
+        }
+      }),
+    );
+    host.append(line);
+  }
+  const joined = takeJoin(id);
+  if (joined) {
+    const line = node('p');
+    line.setAttribute('role', 'status');
+    line.append('Chapters joined. ');
+    line.append(
+      button('Undo join', async () => {
+        try {
+          await undoJoin(tenant, joined);
           await compositionScreen(host, tenant, id, false);
         } catch (error) {
           report(error);
