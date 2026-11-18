@@ -143,11 +143,27 @@ def show(
             if kind == "being"
             else None
         )
+        # A campaign or a template names the sheet: the being is read through it (ADR 0487).
+        view = (
+            client.call(
+                ops.READ_THROUGH_TEMPLATE,
+                path={"tenant_id": tid, "entity_id": eid, "template_id": sheet.template.id},
+            ).value
+            if sheet is not None and sheet.template is not None and (campaign or template)
+            else None
+        )
+        held = (
+            client.call(ops.LIST_HELD_FEATURES, path={"tenant_id": tid, "entity_id": eid}).value
+            if kind == "being"
+            else None
+        )
         data = {"entry": detail.model_dump(mode="json")}
         if item is not None:
             data["item" if kind == "item" else "item_instance"] = item.model_dump(mode="json")
         if sheet is not None:
             data["sheet"] = sheet.model_dump(mode="json")
+        if view is not None:
+            data["view"] = view.model_dump(mode="json")
         if as_json:
             console.emit(data)
             return
@@ -170,8 +186,27 @@ def show(
                     f"Owner: {item.owner_entity_id or 'none'}" + (" · Bound" if item.bound else "")
                 )
             )
-        if detail.children:
-            _out.print(Text("Contains: " + ", ".join(safe(c.name) for c in detail.children)))
+        # A feature a being holds is an entry below it, not something it carries.
+        features = list(held.features) if held is not None else []
+        feature_ids = {f.id for f in features}
+        carried = [c for c in detail.children if c.id not in feature_ids]
+        if carried:
+            _out.print(Text("Contains: " + ", ".join(safe(c.name) for c in carried)))
+        if features and view is None:
+            _out.print(
+                Text(
+                    "Features: "
+                    + ", ".join(safe(f.name) + ("" if f.active else " (off)") for f in features)
+                )
+            )
+        if view is not None:
+            from lorenzo_cli.sheet_view import print_view
+
+            _out.print()
+            print_view(view, {d.id: d for d in definitions})
+            return
+        if (campaign or template) and sheet is not None and sheet.template is None:
+            console.notice("No template matches it there, so every stat follows.")
         table = Table("Stat", "Value", "Hints", "Source", box=None)
         stats = {s.name: s for s in detail.stats}
         ordered = [d.name for d in definitions if d.name in stats]
