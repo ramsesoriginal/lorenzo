@@ -4,7 +4,7 @@ Status: accepted, built in the Writing stack of [ADR 0494](0494-writing-moves-in
 
 ## Context
 
-A review grant ([ADR 0343](0343-reviewers-and-private-review-notes.md)) lets an account that is not a member of the library read one Edition's manuscript tree and write its own notes. Today the reviewer has only the review address they were given: nothing lists what has been shared with them, and the app's own library list, which is for people who write, does not know the grant.
+A review grant ([ADR 0343](0343-book-scoped-reviewers.md)) lets an account that is not a member of the library read one Edition's manuscript tree and write its own notes. Today the reviewer has only the review address they were given: nothing lists what has been shared with them, and the app's own library list, which is for people who write, does not know the grant.
 
 ## Decision
 
