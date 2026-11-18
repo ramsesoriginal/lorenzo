@@ -114,6 +114,8 @@ The writing page is A: the text in the middle, an outline beside it, a grip in t
 
 ### WR8. Answers to the first review
 
+Start writing opens an untitled Scene at once and not a question, from WR12 (2026-11-18); the second bullet below is replaced by that.
+
 - **Join** has its own target on the Chapter above while dragging, and asks before joining.
 - **Start writing asks** what is being started: a Scene (a page to write on), a Chapter (put in a Book later) or a Book (with its first Edition).
 - **The Edition menu** holds Editions, Numbering and Contents, and now also Updates and Export.
@@ -206,7 +208,7 @@ The changes, by how much they cost. **A** is design and wording inside the stack
 
 **What it means for the stack.** A1 to A9 are written into the PRs of ADR 0494 (A1 in W1, A2, A3 and A7 in W3, A4 and A5 in W4, A6 and A8 and A9 in W6). B1 to B3 are one small PR each after W3, so that a Word person can paste and find on day one. C1 is a stack of its own after W7: the block surface of W3 holds one editor per block, so the engine inside a block can be swapped without redoing it. C2 to C5 wait for your decisions.
 
-**Questions.** (a) Start writing opens a Scene at once, with the kinds in its menu (A1), instead of asking first (WR8)? (b) A code-editor engine as a dependency, for Live and Source (C1)? (c) Comments on a passage for Authors, and later suggestions (C2)? (d) Import and export of Word and Markdown (C3), and which first? (e) Search across all writing (C4)? (f) A second pane (C5)?
+**Answers (2026-11-18).** (a) Start writing opens an untitled Scene at once, with the kinds in its menu: yes, and it replaces what WR8 said about Start writing asking first. (b) A code-editor engine as a dependency (C1): open, the options are written down in ADR 0494. (c) Comments on a passage for Authors, and later suggestions (C2): yes. (d) Import and export of Word and Markdown (C3): not yet. (e) Search across all writing (C4): yes. (f) A second pane (C5): yes. C2, C4 and C5 are each a stack of their own after the one in ADR 0494, each with its own ADR, since each needs a model or a read the API does not have; they are not started.
 
 ## The three directions (drawn, A with C's rail chosen)
 
