@@ -2953,3 +2953,20 @@ test('selected words show a quiet bar to link them or make them bold', async ({ 
     await context.close();
   }
 });
+
+test('a work is renamed from its page head', async ({ browser }) => {
+  test.setTimeout(120000);
+  const { page, context } = await world(browser);
+  try {
+    await page.getByRole('button', { name: 'Rename', exact: true }).click();
+    const dialog = page.getByRole('dialog');
+    await expect(dialog.getByLabel('Title')).toHaveValue('Across the water');
+    await dialog.getByLabel('Title').fill('Over the river');
+    await dialog.getByRole('button', { name: 'Rename', exact: true }).click();
+    await expect(page.getByRole('heading', { name: 'Over the river', exact: true })).toBeVisible();
+    await page.reload();
+    await expect(page.getByRole('heading', { name: 'Over the river', exact: true })).toBeVisible();
+  } finally {
+    await context.close();
+  }
+});

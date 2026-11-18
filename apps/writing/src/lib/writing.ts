@@ -436,24 +436,28 @@ async function manuscript(
 
   let sceneVersion = entityResult.response.headers.get('etag') ?? '';
 
-  const rename = button('Save title', () => {
-    void (async () => {
-      try {
-        const result = await client.PATCH('/tenants/{tenant_id}/entities/{entity_id}', {
-          params: {
-            path: { tenant_id: tenant, entity_id: entry },
-            header: { 'if-match': sceneVersion },
-          },
-          body: { name: title.value.trim() || 'Untitled' },
-        });
+  /** Rename the work: the title in its Details and the one in its head both come here. */
+  const saveTitle = async (name: string) => {
+    try {
+      const result = await client.PATCH('/tenants/{tenant_id}/entities/{entity_id}', {
+        params: {
+          path: { tenant_id: tenant, entity_id: entry },
+          header: { 'if-match': sceneVersion },
+        },
+        body: { name: name.trim() || 'Untitled' },
+      });
 
-        const saved = await unwrap(result);
-        sceneVersion = result.response.headers.get('etag') ?? '';
-        heading.textContent = saved.name;
-      } catch (error) {
-        warning.textContent = message(error);
-      }
-    })();
+      const saved = await unwrap(result);
+      sceneVersion = result.response.headers.get('etag') ?? '';
+      heading.textContent = saved.name;
+      title.value = saved.name;
+    } catch (error) {
+      warning.textContent = message(error);
+    }
+  };
+
+  const rename = button('Save title', () => {
+    void saveTitle(title.value);
   });
 
   details.append(
@@ -484,6 +488,7 @@ async function manuscript(
     back.hidden = active;
     drawer.hidden = active;
     sideToggle.hidden = active;
+    renameHead.hidden = active;
     details.hidden = active;
     history.hidden = active;
     exports.hidden = active;
@@ -532,6 +537,11 @@ async function manuscript(
   const head = element('header', '', 'page-head');
   const headTitle = element('div', '', 'stack-tight');
   headTitle.append(back, heading);
+  const renameHead = button('Rename', () => {
+    void askTitle('Rename this writing', 'Rename', heading.textContent ?? '').then((name) => {
+      if (name) return saveTitle(name);
+    });
+  });
   const drawer = element('aside', '', 'side-drawer');
   drawer.id = 'side-views';
   drawer.setAttribute('aria-label', 'Side views');
@@ -573,7 +583,7 @@ async function manuscript(
     ),
   );
   layoutButton.setAttribute('aria-haspopup', 'menu');
-  actions.append(layoutButton, sideToggle);
+  actions.append(renameHead, layoutButton, sideToggle);
   head.append(headTitle, actions);
   const main = element('div', '', 'stack');
   main.append(status, warning, conflicts, area);

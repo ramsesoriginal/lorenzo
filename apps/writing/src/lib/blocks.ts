@@ -7,7 +7,7 @@ import { boundaryBefore } from './blocks-pure';
 import { sourceOffset } from './manuscript-split';
 
 /** A plain question for a title. Resolves the trimmed words, or null when dismissed. */
-export function askTitle(question: string, confirm: string): Promise<string | null> {
+export function askTitle(question: string, confirm: string, initial = ''): Promise<string | null> {
   return new Promise((resolve) => {
     const dialog = document.createElement('dialog');
     const form = document.createElement('form');
@@ -18,6 +18,7 @@ export function askTitle(question: string, confirm: string): Promise<string | nu
     input.className = 'text-input';
     input.maxLength = 300;
     input.required = true;
+    input.value = initial;
     input.setAttribute('aria-label', 'Title');
     const row = document.createElement('div');
     row.className = 'row';
