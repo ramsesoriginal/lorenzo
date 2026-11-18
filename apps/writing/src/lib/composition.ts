@@ -45,6 +45,9 @@ export const outlineOf = async (tenant: string, id: string) =>
     }),
   );
 
+/** What the last reorder replaced, so that it can be undone on the page it was made on. */
+let lastOrder: { entry: string; before: string[]; what: string } | null = null;
+
 export async function compositionScreen(
   host: HTMLElement,
   tenant: string,
@@ -283,19 +286,46 @@ export async function compositionScreen(
         ),
       );
   }
-  const saveOrder = async (ids: string[]) => {
+  const saveOrder = async (ids: string[], what = 'Reordered') => {
     try {
+      const before = current.elements.map((x) => x.id);
       await unwrap(
         await client.PUT('/tenants/{tenant_id}/writing/entries/{id}/composition', {
           params: { path: { tenant_id: tenant, id }, header: { 'if-match': current.version } },
           body: { elements: ids },
         }),
       );
+      lastOrder = { entry: id, before, what };
       await compositionScreen(host, tenant, id, false);
     } catch (error) {
       report(error);
     }
   };
+  // The last reorder of this page can be undone, while nothing else has changed it (the version
+  // check of the write is what says so). The structural operations have no undo yet.
+  if (lastOrder && lastOrder.entry === id) {
+    const undo = lastOrder;
+    lastOrder = null;
+    const line = node('p');
+    line.setAttribute('role', 'status');
+    line.append(`${undo.what}. `);
+    line.append(
+      button('Undo', async () => {
+        try {
+          await unwrap(
+            await client.PUT('/tenants/{tenant_id}/writing/entries/{id}/composition', {
+              params: { path: { tenant_id: tenant, id }, header: { 'if-match': current.version } },
+              body: { elements: undo.before },
+            }),
+          );
+          await compositionScreen(host, tenant, id, false);
+        } catch (error) {
+          report(error);
+        }
+      }),
+    );
+    host.append(line);
+  }
   for (const [index, item] of current.elements.entries()) {
     const li = node('li');
     li.className = 'stack-tight';
@@ -319,7 +349,7 @@ export async function compositionScreen(
         const ids = current.elements.map((x) => x.id);
         const target = index + delta;
         [ids[index], ids[target]] = [ids[target], ids[index]];
-        await saveOrder(ids);
+        await saveOrder(ids, `Moved ${delta < 0 ? 'up' : 'down'}`);
       });
       move.setAttribute('aria-label', `${label}: ${item.name ?? 'text or picture'}`);
       move.disabled = index + delta < 0 || index + delta >= current.elements.length;
@@ -331,7 +361,10 @@ export async function compositionScreen(
           ? [link('Subchapters', writingAddress(tenant, item.id, 'outline'))]
           : []),
         button('Remove from outline', async () =>
-          saveOrder(current.elements.filter((x) => x.id !== item.id).map((x) => x.id)),
+          saveOrder(
+            current.elements.filter((x) => x.id !== item.id).map((x) => x.id),
+            'Removed from the outline',
+          ),
         ),
       );
     li.append(controls);

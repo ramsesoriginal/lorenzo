@@ -2862,3 +2862,30 @@ test('the outline stands beside a Book’s pages and is a panel below 1100px', a
     await context.close();
   }
 });
+
+test('a reorder can be undone from the outline page', async ({ browser }) => {
+  test.setTimeout(120000);
+  const { page, context, tenant } = await world(browser);
+  try {
+    await page.goto(`/?tenant=${tenant.id}`);
+    await startAs(page, 'book', 'Undo book');
+    await page.getByRole('link', { name: 'Outline', exact: true }).click();
+    for (const name of ['One', 'Two']) {
+      await page.getByLabel('New chapter title').fill(name);
+      await page.getByRole('button', { name: 'Add chapter', exact: true }).click();
+      await expect(
+        page.getByRole('link', { name: new RegExp(`^(\\d+\\.? )?${name}$`) }).first(),
+      ).toBeVisible();
+    }
+    const chapters = page
+      .locator('ol > li')
+      .filter({ has: page.getByRole('link', { name: /One|Two/ }) });
+    await expect(chapters.first()).toContainText('One');
+    await page.getByRole('button', { name: /^Down: One/ }).click();
+    await expect(chapters.first()).toContainText('Two');
+    await page.getByRole('button', { name: 'Undo', exact: true }).click();
+    await expect(chapters.first()).toContainText('One');
+  } finally {
+    await context.close();
+  }
+});
