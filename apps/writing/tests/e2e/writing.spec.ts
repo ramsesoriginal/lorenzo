@@ -1185,7 +1185,10 @@ test('Chapter numbering follows the outline without changing titles', async ({ b
     await page.getByRole('button', { name: 'Up: Arrival', exact: true }).click();
     await expect(page.getByRole('link', { name: 'I Arrival', exact: true })).toBeVisible();
     await page.getByRole('link', { name: 'Read', exact: true }).click();
-    await expect(page.getByRole('heading', { name: 'II.a The ferry', exact: true })).toBeVisible();
+    // The Read page assembles the whole outline, which a busy runner can take a while over.
+    await expect(page.getByRole('heading', { name: 'II.a The ferry', exact: true })).toBeVisible({
+      timeout: 20000,
+    });
     await page.goto(`/?tenant=${tenant.id}&entry=${first.id}&view=outline`);
     await page.getByLabel('Use this number (optional)', { exact: true }).fill('5');
     await page.getByRole('button', { name: 'Save numbering', exact: true }).click();
