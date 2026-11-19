@@ -3348,6 +3348,10 @@ test('the new pages pass axe in the dark theme and their controls are 44px on a 
     await page.getByRole('textbox', { name: 'Manuscript', exact: true }).fill('Dark words.');
     await axe();
     await small(['Layout', 'Side views', 'Rename', 'Block options', 'Add text']);
+    // The side views sheet clears the status bar: its last controls can be reached.
+    await openSideViews(page);
+    await page.getByText('Export', { exact: true }).click();
+    await page.getByRole('button', { name: 'Close side views' }).click();
     await expect(page.getByRole('status', { name: 'Save status' })).toHaveText('Saved');
     await page.getByRole('link', { name: 'Read', exact: true }).click();
     await expect(page.locator('article')).toContainText('Dark words.');

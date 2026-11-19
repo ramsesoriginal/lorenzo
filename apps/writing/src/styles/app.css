@@ -42,7 +42,8 @@
   position: fixed;
   inset-inline: 0;
   bottom: 0;
-  z-index: 3;
+  /* Above the status bar and the tab bar (18), which would cover its last controls. */
+  z-index: 19;
   max-height: 70vh;
   overflow-y: auto;
   padding: var(--space-4);
@@ -214,7 +215,7 @@ textarea.ls-hl-text {
     position: fixed;
     inset-inline: 0;
     bottom: 0;
-    z-index: 3;
+    z-index: 19;
     max-height: 80vh;
     overflow-y: auto;
     padding: var(--space-4);
