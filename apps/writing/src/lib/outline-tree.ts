@@ -53,8 +53,8 @@ export async function outlineTree(tenant: string, current: string): Promise<HTML
   const dropStatus = el('p', '', 'caption');
   dropStatus.setAttribute('role', 'status');
   nav.append(dropStatus);
-  /** Nest the Chapter `dragged` (from the page `from`) at the end of `target`, with the move write. */
-  const nest = async (from: string, dragged: string, target: string) => {
+  /** Move the Chapter `dragged` (from the page `from`) into `target`, before `before` or at the end. */
+  const nest = async (from: string, dragged: string, target: string, before: string | null) => {
     const [child, source, destination] = await Promise.all([
       outlineOf(tenant, dragged),
       outlineOf(tenant, from),
@@ -72,7 +72,7 @@ export async function outlineTree(tenant: string, current: string): Promise<HTML
           destination_parent_id: destination.id,
           source_version: source.version,
           destination_version: destination.version,
-          before_element_id: null,
+          before_element_id: before,
         },
       }),
     );
@@ -82,7 +82,12 @@ export async function outlineTree(tenant: string, current: string): Promise<HTML
   list.setAttribute('role', 'tree');
   nav.append(list);
 
-  const row = (entry: { id: string; name: string }, level: number, expandable: boolean) => {
+  const row = (
+    entry: { id: string; name: string },
+    level: number,
+    expandable: boolean,
+    place?: { parent: string; next: string | null },
+  ) => {
     const item = el('li');
     item.setAttribute('role', 'treeitem');
     item.setAttribute('aria-level', String(level));
@@ -100,8 +105,13 @@ export async function outlineTree(tenant: string, current: string): Promise<HTML
       loaded = true;
       const loadedEntry = await outlineOf(tenant, entry.id);
       const kids = loadedEntry.elements.filter((e) => e.kind === 'chapter');
-      for (const kid of kids)
-        children.append(row({ id: kid.id, name: kid.name ?? 'Chapter' }, level + 1, true));
+      for (const [at, kid] of kids.entries())
+        children.append(
+          row({ id: kid.id, name: kid.name ?? 'Chapter' }, level + 1, true, {
+            parent: entry.id,
+            next: kids[at + 1]?.id ?? null,
+          }),
+        );
       if (!kids.length) toggle.hidden = true;
     };
     const toggle = el('button', '▸', 'btn btn-secondary');
@@ -120,26 +130,39 @@ export async function outlineTree(tenant: string, current: string): Promise<HTML
       item.setAttribute('aria-expanded', 'false');
     }
     line.append(link);
-    // A Chapter dragged from the page is dropped on a Chapter or Edition of the tree to nest it.
+    // A Chapter dragged from the page is dropped on a Chapter or Edition of the tree: on the middle
+    // of its row to nest it there, on the top or bottom edge of a Chapter to put it before or after.
     if (expandable) {
+      const zone = (event: DragEvent) => {
+        const box = line.getBoundingClientRect();
+        const at = (event.clientY - box.top) / Math.max(box.height, 1);
+        return place && at < 0.25 ? 'before' : place && at > 0.75 ? 'after' : 'into';
+      };
       line.addEventListener('dragover', (event) => {
         if (!event.dataTransfer?.types.includes(CHAPTER_DRAG)) return;
         event.preventDefault();
-        line.dataset.drop = 'into';
+        line.dataset.drop = zone(event);
       });
       line.addEventListener('dragleave', () => {
         delete line.dataset.drop;
       });
       line.addEventListener('drop', (event) => {
+        const where = zone(event);
         delete line.dataset.drop;
         const [from, dragged] = (event.dataTransfer?.getData(CHAPTER_DRAG) ?? '').split('|');
         if (!from || !dragged) return;
         event.preventDefault();
-        if (dragged === entry.id || from === entry.id) {
-          dropStatus.textContent = 'It is already there.';
+        const target = where === 'into' || !place ? entry.id : place.parent;
+        const before =
+          where === 'before' ? entry.id : where === 'after' ? (place?.next ?? null) : null;
+        if (dragged === entry.id || from === target) {
+          dropStatus.textContent =
+            from === target && where !== 'into'
+              ? 'Reorder it on its page.'
+              : 'It is already there.';
           return;
         }
-        void nest(from, dragged, entry.id).catch((error: unknown) => {
+        void nest(from, dragged, target, before).catch((error: unknown) => {
           dropStatus.textContent =
             error instanceof Error ? error.message : 'This move could not be completed.';
         });

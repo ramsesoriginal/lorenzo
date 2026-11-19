@@ -227,3 +227,11 @@ textarea.ls-hl-text {
 .outline-tree [data-drop="into"] {
   background: var(--fill-soft);
 }
+
+.outline-tree [data-drop="before"] {
+  border-top: 2px solid var(--border-subtle);
+}
+
+.outline-tree [data-drop="after"] {
+  border-bottom: 2px solid var(--border-subtle);
+}

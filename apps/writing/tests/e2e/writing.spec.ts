@@ -3084,20 +3084,73 @@ test('a Chapter dropped on the outline tree is nested there', async ({ browser }
       const target = document
         .querySelector('nav[aria-label="Outline"] a[aria-label^="Go to Dawn"]')
         ?.closest('div') as HTMLElement;
+      const box = target.getBoundingClientRect();
       const data = new DataTransfer();
       item.dispatchEvent(new DragEvent('dragstart', { dataTransfer: data, bubbles: true }));
-      target.dispatchEvent(
-        new DragEvent('dragover', { dataTransfer: data, bubbles: true, cancelable: true }),
-      );
-      target.dispatchEvent(
-        new DragEvent('drop', { dataTransfer: data, bubbles: true, cancelable: true }),
-      );
+      const middle = {
+        dataTransfer: data,
+        bubbles: true,
+        cancelable: true,
+        clientY: box.top + box.height / 2,
+      };
+      target.dispatchEvent(new DragEvent('dragover', middle));
+      target.dispatchEvent(new DragEvent('drop', middle));
     });
     await expect(page.getByRole('button', { name: /^Drag: Dusk/ })).toHaveCount(0);
     await page.getByRole('link', { name: 'Dawn', exact: true }).first().click();
     await expect(
       page.getByRole('navigation', { name: 'Outline' }).getByRole('link', { name: /Go to Dusk/ }),
     ).toBeVisible();
+  } finally {
+    await context.close();
+  }
+});
+
+test('a Chapter dropped on the edge of a tree row lands before it', async ({ browser }) => {
+  test.setTimeout(150000);
+  const { page, context, tenant } = await world(browser);
+  try {
+    await page.goto(`/?tenant=${tenant.id}`);
+    await startAs(page, 'book', 'Edge book');
+    await expect(page.getByRole('heading', { name: 'Edge book' })).toBeVisible();
+    const edition = new URL(page.url()).searchParams.get('entry');
+    const outline = `/?tenant=${tenant.id}&entry=${edition}&view=outline`;
+    await page.goto(outline);
+    for (const name of ['Dawn', 'Dusk']) {
+      await page.getByLabel('New chapter title').fill(name);
+      await page.getByRole('button', { name: 'Add chapter', exact: true }).click();
+      await expect(page.getByRole('button', { name: new RegExp(`^Drag: ${name}`) })).toBeVisible();
+    }
+    await page.getByRole('link', { name: 'Dawn', exact: true }).first().click();
+    await page.getByRole('link', { name: 'Outline', exact: true }).click();
+    await page.getByLabel('New chapter title').fill('Inner');
+    await page.getByRole('button', { name: 'Add chapter', exact: true }).click();
+    await expect(page.getByRole('button', { name: /^Drag: Inner/ })).toBeVisible();
+    await page.goto(outline);
+    const tree = page.getByRole('navigation', { name: 'Outline' });
+    await tree.getByRole('button', { name: 'Open Dawn', exact: true }).click();
+    await expect(tree.getByRole('link', { name: /Go to Inner/ })).toBeVisible();
+    await expect(page.getByRole('button', { name: /^Drag: Dusk/ })).toBeVisible();
+    await page.evaluate(() => {
+      const item = [...document.querySelectorAll('ol > li')].find((li) =>
+        /Dusk/.test(li.textContent ?? ''),
+      ) as HTMLElement;
+      const target = document
+        .querySelector('nav[aria-label="Outline"] a[aria-label^="Go to Inner"]')
+        ?.closest('div') as HTMLElement;
+      const box = target.getBoundingClientRect();
+      const data = new DataTransfer();
+      item.dispatchEvent(new DragEvent('dragstart', { dataTransfer: data, bubbles: true }));
+      const at = { dataTransfer: data, bubbles: true, cancelable: true, clientY: box.top + 1 };
+      target.dispatchEvent(new DragEvent('dragover', at));
+      target.dispatchEvent(new DragEvent('drop', at));
+    });
+    await expect(page.getByRole('button', { name: /^Drag: Dusk/ })).toHaveCount(0);
+    await page.getByRole('link', { name: 'Dawn', exact: true }).first().click();
+    await page.getByRole('link', { name: 'Outline', exact: true }).click();
+    const rows = page.locator('ol > li').filter({ has: page.getByRole('link') });
+    await expect(rows.first()).toContainText('Dusk');
+    await expect(rows.nth(1)).toContainText('Inner');
   } finally {
     await context.close();
   }
