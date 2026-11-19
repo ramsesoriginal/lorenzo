@@ -3242,6 +3242,56 @@ test('the outline tree reorders within a parent and joins on an Alt drop', async
   }
 });
 
+test('a Chapter dropped on another Edition of its Book moves there', async ({ browser }) => {
+  test.setTimeout(150000);
+  const { page, context, tenant, api } = await world(browser);
+  try {
+    await page.goto(`/?tenant=${tenant.id}`);
+    await startAs(page, 'book', 'Two editions');
+    await expect(page.getByRole('heading', { name: 'Two editions' })).toBeVisible();
+    const edition = new URL(page.url()).searchParams.get('entry') as string;
+    const other = await ok(
+      api.POST('/tenants/{tenant_id}/writing/editions', {
+        params: { path: { tenant_id: tenant.id } },
+        body: { name: 'Second edition', source_edition_id: edition },
+      }),
+    );
+    const outline = `/?tenant=${tenant.id}&entry=${edition}&view=outline`;
+    await page.goto(outline);
+    await page.getByLabel('New chapter title').fill('Wanderer');
+    await page.getByRole('button', { name: 'Add chapter', exact: true }).click();
+    await expect(page.getByRole('button', { name: /^Drag: Wanderer/ })).toBeVisible();
+    await page.goto(outline);
+    await expect(page.getByRole('button', { name: /^Drag: Wanderer/ })).toBeVisible();
+    const tree = page.getByRole('navigation', { name: 'Outline' });
+    await expect(tree.getByRole('link', { name: /Go to Second edition/ })).toBeVisible();
+    await page.evaluate(() => {
+      const item = [...document.querySelectorAll('ol > li')].find((li) =>
+        /Wanderer/.test(li.textContent ?? ''),
+      ) as HTMLElement;
+      const target = document
+        .querySelector('nav[aria-label="Outline"] a[aria-label^="Go to Second edition"]')
+        ?.closest('div') as HTMLElement;
+      const box = target.getBoundingClientRect();
+      const data = new DataTransfer();
+      item.dispatchEvent(new DragEvent('dragstart', { dataTransfer: data, bubbles: true }));
+      const at = {
+        dataTransfer: data,
+        bubbles: true,
+        cancelable: true,
+        clientY: box.top + box.height / 2,
+      };
+      target.dispatchEvent(new DragEvent('dragover', at));
+      target.dispatchEvent(new DragEvent('drop', at));
+    });
+    await expect(page.getByRole('button', { name: /^Drag: Wanderer/ })).toHaveCount(0);
+    await page.goto(`/?tenant=${tenant.id}&entry=${other.id}&view=outline`);
+    await expect(page.getByRole('button', { name: /^Drag: Wanderer/ })).toBeVisible();
+  } finally {
+    await context.close();
+  }
+});
+
 test('any work has a Write and Read switch in its page head', async ({ browser }) => {
   const { page, context, tenant } = await world(browser);
   try {

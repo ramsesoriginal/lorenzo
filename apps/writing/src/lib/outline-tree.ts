@@ -153,6 +153,7 @@ export async function outlineTree(tenant: string, current: string): Promise<HTML
     level: number,
     expandable: boolean,
     place?: { parent: string; next: string | null },
+    droppable = expandable,
   ) => {
     const item = el('li');
     item.setAttribute('role', 'treeitem');
@@ -198,7 +199,7 @@ export async function outlineTree(tenant: string, current: string): Promise<HTML
     line.append(link);
     // A Chapter dragged from the page is dropped on a Chapter or Edition of the tree: on the middle
     // of its row to nest it there, on the top or bottom edge of a Chapter to put it before or after.
-    if (expandable) {
+    if (droppable) {
       const zone = (event: DragEvent) => {
         const box = line.getBoundingClientRect();
         const at = (event.clientY - box.top) / Math.max(box.height, 1);
@@ -272,5 +273,19 @@ export async function outlineTree(tenant: string, current: string): Promise<HTML
   };
 
   list.append(row({ id: top.id, name: top.name }, 1, true));
+  // The other Editions of the same Book are drop targets too, so a Chapter can be moved between them.
+  if (top.kind === 'edition' && top.book_id) {
+    const book = await outlineOf(tenant, top.book_id).catch(() => null);
+    const others = (book?.editions ?? []).filter((edition) => edition.id !== top.id);
+    if (others.length) {
+      const group = el('ul');
+      group.setAttribute('role', 'group');
+      group.setAttribute('aria-label', 'Other Editions');
+      for (const edition of others)
+        group.append(row({ id: edition.id, name: edition.name }, 1, false, undefined, true));
+      const label = el('p', 'Other Editions', 'caption');
+      nav.append(label, group);
+    }
+  }
   return nav;
 }
