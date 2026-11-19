@@ -1168,7 +1168,6 @@ test('Chapter numbering follows the outline without changing titles', async ({ b
     await arrange(edition, [first.id, second.id]);
     await arrange(first.id, [nested.id]);
     await page.goto(`/?tenant=${tenant.id}&entry=${edition}&view=outline`);
-    await page.getByText('Numbering', { exact: true }).click();
     await page.getByLabel('Number Chapters', { exact: true }).check();
     await page.getByRole('combobox', { name: 'Number style', exact: true }).selectOption('roman');
     await page.getByRole('button', { name: 'Add level', exact: true }).click();
@@ -1182,12 +1181,10 @@ test('Chapter numbering follows the outline without changing titles', async ({ b
     await page.getByRole('link', { name: 'Read', exact: true }).click();
     await expect(page.getByRole('heading', { name: 'II.a The ferry', exact: true })).toBeVisible();
     await page.goto(`/?tenant=${tenant.id}&entry=${first.id}&view=outline`);
-    await page.getByText('Numbering', { exact: true }).click();
     await page.getByLabel('Use this number (optional)', { exact: true }).fill('5');
     await page.getByRole('button', { name: 'Save numbering', exact: true }).click();
     await expect(page.getByRole('heading', { name: 'V Departure', exact: true })).toBeVisible();
     await expect(page.getByRole('link', { name: 'V.a The ferry', exact: true })).toBeVisible();
-    await page.getByText('Numbering', { exact: true }).click();
     await page.screenshot({
       path: test.info().outputPath('numbering-desktop.png'),
       fullPage: true,
@@ -1267,10 +1264,7 @@ test('structural contents link Chapters while special Chapters keep authored tex
     );
     const outline = async (id: string) => {
       await page.goto(`/?tenant=${tenant.id}&entry=${id}&view=outline`);
-      await page
-        .locator('summary')
-        .filter({ hasText: /^Contents$/ })
-        .click();
+      await expect(page.locator('details.card > summary', { hasText: /^Contents$/ })).toBeVisible();
     };
     // The save is done when its button is usable again: reading before that shows the old settings.
     const saveContents = async () => {

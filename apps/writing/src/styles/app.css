@@ -236,3 +236,14 @@ textarea.ls-hl-text {
 .outline-tree [data-drop="after"] {
   border-bottom: 2px solid var(--border-subtle);
 }
+
+/* A card of a page: a bordered section with its own heading (ADR 0494, W6). */
+details.card {
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-control);
+}
+
+details.card > summary {
+  cursor: pointer;
+}
