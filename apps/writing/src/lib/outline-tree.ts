@@ -2,6 +2,7 @@
 // Edition or Chapter at the top, its Chapters under it, each opened on demand, with its number
 // and a mark on the page you are on. Pinned open from 1100px, a panel below it.
 
+import { confirmDialog } from '@lorenzo/app-shell';
 import { client, unwrap } from './api';
 import { CHAPTER_DRAG, entityOf, outlineOf, writingAddress } from './composition';
 import { countSources } from './manuscript-count';
@@ -73,6 +74,71 @@ export async function outlineTree(tenant: string, current: string): Promise<HTML
           source_version: source.version,
           destination_version: destination.version,
           before_element_id: before,
+        },
+      }),
+    );
+    location.reload();
+  };
+  /** Put `dragged` before or after `anchor` among the parts of the page `from`. */
+  const reorder = async (from: string, dragged: string, anchor: string, after: boolean) => {
+    const page = await outlineOf(tenant, from);
+    const ids = page.elements.map((x) => x.id).filter((x) => x !== dragged);
+    ids.splice(ids.indexOf(anchor) + (after ? 1 : 0), 0, dragged);
+    await unwrap(
+      await client.PUT('/tenants/{tenant_id}/writing/entries/{id}/composition', {
+        params: { path: { tenant_id: tenant, id: from }, header: { 'if-match': page.version } },
+        body: { elements: ids },
+      }),
+    );
+    location.reload();
+  };
+  /**
+   * Join `dragged` into `destination` (Alt while dropping): into the Chapter just before it, or into
+   * the parent whose row it is dropped on. Asks first, since the Chapter heading goes away.
+   */
+  const joinInto = async (
+    from: string,
+    dragged: string,
+    destination: string,
+    destinationParent: string | null,
+  ) => {
+    const [child, source, target] = await Promise.all([
+      outlineOf(tenant, dragged),
+      outlineOf(tenant, from),
+      outlineOf(tenant, destination),
+    ]);
+    const parentMode = destination === from;
+    if (!parentMode && destinationParent !== from) {
+      dropStatus.textContent = 'Join a Chapter into its parent or into the Chapter before it.';
+      return;
+    }
+    if (!parentMode) {
+      const order = source.elements.map((x) => x.id);
+      if (order[order.indexOf(dragged) - 1] !== destination) {
+        dropStatus.textContent = 'Join a Chapter with the Chapter immediately before it.';
+        return;
+      }
+    }
+    if (
+      !(await confirmDialog({
+        title: `Join “${child.name}” into “${target.name}”?`,
+        body: 'Its writing will take its place there, without its Chapter heading. Its name and notes remain at the old address.',
+        confirm: 'Join chapters',
+      }))
+    )
+      return;
+    await unwrap(
+      await client.POST('/tenants/{tenant_id}/writing/entries/{id}/joins/{operation_id}', {
+        params: {
+          path: { tenant_id: tenant, id: dragged, operation_id: crypto.randomUUID() },
+          header: { 'if-match': child.version },
+        },
+        body: {
+          mode: parentMode ? 'parent' : 'previous',
+          destination_id: destination,
+          parent_id: from,
+          destination_version: target.version,
+          parent_version: source.version,
         },
       }),
     );
@@ -155,11 +221,24 @@ export async function outlineTree(tenant: string, current: string): Promise<HTML
         const target = where === 'into' || !place ? entry.id : place.parent;
         const before =
           where === 'before' ? entry.id : where === 'after' ? (place?.next ?? null) : null;
-        if (dragged === entry.id || from === target) {
-          dropStatus.textContent =
-            from === target && where !== 'into'
-              ? 'Reorder it on its page.'
-              : 'It is already there.';
+        if (dragged === entry.id) return;
+        if (from === target && where !== 'into') {
+          // Within the same parent it is a reorder, written as the page writes it.
+          void reorder(from, dragged, entry.id, where === 'after').catch((error: unknown) => {
+            dropStatus.textContent =
+              error instanceof Error ? error.message : 'This move could not be completed.';
+          });
+          return;
+        }
+        if (from === target) {
+          dropStatus.textContent = 'It is already there.';
+          return;
+        }
+        if (event.altKey) {
+          void joinInto(from, dragged, entry.id, place?.parent ?? null).catch((error: unknown) => {
+            dropStatus.textContent =
+              error instanceof Error ? error.message : 'These Chapters could not be joined.';
+          });
           return;
         }
         void nest(from, dragged, target, before).catch((error: unknown) => {

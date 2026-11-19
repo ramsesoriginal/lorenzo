@@ -3156,6 +3156,76 @@ test('a Chapter dropped on the edge of a tree row lands before it', async ({ bro
   }
 });
 
+test('the outline tree reorders within a parent and joins on an Alt drop', async ({ browser }) => {
+  test.setTimeout(150000);
+  const { page, context, tenant } = await world(browser);
+  try {
+    await page.goto(`/?tenant=${tenant.id}`);
+    await startAs(page, 'book', 'Tree book');
+    await expect(page.getByRole('heading', { name: 'Tree book' })).toBeVisible();
+    const edition = new URL(page.url()).searchParams.get('entry');
+    const outline = `/?tenant=${tenant.id}&entry=${edition}&view=outline`;
+    await page.goto(outline);
+    for (const name of ['Dawn', 'Dusk', 'Dune']) {
+      await page.getByLabel('New chapter title').fill(name);
+      await page.getByRole('button', { name: 'Add chapter', exact: true }).click();
+      await expect(page.getByRole('button', { name: new RegExp(`^Drag: ${name}`) })).toBeVisible();
+    }
+    await page.goto(outline);
+    await page.getByRole('link', { name: 'Dusk', exact: true }).first().click();
+    await page.getByRole('textbox', { name: 'Manuscript', exact: true }).fill('Dusk words.');
+    await expect(page.getByRole('status', { name: 'Save status' })).toHaveText('Saved');
+    const drop = async (dragged: string, target: string, where: 'top' | 'middle', alt = false) => {
+      await page.goto(outline);
+      await expect(
+        page.getByRole('button', { name: new RegExp(`^Drag: ${dragged}`) }),
+      ).toBeVisible();
+      await expect(
+        page
+          .getByRole('navigation', { name: 'Outline' })
+          .getByRole('link', { name: `Go to ${target}` }),
+      ).toBeVisible();
+      await page.evaluate(
+        ([dragged, target, where, alt]) => {
+          const item = [...document.querySelectorAll('ol > li')].find((li) =>
+            (li.textContent ?? '').includes(dragged as string),
+          ) as HTMLElement;
+          const row = document
+            .querySelector(`nav[aria-label="Outline"] a[aria-label="Go to ${target}"]`)
+            ?.closest('div') as HTMLElement;
+          const box = row.getBoundingClientRect();
+          const data = new DataTransfer();
+          item.dispatchEvent(new DragEvent('dragstart', { dataTransfer: data, bubbles: true }));
+          const at = {
+            dataTransfer: data,
+            bubbles: true,
+            cancelable: true,
+            altKey: alt as boolean,
+            clientY: box.top + (where === 'top' ? 1 : box.height / 2),
+          };
+          row.dispatchEvent(new DragEvent('dragover', at));
+          row.dispatchEvent(new DragEvent('drop', at));
+        },
+        [dragged, target, where, alt] as const,
+      );
+    };
+    await drop('Dune', 'Dawn', 'top');
+    await expect(
+      page
+        .locator('ol > li')
+        .filter({ has: page.getByRole('link', { name: /Dawn|Dusk|Dune/ }) })
+        .first(),
+    ).toContainText('Dune', { timeout: 15000 });
+    await drop('Dusk', 'Dawn', 'middle', true);
+    await page.getByRole('dialog').getByRole('button', { name: 'Join chapters' }).click();
+    await expect(page.getByRole('button', { name: /^Drag: Dusk/ })).toHaveCount(0, {
+      timeout: 15000,
+    });
+  } finally {
+    await context.close();
+  }
+});
+
 test('any work has a Write and Read switch in its page head', async ({ browser }) => {
   const { page, context, tenant } = await world(browser);
   try {
