@@ -102,7 +102,14 @@ async def test_the_list_stays_ordered_by_name_and_keeps_its_shape(
     body = response.json()
     assert [row["name"] for row in body["items"]] == ["Alpha", "Bravo"]
     assert body["total"] == 3
-    assert set(body["items"][0]) == {"id", "name", "quantity", "kinds", "parent_ids"}
+    assert set(body["items"][0]) == {
+        "id",
+        "name",
+        "quantity",
+        "kinds",
+        "parent_ids",
+        "updated_at",
+    }
     await delete_tenant(tenant_id)
 
 

@@ -3301,6 +3301,21 @@ test('a Chapter dropped on another Edition of its Book moves there', async ({ br
   }
 });
 
+test('the shelf shows when each work was last edited, and how many there are', async ({
+  browser,
+}) => {
+  const { page, context, tenant } = await world(browser);
+  try {
+    await page.goto(`/?tenant=${tenant.id}`);
+    await expect(page.getByRole('status', { name: 'Works shown' })).toContainText(
+      /\d+ of \d+ works?/,
+    );
+    await expect(page.getByText(/Edited today/).first()).toBeVisible();
+  } finally {
+    await context.close();
+  }
+});
+
 test('any work has a Write and Read switch in its page head', async ({ browser }) => {
   const { page, context, tenant } = await world(browser);
   try {

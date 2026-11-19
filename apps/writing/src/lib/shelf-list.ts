@@ -1,7 +1,7 @@
 // What the shelf shows and remembers, apart from the page (ADR 0494, W1).
 export type Kind = 'scene' | 'book' | 'chapter' | 'carrier' | 'biography';
 
-export type Work = { id: string; name: string; kind: string };
+export type Work = { id: string; name: string; kind: string; edited?: string };
 
 export const FILTERS: { id: string; label: string; kinds: string[] }[] = [
   { id: 'all', label: 'All', kinds: [] },
@@ -24,7 +24,7 @@ const LAST = 'lorenzo:writing:last';
 
 export type Last = { tenant: string; entry: string };
 
-/** The work last opened in this browser (ADR 0494, Q4: no last-edited time yet). */
+/** The work last opened in this browser, which the shelf offers to continue. */
 export function rememberWork(tenant: string, entry: string) {
   try {
     localStorage.setItem(LAST, JSON.stringify({ tenant, entry }));
@@ -81,4 +81,29 @@ export function rememberLayout(layout: Layout) {
   } catch {
     // A convenience only.
   }
+}
+
+/** The works the most recently changed first; those without a time keep their order, after. */
+export function byRecent(works: Work[]): Work[] {
+  return works
+    .map((work, index) => ({ work, index }))
+    .sort((a, b) => {
+      const left = a.work.edited ? Date.parse(a.work.edited) : Number.NEGATIVE_INFINITY;
+      const right = b.work.edited ? Date.parse(b.work.edited) : Number.NEGATIVE_INFINITY;
+      return right - left || a.index - b.index;
+    })
+    .map(({ work }) => work);
+}
+
+/** When a work was last changed, in plain words: today, yesterday, days ago, or the date. */
+export function editedWords(edited: string | undefined, now = new Date()): string {
+  if (!edited) return '';
+  const then = new Date(edited);
+  if (Number.isNaN(then.getTime())) return '';
+  const day = (d: Date) => Math.floor(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) / 864e5);
+  const days = day(now) - day(then);
+  if (days <= 0) return 'Edited today';
+  if (days === 1) return 'Edited yesterday';
+  if (days < 7) return `Edited ${days} days ago`;
+  return `Edited ${then.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}`;
 }

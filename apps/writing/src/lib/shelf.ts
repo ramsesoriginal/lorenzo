@@ -3,7 +3,16 @@
 import { openMenu, regionState } from '@lorenzo/app-shell';
 import { client, fetchAllPages, unwrap } from './api';
 import { BRANDING_CSS_URL } from './config';
-import { FILTERS, type Kind, lastWork, STARTS, shown, type Work } from './shelf-list';
+import {
+  byRecent,
+  editedWords,
+  FILTERS,
+  type Kind,
+  lastWork,
+  STARTS,
+  shown,
+  type Work,
+} from './shelf-list';
 
 const KIND_WORDS: Record<string, string> = {
   scene: 'Scene',
@@ -133,7 +142,12 @@ export async function shelf(host: HTMLElement, tenant: string) {
   ]);
 
   const works: Work[] = [
-    ...entities.map((e) => ({ id: e.id, name: e.name, kind: e.kinds[0] ?? 'scene' })),
+    ...entities.map((e) => ({
+      id: e.id,
+      name: e.name,
+      kind: e.kinds[0] ?? 'scene',
+      edited: e.updated_at,
+    })),
     ...biographies.map((b) => ({ id: b.id, name: b.name, kind: 'biography' })),
   ];
 
@@ -164,6 +178,9 @@ export async function shelf(host: HTMLElement, tenant: string) {
   });
 
   const list = el('ul', '', 'list');
+  const count = el('p', '', 'caption');
+  count.setAttribute('role', 'status');
+  count.setAttribute('aria-label', 'Works shown');
   const empty = el('div');
 
   const last = lastWork();
@@ -178,14 +195,17 @@ export async function shelf(host: HTMLElement, tenant: string) {
   function paint() {
     for (const { f, chip } of chips) chip.setAttribute('aria-pressed', String(f.id === filter));
     list.replaceChildren(
-      ...shown(works, filter, query).map((w) => {
+      ...byRecent(shown(works, filter, query)).map((w) => {
         const item = el('li');
         const link = el('a', w.name);
         link.href = address(tenant, w.id);
         item.append(link, el('span', ` ${KIND_WORDS[w.kind] ?? w.kind}`, 'caption'));
+        const edited = editedWords(w.edited);
+        if (edited) item.append(el('span', ` · ${edited}`, 'caption'));
         return item;
       }),
     );
+    count.textContent = `${list.children.length} of ${works.length} ${works.length === 1 ? 'work' : 'works'}`;
     empty.replaceChildren();
     if (works.length === 0) {
       empty.append(
@@ -217,6 +237,6 @@ export async function shelf(host: HTMLElement, tenant: string) {
     reviews.append(reviewList);
   }
 
-  body.replaceChildren(...(resume ? [resumeLine] : []), bar, search, list, empty, reviews);
+  body.replaceChildren(...(resume ? [resumeLine] : []), bar, search, count, list, empty, reviews);
   paint();
 }

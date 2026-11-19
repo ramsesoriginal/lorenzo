@@ -1199,6 +1199,7 @@ class EntityListOut(BaseModel):
     quantity: int | None = Field(None, title="Quantity")
     kinds: list[Kind12] = Field(..., title="Kinds")
     parent_ids: list[UUID] = Field(..., title="Parent Ids")
+    updated_at: AwareDatetime = Field(..., title="Updated At")
 
 
 class EntityParentsRequest(BaseModel):
