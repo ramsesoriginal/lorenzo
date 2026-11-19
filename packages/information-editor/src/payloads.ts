@@ -192,7 +192,11 @@ export function renderBundleEditor(options: {
       if (down) down.disabled = index === rows.length - 1;
     }
     if (blocks) {
-      list.replaceChildren(...rows.flatMap((r, i) => [...(i === 0 ? [] : [gap(i)]), r.element]));
+      // The plus between parts, and one after the last: it is where the end buttons used to be.
+      list.replaceChildren(
+        ...rows.flatMap((r, i) => [...(i === 0 ? [] : [gap(i)]), r.element]),
+        gap(rows.length),
+      );
     } else list.append(...rows.map((r) => r.element));
     if (active?.isConnected) active.focus();
   }
@@ -364,13 +368,15 @@ export function renderBundleEditor(options: {
     row.editor?.focus();
     touched();
   }
-  actions.append(
-    button('Add picture', () => {
-      insertAt = null;
-      picker.click();
-    }),
-    button('Add text', () => addText()),
-  );
+  // With blocks the plus after the last part does this (ADR 0494, W3); the buttons stay for the rest.
+  if (!blocks)
+    actions.append(
+      button('Add picture', () => {
+        insertAt = null;
+        picker.click();
+      }),
+      button('Add text', () => addText()),
+    );
   picker.addEventListener('change', () => {
     for (const selected of Array.from(picker.files ?? [])) {
       const fallback = (

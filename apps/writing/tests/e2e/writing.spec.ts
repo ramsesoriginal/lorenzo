@@ -4,6 +4,12 @@ import { type Browser, expect, type Page, test } from '@playwright/test';
 import { apiAs, ok, refreshTokenFor } from './support/api.ts';
 import { API_URL, REFRESH_TOKEN_KEY, SITE_URL } from './support/env.ts';
 
+/** The plus after the last part of a page, where "Add text" and "Add picture" are. */
+async function addTextAtEnd(page: Page) {
+  await page.getByRole('button', { name: 'Add a block here' }).last().click();
+  await page.getByRole('menuitem', { name: 'Add text' }).click();
+}
+
 async function world(browser: Browser) {
   const subject = `writer-${randomUUID()}`;
   const owner = await apiAs(`owner-${randomUUID()}`, ['tenant_creator']);
@@ -2796,7 +2802,7 @@ test('blocks move by Alt and the arrow keys, are selected, and become a Chapter'
     await startAs(page, 'chapter', 'Blocks chapter');
     const first = page.getByRole('textbox', { name: 'Manuscript', exact: true });
     await first.fill('First part.');
-    await page.getByRole('button', { name: 'Add text', exact: true }).click();
+    await addTextAtEnd(page);
     const second = page.getByRole('textbox', { name: 'Text 2', exact: true });
     await second.fill('Second part.');
     await expect(page.getByRole('status', { name: 'Save status' })).toHaveText('Saved');
@@ -2805,7 +2811,7 @@ test('blocks move by Alt and the arrow keys, are selected, and become a Chapter'
       'Second part.',
     );
     await expect(page.getByRole('status', { name: 'Save status' })).toHaveText('Saved');
-    await page.getByRole('button', { name: 'Add a block here' }).click();
+    await page.getByRole('button', { name: 'Add a block here' }).first().click();
     await page.getByRole('menuitem', { name: 'Add text' }).click();
     await expect(page.getByRole('textbox', { name: /^(Manuscript|Text \d)$/ })).toHaveCount(3);
     await page.getByRole('button', { name: 'Block options' }).nth(1).click();
@@ -3315,7 +3321,7 @@ test('a made Chapter can be taken back from the page it leads to', async ({ brow
     await startAs(page, 'chapter', 'Take back chapter');
     const first = page.getByRole('textbox', { name: 'Manuscript', exact: true });
     await first.fill('First part.');
-    await page.getByRole('button', { name: 'Add text', exact: true }).click();
+    await addTextAtEnd(page);
     await page.getByRole('textbox', { name: 'Text 2', exact: true }).fill('Second part.');
     await expect(page.getByRole('status', { name: 'Save status' })).toHaveText('Saved');
     await page.getByRole('button', { name: 'Block options' }).nth(1).click();
@@ -3341,7 +3347,7 @@ test('a made Scene can be taken back from the page it leads to', async ({ browse
     await startAs(page, 'chapter', 'Take back scene');
     const first = page.getByRole('textbox', { name: 'Manuscript', exact: true });
     await first.fill('First part.');
-    await page.getByRole('button', { name: 'Add text', exact: true }).click();
+    await addTextAtEnd(page);
     await page.getByRole('textbox', { name: 'Text 2', exact: true }).fill('Second part.');
     await expect(page.getByRole('status', { name: 'Save status' })).toHaveText('Saved');
     await page.getByRole('button', { name: 'Block options' }).nth(1).click();
@@ -3413,7 +3419,7 @@ test('the new pages pass axe in the dark theme and their controls are 44px on a 
     };
     await page.getByRole('textbox', { name: 'Manuscript', exact: true }).fill('Dark words.');
     await axe();
-    await small(['Layout', 'Side views', 'Rename', 'Block options', 'Add text']);
+    await small(['Layout', 'Side views', 'Rename', 'Block options', 'Add a block here']);
     // The side views sheet clears the status bar: its last controls can be reached.
     await openSideViews(page);
     await page.getByRole('button', { name: 'Export', exact: true }).click();
