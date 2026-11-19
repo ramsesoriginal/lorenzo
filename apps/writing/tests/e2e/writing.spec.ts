@@ -2166,9 +2166,19 @@ for (const variant of ['draft', 'placed', 'nested', 'parent']) {
       const draft = page.getByRole('textbox', { name: 'Manuscript', exact: true });
       await expect(draft).toHaveValue('The original crossing.', { timeout: 15000 });
       await page.getByText('Details', { exact: true }).click();
-      await page.getByText('Repository comparison', { exact: true }).click();
-      const compare = page.getByRole('button', { name: 'Compare saved writing', exact: true });
-      await compare.click();
+      const comparison = page.getByRole('dialog', { name: 'Repository comparison' });
+      const openComparison = async () => {
+        await page.getByRole('button', { name: 'Repository comparison', exact: true }).click();
+        await comparison
+          .getByRole('button', { name: 'Compare saved writing', exact: true })
+          .click();
+      };
+      // The dialog makes the page behind it inert until it has finished closing.
+      const closeComparison = async () => {
+        await comparison.getByRole('button', { name: 'Close' }).click();
+        await expect(comparison).toBeHidden();
+      };
+      await openComparison();
       await expect(
         page.getByText('The saved writing still matches the original copy.'),
       ).toBeVisible();
@@ -2188,9 +2198,10 @@ for (const variant of ['draft', 'placed', 'nested', 'parent']) {
           body: { content: '<img src=x onerror=alert(1)> Upstream crossing.' },
         }),
       );
+      await closeComparison();
       await draft.fill('My saved crossing.');
       await expect(page.getByRole('status', { name: 'Save status' })).toHaveText('Saved');
-      await compare.click();
+      await openComparison();
       await expect(page.getByText('Both versions changed differently.')).toBeVisible();
       const review = page.locator('.repo-review-values');
       await expect(review).toContainText('The original crossing.');
@@ -2203,6 +2214,7 @@ for (const variant of ['draft', 'placed', 'nested', 'parent']) {
       });
       await expect(take).toBeVisible();
       await expect(draft).toHaveValue('My saved crossing.');
+      await closeComparison();
       await page.setViewportSize({ width: 390, height: 844 });
       await openSideViews(page);
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
@@ -2219,6 +2231,7 @@ for (const variant of ['draft', 'placed', 'nested', 'parent']) {
         route.request().method() === 'PATCH' ? route.abort() : route.continue(),
       );
       await draft.fill('My unsaved crossing.');
+      await openComparison();
       await take.click();
       await expect(
         page.getByText('Save your draft and resolve any conflicts before accepting an update.'),
@@ -2228,19 +2241,21 @@ for (const variant of ['draft', 'placed', 'nested', 'parent']) {
         'Use Save now to retry.',
       );
       await page.unroute('**/payloads/*');
+      await closeComparison();
       await page.getByRole('button', { name: 'Save now', exact: true }).click();
       await expect(page.getByRole('status', { name: 'Save status' })).toHaveText('Saved');
-      await compare.click();
       await page.getByText('Word count', { exact: true }).click();
       await page.getByText('Writing session', { exact: true }).click();
       await page.getByLabel('Session word target').fill('100');
       await page.getByRole('button', { name: 'Start session', exact: true }).click();
       await expect(page.getByText('Session progress · 0 words', { exact: true })).toBeVisible();
+      await openComparison();
       await take.click();
       await expect(page.getByText('Repository writing saved.', { exact: true })).toBeVisible();
       await expect(draft).toHaveValue('<img src=x onerror=alert(1)> Upstream crossing.');
+      await closeComparison();
       await expect(page.getByText('Session progress · 0 words', { exact: true })).toBeVisible();
-      await compare.click();
+      await openComparison();
       await expect(
         page.getByText('The saved writing still matches the original copy.'),
       ).toBeVisible();
