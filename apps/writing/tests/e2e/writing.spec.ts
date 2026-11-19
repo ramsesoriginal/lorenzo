@@ -3076,6 +3076,7 @@ test('a Chapter dropped on the outline tree is nested there', async ({ browser }
     await page.reload();
     const tree = page.getByRole('navigation', { name: 'Outline' });
     await expect(tree.getByRole('link', { name: /Go to Dawn/ })).toBeVisible();
+    await expect(page.getByRole('button', { name: /^Drag: Dusk/ })).toBeVisible();
     await page.evaluate(() => {
       const item = [...document.querySelectorAll('ol > li')].find((li) =>
         /Dusk/.test(li.textContent ?? ''),
