@@ -3316,6 +3316,39 @@ test('the shelf shows when each work was last edited, and how many there are', a
   }
 });
 
+test('a text can be moved to another Chapter from its menu', async ({ browser }) => {
+  test.setTimeout(150000);
+  const { page, context, tenant } = await world(browser);
+  try {
+    await page.goto(`/?tenant=${tenant.id}`);
+    await startAs(page, 'chapter', 'Receiver');
+    await page.getByRole('textbox', { name: 'Manuscript', exact: true }).fill('Receiver words.');
+    await expect(page.getByRole('status', { name: 'Save status' })).toHaveText('Saved');
+    await page.goto(`/?tenant=${tenant.id}`);
+    await startAs(page, 'chapter', 'Sender');
+    const sender = page.getByRole('textbox', { name: 'Manuscript', exact: true });
+    await sender.fill('Wandering words.');
+    await expect(page.getByRole('status', { name: 'Save status' })).toHaveText('Saved');
+    await page.getByRole('button', { name: 'Block options' }).first().click();
+    await page.getByRole('menuitem', { name: 'Move to another Chapter' }).click();
+    const dialog = page.getByRole('dialog', { name: 'Move to another Chapter' });
+    await dialog.getByRole('button', { name: 'Receiver', exact: true }).click();
+    await expect(page.getByRole('textbox', { name: 'Manuscript', exact: true })).toHaveCount(0, {
+      timeout: 20000,
+    });
+    await page.goto(`/?tenant=${tenant.id}`);
+    await page.getByRole('link', { name: 'Receiver', exact: true }).click();
+    await expect(page.getByRole('textbox', { name: 'Manuscript', exact: true })).toHaveValue(
+      'Receiver words.',
+    );
+    await expect(page.getByRole('textbox', { name: 'Text 2', exact: true })).toHaveValue(
+      'Wandering words.',
+    );
+  } finally {
+    await context.close();
+  }
+});
+
 test('any work has a Write and Read switch in its page head', async ({ browser }) => {
   const { page, context, tenant } = await world(browser);
   try {

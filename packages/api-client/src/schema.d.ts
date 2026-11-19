@@ -3366,6 +3366,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/tenants/{tenant_id}/writing/entries/{id}/payloads/{payload_id}/move": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Move Block
+         * @description Moves a text or picture of a Chapter's or Edition's manuscript into another one's.
+         *
+         *     The two outlines are read as the caller last saw them (`If-Match` for the source, the body for
+         *     the destination); the two must be shared alike, as in a join; the block lands before
+         *     `before_element_id` or at the end.
+         */
+        post: operations["move_block"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/tenants/{tenant_id}/writing/entries/{id}/joins/{operation_id}": {
         parameters: {
             query?: never;
@@ -8451,6 +8475,24 @@ export interface components {
             name: string;
             /** Is Pc */
             is_pc: boolean | null;
+        };
+        /** BlockMoveAcknowledgement */
+        BlockMoveAcknowledgement: {
+            /**
+             * Payload Id
+             * Format: uuid
+             */
+            payload_id: string;
+            /**
+             * Source Id
+             * Format: uuid
+             */
+            source_id: string;
+            /**
+             * Destination Id
+             * Format: uuid
+             */
+            destination_id: string;
         };
         /** Body_add_information_picture */
         Body_add_information_picture: {
@@ -14279,6 +14321,18 @@ export interface components {
             source_parent_id: string | null;
             /** Destination Parent Id */
             destination_parent_id: string | null;
+        };
+        /** MoveBlock */
+        MoveBlock: {
+            /**
+             * Destination Id
+             * Format: uuid
+             */
+            destination_id: string;
+            /** Destination Version */
+            destination_version: string;
+            /** Before Element Id */
+            before_element_id?: string | null;
         };
         /** MoveCheckpoint */
         MoveCheckpoint: {
@@ -33069,6 +33123,79 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SplitAcknowledgement"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    move_block: {
+        parameters: {
+            query?: never;
+            header?: {
+                "if-match"?: string | null;
+            };
+            path: {
+                tenant_id: string;
+                id: string;
+                payload_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MoveBlock"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BlockMoveAcknowledgement"];
                 };
             };
             /** @description Validation Error */

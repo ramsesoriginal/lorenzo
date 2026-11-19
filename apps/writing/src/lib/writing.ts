@@ -16,8 +16,10 @@ import { modernAddress } from './addresses';
 import { client, fetchAllPages, LorenzoApiError, loadFile, unwrap } from './api';
 import { isAuthConfigured, isAuthenticated, login, logout } from './auth';
 import {
+  askDestination,
   askTitle,
   extractParts,
+  moveBlock,
   rememberSplit,
   splitAtCaret,
   takeSplit,
@@ -759,6 +761,21 @@ async function manuscript(
                 },
               ]
             : []),
+          {
+            label: 'Move to another Chapter',
+            run: () =>
+              job(async () => {
+                const target = await askDestination(tenant, entry);
+                if (!target) return;
+                await settle();
+                const [from, to] = await Promise.all([
+                  outlineOf(tenant, entry),
+                  outlineOf(tenant, target.id),
+                ]);
+                await moveBlock(tenant, entry, payload.id, from.version, target.id, to.version);
+                location.reload();
+              }),
+          },
           { label: 'Make a Chapter', run: () => makeFrom([payload.id], 'Chapter') },
           { label: 'Make a Scene', run: () => makeFrom([payload.id], 'Scene') },
           {

@@ -1,6 +1,6 @@
 # 0494 - Writing moves into the web shell
 
-Status: proposed, 2026-11-18; W0 to W8 and W3a, the undo operations and the helpers B3 and B4 are built (the pull requests are in the tracking issue #1297); the only things not built are the maintainer's own answers (Q1 keep) and the later stacks the plan names (C2 to C5). The six questions are answered (below) and the plan stands on those answers; the editing habits of [WR12](../design/web/writing/README.md#wr12-three-habits-proposed) are written into it, and are proposed. Slice UI-E of [RFC 0050](../rfcs/0050-the-web-interface.md) for Writing. The design is [docs/design/web/writing](../design/web/writing/README.md) (WR1 to WR10, and [WR11](../design/web/writing/README.md#wr11-what-the-built-features-changed-proposed), which says where the built features differ from the drawing) and the decision is [ADR 0419](0419-writing-redesign.md); this ADR says how the app is moved to it, in what order, and what has to be decided first. Follows [ADR 0440](0440-calendars-moves-into-the-web-shell.md), [ADR 0441](0441-sessions-moves-into-the-web-shell.md) and [ADR 0465](0465-maps-moves-into-the-web-shell.md), which did the same for Calendars, Sessions and Maps. The numbers of the stack's pull requests are in the tracking issue.
+Status: proposed, 2026-11-18; W0 to W8 and W3a, the undo operations and the helpers B3 and B4 are built (the pull requests are in the tracking issue #1297); the only things not built are the maintainer's own answers (none of the six questions is left open) and the later stacks the plan names (C2 to C5). The six questions are answered (below) and the plan stands on those answers; the editing habits of [WR12](../design/web/writing/README.md#wr12-three-habits-proposed) are written into it, and are proposed. Slice UI-E of [RFC 0050](../rfcs/0050-the-web-interface.md) for Writing. The design is [docs/design/web/writing](../design/web/writing/README.md) (WR1 to WR10, and [WR11](../design/web/writing/README.md#wr11-what-the-built-features-changed-proposed), which says where the built features differ from the drawing) and the decision is [ADR 0419](0419-writing-redesign.md); this ADR says how the app is moved to it, in what order, and what has to be decided first. Follows [ADR 0440](0440-calendars-moves-into-the-web-shell.md), [ADR 0441](0441-sessions-moves-into-the-web-shell.md) and [ADR 0465](0465-maps-moves-into-the-web-shell.md), which did the same for Calendars, Sessions and Maps. The numbers of the stack's pull requests are in the tracking issue.
 
 ## Context
 
@@ -39,12 +39,12 @@ Each is its own ADR and its own pull request, made before the one that draws it.
 
 - **Q2, undo (to build, before W5).** An operation that restores the writing and the outline from the structural checkpoint a split, an extraction or a join leaves, so that each can be undone as a whole. It checks that nothing changed since (the versions), refuses if it did, and says why; the retry rule of ADR 0344 applies.
 - **Q3, what is shared with me (to build, before W1).** A read of the Editions that have been shared with the caller for review, so that the shelf can list them.
-- **Q1, move blocks (decided: keep, as the maintainer answered).** Blocks move within their page; between Chapters they are extracted and the new Chapter moved.
+- **Q1, move blocks (answered "keep", then asked for: [ADR 0520](0520-move-a-block-to-another-chapter.md)).** A block moves within its page, and to another Chapter from its menu; extraction stays for a run of blocks.
 - **Q4, the shelf's list (answered "not yet", then asked for: [ADR 0519](0519-the-shelf-shows-when-a-work-was-edited.md)).** The entry list rows carry `updated_at`, and the shelf shows when each work was edited.
 
 ## Questions and the answers (2026-11-18)
 
-1. **Q1, move blocks between Chapters?** Keep as it is: blocks stay in their page, and are moved by extraction.
+1. **Q1, move blocks between Chapters?** First "keep", then built (ADR 0520): a block can be moved to another Chapter from its menu.
 2. **Q2, an undo for split, extract and join?** Yes. It is built (above) and W5 draws it.
 3. **Q3, a read of what is shared with me?** Yes, for the shelf.
 4. **Q4, a last-edited time and a count for the shelf?** First "not yet", then built (ADR 0519). Continue is still the last work opened in this browser.

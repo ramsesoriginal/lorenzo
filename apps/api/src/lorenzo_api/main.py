@@ -61,6 +61,7 @@ from lorenzo_api.routers.items import router as items_router
 from lorenzo_api.routers.knowledge import router as knowledge_router
 from lorenzo_api.routers.link_previews import router as link_previews_router
 from lorenzo_api.routers.locations import router as locations_router
+from lorenzo_api.routers.manuscript_block_moves import router as manuscript_block_moves_router
 from lorenzo_api.routers.manuscript_comparison import router as manuscript_comparison_router
 from lorenzo_api.routers.manuscript_contents import router as manuscript_contents_router
 from lorenzo_api.routers.manuscript_exports import router as manuscript_exports_router
@@ -201,6 +202,7 @@ def create_app() -> FastAPI:
     app.include_router(chapter_numbering_router)
     app.include_router(manuscript_moves_router)
     app.include_router(manuscript_splits_router)
+    app.include_router(manuscript_block_moves_router)
     app.include_router(manuscript_joins_router)
     app.include_router(manuscript_extraction_router)
     app.include_router(writing_reviews_router)

@@ -200,3 +200,100 @@ export async function undoSplit(
       }),
     );
 }
+
+/** Choose the Chapter or Edition a part is to move to. Resolves it, or null when dismissed. */
+export function askDestination(
+  tenant: string,
+  current: string,
+): Promise<{ id: string; name: string } | null> {
+  return new Promise((resolve) => {
+    const dialog = document.createElement('dialog');
+    const form = document.createElement('form');
+    form.className = 'stack-tight';
+    const heading = document.createElement('h2');
+    heading.textContent = 'Move to another Chapter';
+    heading.id = `destination-${crypto.randomUUID()}`;
+    dialog.setAttribute('aria-labelledby', heading.id);
+    const input = document.createElement('input');
+    input.type = 'search';
+    input.className = 'text-input';
+    input.placeholder = 'Chapter or Edition title';
+    input.setAttribute('aria-label', 'Destination title');
+    const found = document.createElement('div');
+    found.className = 'stack-tight';
+    const status = document.createElement('p');
+    status.className = 'caption';
+    status.setAttribute('role', 'status');
+    const cancel = document.createElement('button');
+    cancel.type = 'button';
+    cancel.className = 'btn btn-secondary';
+    cancel.textContent = 'Cancel';
+    form.append(heading, input, found, status, cancel);
+    dialog.append(form);
+    document.body.append(dialog);
+    fadeOnDismiss(dialog);
+    let answer: { id: string; name: string } | null = null;
+    const search = async () => {
+      status.textContent = 'Searching…';
+      found.replaceChildren();
+      try {
+        const page = await unwrap(
+          await client.GET('/tenants/{tenant_id}/entities', {
+            params: {
+              path: { tenant_id: tenant },
+              query: { kind: ['edition', 'chapter'], q: input.value.trim(), size: 10 },
+            },
+          }),
+        );
+        for (const candidate of page.items.filter((item) => item.id !== current)) {
+          const choice = document.createElement('button');
+          choice.type = 'button';
+          choice.className = 'btn btn-secondary';
+          choice.textContent = candidate.name;
+          choice.addEventListener('click', () => {
+            answer = { id: candidate.id, name: candidate.name };
+            closeDialog(dialog);
+          });
+          found.append(choice);
+        }
+        status.textContent = found.children.length
+          ? ''
+          : 'No matching Chapters. Try another title.';
+      } catch (error) {
+        status.textContent = error instanceof Error ? error.message : 'The search failed.';
+      }
+    };
+    form.addEventListener('submit', (event) => {
+      event.preventDefault();
+      void search();
+    });
+    cancel.addEventListener('click', () => closeDialog(dialog));
+    dialog.addEventListener('close', () => {
+      dialog.remove();
+      resolve(answer);
+    });
+    openDialog(dialog);
+    input.focus();
+    void search();
+  });
+}
+
+/** Move one text or picture to the end of another Chapter, while both are as the outlines say. */
+export async function moveBlock(
+  tenant: string,
+  entry: string,
+  payload: string,
+  sourceVersion: string,
+  destination: string,
+  destinationVersion: string,
+): Promise<void> {
+  await unwrap(
+    await client.POST('/tenants/{tenant_id}/writing/entries/{id}/payloads/{payload_id}/move', {
+      params: {
+        path: { tenant_id: tenant, id: entry, payload_id: payload },
+        header: { 'if-match': sourceVersion },
+      },
+      body: { destination_id: destination, destination_version: destinationVersion },
+    }),
+  );
+}
