@@ -3285,6 +3285,7 @@ test('the new pages pass axe in the dark theme and their controls are 44px on a 
     await page.goto(`/?tenant=${tenant.id}`);
     await startAs(page, 'chapter', 'Dark chapter');
     await page.getByRole('link', { name: 'Outline', exact: true }).click();
+    await expect(page.getByLabel('New chapter title')).toBeVisible();
     await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
     await axe();
     await page.goto(`/?tenant=${tenant.id}`);
