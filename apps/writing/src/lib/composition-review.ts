@@ -1,3 +1,4 @@
+import { closeDialog, fadeOnDismiss, openDialog } from '@lorenzo/app-shell';
 import { renderReview } from '@lorenzo/repo-ui';
 import '@lorenzo/repo-ui/repo-ui.css';
 import { client, unwrap } from './api';
@@ -106,7 +107,18 @@ function describeComposition(value: unknown, names: Record<string, string>): str
 }
 
 export function compositionReview(tenant: string, id: string, apply?: ApplyRepositoryUpdate) {
-  const panel = node('details');
+  // Updates are a dialog opened from a button (ADR 0494, W6); the panel inside is what it was.
+  const host = node('div');
+  const open = node('button', 'Composition updates');
+  open.type = 'button';
+  open.className = 'btn btn-secondary';
+  open.setAttribute('aria-haspopup', 'dialog');
+  const dialog = node('dialog');
+  const heading = node('h2', 'Composition updates');
+  heading.id = `updates-${crypto.randomUUID()}`;
+  dialog.setAttribute('aria-labelledby', heading.id);
+  const panel = node('div');
+  panel.className = 'stack-tight';
   const check = node('button', 'Review composition updates');
   check.type = 'button';
   check.className = 'btn btn-secondary';
@@ -114,7 +126,6 @@ export function compositionReview(tenant: string, id: string, apply?: ApplyRepos
   status.setAttribute('role', 'status');
   const result = node('div');
   panel.append(
-    node('summary', 'Composition updates'),
     node(
       'p',
       'Review connected writing and structure together. Choose the changes to accept; other writing stays as it is. Attachments are compared by content; previews are not shown.',
@@ -133,7 +144,7 @@ export function compositionReview(tenant: string, id: string, apply?: ApplyRepos
           params: { path: { tenant_id: tenant, id } },
         }),
       );
-      if (!panel.isConnected || !panel.open) return;
+      if (!panel.isConnected || !dialog.open) return;
       const choices: Record<string, 'local' | 'upstream'> = {};
       const accept = node('button', 'Apply selected updates');
       accept.type = 'button';
@@ -245,11 +256,17 @@ export function compositionReview(tenant: string, id: string, apply?: ApplyRepos
       check.disabled = false;
     }
   });
-  panel.addEventListener('toggle', () => {
-    if (!panel.open) {
-      result.replaceChildren();
-      status.textContent = '';
-    }
+  dialog.addEventListener('close', () => {
+    result.replaceChildren();
+    status.textContent = '';
   });
-  return panel;
+  const close = node('button', 'Close');
+  close.type = 'button';
+  close.className = 'btn btn-secondary';
+  close.addEventListener('click', () => closeDialog(dialog));
+  dialog.append(heading, panel, close);
+  fadeOnDismiss(dialog);
+  open.addEventListener('click', () => openDialog(dialog));
+  host.append(open, dialog);
+  return host;
 }

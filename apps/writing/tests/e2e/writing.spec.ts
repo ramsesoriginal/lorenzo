@@ -2361,7 +2361,7 @@ test("composition updates preserve stable elements and protect another tab's dra
     );
     const reviewPage = await context.newPage();
     await reviewPage.goto(`/?tenant=${tenant.id}&entry=${local}&view=outline`);
-    await reviewPage.getByText('Composition updates', { exact: true }).click();
+    await reviewPage.getByRole('button', { name: 'Composition updates', exact: true }).click();
     const compare = reviewPage.getByRole('button', { name: 'Review composition updates' });
     await compare.click();
     await expect(reviewPage.locator('.repo-review')).toContainText('Extracted passage', {
