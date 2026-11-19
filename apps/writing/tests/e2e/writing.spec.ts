@@ -592,11 +592,9 @@ test('an invited reviewer reads one Edition, writes private notes and loses acce
     await expect(
       reviewPage.getByText('Could the bridge appear in Chapter one?', { exact: true }).first(),
     ).toBeVisible();
-    await reviewPage.getByText('Export', { exact: true }).focus();
-    await reviewPage.getByText('Export', { exact: true }).press('Enter');
-    const exportPanel = reviewPage.locator('details').filter({
-      has: reviewPage.locator('summary').filter({ hasText: /^Export$/ }),
-    });
+    await reviewPage.getByRole('button', { name: 'Export', exact: true }).focus();
+    await reviewPage.getByRole('button', { name: 'Export', exact: true }).press('Enter');
+    const exportPanel = reviewPage.getByRole('dialog', { name: 'Export' });
     await exportPanel.getByRole('button', { name: 'Preview saved writing' }).click();
     await expect(exportPanel.locator('article')).toContainText(
       'The river remembers the old bridge.',
@@ -605,6 +603,8 @@ test('an invited reviewer reads one Edition, writes private notes and loses acce
     const exported = reviewPage.waitForEvent('download');
     await exportPanel.getByRole('button', { name: 'Download LorenzoScript' }).click();
     expect(await (await exported).failure()).toBeNull();
+    await exportPanel.getByRole('button', { name: 'Close' }).click();
+    await expect(exportPanel).toBeHidden();
     await reviewPage.screenshot({
       path: test.info().outputPath('review-desktop.png'),
       fullPage: true,
@@ -2452,10 +2452,8 @@ test('saved export preview downloads source and prepares a clean printable manus
         ).join('\n\n'),
     );
     await expect(page.getByRole('status', { name: 'Save status' })).toHaveText('Saved');
-    await page.getByText('Export', { exact: true }).click();
-    const controls = page
-      .locator('details')
-      .filter({ has: page.locator('summary').filter({ hasText: /^Export$/ }) });
+    await page.getByRole('button', { name: 'Export', exact: true }).click();
+    const controls = page.getByRole('dialog', { name: 'Export' });
     await controls.getByRole('button', { name: 'Preview saved writing' }).click();
     await expect(controls.locator('article')).toContainText('The river remembers.');
     const downloading = page.waitForEvent('download');
@@ -2493,8 +2491,11 @@ test('saved export preview downloads source and prepares a clean printable manus
     if (process.env.E2E_EXPORT_PDF)
       await printed.pdf({ path: process.env.E2E_EXPORT_PDF, format: 'A4', printBackground: true });
     await printed.close();
+    await controls.getByRole('button', { name: 'Close' }).click();
+    await expect(controls).toBeHidden();
     await page.setViewportSize({ width: 390, height: 844 });
     await openSideViews(page);
+    await page.getByRole('button', { name: 'Export', exact: true }).click();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
       true,
     );
@@ -2502,18 +2503,26 @@ test('saved export preview downloads source and prepares a clean printable manus
       [],
     );
     await controls.screenshot({ path: test.info().outputPath('export-phone.png') });
+    await controls.getByRole('button', { name: 'Close' }).click();
+    await expect(controls).toBeHidden();
     await manuscript.fill('Changed after preview.');
     await expect(page.getByRole('status', { name: 'Save status' })).toHaveText('Saved');
+    await page.getByRole('button', { name: 'Export', exact: true }).click();
     await controls.getByRole('button', { name: 'Download LorenzoScript' }).click();
     await expect(controls.getByRole('status')).toContainText('Refresh the export preview');
     await expect(controls.locator('article')).toHaveCount(0);
+    await controls.getByRole('button', { name: 'Close' }).click();
+    await expect(controls).toBeHidden();
     await page.route(`${API_URL}/tenants/**/payloads/*`, (route) =>
       route.request().method() === 'PATCH' ? route.abort() : route.continue(),
     );
     await manuscript.fill('UNSENT writing must stay out of the export.');
+    await page.getByRole('button', { name: 'Export', exact: true }).click();
     await controls.getByRole('button', { name: 'Preview saved writing' }).click();
     await expect(controls.locator('article')).toContainText('Changed after preview.');
     await expect(controls.locator('article')).not.toContainText('UNSENT');
+    await controls.getByRole('button', { name: 'Close' }).click();
+    await expect(controls).toBeHidden();
     await expect(manuscript).toHaveValue('UNSENT writing must stay out of the export.');
   } finally {
     await context.close();
@@ -2657,10 +2666,8 @@ test('export repeats composition with distinct footnotes, contents and original 
       }),
     );
     await page.goto(`/?tenant=${tenant.id}&entry=${carrier.id}&view=read`);
-    await page.getByText('Export', { exact: true }).click();
-    const controls = page
-      .locator('details')
-      .filter({ has: page.locator('summary').filter({ hasText: /^Export$/ }) });
+    await page.getByRole('button', { name: 'Export', exact: true }).click();
+    const controls = page.getByRole('dialog', { name: 'Export' });
     await controls.getByRole('button', { name: 'Preview saved writing' }).click();
     const article = controls.locator('article');
     await expect(article.locator('img')).toHaveCount(4);
@@ -3350,7 +3357,11 @@ test('the new pages pass axe in the dark theme and their controls are 44px on a 
     await small(['Layout', 'Side views', 'Rename', 'Block options', 'Add text']);
     // The side views sheet clears the status bar: its last controls can be reached.
     await openSideViews(page);
-    await page.getByText('Export', { exact: true }).click();
+    await page.getByRole('button', { name: 'Export', exact: true }).click();
+    const exportDialog = page.getByRole('dialog', { name: 'Export' });
+    await expect(exportDialog).toBeVisible();
+    await exportDialog.getByRole('button', { name: 'Close' }).click();
+    await expect(exportDialog).toBeHidden();
     await page.getByRole('button', { name: 'Close side views' }).click();
     await expect(page.getByRole('status', { name: 'Save status' })).toHaveText('Saved');
     await page.getByRole('link', { name: 'Read', exact: true }).click();
