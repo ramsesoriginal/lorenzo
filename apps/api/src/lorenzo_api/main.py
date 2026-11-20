@@ -43,6 +43,7 @@ from lorenzo_api.routers.discover import router as discover_router
 from lorenzo_api.routers.distance import router as distance_router
 from lorenzo_api.routers.entities import router as entities_router
 from lorenzo_api.routers.entity_export import router as entity_export_router
+from lorenzo_api.routers.entity_stat_changes import router as entity_stat_changes_router
 from lorenzo_api.routers.entity_stats import router as entity_stats_router
 from lorenzo_api.routers.event_learning import router as event_learning_router
 from lorenzo_api.routers.event_order import router as event_order_router
@@ -235,6 +236,7 @@ def create_app() -> FastAPI:
     app.include_router(entities_router)
     app.include_router(link_previews_router)
     app.include_router(entity_stats_router)
+    app.include_router(entity_stat_changes_router)
     app.include_router(computed_stats_router)
     app.include_router(groups_router)
     from lorenzo_api.routers.manuscripts import router as manuscripts_router

@@ -4,7 +4,7 @@ import uuid
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Header, Query, Request, Response
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.orm import selectinload
 
 from lorenzo_api import dice
@@ -40,6 +40,7 @@ from lorenzo_api.models import (
     ComputedStat,
     Entity,
     EntityStat,
+    EntityStatChange,
     EntityStatGroup,
     Ownership,
     StatDefinition,
@@ -325,6 +326,38 @@ def _touch(entity: Entity, user: CurrentUser) -> None:
     entity.updated_at = func.now()
 
 
+async def record_stat_change(
+    session: SessionDep,
+    *,
+    tenant_id: uuid.UUID,
+    entity_id: uuid.UUID,
+    stat_definition_id: uuid.UUID,
+    old: int | str | float | bool | None,
+    new: int | str | float | bool | None,
+    actor_id: uuid.UUID,
+) -> None:
+    """Adds one step to the entry's History (ADR 0525) and drops the ones past the latest
+    `EntityStatChange.KEEP`. Not the activity log (ADR 0084): a bounded list for the sheet."""
+    session.add(
+        EntityStatChange(
+            tenant_id=tenant_id,
+            entity_id=entity_id,
+            stat_definition_id=stat_definition_id,
+            old_value=old,
+            new_value=new,
+            actor_id=actor_id,
+        )
+    )
+    await session.flush()
+    stale = (
+        select(EntityStatChange.id)
+        .where(EntityStatChange.entity_id == entity_id)
+        .order_by(EntityStatChange.created_at.desc(), EntityStatChange.id.desc())
+        .offset(EntityStatChange.KEEP)
+    )
+    await session.execute(delete(EntityStatChange).where(EntityStatChange.id.in_(stale)))
+
+
 async def _write_own_value(
     session: SessionDep,
     *,
@@ -368,6 +401,7 @@ async def _write_own_value(
     # A value that is already this one is not a change, and moves nothing (as the same parents
     # again do not, ADR 0216).
     changed = not previous.had_own_value or previous.value != value
+    value_changed = changed
     _apply_stat_value(stat, value=value, value_type=stat_definition.value_type)
     if acquire_group:
         link = await session.get(EntityStatGroup, (entity_id, stat_definition.stat_group_id))
@@ -383,6 +417,16 @@ async def _write_own_value(
     if changed:
         _touch(entity, user)
         await session.flush()
+        if value_changed:
+            await record_stat_change(
+                session,
+                tenant_id=tenant_id,
+                entity_id=entity_id,
+                stat_definition_id=stat_definition.id,
+                old=previous.value if previous.had_own_value else None,
+                new=value,
+                actor_id=user.id,
+            )
         # A condition of a grant that lasts while its source does may read this stat (ADR 0456).
         await revoke_after_stat_write(
             session,
@@ -667,6 +711,15 @@ async def clear_entity_stat(
         await session.delete(existing)
         _touch(entity, user)
         await session.flush()
+        await record_stat_change(
+            session,
+            tenant_id=tenant_id,
+            entity_id=entity_id,
+            stat_definition_id=stat_definition_id,
+            old=previous.value,
+            new=None,
+            actor_id=user.id,
+        )
         await revoke_after_stat_write(
             session,
             tenant_id=tenant_id,
@@ -720,6 +773,15 @@ async def clear_entity_tag(
         await session.delete(existing)
         _touch(entity, user)
         await session.flush()
+        await record_stat_change(
+            session,
+            tenant_id=tenant_id,
+            entity_id=entity_id,
+            stat_definition_id=stat_definition_id,
+            old=previous.value,
+            new=None,
+            actor_id=user.id,
+        )
         await revoke_after_stat_write(
             session,
             tenant_id=tenant_id,

@@ -36,6 +36,7 @@ from lorenzo_api.models.entity_change import EntityChange
 from lorenzo_api.models.entity_prototype import EntityPrototype
 from lorenzo_api.models.entity_slug import EntitySlug
 from lorenzo_api.models.entity_stat import EntityStat
+from lorenzo_api.models.entity_stat_change import EntityStatChange
 from lorenzo_api.models.entity_stat_group import EntityStatGroup
 from lorenzo_api.models.event_group_creation import EventGroupCreation
 from lorenzo_api.models.event_learning import EventLearning
@@ -193,6 +194,7 @@ __all__ = [
     "EntityPrototype",
     "EntitySlug",
     "EntityStat",
+    "EntityStatChange",
     "EntityStatGroup",
     "GroupMember",
     "Information",
