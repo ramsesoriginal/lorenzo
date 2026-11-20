@@ -1198,3 +1198,22 @@ textarea.text-input {
 .band-actions[hidden] {
   display: none;
 }
+
+/* On a phone everything pressed is at least 44px, whatever the pointer says (the audit of ADR 0524). */
+@media (max-width: 720px) {
+  .segmented.quiet label,
+  [data-page] summary,
+  .icon-btn,
+  label.field-row {
+    min-height: var(--target-min);
+  }
+  .icon-btn {
+    min-width: var(--target-min);
+  }
+  [data-page] summary,
+  label.field-row,
+  .segmented.quiet label {
+    display: flex;
+    align-items: center;
+  }
+}
