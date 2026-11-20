@@ -41,7 +41,7 @@ test('the cards and the side-by-side table scroll inside themselves, not the pag
   await expect(page.getByRole('link', { name: 'Ashfang' })).toBeVisible();
   const view = page.getByRole('radiogroup', { name: 'View' });
   await view.getByText('Cards').click();
-  await expect(page.locator('[data-list]')).toHaveClass(/being-cards/);
+  await expect(page.locator('[data-list] .being-cards')).toBeVisible();
   expect(await overflows()).toBe(false);
 
   await view.getByText('Side by side').click();

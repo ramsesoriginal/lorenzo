@@ -1,33 +1,248 @@
 /*
  * Domain-specific structural layout only - the page shell, brand lockup, and shared spacing rhythm
- * all come from @lorenzo/brand's own layout.css (linked in src/components/SiteHead). Single column
- * on a phone; nothing here is wider than the viewport (ADR 0270).
+ * all come from @lorenzo/brand's own layout.css and the web shell's. The list of beings follows
+ * docs/design/web/beings (BN1, BN4): a head, a toolbar, and the list as rows, cards or side by side.
+ * Single column on a phone; nothing here is wider than the viewport (ADR 0270).
  */
 
-/* Filters wrap under the search on a narrow screen instead of overflowing it. */
-[data-being-list] .row {
-  flex-wrap: wrap;
-}
-
-/* List portraits and the desktop pointer's live preview. */
-.being-list .being-list-link {
+/* The head of the list: the title and what it is, and the way to make one. */
+.head-row {
   display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  width: 100%;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-3);
+}
+.head-row .grow {
+  flex: 1;
   min-width: 0;
 }
-.being-list-link > .row {
+.head-row h1 {
+  margin: 0;
+}
+.head-row p {
+  margin: 0;
+}
+
+/* The toolbar: search, the segmented choices, and the view. It wraps instead of overflowing. */
+.being-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+}
+.search-field {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex: 1 1 12rem;
+  max-width: 16rem;
+}
+.search-field .icon {
+  position: absolute;
+  inset-inline-start: var(--space-3);
+  color: var(--text-secondary);
+  pointer-events: none;
+}
+.search-field .text-input {
+  width: 100%;
+  padding-inline-start: calc(var(--space-3) * 2 + 16px);
+}
+.being-tools .field-inline .text-input {
+  width: auto;
+}
+.being-tools .segmented label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+.being-tools .segmented .icon {
+  width: 16px;
+  height: 16px;
+}
+
+/* An avatar: the initials in a circle, with the picture over them once it has loaded. */
+.avatar {
+  position: relative;
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border-radius: 50%;
+  border: 1px solid var(--border-strong);
+  background: var(--surface-muted);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.avatar-xs {
+  width: 28px;
+  height: 28px;
+  font-size: 11px;
+}
+.avatar-lg {
+  width: 72px;
+  height: 72px;
+  font-size: 18px;
+}
+.avatar-picture {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+[data-picture-state="ready"] .avatar-initials {
+  visibility: hidden;
+}
+
+/* Rows: a table, with the name and its avatar first and the numbers at the right. */
+.being-table {
+  display: grid;
+}
+.being-row {
+  display: grid;
+  grid-template-columns:
+    minmax(12rem, 2.4fr) minmax(5rem, 1fr) minmax(6rem, 1fr)
+    repeat(var(--being-columns, 2), minmax(5rem, 7rem));
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 48px;
+  padding-inline: var(--space-2);
+  border-bottom: 1px solid var(--border-subtle);
+}
+.being-row:not(.being-row-head):hover {
+  background: var(--surface-muted);
+}
+.being-row-head {
+  min-height: 36px;
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+.being-cell {
   min-width: 0;
   overflow-wrap: anywhere;
 }
-.being-list-picture {
-  flex: 0 0 80px;
-  width: 80px;
-  height: 80px;
-  object-fit: cover;
-  border-radius: var(--radius-control);
+.being-cell.is-number {
+  text-align: end;
+  font-variant-numeric: tabular-nums;
 }
+.being-name {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.being-name a {
+  font-weight: 500;
+}
+.is-muted {
+  color: var(--text-secondary);
+}
+
+/* Cards: the avatar, the name, who plays it, and its first number. The whole card is the link. */
+.being-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.being-card {
+  position: relative;
+  display: grid;
+  justify-items: start;
+  gap: var(--space-1);
+  padding: var(--space-3);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-card);
+  background: var(--surface-default);
+}
+.being-card:hover {
+  border-color: var(--border-strong);
+  background: var(--surface-muted);
+}
+.being-card a {
+  color: var(--text-primary);
+  font-weight: 600;
+  text-decoration: none;
+}
+.being-card a::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+}
+.card-number {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-1);
+}
+.card-number strong {
+  font-size: 1.5rem;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Side by side: one column per being, one row per number. It scrolls sideways inside its own
+   region, never the page. */
+.side-by-side {
+  overflow-x: auto;
+  max-width: 100%;
+}
+.side-by-side table {
+  border-collapse: collapse;
+  min-width: 100%;
+}
+.side-by-side :is(th, td) {
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--border-subtle);
+  text-align: start;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+.side-by-side thead th {
+  vertical-align: bottom;
+  font-weight: 500;
+}
+.side-by-side thead th > .caption {
+  display: block;
+  font-weight: 400;
+}
+.side-by-side tbody th {
+  font-weight: 500;
+  color: var(--text-secondary);
+  position: sticky;
+  inset-inline-start: 0;
+  background: var(--surface-default);
+}
+.side-by-side td.is-numeric {
+  font-variant-numeric: tabular-nums;
+}
+.derived-mark {
+  display: inline-flex;
+  vertical-align: middle;
+}
+.cell-steppers {
+  display: inline-flex;
+  gap: var(--space-1);
+  margin-inline-start: var(--space-2);
+  vertical-align: middle;
+}
+.cell-steppers .icon-btn {
+  min-width: var(--target-min);
+  min-height: var(--target-min);
+}
+
+/* Nothing to show: said once, with the way on. */
+.empty-state {
+  justify-items: center;
+  padding: var(--space-6) var(--space-3);
+  text-align: center;
+}
+.empty-state p {
+  margin: 0;
+}
+
+/* The desktop pointer's live preview of a portrait. */
 .being-picture-preview {
   position: fixed;
   z-index: 100;
@@ -52,58 +267,20 @@
   }
 }
 
-/* Cards: the same list, as tiles with the portrait on top and the first number below it (BN1). */
-.being-list.being-cards {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
-  gap: var(--space-3);
-}
-.being-cards > li {
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-card);
-  background: var(--surface-default);
-}
-.being-cards .being-list-link {
-  flex-direction: column;
-  align-items: flex-start;
-  padding: var(--space-3);
-  height: 100%;
-}
-.being-cards .being-list-picture {
-  flex-basis: auto;
-  width: 100%;
-  height: auto;
-  aspect-ratio: 1;
-}
-.being-vital {
-  color: var(--text-secondary);
-}
-
-/* Side by side: one column per being, one row per number (BN4). It scrolls sideways inside its
-   own region, never the page. */
-.side-by-side {
-  overflow-x: auto;
-  max-width: 100%;
-}
-.side-by-side table {
-  border-collapse: collapse;
-  min-width: 100%;
-}
-.side-by-side :is(th, td) {
-  padding: var(--space-2) var(--space-3);
-  border-bottom: 1px solid var(--border-subtle);
-  text-align: start;
-  white-space: nowrap;
-}
-.side-by-side thead th {
-  vertical-align: bottom;
-}
-.side-by-side thead th > .caption {
-  display: block;
-}
-.side-by-side tbody th {
-  font-weight: 400;
-  position: sticky;
-  inset-inline-start: 0;
-  background: var(--surface-default);
+/* On a phone the table keeps the name and the first number. */
+@media (max-width: 720px) {
+  .being-row {
+    grid-template-columns: minmax(0, 1fr) 6rem;
+  }
+  .being-row > :nth-child(2),
+  .being-row > :nth-child(3),
+  .being-row > :nth-child(n + 5) {
+    display: none;
+  }
+  .search-field {
+    max-width: none;
+  }
+  .being-tools .segmented label {
+    min-height: var(--target-min);
+  }
 }

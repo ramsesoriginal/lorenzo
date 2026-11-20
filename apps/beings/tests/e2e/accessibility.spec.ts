@@ -86,7 +86,7 @@ for (const size of sizes) {
           ready: async () => {
             await expect(page.getByRole('link', { name: 'Ashfang' })).toBeVisible();
             await page.getByRole('radiogroup', { name: 'View' }).getByText('Cards').click();
-            await expect(page.locator('[data-vital]').first()).toBeVisible();
+            await expect(page.locator('.card-number').first()).toBeVisible();
           },
         },
         {
