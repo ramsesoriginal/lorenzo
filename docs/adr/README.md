@@ -1,4 +1,5 @@
 
+- [0524 - Beings and Inventory move into the web shell](0524-beings-and-inventory-move-into-the-web-shell.md) — UI-F: two independent stacks of PRs for the two apps, from the designs of ADR 0422 and 0423; proposed, with six questions for the maintainer.
 - [0523 - Word in](0523-word-in.md) — ADR 0494 C3, the third format: the shelf imports .docx files as Chapters, read from the file's XML (headings, lists, tables, footnotes, links) and told what was left out.
 - [0522 - Word out](0522-word-out.md) — ADR 0494 C3, the second format: Export downloads a .docx made from the syntax tree (headings, lists, tables, footnotes, links, pictures).
 - [0521 - Markdown in and out](0521-markdown-in-and-out.md) — ADR 0494 C3, the first format: Export downloads Markdown; the shelf imports Markdown files or a folder as Chapters (a Book for several), `[[links]]` kept for the link review.
