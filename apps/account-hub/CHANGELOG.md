@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.3.0](https://github.com/ramsesoriginal/lorenzo/compare/account-hub-v1.2.0...account-hub-v1.3.0) (2026-11-20)
+
+
+### Features
+
+* **api:** updates track game systems and templates (ADR 0467) ([93f1bb7](https://github.com/ramsesoriginal/lorenzo/commit/93f1bb789e052142a796516ef2d79e76ba3340e8))
+
+
+### Bug Fixes
+
+* **account-hub:** the copy wizard and the updates page know a template clash and the two new row kinds ([fb2c356](https://github.com/ramsesoriginal/lorenzo/commit/fb2c35698e55b348efd70b76527c0d2f2e6b1ace))
+* **api:** the tenant answer always says controllers_award_features ([8096943](https://github.com/ramsesoriginal/lorenzo/commit/809694308b27c53ed2dc45ef8815a0791684a72c))
+
 ## [1.2.0](https://github.com/ramsesoriginal/lorenzo/compare/account-hub-v1.1.0...account-hub-v1.2.0) (2026-10-29)
 
 

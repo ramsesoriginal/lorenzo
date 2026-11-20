@@ -1,5 +1,30 @@
 # Changelog
 
+## [0.2.0](https://github.com/ramsesoriginal/lorenzo/compare/lorenzo-map-v0.1.0...lorenzo-map-v0.2.0) (2026-11-20)
+
+
+### Features
+
+* **maps,map-engine:** cells are written as merged outlines, and a drawing may be larger ([d8c8774](https://github.com/ramsesoriginal/lorenzo/commit/d8c877491dab58dccd20aa9851814b230f2af89c))
+* **maps,map-renderer:** the Height brush raises and lowers the land of an entry's height lines ([c95715e](https://github.com/ramsesoriginal/lorenzo/commit/c95715e38abc20dfa1443366b677c660c602dad6))
+* **maps:** a height line of a fill ends at the edge of its region ([9d893ec](https://github.com/ramsesoriginal/lorenzo/commit/9d893ecf517129918f75324e43b1415d570cfc4c))
+* **maps:** the Cave system generator, previewed, compared and applied as one step ([066599a](https://github.com/ramsesoriginal/lorenzo/commit/066599a1da6204b4d0a7e840693594c1368d5e98))
+* **maps:** the Fill by marching squares generator, with height lines that need their heights ([23ab5f6](https://github.com/ramsesoriginal/lorenzo/commit/23ab5f6f88eb64a8c44731f98226a79da46f3715))
+* **maps:** the Height brush draws its lines as smooth curves (ADR 0491) ([a2531e2](https://github.com/ramsesoriginal/lorenzo/commit/a2531e207d793e304503eb6a1619d5a89ce06ca5))
+* **maps:** the tones of a fill's tiles are spread over the whole range ([3c47df1](https://github.com/ramsesoriginal/lorenzo/commit/3c47df1a69c12a1d516882ffd13c3a763950de92))
+
+
+### Bug Fixes
+
+* **map-engine,maps:** a number is read as its nearest six decimals in its own scale ([4f9f113](https://github.com/ramsesoriginal/lorenzo/commit/4f9f113f41773c5ea37e25f60e044c79e82febaf))
+* **map-engine,maps:** a number is read as its nearest six decimals in its own scale ([c999469](https://github.com/ramsesoriginal/lorenzo/commit/c99946948d328af2fd5d9de32373ad2abd61d03a)), closes [#1255](https://github.com/ramsesoriginal/lorenzo/issues/1255)
+* **maps:** caves on a very small or a very large sheet are ones the API takes ([1bbee85](https://github.com/ramsesoriginal/lorenzo/commit/1bbee8537717c5f22676b942fa194d54ffb987fb))
+
+
+### Documentation
+
+* **maps,map-renderer,map-engine:** point to ADR 0479, the wave function collapse generator's new number ([484460d](https://github.com/ramsesoriginal/lorenzo/commit/484460d6ea271be49aa607f2bce5f65a8e40ff84))
+
 ## 0.1.0 (2026-10-29)
 
 

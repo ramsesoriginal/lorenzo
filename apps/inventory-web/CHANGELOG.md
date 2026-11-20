@@ -1,5 +1,16 @@
 # Changelog
 
+## [2.0.0](https://github.com/ramsesoriginal/lorenzo/compare/inventory-web-v1.2.0...inventory-web-v2.0.0) (2026-11-20)
+
+
+### ⚠ BREAKING CHANGES
+
+* **cli:** the MPMB, inventory and calendar commands have new names.
+
+### Features
+
+* **cli:** the importers move under `lorenzo import` and `export` (RFC 0057 C3) ([1bad0f1](https://github.com/ramsesoriginal/lorenzo/commit/1bad0f1e3c919ddd7a0ed7934cf3417e4c1a167b))
+
 ## [1.2.0](https://github.com/ramsesoriginal/lorenzo/compare/inventory-web-v1.1.0...inventory-web-v1.2.0) (2026-10-29)
 
 

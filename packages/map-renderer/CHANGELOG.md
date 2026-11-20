@@ -1,5 +1,22 @@
 # Changelog
 
+## [1.1.0](https://github.com/ramsesoriginal/lorenzo/compare/map-renderer-v1.0.0...map-renderer-v1.1.0) (2026-11-20)
+
+
+### Features
+
+* **maps,map-renderer:** Fill by wave function collapse, learned from the cells drawn on the Map ([e490180](https://github.com/ramsesoriginal/lorenzo/commit/e490180421363d079e1c30aa2ee7862d4a9921af))
+* **maps,map-renderer:** the Height brush raises and lowers the land of an entry's height lines ([c95715e](https://github.com/ramsesoriginal/lorenzo/commit/c95715e38abc20dfa1443366b677c660c602dad6))
+* **maps,map-renderer:** the Height brush raises and lowers the land of an entry's height lines ([fbe79c8](https://github.com/ramsesoriginal/lorenzo/commit/fbe79c86b14d5755f42dfec70b7b83f36ac85784))
+* **maps,map-renderer:** the Height line tool, and a line says the value it carries ([99c8e9d](https://github.com/ramsesoriginal/lorenzo/commit/99c8e9d57463b55f816f30adcc3a805672d17be9))
+* **maps,map-renderer:** what the generators share: the validator mirrored, a seed, a region and a filled overlay ([56b8ea2](https://github.com/ramsesoriginal/lorenzo/commit/56b8ea2ebacc82a2dc78dfc304bad7530c6d6843))
+* **maps:** the Cave system generator, previewed, compared and applied as one step ([066599a](https://github.com/ramsesoriginal/lorenzo/commit/066599a1da6204b4d0a7e840693594c1368d5e98))
+
+
+### Bug Fixes
+
+* **map-renderer:** a line's value is written above the marks, outside a mark's button ([4fe833c](https://github.com/ramsesoriginal/lorenzo/commit/4fe833c36af16e50388027b1be8894e338ad4ec3))
+
 ## 1.0.0 (2026-10-29)
 
 
