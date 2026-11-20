@@ -81,7 +81,7 @@ test('a number changes in the datasheet in Play, as on the sheet', async ({ worl
   const cell = datasheet(page).locator('.ds-cell[data-stat="hit_points"]');
   await cell.getByRole('button', { name: 'Lower Hit points by 1' }).click();
   await expect(cell.locator('.stat-value')).toContainText('8');
-  await page.getByRole('button', { name: 'Undo' }).click();
+  await page.locator('[data-shell-toasts]').getByRole('button', { name: 'Undo' }).click();
   await expect(cell.locator('.stat-value')).toContainText('9');
 });
 

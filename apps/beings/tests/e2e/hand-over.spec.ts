@@ -13,7 +13,9 @@ test('a GM creates a being, which starts as an NPC, and hands it over to a playe
   await expect(page.getByRole('heading', { name: 'Thorn', level: 1 })).toBeVisible();
   await expect(page.locator('[data-page] [data-kind]')).toHaveText('NPC');
 
-  const handOver = page.locator('[data-hand-over]');
+  // Hand over is a dialog, opened from the rail.
+  await page.getByRole('button', { name: 'Hand over…' }).click();
+  const handOver = page.getByRole('dialog', { name: 'Hand over to a player' });
   await handOver.getByLabel('Campaign').selectOption({ label: 'The Sunken Crown' });
   const pia = handOver.locator('li', { hasText: 'Pia' });
   await expect(pia).toBeVisible();

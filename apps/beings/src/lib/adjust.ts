@@ -32,25 +32,52 @@ export function parseAmount(text: string): number | null {
 }
 
 /** A change that can be taken back: what to tell the person, and how to undo it. */
-export type Change = { label: string; undo: () => Promise<void> };
+export type UndoStep = { label: string; undo: () => Promise<void> };
 
 /** The last changes of a session, newest last; the oldest is forgotten past the limit. */
 export class UndoStack {
-  private changes: Change[] = [];
+  private changes: UndoStep[] = [];
 
   constructor(private readonly limit = 30) {}
 
-  push(change: Change): void {
+  push(change: UndoStep): void {
     this.changes.push(change);
 
     if (this.changes.length > this.limit) this.changes.shift();
   }
 
-  pop(): Change | undefined {
+  pop(): UndoStep | undefined {
     return this.changes.pop();
+  }
+
+  clear(): void {
+    this.changes = [];
   }
 
   get size(): number {
     return this.changes.length;
   }
+}
+
+/**
+ * What someone typed into "Change by" (BN3): "+3" or "-2" change the number by that much, and a
+ * bare "12" sets it to that. Null when it is not a number.
+ */
+export type Typed = { kind: 'delta' | 'set'; value: number } | null;
+
+export function parseChange(text: string): Typed {
+  const typed = text.trim().replace(',', '.').replace('−', '-');
+
+  if (!/^[+-]?\d+(\.\d+)?$/.test(typed)) return null;
+
+  const value = Number(typed);
+
+  return /^[+-]/.test(typed) ? { kind: 'delta', value } : { kind: 'set', value };
+}
+
+/** The value a change leads to from `old`, never below `floor` when there is one. */
+export function applyChange(old: number, change: NonNullable<Typed>, floor: number | null): number {
+  const next = change.kind === 'delta' ? old + change.value : change.value;
+
+  return floor === null ? next : Math.max(floor, next);
 }

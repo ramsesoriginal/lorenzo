@@ -89,6 +89,14 @@ import TagEditor from '../TagEditor/TagEditor.astro';
       <span class="display sticky-name" data-sticky-name></span>
       <ModeSwitch name="mode" />
       <span class="mode-line" data-mode-line></span>
+      <span class="band-actions" data-only-play hidden>
+        <button type="button" class="btn btn-secondary" data-band-undo disabled>
+          Undo
+        </button>
+        <button type="button" class="btn btn-secondary" aria-haspopup="menu" data-band-history>
+          History
+        </button>
+      </span>
       <span class="grow"></span>
       <nav class="sticky-nav" aria-label="Sections">
         <a href="#about">About</a>
@@ -176,10 +184,4 @@ import TagEditor from '../TagEditor/TagEditor.astro';
   </div>
 
   <div class="visually-hidden" data-live role="status" aria-live="polite"></div>
-  <div class="undo-bar" data-undo-bar hidden>
-    <span data-undo-text></span>
-    <button type="button" class="btn" data-undo>
-      Undo
-    </button>
-  </div>
 </div>

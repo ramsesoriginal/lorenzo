@@ -6,6 +6,14 @@ import { getUserInfo, isAuthConfigured, isAuthenticated, login, logout } from '.
 import { API_BASE_URL } from './config';
 import { currentTenant, getLastTenant, rememberTenant } from './lastTenant';
 
+type Shell = NonNullable<ReturnType<typeof bindShell>>;
+let started: Shell | null = null;
+
+/** The shell this page started, for a page that says something in its toasts; null before it starts. */
+export function currentShell(): Shell | null {
+  return started;
+}
+
 /**
  * The web shell around every page of Beings (ADR 0410): its header with the library switcher and
  * the account, the palette, the apps sheet, the status bar. The pages keep saying their own
@@ -22,6 +30,7 @@ export async function startShell(): Promise<void> {
     },
   });
   if (!shell) return;
+  started = shell;
   shell.palette();
   // The links that belong to a library name the one the address names.
   const named = currentTenant();

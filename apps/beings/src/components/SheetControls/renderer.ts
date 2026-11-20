@@ -108,6 +108,11 @@ export function renderSheetControls(options: SheetControlsOptions): RenderedShee
       part.hidden = !(editing && (part.dataset.onlyIn ?? '') === 'edit');
     }
 
+    // Undo and History are for the table.
+    for (const part of root.querySelectorAll<HTMLElement>('[data-only-play]')) {
+      part.hidden = mode !== 'play';
+    }
+
     for (const part of root.querySelectorAll<HTMLElement>('[data-details]')) {
       part.hidden = !(editing && detailsOpen);
     }

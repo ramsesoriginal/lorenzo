@@ -1026,32 +1026,6 @@ textarea.text-input {
   }
 }
 
-.undo-bar {
-  position: fixed;
-  z-index: 21;
-  inset-inline: var(--space-3);
-  inset-block-end: calc(var(--space-3) + env(safe-area-inset-bottom, 0px));
-  margin-inline: auto;
-  width: fit-content;
-  max-width: 100%;
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-1) var(--space-1) var(--space-1) var(--space-3);
-  background: var(--text-primary);
-  color: var(--text-inverse);
-  border-radius: var(--radius-control);
-  font-size: 14px;
-}
-.undo-bar[hidden] {
-  display: none;
-}
-.undo-bar .btn {
-  background: var(--surface-default);
-  color: var(--text-primary);
-  border-color: transparent;
-}
-
 /* ---- The mode switch stays in reach ---- */
 .sticky-bar {
   gap: var(--space-2) var(--space-3);
@@ -1215,4 +1189,12 @@ textarea.text-input {
     flex-basis: auto;
     order: 0;
   }
+}
+
+.band-actions {
+  display: inline-flex;
+  gap: var(--space-2);
+}
+.band-actions[hidden] {
+  display: none;
 }

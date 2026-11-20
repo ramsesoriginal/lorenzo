@@ -116,5 +116,5 @@ test('a player edits their own being, and is not offered a hand over', async ({ 
   await form.getByRole('button', { name: 'Save' }).click();
   await expect(page.locator('[data-being-view]')).toContainText('Quiet.');
   // Handing over is for a campaign's GM: a player is not offered it.
-  await expect(page.locator('[data-hand-over]')).toBeHidden();
+  await expect(page.getByRole('button', { name: 'Hand over…' })).toBeHidden();
 });
