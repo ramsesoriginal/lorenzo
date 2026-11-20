@@ -3,6 +3,9 @@ import { parse, render } from '@lorenzo/lorenzoscript';
 import { client, unwrap } from './api';
 import { BRANDING_CSS_URL } from './config';
 import { contentsNavigation } from './contents';
+import { toDocx } from './formats/docx-export';
+import { exportParts } from './formats/export-parts';
+import { fileStem, toMarkdown } from './formats/markdown';
 
 const node = <K extends keyof HTMLElementTagNameMap>(tag: K, text = '') => {
   const el = document.createElement(tag);
@@ -269,12 +272,38 @@ export function exportControls(tenant: string, id: string, review = false) {
     link.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   });
+  const markdown = action('Download Markdown', async () => {
+    if (!snapshot) return;
+    const name = snapshot.entries.find((entry) => entry.id === snapshot?.root_id)?.name ?? '';
+    const url = URL.createObjectURL(
+      new Blob([toMarkdown(exportParts(snapshot))], { type: 'text/markdown;charset=utf-8' }),
+    );
+    const link = node('a');
+    link.href = url;
+    link.download = `${fileStem(name)}.md`;
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  });
+  const word = action('Download Word', async () => {
+    if (!snapshot) return;
+    const name = snapshot.entries.find((entry) => entry.id === snapshot?.root_id)?.name ?? '';
+    const url = URL.createObjectURL(
+      new Blob([toDocx(exportParts(snapshot)).slice().buffer as ArrayBuffer], {
+        type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      }),
+    );
+    const link = node('a');
+    link.href = url;
+    link.download = `${fileStem(name)}.docx`;
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  });
   const print = action('Print / Save as PDF', async () => {
     if (!snapshot) return;
     const saved = await preview(tenant, id, review, snapshot.version);
     if (details.isConnected) await printExport(saved, () => details.isConnected);
   });
-  source.disabled = print.disabled = true;
+  source.disabled = markdown.disabled = word.disabled = print.disabled = true;
   details.append(
     actions,
     node(

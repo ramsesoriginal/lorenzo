@@ -29,7 +29,8 @@
     "@lorenzo/lorenzoscript-editor": "workspace:*",
     "@lorenzo/lorenzoscript-semilive-editor": "workspace:*",
     "@lorenzo/repo-ui": "workspace:*",
-    "astro": "^7.4.12"
+    "astro": "^7.4.12",
+    "fflate": "^0.8.3"
   },
   "devDependencies": {
     "@astrojs/check": "^0.9.12",
