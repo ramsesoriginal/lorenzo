@@ -76,10 +76,7 @@ test('a number changes in the datasheet in Play, as on the sheet', async ({ worl
   const page = await as(world.pia);
   await page.goto(url(world, being));
   await layout(page, 'Datasheet');
-  await page
-    .locator('[data-sheet-head] [data-mode-switch]')
-    .getByText('Play', { exact: true })
-    .click();
+  await page.locator('[data-band] [data-mode-switch]').getByText('Play', { exact: true }).click();
 
   const cell = datasheet(page).locator('.ds-cell[data-stat="hit_points"]');
   await cell.getByRole('button', { name: 'Lower Hit points by 1' }).click();

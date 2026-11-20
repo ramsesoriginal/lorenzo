@@ -69,9 +69,7 @@ test('the list links to a being’s page', async ({ world, as }) => {
   await page.goto(`/beings/?tenant=${world.tenantId}`);
   await page.getByRole('link', { name: 'Brisk' }).click();
   await expect(page.getByRole('heading', { name: 'Brisk', level: 1 })).toBeVisible();
-  // A player of another character is not offered Edit, nor a note to add.
-  await expect(
-    page.locator('[data-sheet-head] [data-mode-switch] input[value="edit"]'),
-  ).toBeDisabled();
+  // A player of another character is not offered editing, nor a note to add.
+  await expect(page.getByRole('button', { name: 'Edit details' })).toBeHidden();
   await expect(page.getByRole('button', { name: 'Add a note' })).toBeHidden();
 });

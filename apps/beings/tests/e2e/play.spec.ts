@@ -134,9 +134,7 @@ test('a calculated number says so and shows how it came to be', async ({ world, 
   await expect(tile.locator('.stat-value')).toContainText('15');
   // The page redraws its numbers once it knows who may write; an explanation opened before that
   // would be closed with it.
-  await expect(
-    page.locator('[data-sheet-head] [data-mode-switch] input[value="edit"]'),
-  ).toBeEnabled();
+  await expect(page.getByRole('button', { name: 'Edit details' })).toBeVisible();
   await tile.getByText('Calculated').click();
   const panel = tile.locator('.why-panel');
   await expect(panel).toContainText('Dexterity × 1 + 1');

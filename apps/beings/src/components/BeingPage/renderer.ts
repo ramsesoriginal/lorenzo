@@ -137,8 +137,8 @@ export function renderBeingPage(options: BeingPageOptions): RenderedBeingPage {
       }
     },
     onMode: (mode) => {
-      // The description's way into its form is for building the being, not for reading it.
-      description.allow(canEdit && mode === 'edit');
+      // The description's way into its form is for Read, not for the table.
+      description.allow(canEdit && mode === 'read');
       if (shown) redrawStats(shown);
     },
   });
@@ -252,10 +252,7 @@ export function renderBeingPage(options: BeingPageOptions): RenderedBeingPage {
       });
 
       void notes.load({ canWrite: canEdit, runsTheTable });
-      controls.allowEdit(
-        canEdit,
-        'Only the people who run this table, or play this being, can edit it.',
-      );
+      controls.allowEdit(canEdit, tenantId, entityId);
       // Who may write is known now: the numbers and tags can show their controls.
       redrawStats(current());
 

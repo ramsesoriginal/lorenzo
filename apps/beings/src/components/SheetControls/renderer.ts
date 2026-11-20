@@ -1,13 +1,16 @@
-// The frame of a being's sheet (RFC 0043): the mode, the order of the sections, the sticky bar that
-// keeps the name, a few numbers and the mode switch in view once the header has scrolled away, and
-// the one small live region that says what changed. It draws no content itself.
+// The frame of a being's sheet (RFC 0043, BN2, BN7): the mode, the order of the sections, the band
+// that keeps the mode switch, what the mode is for and the pinned numbers in view (it shrinks and
+// shows the name once the header has scrolled away), and the one small live region that says what
+// changed. It draws no content itself.
 
 import {
-  effectiveMode,
   isLayout,
   isMode,
   type Layout,
+  MODE_LINES,
   type Mode,
+  rememberMode,
+  savedMode,
   sectionOrder,
 } from '../../lib/sheetMode';
 import { requiredIn } from '../../lib/template';
@@ -22,8 +25,11 @@ export type SheetControlsOptions = {
 };
 
 export type RenderedSheetControls = {
-  /** Whether the viewer may be offered Edit; a mode already chosen falls back if not. */
-  allowEdit(allowed: boolean, reason: string): void;
+  /**
+   * Whether the viewer may change this being: its edit controls show in Read. Whoever may also gets
+   * the mode they last used on this being, so a player at the table lands in Play (BN5).
+   */
+  allowEdit(allowed: boolean, tenantId: string, entityId: string): void;
   /** The mode being drawn. */
   mode(): Mode;
   /** The layout being drawn. */
@@ -48,12 +54,19 @@ export function renderSheetControls(options: SheetControlsOptions): RenderedShee
   const switches = [...root.querySelectorAll<HTMLElement>('[data-mode-switch]')];
   const layoutSwitches = [...root.querySelectorAll<HTMLElement>('[data-layout-switch]')];
 
+  const modeLine = required<HTMLElement>(root, '[data-mode-line]');
+  const detailsButton = required<HTMLButtonElement>(root, '[data-edit-details]');
+
   let wanted: Mode = 'read';
   let layout: Layout = 'sheet';
   let canEdit = false;
-  let editReason = 'You can’t edit this being.';
+  let detailsOpen = false;
+  // The person has chosen a mode on this page, so what was remembered no longer decides.
+  let chosen = false;
+  // Where the mode is remembered, once the being is known.
+  let memory: { tenantId: string; entityId: string } | null = null;
 
-  const shown = (): Mode => effectiveMode(wanted, canEdit);
+  const shown = (): Mode => wanted;
 
   // One small live region, so a screen reader hears "Play mode" and not the whole page.
   function announce(message: string) {
@@ -71,24 +84,32 @@ export function renderSheetControls(options: SheetControlsOptions): RenderedShee
     for (const group of switches) {
       for (const radio of group.querySelectorAll<HTMLInputElement>('input')) {
         radio.checked = radio.value === mode;
-        const label = radio.closest('label');
-
-        if (radio.value === 'edit') {
-          radio.disabled = !canEdit;
-          if (label) label.title = canEdit ? '' : editReason;
-        }
       }
     }
 
-    // The order of the sections follows the mode; Edit keeps Read's, so the page does not jump.
+    modeLine.textContent = MODE_LINES[mode];
+
+    // The order of the sections follows the mode.
     for (const [index, name] of sectionOrder(mode).entries()) {
       const section = main.querySelector<HTMLElement>(`[data-section="${name}"]`);
 
       if (section) section.style.order = String(index);
     }
 
+    // What changes the being is for Read, and for whoever may change it; Play has none of it.
+    const editing = canEdit && mode === 'read';
+
+    if (!editing) detailsOpen = false;
+    detailsButton.hidden = !editing;
+    detailsButton.setAttribute('aria-expanded', String(detailsOpen));
+    detailsButton.textContent = detailsOpen ? 'Done editing details' : 'Edit details';
+
     for (const part of root.querySelectorAll<HTMLElement>('[data-only-in]')) {
-      part.hidden = !(part.dataset.onlyIn ?? '').split(' ').includes(mode);
+      part.hidden = !(editing && (part.dataset.onlyIn ?? '') === 'edit');
+    }
+
+    for (const part of root.querySelectorAll<HTMLElement>('[data-details]')) {
+      part.hidden = !(editing && detailsOpen);
     }
 
     options.onMode(mode);
@@ -118,6 +139,8 @@ export function renderSheetControls(options: SheetControlsOptions): RenderedShee
       if (!isMode(value)) return;
 
       wanted = value;
+      chosen = true;
+      if (canEdit && memory) rememberMode(memory.tenantId, memory.entityId, value);
       apply();
       announce(`${value.charAt(0).toUpperCase()}${value.slice(1)} mode`);
     });
@@ -135,10 +158,15 @@ export function renderSheetControls(options: SheetControlsOptions): RenderedShee
     });
   }
 
-  // The bar shows while the header is out of view.
+  detailsButton.addEventListener('click', () => {
+    detailsOpen = !detailsOpen;
+    apply();
+  });
+
+  // The band stays in view; it shrinks and shows the name while the header is out of view.
   if ('IntersectionObserver' in window) {
     new IntersectionObserver(([entry]) => {
-      bar.hidden = entry?.isIntersecting ?? true;
+      bar.classList.toggle('is-compact', !(entry?.isIntersecting ?? true));
     }).observe(head);
   }
 
@@ -146,9 +174,12 @@ export function renderSheetControls(options: SheetControlsOptions): RenderedShee
   applyLayout();
 
   return {
-    allowEdit(allowed, reason) {
+    allowEdit(allowed, tenantId, entityId) {
       canEdit = allowed;
-      editReason = reason;
+      memory = { tenantId, entityId };
+      if (allowed && !chosen) wanted = savedMode(tenantId, entityId);
+      // A mode chosen before it was known who may change the being is kept for next time.
+      if (allowed && chosen) rememberMode(tenantId, entityId, wanted);
       apply();
     },
     mode: shown,
@@ -158,10 +189,14 @@ export function renderSheetControls(options: SheetControlsOptions): RenderedShee
       vitals.replaceChildren(
         ...values.map(({ label, value }) => {
           const item = document.createElement('span');
+          const name = document.createElement('span');
           const number = document.createElement('strong');
 
+          item.className = 'band-number';
+          name.className = 'caption';
+          name.textContent = label;
           number.textContent = value;
-          item.append(`${label} `, number);
+          item.append(name, ' ', number);
 
           return item;
         }),

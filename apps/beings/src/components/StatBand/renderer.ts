@@ -5,8 +5,8 @@
 //
 // What a mode does here: Read draws and nothing more. Play lets the person change what the library
 // calls adjustable, one change at a time and each one undoable: a number with a stepper and an
-// adjuster ("take away 7"), a tag with a toggle. Edit makes every value a field. Every control is a
-// convenience; the API refuses what the viewer may not do, and the page says so.
+// adjuster ("take away 7"), a tag with a toggle. In Read, a number a person may set has an Edit
+// button that turns it into a field, which saves on its own. Every control is a convenience; the API refuses what the viewer may not do, and the page says so.
 
 import { nextValue, parseAmount, UndoStack } from '../../lib/adjust';
 import { getEntityDetail } from '../../lib/entities';
@@ -121,6 +121,8 @@ export function renderStatBand(options: StatBandOptions): RenderedStatBand {
   let busy = false;
   // The name of the tile whose adjuster is open.
   let adjusting: string | null = null;
+  // The names of the numbers being edited in place, in Read.
+  const editingNames = new Set<string>();
   // The tile just changed and by how much, drawn for a moment.
   let flash: { name: string; delta: string } | null = null;
   const history = new UndoStack(30);
@@ -459,7 +461,34 @@ export function renderStatBand(options: StatBandOptions): RenderedStatBand {
     return button;
   }
 
-  const editable = (tile: Tile) => mode === 'edit' && canEdit && !tile.computed && Boolean(tile.id);
+  // A number a person may set in Read: not a calculated one, and one the library lets them name.
+  const settable = (tile: Tile) => mode === 'read' && canEdit && !tile.computed && Boolean(tile.id);
+  const editable = (tile: Tile) => settable(tile) && editingNames.has(tile.name);
+
+  /** The button that turns a number into a field and back (BN2: edit where it is). */
+  function editToggle(tile: Tile): HTMLButtonElement | null {
+    if (!settable(tile)) return null;
+
+    const open = editingNames.has(tile.name);
+    const button = el('button', 'btn btn-quiet', open ? 'Done' : 'Edit');
+
+    button.type = 'button';
+    button.dataset.editStat = '';
+    button.setAttribute('aria-label', `${open ? 'Done editing' : 'Edit'} ${tile.label}`);
+    button.setAttribute('aria-pressed', String(open));
+    button.addEventListener('click', () => {
+      if (open) editingNames.delete(tile.name);
+      else editingNames.add(tile.name);
+      redraw();
+      page
+        .querySelector<HTMLElement>(
+          `[data-stat="${quoted(tile.name)}"] ${open ? '[data-edit-stat]' : 'input, select'}`,
+        )
+        ?.focus({ preventScroll: true });
+    });
+
+    return button;
+  }
 
   // ---- tiles and rows ---------------------------------------------------------------------------
 
@@ -496,6 +525,9 @@ export function renderStatBand(options: StatBandOptions): RenderedStatBand {
 
     if (source) foot.append(source);
     if (editable(tile) && tile.own) foot.append(inheritButton(tile));
+    const toggle = editToggle(tile);
+
+    if (toggle) foot.append(toggle);
 
     if (canAdjust(tile)) {
       const stepper = el('span', 'stat-stepper');
@@ -535,6 +567,14 @@ export function renderStatBand(options: StatBandOptions): RenderedStatBand {
       if (row.own) detail.append(inheritButton(row));
     } else {
       detail.textContent = valueText(row);
+    }
+
+    const toggle = editToggle(row);
+
+    if (toggle) {
+      // The row is a <dd>: the button sits inside it, after the value, and names the stat it is for.
+      detail.dataset.stat = row.name;
+      detail.append(toggle);
     }
 
     if (!row.own || row.computed) detail.classList.add('is-derived');
@@ -679,7 +719,7 @@ export function renderStatBand(options: StatBandOptions): RenderedStatBand {
   function redraw() {
     if (!entity) return;
 
-    const editing = mode === 'edit' && canEdit;
+    const editing = mode === 'read' && canEdit;
     const focused = document.activeElement?.closest<HTMLElement>('[data-stat]')?.dataset.stat;
 
     drawn = bandOf(vocabulary, entity, { beingStatGroupId });
@@ -723,6 +763,7 @@ export function renderStatBand(options: StatBandOptions): RenderedStatBand {
       canEdit = nextCanEdit;
       layout = nextLayout;
       if (mode !== 'play') adjusting = null;
+      if (mode !== 'read') editingNames.clear();
       redraw();
 
       return drawn;

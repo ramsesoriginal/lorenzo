@@ -17,9 +17,11 @@ import StatBand from '../StatBand/StatBand.astro';
 import TagEditor from '../TagEditor/TagEditor.astro';
 ---
 
-<!-- A being's sheet (RFC 0043, docs/design/beings): an identity header, a sticky bar once it has
-     scrolled away, the sections (About, Notes, Stats, Inventory) and a rail. Read, Play and Edit say
-     what you are doing; the parts marked data-only-in show in those modes only. -->
+<!-- A being's sheet (RFC 0043, docs/design/web/beings): an identity header, the band that stays in
+     view (the Read and Play switch, what the mode is for, the pinned numbers, the conditions), the
+     sections (About, Notes, Stats, Inventory) and a rail. There is no Edit mode: what changes the
+     being shows in Read, for whoever may change it. data-details parts show when "Edit details" is
+     open; data-only-in="edit" parts show in Read for whoever may change the being. -->
 <div class="sheet-page" data-being-page hidden>
   <p>
     <a data-back>&larr; All beings</a>
@@ -31,7 +33,7 @@ import TagEditor from '../TagEditor/TagEditor.astro';
         <img data-picture alt="" />
       </figure>
       <div class="portrait" data-portrait role="img" aria-label="No picture yet"></div>
-      <div class="edit-picture" data-only-in="edit" hidden>
+      <div class="edit-picture" data-details hidden>
         <div class="stack-tight" role="region" aria-labelledby="being-picture-heading">
           <h2 id="being-picture-heading" class="visually-hidden">
             Picture
@@ -43,7 +45,7 @@ import TagEditor from '../TagEditor/TagEditor.astro';
 
     <div class="sheet-meta">
       <h1 class="sheet-name" data-title></h1>
-      <div data-only-in="edit" data-name-section hidden>
+      <div data-details data-name-section hidden>
         <div role="region" aria-labelledby="being-name-heading" hidden>
           <h2 id="being-name-heading" class="visually-hidden">
             Name
@@ -55,7 +57,7 @@ import TagEditor from '../TagEditor/TagEditor.astro';
         <span class="kind badge" data-kind></span>
         <code class="mono" data-link-name hidden></code>
       </div>
-      <div data-only-in="edit" hidden>
+      <div data-details hidden>
         <div role="region" aria-labelledby="being-slug-heading">
           <h2 id="being-slug-heading" class="visually-hidden">
             Link name
@@ -63,8 +65,7 @@ import TagEditor from '../TagEditor/TagEditor.astro';
           <SlugEditor />
         </div>
       </div>
-      <ul class="tag-row" aria-label="Tags" data-tag-chips hidden></ul>
-      <div data-only-in="edit" hidden>
+      <div data-details hidden>
         <div role="region" aria-labelledby="being-tags-heading">
           <h2 id="being-tags-heading" class="visually-hidden">
             Tags
@@ -75,23 +76,31 @@ import TagEditor from '../TagEditor/TagEditor.astro';
     </div>
 
     <div class="sheet-tools">
-      <ModeSwitch name="mode" />
+      <button type="button" class="btn btn-secondary" aria-expanded="false" data-edit-details hidden>
+        Edit details
+      </button>
       <LayoutSwitch />
       <span class="status-text" data-save-status role="status" hidden></span>
     </div>
   </header>
 
-  <div class="sticky-bar" data-sticky hidden>
-    <span class="display sticky-name" data-sticky-name></span>
-    <span class="sticky-vitals" data-vitals></span>
-    <span class="grow"></span>
-    <nav class="sticky-nav" aria-label="Sections">
-      <a href="#about">About</a>
-      <a href="#notes">Notes</a>
-      <a href="#stats">Stats</a>
-      <a href="#inventory">Inventory</a>
-    </nav>
-    <ModeSwitch name="mode-sticky" />
+  <div class="sticky-bar" data-sticky data-band>
+    <div class="band-top">
+      <span class="display sticky-name" data-sticky-name></span>
+      <ModeSwitch name="mode" />
+      <span class="mode-line" data-mode-line></span>
+      <span class="grow"></span>
+      <nav class="sticky-nav" aria-label="Sections">
+        <a href="#about">About</a>
+        <a href="#notes">Notes</a>
+        <a href="#stats">Stats</a>
+        <a href="#inventory">Inventory</a>
+      </nav>
+    </div>
+    <div class="band-numbers">
+      <span class="sticky-vitals" data-vitals></span>
+      <ul class="tag-row" aria-label="Tags" data-tag-chips hidden></ul>
+    </div>
   </div>
 
   <Datasheet />

@@ -1,6 +1,5 @@
 import { ok } from './support/api.ts';
 import { expect, test } from './support/fixtures.ts';
-import { enterMode } from './support/modes.ts';
 
 const url = (tenantId: string, entityId: string) => `/being/?tenant=${tenantId}&id=${entityId}`;
 
@@ -14,7 +13,6 @@ test('deletion is confirmed, settles inventory and returns to the list', async (
   await page.goto(url(world.tenantId, being.entity_id));
   const remove = page.getByRole('button', { name: 'Delete being', exact: true });
   await expect(remove).toBeHidden();
-  await enterMode(page, 'Edit');
   await expect(remove).toBeVisible();
 
   page.once('dialog', async (dialog) => {
@@ -56,7 +54,6 @@ test('deletion is confirmed, settles inventory and returns to the list', async (
 test('a player can delete their own being', async ({ world, as }) => {
   const page = await as(world.pia);
   await page.goto(url(world.tenantId, world.pia.character.entity_id));
-  await enterMode(page, 'Edit');
   page.once('dialog', (dialog) => dialog.accept());
   await page.getByRole('button', { name: 'Delete being', exact: true }).click();
   await expect(page).toHaveURL(`/beings/?tenant=${world.tenantId}`);
@@ -73,7 +70,6 @@ test('an API refusal stays on the page and makes retry possible', async ({ world
   const being = await world.npc('Staying Goblin');
   const page = await as(world.gm);
   await page.goto(url(world.tenantId, being.entity_id));
-  await enterMode(page, 'Edit');
   await page.route(`**/tenants/${world.tenantId}/beings/${being.entity_id}`, (route) =>
     route.fulfill({
       status: 412,
