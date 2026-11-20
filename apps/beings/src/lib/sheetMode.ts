@@ -17,6 +17,12 @@ export const MODE_LINES: Record<Mode, string> = {
   play: 'At the table. Numbers first; every change can be undone.',
 };
 
+/** The line on the band: for someone who may not change the being, Play says so (BN7). */
+export const modeLineFor = (mode: Mode, canEdit: boolean, gm: string): string =>
+  mode === 'play' && !canEdit
+    ? `At the table. Only its player and the ${gm} change it.`
+    : MODE_LINES[mode];
+
 const memoryKey = (tenantId: string, entityId: string) =>
   `lorenzo:beings:mode:${tenantId}:${entityId}`;
 

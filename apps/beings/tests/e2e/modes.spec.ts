@@ -1,5 +1,5 @@
 import { expect, test } from './support/fixtures.ts';
-import { enterMode } from './support/modes.ts';
+import { editDetails, enterMode, pageMenu } from './support/modes.ts';
 
 const url = (world: { tenantId: string }, id: string) =>
   `/being/?tenant=${world.tenantId}&id=${id}`;
@@ -29,7 +29,7 @@ test('Read puts the prose first and Play the numbers first, and there is no Edit
   expect(await order(page)).toEqual(['stats', 'inventory', 'notes', 'about']);
   await expect(page.locator('[data-stat-band]').getByRole('textbox')).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Edit Strength' })).toHaveCount(0);
-  await expect(page.getByRole('button', { name: 'Edit details' })).toBeHidden();
+  await expect(pageMenu(page)).toBeHidden();
 
   // In Read a number is edited where it is, and saves on its own.
   await enterMode(page, 'Read');
@@ -54,7 +54,7 @@ test('the band says what each mode is for, and the details open only on request'
 
   await expect(line).toHaveText('Reading. Edit a section where it is.');
   await expect(page.locator('[data-name-edit]')).toBeHidden();
-  await page.getByRole('button', { name: 'Edit details' }).click();
+  await editDetails(page);
   await expect(page.locator('[data-name-edit]')).toBeVisible();
   await page.getByRole('button', { name: 'Done editing details' }).click();
   await expect(page.locator('[data-name-edit]')).toBeHidden();
@@ -71,7 +71,7 @@ test('a being opens in the mode last used on it, for whoever may change it', asy
   const page = await as(world.pia);
   await page.goto(url(world, target));
   // Once the page knows who may change the being, the mode is kept for it.
-  await expect(page.getByRole('button', { name: 'Edit details' })).toBeVisible();
+  await expect(pageMenu(page)).toBeVisible();
   await enterMode(page, 'Play');
 
   await page.reload();
@@ -99,8 +99,8 @@ test('the band stays in view and shrinks to show the name once the header has sc
   const bar = page.locator('[data-band]');
   await expect(page.getByRole('heading', { name: 'Note 5' })).toBeVisible();
   await expect(bar).toBeVisible();
-  await expect(bar.locator('[data-vitals]')).toContainText('Strength');
-  await expect(bar.locator('[data-vitals]')).toContainText('17');
+  await expect(bar.locator('[data-pins]')).toContainText('Strength');
+  await expect(bar.locator('[data-pins]')).toContainText('17');
   await expect(bar.locator('[data-sticky-name]')).toBeHidden();
   await expect(bar).not.toHaveClass(/is-compact/);
 
@@ -108,7 +108,7 @@ test('the band stays in view and shrinks to show the name once the header has sc
   await expect(bar).toHaveClass(/is-compact/);
   await expect(bar).toBeVisible();
   await expect(bar.locator('[data-sticky-name]')).toHaveText('Ashfang');
-  await expect(bar.locator('[data-vitals]')).toContainText('17');
+  await expect(bar.locator('[data-pins]')).toContainText('17');
 
   await bar.getByText('Play', { exact: true }).click();
   await expect(page.locator('[data-being-page]')).toHaveAttribute('data-mode', 'play');
@@ -119,8 +119,7 @@ test('editing is offered to a GM and to the player of the being, and to nobody e
   world,
   as,
 }) => {
-  const edit = (page: import('@playwright/test').Page) =>
-    page.getByRole('button', { name: 'Edit details' });
+  const edit = pageMenu;
   const gm = await as(world.gm);
   await gm.goto(url(world, world.pia.character.entity_id));
   await expect(edit(gm)).toBeVisible();

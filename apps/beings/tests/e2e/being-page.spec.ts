@@ -17,7 +17,7 @@ test('a being’s page shows its description, stats, tags, players and inventory
   await expect(page.getByRole('heading', { name: 'Ashfang', level: 1 })).toBeVisible();
   await expect(page.locator('[data-page] [data-kind]')).toHaveText('Character');
   await expect(page.locator('[data-being-view] strong')).toHaveText('tall');
-  await expect(page.locator('[data-stat-band] .stat-label')).toHaveText('Strength');
+  await expect(page.locator('[data-stat-band] .stat-tile .stat-label')).toHaveText('Strength');
   await expect(page.locator('[data-stat-band] .stat-value')).toHaveText('17');
 
   // Who plays it: Pia, as the owner, named because Gwen GMs the campaign.
@@ -70,6 +70,6 @@ test('the list links to a being’s page', async ({ world, as }) => {
   await page.getByRole('link', { name: 'Brisk' }).click();
   await expect(page.getByRole('heading', { name: 'Brisk', level: 1 })).toBeVisible();
   // A player of another character is not offered editing, nor a note to add.
-  await expect(page.getByRole('button', { name: 'Edit details' })).toBeHidden();
+  await expect(page.getByRole('button', { name: 'More for this being' })).toBeHidden();
   await expect(page.getByRole('button', { name: 'Add a note' })).toBeHidden();
 });

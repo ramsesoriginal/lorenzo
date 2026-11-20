@@ -12,8 +12,8 @@ import { getEntityDetail } from '../../lib/entities';
 import { errorMessage } from '../../lib/errorMessage';
 import { DEFAULT_GM_WORDS, gmWordsOfBeing } from '../../lib/gmTitle';
 import { gmCampaignsIn, isTenantMember, listCampaigns, myBeingIds, viewerId } from '../../lib/me';
+import type { Person } from '../../lib/people';
 import { currentShell } from '../../lib/shell';
-import { valueText, vitalsOf } from '../../lib/statBand';
 import { backTo, stepText, whoLabel } from '../../lib/statHistory';
 import { listStatSteps } from '../../lib/statSteps';
 import { say } from '../../lib/statusLine';
@@ -60,7 +60,10 @@ export function renderBeingPage(options: BeingPageOptions): RenderedBeingPage {
   const title = required<HTMLElement>(root, '[data-title]');
   const kind = required<HTMLElement>(root, '[data-kind]');
   const slug = required<HTMLElement>(root, '[data-link-name]');
-  const copyLink = required<HTMLButtonElement>(root, '[data-copy-link]');
+  const played = required<HTMLElement>(root, '[data-played]');
+  const campaignsLine = required<HTMLElement>(root, '[data-campaigns]');
+  const campaignText = required<HTMLElement>(root, '[data-campaign-text]');
+  const more = required<HTMLButtonElement>(root, '[data-more]');
   const nameSection = required<HTMLElement>(root, '[data-name-section] > div');
   const saveStatus = required<HTMLElement>(root, '[data-save-status]');
   const appears = required<HTMLAnchorElement>(root, '[data-appears]');
@@ -73,8 +76,9 @@ export function renderBeingPage(options: BeingPageOptions): RenderedBeingPage {
     tenantId,
     onChanged: (entity) => showEntity(entity),
     announce: (message) => controls.announce(message),
-    onSteps: (count) => {
+    onSteps: (count, last) => {
       bandUndo.disabled = count === 0;
+      controls.setSteps(count, last);
     },
     say: (message, failed) => say(saveStatus, message, failed),
   });
@@ -211,18 +215,40 @@ export function renderBeingPage(options: BeingPageOptions): RenderedBeingPage {
     tenantId,
     onChanged: () => void refresh(),
   });
-  copyLink.addEventListener('click', async () => {
+  async function copyLink() {
     try {
       await navigator.clipboard.writeText(window.location.href);
-      copyLink.textContent = 'Copied!';
+      currentShell()?.toast({ kind: 'ok', title: 'Link copied' });
     } catch {
-      copyLink.textContent = "Couldn't copy";
-    } finally {
-      window.setTimeout(() => {
-        copyLink.textContent = 'Copy link';
-      }, 1500);
+      currentShell()?.toast({ kind: 'error', title: "Couldn't copy the link" });
     }
+  }
+
+  // The page's menu (BN6): the things done to the being as a whole.
+  more.addEventListener('click', () => {
+    openMenu(
+      more,
+      [
+        { label: 'Edit details', icon: 'edit', run: () => controls.toggleDetails() },
+        { label: 'Copy link', icon: 'link', run: () => void copyLink() },
+        { separator: true },
+        { label: 'Delete being…', icon: 'delete', danger: true, run: () => void deletion.run() },
+      ],
+      { label: 'More for this being', sprite: `${BRANDING_CSS_URL}/icons.svg` },
+    );
   });
+
+  /** Who plays it and in which campaign, in the line under the name and in the rail. */
+  function showPeople(people: readonly Person[]) {
+    const names = people.map((person) => person.name);
+    const campaigns = [
+      ...new Set(people.flatMap((person) => (person.campaign ? [person.campaign] : []))),
+    ];
+
+    played.textContent = names.length > 0 ? `· played by ${names.join(', ')}` : '· not played';
+    campaignsLine.textContent = campaigns.length > 0 ? `· ${campaigns.join(', ')}` : '';
+    campaignText.textContent = campaigns.length > 0 ? campaigns.join(', ') : 'None';
+  }
 
   function showEntity(entity: EntityDetail) {
     shown = entity;
@@ -248,10 +274,6 @@ export function renderBeingPage(options: BeingPageOptions): RenderedBeingPage {
     const drawn = statBand.show(entity, controls.mode(), canEdit, controls.layout());
 
     datasheet.setHasStats(drawn.length > 0);
-
-    controls.setVitals(
-      vitalsOf(drawn).map((tile) => ({ label: tile.label, value: valueText(tile) })),
-    );
   }
 
   return {
@@ -271,7 +293,7 @@ export function renderBeingPage(options: BeingPageOptions): RenderedBeingPage {
       // Asked for the datasheet before the being had arrived (a link, or a quick hand).
       if (controls.layout() === 'datasheet') void datasheet.load(entityId);
 
-      void people.load(tenantId, character);
+      void people.load(tenantId, character).then(showPeople);
       void inventory.load(tenantId, tenantAddress, entityId);
       void events.load(tenantId, tenantAddress, entityId);
       void relationships.load(tenantId, entityId, entity.name);
@@ -302,6 +324,9 @@ export function renderBeingPage(options: BeingPageOptions): RenderedBeingPage {
       });
 
       void notes.load({ canWrite: canEdit, runsTheTable });
+      const words = inRepository ? DEFAULT_GM_WORDS : gmWordsOfBeing(character, campaigns);
+
+      controls.setGmWord(words.title);
       controls.allowEdit(canEdit, tenantId, entityId);
       // Who may write is known now: the numbers and tags can show their controls.
       redrawStats(current());
@@ -326,7 +351,7 @@ export function renderBeingPage(options: BeingPageOptions): RenderedBeingPage {
             void getCharacter(tenantId, entityId).then((updated) => {
               character = updated;
               kind.textContent = updated ? kindLabel(updated) : 'NPC';
-              void people.load(tenantId, updated);
+              void people.load(tenantId, updated).then(showPeople);
             });
           },
         });

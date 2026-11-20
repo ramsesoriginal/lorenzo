@@ -38,7 +38,7 @@ test('in Play a number steps, takes away an amount and stops at its floor, each 
   await enterMode(page, 'Play');
 
   const tile = page.locator('[data-stat="hit_points"]');
-  await expect(tile).toContainText('of 9');
+  await expect(tile).toContainText('/ 9');
   await expect(tile.locator('.stat-value')).toContainText('9');
 
   await tile.getByRole('button', { name: 'Lower Hit points by 1' }).click();
@@ -91,7 +91,8 @@ test('the numbers a library pins stay in the sticky bar', async ({ world, as }) 
   await expect(page.getByRole('heading', { name: 'Note 5' })).toBeVisible();
   await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
 
-  await expect(page.locator('[data-vitals]')).toHaveText(/Hit points\s*9 hp/);
+  await expect(page.locator('[data-pins]')).toContainText('Hit points');
+  await expect(page.locator('[data-pins]')).toContainText('9');
 });
 
 test('someone who may not edit a being gets no steppers in Play', async ({ world, as }) => {
@@ -111,10 +112,10 @@ test('an adjustable tag is a toggle in Play, and can be taken back', async ({ wo
   await page.goto(url(world, world.pia.character.entity_id));
   await enterMode(page, 'Play');
 
-  const prone = page.locator('[data-tag-chips]').getByRole('button', { name: 'Prone' });
+  const prone = page.locator('[data-conditions]').getByRole('button', { name: 'Prone' });
   await expect(prone).toHaveAttribute('aria-pressed', 'false');
   // A tag the library does not call adjustable is not offered.
-  await expect(page.locator('[data-tag-chips]').getByText('Undead')).toHaveCount(0);
+  await expect(page.locator('[data-conditions]').getByText('Undead')).toHaveCount(0);
 
   await prone.click();
   await expect(prone).toHaveAttribute('aria-pressed', 'true');
@@ -137,8 +138,8 @@ test('a calculated number says so and shows how it came to be', async ({ world, 
   await expect(tile.locator('.stat-value')).toContainText('15');
   // The page redraws its numbers once it knows who may write; an explanation opened before that
   // would be closed with it.
-  await expect(page.getByRole('button', { name: 'Edit details' })).toBeVisible();
-  await tile.getByText('Calculated').click();
+  await expect(page.getByRole('button', { name: 'More for this being' })).toBeVisible();
+  await tile.getByRole('button', { name: /Why is Armour class/ }).click();
   const panel = tile.locator('.why-panel');
   await expect(panel).toContainText('Dexterity × 1 + 1');
   await expect(panel).toContainText('Dexterity');

@@ -3,12 +3,13 @@
 // shows the name once the header has scrolled away), and the one small live region that says what
 // changed. It draws no content itself.
 
+import { DEFAULT_GM_WORDS } from '../../lib/gmTitle';
 import {
   isLayout,
   isMode,
   type Layout,
-  MODE_LINES,
   type Mode,
+  modeLineFor,
   rememberMode,
   savedMode,
   sectionOrder,
@@ -36,9 +37,13 @@ export type RenderedSheetControls = {
   layout(): Layout;
   /** Says something to screen readers, through the one live region. */
   announce(message: string): void;
-  /** Shows these as the numbers kept in the sticky bar. */
-  setVitals(vitals: { label: string; value: string }[]): void;
   setName(name: string): void;
+  /** What the being's campaign calls its game master, for the line of the band (ADR 0294). */
+  setGmWord(title: string): void;
+  /** Opens or closes the being's details (picture, name, link name, tags); Play goes to Read first. */
+  toggleDetails(): void;
+  /** What the band's Undo says it would take back, and how many steps there are (null: none). */
+  setSteps(count: number, last: string | null): void;
 };
 
 const required = requiredIn('Sheet controls');
@@ -48,19 +53,22 @@ export function renderSheetControls(options: SheetControlsOptions): RenderedShee
   const head = required<HTMLElement>(root, '[data-sheet-head]');
   const bar = required<HTMLElement>(root, '[data-sticky]');
   const barName = required<HTMLElement>(bar, '[data-sticky-name]');
-  const vitals = required<HTMLElement>(bar, '[data-vitals]');
   const main = required<HTMLElement>(root, '[data-sheet-main]');
   const live = required<HTMLElement>(root, '[data-live]');
   const switches = [...root.querySelectorAll<HTMLElement>('[data-mode-switch]')];
   const layoutSwitches = [...root.querySelectorAll<HTMLElement>('[data-layout-switch]')];
 
   const modeLine = required<HTMLElement>(root, '[data-mode-line]');
-  const detailsButton = required<HTMLButtonElement>(root, '[data-edit-details]');
+  const more = required<HTMLButtonElement>(root, '[data-more]');
+  const closeDetails = required<HTMLButtonElement>(root, '[data-close-details]');
+  const undoLast = required<HTMLElement>(root, '[data-band-last]');
+  const historyCount = required<HTMLElement>(root, '[data-band-count]');
 
   let wanted: Mode = 'read';
   let layout: Layout = 'sheet';
   let canEdit = false;
   let detailsOpen = false;
+  let gmWord = DEFAULT_GM_WORDS.title;
   // The person has chosen a mode on this page, so what was remembered no longer decides.
   let chosen = false;
   // Where the mode is remembered, once the being is known.
@@ -87,7 +95,7 @@ export function renderSheetControls(options: SheetControlsOptions): RenderedShee
       }
     }
 
-    modeLine.textContent = MODE_LINES[mode];
+    modeLine.textContent = modeLineFor(mode, canEdit, gmWord);
 
     // The order of the sections follows the mode.
     for (const [index, name] of sectionOrder(mode).entries()) {
@@ -100,17 +108,16 @@ export function renderSheetControls(options: SheetControlsOptions): RenderedShee
     const editing = canEdit && mode === 'read';
 
     if (!editing) detailsOpen = false;
-    detailsButton.hidden = !editing;
-    detailsButton.setAttribute('aria-expanded', String(detailsOpen));
-    detailsButton.textContent = detailsOpen ? 'Done editing details' : 'Edit details';
+    more.hidden = !canEdit;
+    more.setAttribute('aria-expanded', 'false');
 
     for (const part of root.querySelectorAll<HTMLElement>('[data-only-in]')) {
       part.hidden = !(editing && (part.dataset.onlyIn ?? '') === 'edit');
     }
 
-    // Undo and History are for the table.
+    // Undo and History are for the table, and for whoever may change the being there.
     for (const part of root.querySelectorAll<HTMLElement>('[data-only-play]')) {
-      part.hidden = mode !== 'play';
+      part.hidden = !(mode === 'play' && canEdit);
     }
 
     for (const part of root.querySelectorAll<HTMLElement>('[data-details]')) {
@@ -163,8 +170,8 @@ export function renderSheetControls(options: SheetControlsOptions): RenderedShee
     });
   }
 
-  detailsButton.addEventListener('click', () => {
-    detailsOpen = !detailsOpen;
+  closeDetails.addEventListener('click', () => {
+    detailsOpen = false;
     apply();
   });
 
@@ -190,22 +197,24 @@ export function renderSheetControls(options: SheetControlsOptions): RenderedShee
     mode: shown,
     layout: () => layout,
     announce,
-    setVitals(values) {
-      vitals.replaceChildren(
-        ...values.map(({ label, value }) => {
-          const item = document.createElement('span');
-          const name = document.createElement('span');
-          const number = document.createElement('strong');
-
-          item.className = 'band-number';
-          name.className = 'caption';
-          name.textContent = label;
-          number.textContent = value;
-          item.append(name, ' ', number);
-
-          return item;
-        }),
-      );
+    setGmWord(title) {
+      gmWord = title;
+      apply();
+    },
+    toggleDetails() {
+      if (!canEdit) return;
+      // Details are edited in Read, where the being's other edit controls are.
+      if (wanted === 'play') wanted = 'read';
+      detailsOpen = !detailsOpen;
+      apply();
+      if (detailsOpen) {
+        root.querySelector<HTMLElement>('[data-details]')?.scrollIntoView({ block: 'nearest' });
+      }
+    },
+    setSteps(count, last) {
+      undoLast.textContent = last ?? '';
+      historyCount.textContent = String(count);
+      historyCount.hidden = count === 0;
     },
     setName(name) {
       barName.textContent = name;

@@ -1,49 +1,102 @@
 ---
+import { BRANDING_CSS_URL } from '../../lib/config';
 import { LIST_VIEWS } from '../../lib/listViews';
+
+const icons: Record<string, string> = { rows: 'list', cards: 'layout-inspect', side: 'compare' };
 ---
 
 <section class="stack" data-being-list hidden>
-  <div class="stack-tight">
-    <label class="field">
-      <span class="field-label">Search</span>
+  <div class="head-row">
+    <div class="grow">
+      <h1 class="display" data-title>
+        All beings
+      </h1>
+      <p class="status-text" data-subtitle></p>
+    </div>
+    <div class="row">
+      <button type="button" class="btn btn-secondary" data-new-own hidden>
+        New character of mine
+      </button>
+      <button type="button" class="btn btn-primary row-tight" data-new hidden>
+        <svg class="icon" aria-hidden="true">
+          <use href={`${BRANDING_CSS_URL}/icons.svg#icon-add`}></use>
+        </svg>
+        New being
+      </button>
+    </div>
+  </div>
+
+  <div class="being-tools">
+    <label class="search-field">
+      <svg class="icon" aria-hidden="true">
+        <use href={`${BRANDING_CSS_URL}/icons.svg#icon-search`}></use>
+      </svg>
+      <span class="visually-hidden">Search</span>
       <input
         type="search"
         class="text-input"
-        placeholder="Search beings by name…"
+        placeholder="Search beings"
         autocomplete="off"
         data-search
       />
     </label>
-    <div class="row">
-      <label class="field">
-        <span class="field-label">Campaign</span>
-        <select class="text-input" data-campaign></select>
+    <div class="segmented" role="radiogroup" aria-label="Kind" data-kind-switch>
+      <label>
+        <input type="radio" name="list-kind" value="all" checked />
+        All kinds
       </label>
-      <label class="field">
-        <span class="field-label">Kind</span>
-        <select class="text-input" data-kind>
-          <option value="all">Characters and NPCs</option>
-          <option value="character">Characters</option>
-          <option value="npc">NPCs</option>
-        </select>
+      <label>
+        <input type="radio" name="list-kind" value="character" />
+        Characters
       </label>
-      <label class="field-row">
-        <input type="checkbox" data-mine />
-        <span>Mine</span>
+      <label>
+        <input type="radio" name="list-kind" value="npc" />
+        NPCs
       </label>
-      <div class="segmented" role="radiogroup" aria-label="View" data-view-switch>
-        {LIST_VIEWS.map(({ view, label }) => (
-          <label>
-            <input type="radio" name="list-view" value={view} checked={view === 'rows'} />
-            {label}
-          </label>
-        ))}
-      </div>
+    </div>
+    <div class="segmented" role="radiogroup" aria-label="Show" data-scope-switch>
+      <label>
+        <input type="radio" name="list-scope" value="all" checked />
+        All beings
+      </label>
+      <label>
+        <input type="radio" name="list-scope" value="mine" />
+        Mine
+      </label>
+    </div>
+    <label class="field-inline" data-campaign-field>
+      <span class="visually-hidden">Campaign</span>
+      <select class="text-input" data-campaign aria-label="Campaign"></select>
+    </label>
+    <span class="grow"></span>
+    <div class="segmented" role="radiogroup" aria-label="Mode" data-list-mode hidden>
+      <label>
+        <input type="radio" name="list-mode" value="read" checked />
+        Read
+      </label>
+      <label>
+        <input type="radio" name="list-mode" value="play" />
+        Play
+      </label>
+    </div>
+    <button type="button" class="btn btn-secondary" data-list-undo hidden disabled>
+      Undo
+    </button>
+    <div class="segmented" role="radiogroup" aria-label="View" data-view-switch>
+      {LIST_VIEWS.map(({ view, label }) => (
+        <label>
+          <input type="radio" name="list-view" value={view} checked={view === 'rows'} />
+          <svg class="icon" aria-hidden="true">
+            <use href={`${BRANDING_CSS_URL}/icons.svg#icon-${icons[view]}`}></use>
+          </svg>
+          {label}
+        </label>
+      ))}
     </div>
   </div>
 
   <p class="status-text" role="status" data-status hidden></p>
-  <ul class="list being-list" data-list hidden></ul>
+  <div class="being-list" data-list hidden></div>
   <div
     class="side-by-side"
     role="region"
@@ -52,6 +105,20 @@ import { LIST_VIEWS } from '../../lib/listViews';
     data-side
     hidden
   ></div>
+  <div class="empty-state stack-tight" data-empty hidden>
+    <p>
+      <strong data-empty-title></strong>
+    </p>
+    <p class="status-text" data-empty-text></p>
+    <div class="row">
+      <button type="button" class="btn btn-secondary" data-clear hidden>
+        Clear the search
+      </button>
+      <button type="button" class="btn btn-primary" data-empty-new hidden>
+        New being
+      </button>
+    </div>
+  </div>
 
   <div
     id="being-list-picture-preview"
@@ -63,63 +130,51 @@ import { LIST_VIEWS } from '../../lib/listViews';
     <img width="512" height="512" alt="" />
   </div>
 
-  <form class="stack-tight section" data-create-form hidden>
-    <h2>New being</h2>
-    <label class="field">
-      <span class="field-label">Name</span>
-      <input type="text" class="text-input" required maxlength="200" data-create-name />
-    </label>
-    <p class="status-text">It starts as an NPC. Open it afterwards to hand it over to a player.</p>
-    <div class="row">
-      <button type="submit" data-create>
-        Create being
-      </button>
-    </div>
-    <p class="status-text" role="status" data-create-status hidden></p>
-  </form>
+  <dialog aria-labelledby="new-being-title" data-create-dialog>
+    <form class="stack-tight" data-create-form>
+      <h2 id="new-being-title">New being</h2>
+      <label class="field">
+        <span class="field-label">Name</span>
+        <input type="text" class="text-input" required maxlength="200" data-create-name />
+      </label>
+      <p class="status-text">
+        It starts as an NPC. Open it afterwards to hand it over to a player.
+      </p>
+      <p class="status-text" role="status" data-create-status hidden></p>
+      <div class="dialog-actions">
+        <button type="button" class="btn btn-secondary" data-cancel>
+          Cancel
+        </button>
+        <button type="submit" class="btn btn-primary" data-create>
+          Create being
+        </button>
+      </div>
+    </form>
+  </dialog>
 
-  <form class="stack-tight section" data-own-form hidden>
-    <h2>New character of mine</h2>
-    <label class="field">
-      <span class="field-label">Where you play</span>
-      <select class="text-input" data-own-seat></select>
-    </label>
-    <label class="field">
-      <span class="field-label">Character name</span>
-      <input type="text" class="text-input" required maxlength="200" data-own-name />
-    </label>
-    <p class="status-text">
-      You will be its owner. Open it afterwards to describe it and add notes.
-    </p>
-    <div class="row">
-      <button type="submit" data-own-create>
-        Create character
-      </button>
-    </div>
-    <p class="status-text" role="status" data-own-status hidden></p>
-  </form>
-
-  <template data-being-template>
-    <li>
-      <a class="being-list-link" data-link>
-        <img
-          class="being-list-picture"
-          data-list-picture
-          width="80"
-          height="80"
-          alt=""
-          decoding="async"
-          hidden
-        />
-        <div class="row">
-          <strong data-name></strong>
-          <span class="badge" data-kind-badge></span>
-          <span class="pill" data-mine-badge hidden>
-            Mine
-          </span>
-        </div>
-        <span class="being-vital" data-vital hidden></span>
-      </a>
-    </li>
-  </template>
+  <dialog aria-labelledby="own-being-title" data-own-dialog>
+    <form class="stack-tight" data-own-form>
+      <h2 id="own-being-title">New character of mine</h2>
+      <label class="field">
+        <span class="field-label">Where you play</span>
+        <select class="text-input" data-own-seat></select>
+      </label>
+      <label class="field">
+        <span class="field-label">Character name</span>
+        <input type="text" class="text-input" required maxlength="200" data-own-name />
+      </label>
+      <p class="status-text">
+        You will be its owner. Open it afterwards to describe it and add notes.
+      </p>
+      <p class="status-text" role="status" data-own-status hidden></p>
+      <div class="dialog-actions">
+        <button type="button" class="btn btn-secondary" data-cancel>
+          Cancel
+        </button>
+        <button type="submit" class="btn btn-primary" data-own-create>
+          Create character
+        </button>
+      </div>
+    </form>
+  </dialog>
 </section>

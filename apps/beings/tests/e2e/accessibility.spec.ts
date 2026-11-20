@@ -86,7 +86,7 @@ for (const size of sizes) {
           ready: async () => {
             await expect(page.getByRole('link', { name: 'Ashfang' })).toBeVisible();
             await page.getByRole('radiogroup', { name: 'View' }).getByText('Cards').click();
-            await expect(page.locator('[data-vital]').first()).toBeVisible();
+            await expect(page.locator('.card-number').first()).toBeVisible();
           },
         },
         {
@@ -104,14 +104,15 @@ for (const size of sizes) {
           ready: async () => {
             await expect(page.getByRole('heading', { name: 'Ashfang', level: 1 })).toBeVisible();
             await expect(page.getByRole('heading', { name: 'Backstory' })).toBeVisible();
-            await expect(page.getByRole('button', { name: 'Edit details' })).toBeVisible();
+            await expect(page.getByRole('button', { name: 'More for this being' })).toBeVisible();
           },
         },
         {
           name: 'a being with its details open',
           path: `/being/?${tenant}&id=${being}`,
           ready: async () => {
-            await page.getByRole('button', { name: 'Edit details' }).click();
+            await page.getByRole('button', { name: 'More for this being' }).click();
+            await page.getByRole('menuitem', { name: 'Edit details' }).click();
             await expect(page.locator('[data-name-edit]')).toBeVisible();
             await page.getByRole('button', { name: 'Edit Body', exact: true }).click();
           },
@@ -120,7 +121,7 @@ for (const size of sizes) {
           name: 'a being in Play',
           path: `/being/?${tenant}&id=${being}`,
           ready: async () => {
-            await expect(page.getByRole('button', { name: 'Edit details' })).toBeVisible();
+            await expect(page.getByRole('button', { name: 'More for this being' })).toBeVisible();
             await page.locator('[data-band] [data-mode-switch]').getByText('Play').click();
             await expect(
               page.locator('[data-stat="hit_points"]').getByRole('button', { name: /Lower/ }),
@@ -143,6 +144,8 @@ for (const size of sizes) {
       for (const target of pages) {
         await page.goto(target.path);
         await target.ready();
+        // A page may still be settling (the home goes on to the one library); axe looks at the last.
+        await page.waitForLoadState('networkidle');
         await expect(page.locator('html')).toHaveAttribute('data-theme', scheme);
         await page.screenshot({
           path: test
