@@ -3,6 +3,8 @@
 import { openMenu, regionState } from '@lorenzo/app-shell';
 import { client, fetchAllPages, unwrap } from './api';
 import { BRANDING_CSS_URL } from './config';
+import { importDocuments, sortFiles } from './formats/import';
+import { fromMarkdown } from './formats/markdown';
 import {
   byRecent,
   editedWords,
@@ -97,20 +99,66 @@ export async function shelf(host: HTMLElement, tenant: string) {
   const more = el('button', 'Start something else', 'btn btn-secondary');
   more.type = 'button';
   more.setAttribute('aria-haspopup', 'menu');
+  // Bring documents in (ADR 0521): Markdown files, or a whole folder of them from a vault.
+  const picker = el('input');
+  picker.type = 'file';
+  picker.multiple = true;
+  picker.hidden = true;
+  picker.accept = '.md,.markdown,.txt,text/markdown,text/plain';
+  picker.setAttribute('aria-label', 'Choose files to import');
+  const pick = (folder: boolean) => {
+    picker.value = '';
+    picker.webkitdirectory = folder;
+    picker.click();
+  };
+  picker.addEventListener('change', () => {
+    const { readable, skipped } = sortFiles(Array.from(picker.files ?? []));
+    if (readable.length === 0) {
+      status.textContent = 'No Markdown files were found to import.';
+      return;
+    }
+    for (const control of controls) control.disabled = true;
+    status.textContent = `Importing ${readable.length} ${readable.length === 1 ? 'file' : 'files'}…`;
+    void (async () => {
+      try {
+        const docs = await Promise.all(
+          readable.map(async (file) => fromMarkdown(file.name, await file.text())),
+        );
+        const folder = readable[0]?.webkitRelativePath.split('/')[0];
+        const done = await importDocuments(tenant, docs, folder || 'Imported writing');
+        const link = el('a', done.chapters === 1 ? `Open “${done.name}”` : `Open “${done.name}”`);
+        link.href = address(tenant, done.entry);
+        status.replaceChildren(
+          `Imported ${done.chapters} ${done.chapters === 1 ? 'Chapter' : 'Chapters'}${
+            done.links ? `, with ${done.links} [[links]] to review` : ''
+          }${skipped.length ? `; left out: ${skipped.join(', ')}` : ''}. `,
+          link,
+        );
+      } catch (error) {
+        status.textContent = message(error);
+      } finally {
+        for (const control of controls) control.disabled = false;
+      }
+    })();
+  });
   more.addEventListener('click', () =>
     openMenu(
       more,
-      STARTS.map((s) => ({
-        label: `${s.label}: ${s.line}`,
-        run: () => start(s.kind),
-      })),
+      [
+        ...STARTS.map((s) => ({
+          label: `${s.label}: ${s.line}`,
+          run: () => start(s.kind),
+        })),
+        { label: 'Import Markdown files', run: () => pick(false) },
+        { label: 'Import a folder of Markdown files', run: () => pick(true) },
+      ],
       { label: 'Start something else', sprite: `${BRANDING_CSS_URL}/icons.svg` },
     ),
   );
   controls.push(startWriting, more);
 
   const row = el('div', '', 'row');
-  row.append(title, startWriting, more);
+  row.append(title, startWriting, more, picker);
 
   const body = el('div', '', 'stack');
   host.replaceChildren(heading, row, status, body);

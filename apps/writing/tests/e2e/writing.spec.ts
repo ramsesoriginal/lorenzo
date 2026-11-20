@@ -3349,6 +3349,60 @@ test('a text can be moved to another Chapter from its menu', async ({ browser })
   }
 });
 
+test('the export downloads Markdown with the headings and the source', async ({ browser }) => {
+  test.setTimeout(120000);
+  const { page, context } = await world(browser);
+  try {
+    await page
+      .getByRole('textbox', { name: 'Manuscript', exact: true })
+      .fill('The river[^a] remembers.\n\n[^a]: A note.');
+    await expect(page.getByRole('status', { name: 'Save status' })).toHaveText('Saved');
+    await page.getByRole('button', { name: 'Export', exact: true }).click();
+    const dialog = page.getByRole('dialog', { name: 'Export' });
+    await dialog.getByRole('button', { name: 'Preview saved writing' }).click();
+    const downloading = page.waitForEvent('download');
+    await dialog.getByRole('button', { name: 'Download Markdown' }).click();
+    const download = await downloading;
+    expect(download.suggestedFilename()).toMatch(/\.md$/);
+    const path = await download.path();
+    const { readFileSync } = await import('node:fs');
+    const text = readFileSync(path, 'utf8');
+    expect(text).toMatch(/^# /);
+    expect(text).toContain('The river[^a] remembers.');
+  } finally {
+    await context.close();
+  }
+});
+
+test('Markdown files and a folder of them are imported as Chapters', async ({ browser }) => {
+  test.setTimeout(150000);
+  const { page, context, tenant } = await world(browser);
+  try {
+    await page.goto(`/?tenant=${tenant.id}`);
+    await expect(page.getByRole('button', { name: 'Start writing', exact: true })).toBeVisible();
+    await page
+      .getByLabel('Choose files to import')
+      .setInputFiles(['tests/e2e/files/dawn.md', 'tests/e2e/files/dusk.md']);
+    await expect(page.getByText(/Imported 2 Chapters, with 3 \[\[links\]\] to review/)).toBeVisible(
+      {
+        timeout: 30000,
+      },
+    );
+    await page.getByRole('link', { name: /^Open “Imported writing”/ }).click();
+    await page.getByRole('link', { name: 'Outline', exact: true }).click();
+    await expect(page.getByRole('link', { name: 'Dawn', exact: true }).first()).toBeVisible();
+    await expect(
+      page.getByRole('link', { name: 'Dusk at the ferry', exact: true }).first(),
+    ).toBeVisible();
+    await page.getByRole('link', { name: 'Dusk at the ferry', exact: true }).first().click();
+    await expect(page.getByRole('textbox', { name: 'Manuscript', exact: true })).toHaveValue(
+      'Second words, see [[Ash]] and [[The Ferry]].',
+    );
+  } finally {
+    await context.close();
+  }
+});
+
 test('any work has a Write and Read switch in its page head', async ({ browser }) => {
   const { page, context, tenant } = await world(browser);
   try {
