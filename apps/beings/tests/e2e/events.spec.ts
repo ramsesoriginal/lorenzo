@@ -1,7 +1,7 @@
 import { ok } from './support/api.ts';
 import { expect, test } from './support/fixtures.ts';
 
-test('staff see ordered participating Event titles below Inventory; players and opt-outs do not query them', async ({
+test('staff see ordered participating Event titles in the rail; players and opt-outs do not query them', async ({
   world,
   as,
 }) => {
@@ -59,13 +59,8 @@ test('staff see ordered participating Event titles below Inventory; players and 
     'href',
     /\/entry\/\?tenant=.*&slug=departure/,
   );
-  expect(
-    await page
-      .locator('#inventory')
-      .evaluate((inventory) =>
-        Boolean(inventory.nextElementSibling?.matches('[data-being-events]')),
-      ),
-  ).toBe(true);
+  // The Events are in the rail beside the page, with who plays the being (the design's BN6).
+  await expect(page.locator('.sheet-rail [data-being-events]')).toBeVisible();
   await page.setViewportSize({ width: 390, height: 844 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   const player = await as(world.pia);

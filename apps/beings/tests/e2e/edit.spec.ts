@@ -66,7 +66,7 @@ test('a GM sets a stat and a tag, and clears the stat again', async ({ world, as
 
   const tags = page.locator('[data-tag-editor]');
   await tags.getByRole('group', { name: 'Undead' }).getByLabel('On').check();
-  await expect(page.locator('[data-tag-chips] li')).toHaveText('Undead');
+  await expect(page.locator('[data-tag-chips] .tag-chip')).toHaveText('Undead');
 
   await stats.getByRole('button', { name: 'Use inherited Strength' }).click();
   await expect(stats.getByLabel('Strength', { exact: true })).toHaveValue('');

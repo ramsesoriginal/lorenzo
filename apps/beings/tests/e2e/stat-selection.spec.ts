@@ -23,10 +23,7 @@ test('the being group and valued stats are the same in every mode and both layou
   const page = await as(world.pia);
   await page.goto(`/being/?tenant=${world.tenantId}&id=${being}`);
   for (const layout of ['Sheet', 'Datasheet'] as const) {
-    await page
-      .locator('[data-sheet-head] [data-layout-switch]')
-      .getByText(layout, { exact: true })
-      .click();
+    await page.locator('[data-layout-switch]:visible').getByText(layout, { exact: true }).click();
     const band = page.locator(layout === 'Sheet' ? '[data-stat-band]' : '[data-ds-lines]');
     for (const mode of ['Read', 'Play'] as const) {
       await enterMode(page, mode);

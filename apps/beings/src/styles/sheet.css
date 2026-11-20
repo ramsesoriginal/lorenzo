@@ -1217,3 +1217,275 @@ textarea.text-input {
     align-items: center;
   }
 }
+
+/* ======== The being page as the design draws it (BN3, BN6, BN7) ======== */
+
+/* The head: an avatar, the name, one line that says what and who, and the page's menu. */
+.being-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3) var(--space-4);
+  margin-block-end: var(--space-3);
+}
+.being-head .grow {
+  flex: 1;
+  min-width: 0;
+}
+.being-head .portrait {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  font-size: 28px;
+}
+.being-head .being-picture img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.being-sub {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 var(--space-1);
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+.being-sub .kind {
+  border: none;
+  padding: 0;
+  font-size: inherit;
+  font-weight: 400;
+  text-transform: none;
+  background: none;
+}
+.being-head .sheet-name {
+  margin: 0;
+}
+
+/* Tiles: a label, the value with its limit, a bar, and the controls the mode brings. */
+.stat-grid {
+  row-gap: var(--space-2);
+  margin-bottom: var(--space-2);
+}
+.stat-tile {
+  display: flex;
+  flex-direction: column;
+  grid-row: auto;
+  gap: var(--space-1);
+  margin-bottom: 0;
+}
+.stat-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-1);
+  min-height: 28px;
+}
+.stat-head .icon-btn {
+  min-width: var(--target-min);
+  min-height: var(--target-min);
+  margin: -8px -8px -8px 0;
+}
+.stat-valuerow {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-1);
+}
+.stat-max {
+  color: var(--text-tertiary);
+  font-size: 15px;
+  font-variant-numeric: tabular-nums;
+}
+.stat-bar {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--border-subtle);
+  overflow: hidden;
+}
+.stat-bar i {
+  display: block;
+  height: 100%;
+  background: var(--text-secondary);
+}
+.stat-tile .stat-sub:empty {
+  display: none;
+}
+.why-panel {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+.stat-conditions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-4);
+  padding: var(--space-3);
+}
+.stat-conditions .stat-label {
+  min-width: 6rem;
+}
+.conditions-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.conditions-group button.tag-toggle {
+  min-height: var(--target-min);
+  padding-inline: var(--space-3);
+}
+
+/* The band: the mode, what it is for, the pinned numbers as tiles, and the conditions that are on. */
+.sticky-bar {
+  top: 0;
+  background: var(--surface-canvas);
+  border-bottom: none;
+  box-shadow: 0 1px 0 var(--border-subtle);
+  padding-block: var(--space-2);
+}
+.band-top {
+  gap: var(--space-2) var(--space-4);
+}
+.band-mode {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-3);
+  min-width: 0;
+}
+.band-mode .mode-line {
+  max-width: 32rem;
+}
+.band-actions .btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  background: var(--surface-default);
+}
+.band-last {
+  max-width: 11rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.band-last:empty {
+  display: none;
+}
+.count-badge {
+  min-width: 1.5em;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--surface-muted);
+  font-size: 12px;
+}
+.band-pins {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+.band-pins:empty {
+  display: none;
+}
+.band-pins .stat-tile {
+  background: var(--surface-muted);
+  border-color: var(--border-strong);
+  padding: var(--space-3);
+}
+.band-pins .stat-tile.is-derived {
+  border-style: dashed;
+}
+.band-pins .stat-value,
+.band-pins .stat-value-btn {
+  font-size: 36px;
+}
+.band-conditions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+}
+.band-conditions .tag-row {
+  display: inline-flex;
+}
+/* The band shrinks once the header is out of view: smaller tiles, no bar, no hint. */
+.sticky-bar.is-compact .band-pins {
+  gap: var(--space-2);
+}
+.sticky-bar.is-compact .band-pins .stat-tile {
+  padding: var(--space-1) var(--space-2);
+  gap: 2px;
+}
+.sticky-bar.is-compact .band-pins .stat-value,
+.sticky-bar.is-compact .band-pins .stat-value-btn {
+  font-size: 24px;
+}
+.sticky-bar.is-compact .stat-bar,
+.sticky-bar.is-compact .stat-head .icon-btn,
+.sticky-bar.is-compact .band-conditions .caption {
+  display: none;
+}
+.sticky-bar.is-compact .band-mode .mode-line {
+  display: none;
+}
+@media (max-width: 720px) {
+  .band-pins {
+    gap: var(--space-2);
+  }
+  .band-pins .stat-tile {
+    padding: var(--space-2);
+  }
+  .band-pins .stat-value,
+  .band-pins .stat-value-btn {
+    font-size: 26px;
+  }
+  .band-last {
+    display: none;
+  }
+}
+
+/* The rail: who plays it, who sees it, the campaign, the way to hand it over, and its Events. */
+.rail-facts {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+}
+.rail-facts dt {
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+.rail-facts dd {
+  margin: 0;
+}
+.rail-card .sheet-section {
+  margin: 0;
+}
+.rail-card .sheet-section > header h2 {
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+.rail-card .sheet-section .caption:first-of-type {
+  display: none;
+}
+.rail-card ol {
+  margin: 0;
+  padding-inline-start: var(--space-4);
+}
+.stat-stepper {
+  align-self: flex-start;
+}
+.stat-stepper .icon-btn {
+  flex: none;
+  min-width: var(--target-min);
+  min-height: var(--target-min);
+}
+.stat-head .icon-btn {
+  border-color: transparent;
+  background: transparent;
+}
+.stat-head .icon-btn:hover {
+  background: var(--fill-soft);
+}
+.stat-tile .stat-value-btn {
+  margin-bottom: 2px;
+}

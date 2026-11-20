@@ -7,10 +7,7 @@ const datasheet = (page: import('@playwright/test').Page) => page.locator('[data
 
 async function layout(page: import('@playwright/test').Page, name: 'Sheet' | 'Datasheet') {
   await expect(page.locator('[data-title]')).not.toBeEmpty();
-  await page
-    .locator('[data-sheet-head] [data-layout-switch]')
-    .getByText(name, { exact: true })
-    .click();
+  await page.locator('[data-layout-switch]:visible').getByText(name, { exact: true }).click();
   await expect(page.locator('[data-being-page]')).toHaveAttribute(
     'data-layout',
     name.toLowerCase(),

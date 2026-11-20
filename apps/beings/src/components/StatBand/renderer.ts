@@ -14,15 +14,7 @@ import { errorMessage } from '../../lib/errorMessage';
 import { explain } from '../../lib/explain';
 import type { Layout, Mode } from '../../lib/sheetMode';
 import { currentShell } from '../../lib/shell';
-import {
-  type BandGroup,
-  bandOf,
-  captionOf,
-  type Tag,
-  type Tile,
-  tagsOf,
-  valueText,
-} from '../../lib/statBand';
+import { type BandGroup, bandOf, type Tag, type Tile, tagsOf, valueText } from '../../lib/statBand';
 import { statLabel } from '../../lib/statLabel';
 import {
   clearStat,
@@ -36,6 +28,7 @@ import {
 import { setTag } from '../../lib/tagEditor';
 import { requiredIn } from '../../lib/template';
 import type { EntityDetail } from '../../lib/types';
+import { icon } from '../BeingList/views';
 
 type Vocabulary = Awaited<ReturnType<typeof statVocabulary>>;
 
@@ -53,8 +46,9 @@ export type StatBandOptions = {
   onChanged: (entity: EntityDetail) => void;
   // Says what changed to screen readers.
   announce: (message: string) => void;
-  // After the steps that can be undone changed in number, so the band can enable its Undo.
-  onSteps?: (count: number) => void;
+  // After the steps that can be undone changed in number, with the last one's words, so the band
+  // can say what its Undo would take back.
+  onSteps?: (count: number, last: string | null) => void;
   // A line that says Saving, Saved or what went wrong.
   say: (message: string, failed?: boolean) => void;
 };
@@ -116,7 +110,10 @@ export function renderStatBand(options: StatBandOptions): RenderedStatBand {
   const { root, page, lines, tenantId } = options;
   const groups = required<HTMLElement>(root, '[data-groups]');
   const message = required<HTMLElement>(root, '[data-message]');
-  const chips = required<HTMLUListElement>(page, '[data-tag-chips]');
+  const chips = required<HTMLElement>(page, '[data-tag-chips]');
+  const bandConditions = required<HTMLElement>(page, '[data-band-conditions]');
+  const pins = required<HTMLElement>(page, '[data-pins]');
+  const conditions = required<HTMLElement>(root, '[data-conditions]');
 
   let vocabulary: Vocabulary = [];
   let beingStatGroupId: string | null = null;
@@ -129,6 +126,9 @@ export function renderStatBand(options: StatBandOptions): RenderedStatBand {
   let adjusting: string | null = null;
   // The names of the numbers being edited in place, in Read.
   const editingNames = new Set<string>();
+  // The name of the calculated number whose explanation is open.
+  let whyOpen: string | null = null;
+  let lastLabel: string | null = null;
   // The tile just changed and by how much, drawn for a moment.
   let flash: { name: string; delta: string } | null = null;
   const history = new UndoStack(30);
@@ -147,7 +147,8 @@ export function renderStatBand(options: StatBandOptions): RenderedStatBand {
         text: 'by you',
         undo: () => void undo(),
       }) ?? null;
-    options.onSteps?.(history.size);
+    lastLabel = label;
+    options.onSteps?.(history.size, label);
   }
 
   /** The being as it is now, after a write that found it changed (or that failed). */
@@ -211,7 +212,8 @@ export function renderStatBand(options: StatBandOptions): RenderedStatBand {
 
       toast?.dismiss();
       toast = null;
-      options.onSteps?.(history.size);
+      lastLabel = null;
+      options.onSteps?.(history.size, lastLabel);
 
       options.say('Saved.');
       if (entity) options.onChanged(entity);
@@ -365,24 +367,32 @@ export function renderStatBand(options: StatBandOptions): RenderedStatBand {
     }
   }
 
+  /** Where an inherited number comes from; a calculated one has its fx button instead. */
   function provenanceElement(tile: Tile): HTMLElement | null {
+    if (tile.computed && tile.id) return null;
+
     const words = provenance(tile);
 
-    if (!words) return null;
+    return words ? el('span', 'stat-prov', words) : null;
+  }
 
-    if (tile.computed && tile.id) {
-      const details = el('details', 'why');
-      const panel = el('div', 'why-panel');
+  /** The fx button of a calculated number: it opens how the number came to be (BN6). */
+  function whyButton(tile: Tile): HTMLButtonElement | null {
+    if (!(tile.computed && tile.id)) return null;
 
-      details.append(el('summary', '', words), panel);
-      details.addEventListener('toggle', () => {
-        if (details.open) void fillExplanation(tile, panel);
-      });
+    const open = whyOpen === tile.name;
+    const button = el('button', 'icon-btn stat-why');
 
-      return details;
-    }
+    button.type = 'button';
+    button.setAttribute('aria-label', `Why is ${tile.label} ${valueText(tile)}?`);
+    button.setAttribute('aria-expanded', String(open));
+    button.append(icon('formula'));
+    button.addEventListener('click', () => {
+      whyOpen = open ? null : tile.name;
+      redraw();
+    });
 
-    return el('span', 'stat-prov', words);
+    return button;
   }
 
   // ---- fields (Edit) ----------------------------------------------------------------------------
@@ -483,9 +493,10 @@ export function renderStatBand(options: StatBandOptions): RenderedStatBand {
     if (!settable(tile)) return null;
 
     const open = editingNames.has(tile.name);
-    const button = el('button', 'btn btn-quiet', open ? 'Done' : 'Edit');
+    const button = el('button', 'icon-btn stat-edit');
 
     button.type = 'button';
+    button.append(icon(open ? 'select-item' : 'edit'));
     button.dataset.editStat = '';
     button.setAttribute('aria-label', `${open ? 'Done editing' : 'Edit'} ${tile.label}`);
     button.setAttribute('aria-pressed', String(open));
@@ -505,11 +516,14 @@ export function renderStatBand(options: StatBandOptions): RenderedStatBand {
 
   // ---- tiles and rows ---------------------------------------------------------------------------
 
-  /** A tile on the sheet, or a cell of a datasheet line: the same stat, drawn denser. */
-  function tileElement(tile: Tile, cell = false): HTMLElement {
+  /** A tile on the sheet, in the band or in a cell of a datasheet line: the same stat, drawn denser. */
+  function tileElement(tile: Tile, cell = false, big = false): HTMLElement {
     const base = cell ? 'ds-cell' : 'stat-tile';
-    const box = el('div', tile.own && !tile.computed ? base : `${base} is-derived`);
+    const classes = [base, tile.own && !tile.computed ? '' : 'is-derived', big ? 'is-big' : ''];
+    const box = el('div', classes.filter(Boolean).join(' '));
+    const head = el('div', 'stat-head');
     const foot = el('div', 'stat-foot');
+    const max = tile.numeric && tile.of !== null ? el('span', 'stat-max', `/ ${tile.of}`) : null;
     let value: HTMLElement;
 
     if (editable(tile)) {
@@ -534,13 +548,18 @@ export function renderStatBand(options: StatBandOptions): RenderedStatBand {
       if (tile.unit && tile.value !== null) value.append(el('span', 'unit', tile.unit));
     }
 
+    head.append(el('span', 'stat-label', tile.label));
+
+    const why = whyButton(tile);
+    const toggle = editToggle(tile);
+
+    if (why) head.append(why);
+    else if (toggle) head.append(toggle);
+
     const source = provenanceElement(tile);
 
     if (source) foot.append(source);
     if (editable(tile) && tile.own) foot.append(inheritButton(tile));
-    const toggle = editToggle(tile);
-
-    if (toggle) foot.append(toggle);
 
     if (canAdjust(tile)) {
       const stepper = el('span', 'stat-stepper');
@@ -559,14 +578,36 @@ export function renderStatBand(options: StatBandOptions): RenderedStatBand {
       if (adjusting === tile.name) foot.append(adjusterFor(tile));
     }
 
+    const row = el('div', 'stat-valuerow');
+
+    row.append(value);
+    if (max) row.append(max);
+
     box.dataset.stat = tile.name;
-    // Always four children, so the label, value, caption and foot of a row of tiles line up.
-    box.append(
-      el('span', 'stat-label', tile.label),
-      value,
-      el('span', 'stat-sub', captionOf(tile)),
-      foot,
-    );
+    box.append(head, row);
+
+    // A bar for a number with a limit: how much of it is left.
+    if (typeof tile.value === 'number' && typeof tile.of === 'number' && tile.of > 0) {
+      const bar = el('div', 'stat-bar');
+      const fill = el('i');
+
+      bar.setAttribute('aria-hidden', 'true');
+      fill.style.width = `${Math.max(0, Math.min(100, Math.round((tile.value / tile.of) * 100)))}%`;
+      bar.append(fill);
+      box.append(bar);
+    }
+
+    const sub = tile.resolved ? el('span', 'stat-sub', tile.resolved) : null;
+
+    if (sub) box.append(sub);
+    box.append(foot);
+
+    if (whyOpen === tile.name && whyButton(tile)) {
+      const panel = el('div', 'why-panel');
+
+      box.append(panel);
+      void fillExplanation(tile, panel);
+    }
 
     return box;
   }
@@ -653,53 +694,80 @@ export function renderStatBand(options: StatBandOptions): RenderedStatBand {
     );
   }
 
+  function chip(label: string, state: string, from: string | null = null): HTMLElement {
+    const node = el('span', 'tag-toggle tag-chip', label);
+
+    node.dataset.state = state;
+    if (state === 'inherited' && from) node.title = `From ${from}`;
+
+    return node;
+  }
+
+  /**
+   * The conditions that are on, in the band (BN10), and the Conditions row of the Stats: chips in
+   * Read, and in Play a toggle for each condition the library lets a table change (BN3).
+   */
   function drawTags(current: EntityDetail) {
     const tags = tagsOf(vocabulary, current);
     const isOn = (tag: Tag) =>
       current.stats.some((stat) => stat.name === tag.name && stat.value === true);
-    const items: HTMLElement[] = [];
+    const onChips: HTMLElement[] = [];
+    const rowItems: HTMLElement[] = [];
+    const toggles: HTMLElement[] = [];
 
     if (tags.length === 0) {
       // A viewer who cannot list the library's tags still sees the ones that are on.
       for (const stat of current.stats.filter((candidate) => candidate.value === true)) {
-        const item = el('li');
-        const chip = el('span', 'tag-toggle', statLabel(stat.name));
+        const state = stat.own ? 'on' : 'inherited';
 
-        chip.dataset.state = stat.own ? 'on' : 'inherited';
-        item.append(chip);
-        items.push(item);
+        onChips.push(chip(statLabel(stat.name), state));
+        rowItems.push(chip(statLabel(stat.name), state));
       }
     }
 
     for (const tag of tags) {
       const on = isOn(tag);
-      const playable = mode === 'play' && canEdit && tag.adjustable;
+      const state = tag.state === 'inherited' ? 'inherited' : 'on';
 
-      if (!on && !playable) continue;
-
-      const item = el('li');
-
-      if (playable) {
-        const button = el('button', 'tag-toggle', tag.label);
-
-        button.type = 'button';
-        button.dataset.state = on ? (tag.state === 'inherited' ? 'inherited' : 'on') : 'off';
-        button.setAttribute('aria-pressed', String(on));
-        button.addEventListener('click', () => toggleTag(tag, on));
-        item.append(button);
-      } else {
-        const chip = el('span', 'tag-toggle', tag.label);
-
-        chip.dataset.state = tag.state === 'inherited' ? 'inherited' : 'on';
-        if (tag.state === 'inherited' && tag.from) chip.title = `From ${tag.from}`;
-        item.append(chip);
+      if (on) {
+        onChips.push(chip(tag.label, state, tag.from));
+        rowItems.push(chip(tag.label, state, tag.from));
       }
 
-      items.push(item);
+      if (mode === 'play' && canEdit && tag.adjustable) {
+        const button = el('button', 'tag-toggle');
+
+        button.type = 'button';
+        button.dataset.state = on ? state : 'off';
+        button.setAttribute('aria-pressed', String(on));
+        button.append(icon(on ? 'select-item' : 'add'), el('span', '', tag.label));
+        button.addEventListener('click', () => toggleTag(tag, on));
+        toggles.push(button);
+      }
     }
 
-    chips.hidden = items.length === 0;
-    chips.replaceChildren(...items);
+    chips.replaceChildren(...onChips);
+    bandConditions.hidden = onChips.length === 0;
+
+    const items = toggles.length > 0 ? toggles : rowItems;
+
+    conditions.hidden = items.length === 0 && tags.length === 0;
+    conditions.replaceChildren(
+      el('span', 'stat-label', 'Conditions'),
+      ...(items.length > 0
+        ? [wrapGroup(items, toggles.length > 0)]
+        : [el('span', 'is-muted', 'None')]),
+    );
+  }
+
+  function wrapGroup(items: HTMLElement[], playing: boolean): HTMLElement {
+    const group = el('span', 'conditions-group');
+
+    if (playing) group.setAttribute('role', 'group');
+    if (playing) group.setAttribute('aria-label', 'Conditions');
+    group.append(...items);
+
+    return group;
   }
 
   // ---- drawing ----------------------------------------------------------------------------------
@@ -712,9 +780,9 @@ export function renderStatBand(options: StatBandOptions): RenderedStatBand {
 
     if (!shown) return;
 
-    const tile = (layout === 'datasheet' ? lines : groups).querySelector<HTMLElement>(
-      `[data-stat="${quoted(shown.name)}"]`,
-    );
+    const tile = [pins, layout === 'datasheet' ? lines : groups]
+      .map((host) => host.querySelector<HTMLElement>(`[data-stat="${quoted(shown.name)}"]`))
+      .find(Boolean);
 
     if (!tile) return;
 
@@ -737,11 +805,30 @@ export function renderStatBand(options: StatBandOptions): RenderedStatBand {
 
     drawn = bandOf(vocabulary, entity, { beingStatGroupId });
 
-    // Only the layout in view is drawn; the other is drawn when it is asked for.
-    const [into, draw] =
-      layout === 'datasheet' ? ([lines, lineElement] as const) : ([groups, groupElement] as const);
+    // The pinned numbers are the band's: big tiles above, and not again among the stats (BN6).
+    // Only what the library pins, and has a value: a number is in the band or among the stats, not both.
+    const vitals = drawn
+      .flatMap((group) => group.tiles)
+      .filter((tile) => tile.pinned && tile.numeric && tile.value !== null);
+    const pinned = new Set(vitals.map((tile) => tile.name));
 
-    into.replaceChildren(...drawn.map(draw));
+    pins.replaceChildren(...vitals.map((tile) => tileElement(tile, false, true)));
+
+    // Only the layout in view is drawn; the other is drawn when it is asked for.
+    if (layout === 'datasheet') {
+      lines.replaceChildren(...drawn.map(lineElement));
+    } else {
+      groups.replaceChildren(
+        ...drawn
+          .map((group) => ({
+            ...group,
+            tiles: group.tiles.filter((tile) => !pinned.has(tile.name)),
+          }))
+          .filter((group) => group.tiles.length + group.rows.length > 0)
+          .map(groupElement),
+      );
+    }
+
     drawTags(entity);
     applyFlash();
     message.hidden = !(editing && vocabulary.length === 0);
@@ -749,6 +836,7 @@ export function renderStatBand(options: StatBandOptions): RenderedStatBand {
       'Only library members can see the list of stats, so only the ones this being has can change.';
 
     // The adjuster takes the focus when it opens; otherwise the tile keeps it.
+    const into = page;
     const amount = into.querySelector<HTMLInputElement>('#adjust-amount');
 
     if (amount) {
@@ -815,7 +903,8 @@ export function renderStatBand(options: StatBandOptions): RenderedStatBand {
         history.clear();
         toast?.dismiss();
         toast = null;
-        options.onSteps?.(0);
+        lastLabel = null;
+        options.onSteps?.(0, null);
         options.announce('Went back.');
         options.say('Saved.');
         options.onChanged(current);
