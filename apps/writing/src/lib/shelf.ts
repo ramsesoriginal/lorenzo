@@ -3,8 +3,7 @@
 import { openMenu, regionState } from '@lorenzo/app-shell';
 import { client, fetchAllPages, unwrap } from './api';
 import { BRANDING_CSS_URL } from './config';
-import { importDocuments, sortFiles } from './formats/import';
-import { fromMarkdown } from './formats/markdown';
+import { importDocuments, readDocument, sortFiles } from './formats/import';
 import {
   byRecent,
   editedWords,
@@ -104,7 +103,8 @@ export async function shelf(host: HTMLElement, tenant: string) {
   picker.type = 'file';
   picker.multiple = true;
   picker.hidden = true;
-  picker.accept = '.md,.markdown,.txt,text/markdown,text/plain';
+  picker.accept =
+    '.md,.markdown,.txt,.docx,text/markdown,text/plain,application/vnd.openxmlformats-officedocument.wordprocessingml.document';
   picker.setAttribute('aria-label', 'Choose files to import');
   const pick = (folder: boolean) => {
     picker.value = '';
@@ -114,15 +114,16 @@ export async function shelf(host: HTMLElement, tenant: string) {
   picker.addEventListener('change', () => {
     const { readable, skipped } = sortFiles(Array.from(picker.files ?? []));
     if (readable.length === 0) {
-      status.textContent = 'No Markdown files were found to import.';
+      status.textContent = 'No Markdown, text or Word files were found to import.';
       return;
     }
     for (const control of controls) control.disabled = true;
     status.textContent = `Importing ${readable.length} ${readable.length === 1 ? 'file' : 'files'}…`;
     void (async () => {
       try {
-        const docs = await Promise.all(
-          readable.map(async (file) => fromMarkdown(file.name, await file.text())),
+        const docs = await Promise.all(readable.map((file) => readDocument(file)));
+        const notes = docs.flatMap((doc, i) =>
+          doc.notes.map((note) => `${readable[i]?.name ?? 'a file'}: ${note}`),
         );
         const folder = readable[0]?.webkitRelativePath.split('/')[0];
         const done = await importDocuments(tenant, docs, folder || 'Imported writing');
@@ -131,7 +132,9 @@ export async function shelf(host: HTMLElement, tenant: string) {
         status.replaceChildren(
           `Imported ${done.chapters} ${done.chapters === 1 ? 'Chapter' : 'Chapters'}${
             done.links ? `, with ${done.links} [[links]] to review` : ''
-          }${skipped.length ? `; left out: ${skipped.join(', ')}` : ''}. `,
+          }${skipped.length ? `; left out: ${skipped.join(', ')}` : ''}${
+            notes.length ? `; ${notes.join('; ')}` : ''
+          }. `,
           link,
         );
       } catch (error) {
@@ -149,8 +152,8 @@ export async function shelf(host: HTMLElement, tenant: string) {
           label: `${s.label}: ${s.line}`,
           run: () => start(s.kind),
         })),
-        { label: 'Import Markdown files', run: () => pick(false) },
-        { label: 'Import a folder of Markdown files', run: () => pick(true) },
+        { label: 'Import Markdown or Word files', run: () => pick(false) },
+        { label: 'Import a folder of Markdown or Word files', run: () => pick(true) },
       ],
       { label: 'Start something else', sprite: `${BRANDING_CSS_URL}/icons.svg` },
     ),

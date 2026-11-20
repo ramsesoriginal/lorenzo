@@ -2,7 +2,8 @@
 // Chapter for each file for several. The writing is the file's own text; its [[links]] stay as
 // they are, for the author to review with the link review.
 import { client, unwrap } from '../api';
-import { countLinks, type Imported } from './markdown';
+import { fromDocx } from './docx-import';
+import { countLinks, fromMarkdown, type Imported } from './markdown';
 
 export type ImportResult = {
   /** The page to open: the Chapter, or the Book's first Edition. */
@@ -77,16 +78,23 @@ export async function importDocuments(
   return { entry: edition, name: bookName, chapters: chapters.length, links };
 }
 
-const MARKDOWN = /\.(md|markdown|txt)$/i;
+const READABLE = /\.(md|markdown|txt|docx)$/i;
 
-/** The files a Markdown import can read, in name order; the rest are named so they can be said. */
+/** The files an import can read (Markdown, text and Word), in name order; the rest are named so they can be said. */
 export function sortFiles(files: File[]): { readable: File[]; skipped: string[] } {
   const path = (file: File) => file.webkitRelativePath || file.name;
   const sorted = [...files].sort((a, b) =>
     path(a).localeCompare(path(b), undefined, { numeric: true, sensitivity: 'base' }),
   );
   return {
-    readable: sorted.filter((file) => MARKDOWN.test(file.name)),
-    skipped: sorted.filter((file) => !MARKDOWN.test(file.name)).map((file) => file.name),
+    readable: sorted.filter((file) => READABLE.test(file.name)),
+    skipped: sorted.filter((file) => !READABLE.test(file.name)).map((file) => file.name),
   };
+}
+
+/** A file as the text of a Chapter: Word files are converted, Markdown and text are read as they are. */
+export async function readDocument(file: File): Promise<Imported & { notes: string[] }> {
+  if (/\.docx$/i.test(file.name))
+    return fromDocx(file.name, new Uint8Array(await file.arrayBuffer()));
+  return { ...fromMarkdown(file.name, await file.text()), notes: [] };
 }

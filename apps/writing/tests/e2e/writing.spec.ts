@@ -3432,6 +3432,27 @@ test('Markdown files and a folder of them are imported as Chapters', async ({ br
   }
 });
 
+test('a Word document is imported as a Chapter, with its formatting as LorenzoScript', async ({
+  browser,
+}) => {
+  test.setTimeout(150000);
+  const { page, context, tenant } = await world(browser);
+  try {
+    await page.goto(`/?tenant=${tenant.id}`);
+    await expect(page.getByRole('button', { name: 'Start writing', exact: true })).toBeVisible();
+    await page.getByLabel('Choose files to import').setInputFiles('tests/e2e/files/ferry-log.docx');
+    await expect(page.getByText(/Imported 1 Chapter, with 1 \[\[links\]\] to review/)).toBeVisible({
+      timeout: 30000,
+    });
+    await page.getByRole('link', { name: /^Open “Ferry log”/ }).click();
+    await expect(page.getByRole('textbox', { name: 'Manuscript', exact: true })).toHaveValue(
+      'The **night crossing** met [[Ash]] at the bank.\n\n## Arrival\n\n- Lanterns\n- Ropes',
+    );
+  } finally {
+    await context.close();
+  }
+});
+
 test('any work has a Write and Read switch in its page head', async ({ browser }) => {
   const { page, context, tenant } = await world(browser);
   try {
