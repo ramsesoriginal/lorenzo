@@ -1,5 +1,37 @@
 # Changelog
 
+## [1.1.0](https://github.com/ramsesoriginal/lorenzo/compare/api-client-v1.0.0...api-client-v1.1.0) (2026-11-20)
+
+
+### Features
+
+* **api,maps:** a Location's Map count, the Maps it is on and where each character says it is ([#1214](https://github.com/ramsesoriginal/lorenzo/issues/1214)) ([4656234](https://github.com/ramsesoriginal/lorenzo/commit/465623443b61820f280f505dbcb9832dd7783a5b))
+* **api,maps:** the Locations pages' Map count, On these Maps and Where is… ([#1214](https://github.com/ramsesoriginal/lorenzo/issues/1214)) ([1fadc57](https://github.com/ramsesoriginal/lorenzo/commit/1fadc57e48473b2619231f764d9825d28b021c9e))
+* **api,writing:** undo a Chapter extraction (ADR 0515) ([36b6890](https://github.com/ramsesoriginal/lorenzo/commit/36b6890b2ee0274a3fe9a8e1c744e9b986a600e8))
+* **api,writing:** undo a manuscript split (ADR 0513) ([839f0ef](https://github.com/ramsesoriginal/lorenzo/commit/839f0eff12b384ce340da3095ba8f3bcef04e3f5))
+* **api:** a being's recent stat changes, for the History of its sheet (ADR 0525) ([c082e77](https://github.com/ramsesoriginal/lorenzo/commit/c082e77a3d9e34104ec0a07245136f0db22e3456))
+* **api:** a library can let the controller of a holder award it a feature (ADR 0465) ([34438d3](https://github.com/ramsesoriginal/lorenzo/commit/34438d344cacf21f304f0984f4358acb39349bb2))
+* **api:** a write of a stat or of a formula can answer with warnings (RFC 0055 V4) ([9842c53](https://github.com/ramsesoriginal/lorenzo/commit/9842c536053980b0341c70bc571c076176166dcc))
+* **api:** list the Editions shared with me for review ([caab79f](https://github.com/ramsesoriginal/lorenzo/commit/caab79f95ad6d0df31f885a8d7a38488f1d37e1e))
+* **api:** the dice formula builds a dice value from a count and sides; RFC 0056 is built (RFC 0056 D3) ([0c0cd97](https://github.com/ramsesoriginal/lorenzo/commit/0c0cd979ec0fe9d0e37ce07bc318618439a85beb))
+* **api:** the dice formula builds a dice value from a count and sides; RFC 0056 is built (RFC 0056 D3) ([a1e1253](https://github.com/ramsesoriginal/lorenzo/commit/a1e12539acfb234da57cedcd511fe192e1f6e807))
+* **api:** the dice value type, stored as parts and written as notation (RFC 0056 D1) ([4c26bc8](https://github.com/ramsesoriginal/lorenzo/commit/4c26bc84b09ce8e2afa4b6eaf3cbd9fce5ba98be))
+* **api:** the dice_value formula reads the minimum, maximum or average of a dice stat (RFC 0056 D2) ([04f29a3](https://github.com/ramsesoriginal/lorenzo/commit/04f29a35cebf32f074690d2f58fc88255881f0e9))
+* **api:** undo a join, and Undo join in Writing (ADR 0518) ([ccdd82e](https://github.com/ramsesoriginal/lorenzo/commit/ccdd82ef7660249393c4e0a1cf8e323ccabcf7b5))
+* **api:** undo a Scene extraction (ADR 0517) ([1e772cd](https://github.com/ramsesoriginal/lorenzo/commit/1e772cd85572fd81451909002e8da9b2a7d38c65))
+* **api:** undo a Scene extraction, and Undo Scene in Writing (ADR 0517) ([c42c820](https://github.com/ramsesoriginal/lorenzo/commit/c42c820133f6df366d8d760b9aa90eba602440ee))
+* **api:** updates track game systems and templates (ADR 0467) ([93f1bb7](https://github.com/ramsesoriginal/lorenzo/commit/93f1bb789e052142a796516ef2d79e76ba3340e8))
+* **api:** updates track game systems and templates (ADR 0467) ([2f8cd1b](https://github.com/ramsesoriginal/lorenzo/commit/2f8cd1b8016f10ab6356cdaa24e5d9b72d6e6ebf))
+* **writing:** apply reviewed manuscript compositions atomically ([d6f7156](https://github.com/ramsesoriginal/lorenzo/commit/d6f71560ee54c1c5ace67ebb3ea2e9f4c79f54a8))
+* **writing:** export saved manuscripts as source and printable PDF ([afcb7f2](https://github.com/ramsesoriginal/lorenzo/commit/afcb7f245ff891f17fd9d661207ee4f707af22b6))
+* **writing:** move a block to another Chapter from its menu (ADR 0520) ([3be2d82](https://github.com/ramsesoriginal/lorenzo/commit/3be2d821984a4e4c26d16df003af11a987cf5afa))
+* **writing:** the shelf shows when each work was edited, and counts them (ADR 0519) ([36b7c7f](https://github.com/ramsesoriginal/lorenzo/commit/36b7c7f894f2881490b5560cc2a6695ece4b288d))
+
+
+### Bug Fixes
+
+* **api-client:** regenerate the schema after the ADR renumber ([ee50042](https://github.com/ramsesoriginal/lorenzo/commit/ee500427d098a131bdda0b17fa13cbf3aefba131))
+
 ## 1.0.0 (2026-10-29)
 
 

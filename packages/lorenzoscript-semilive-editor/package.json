@@ -2,7 +2,7 @@
   "name": "@lorenzo/lorenzoscript-semilive-editor",
   "private": true,
   "type": "module",
-  "version": "0.0.0",
+  "version": "1.0.0",
   "description": "A second editor for LorenzoScript: every paragraph shown formatted, the one clicked or moved into becomes a text area. Same options and editor object as @lorenzo/lorenzoscript-editor. See ADR 0494 and ADR 0511.",
   "exports": {
     ".": "./src/index.ts"
