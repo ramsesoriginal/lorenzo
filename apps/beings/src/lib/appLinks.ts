@@ -54,3 +54,15 @@ export function livedOrderUrl(tenant: string, beingId: string): string | null {
   const template = registry?.links.lived_order;
   return template ? fill(template, { tenant, id: beingId }) : null;
 }
+
+/** A session's page in Sessions, or null when the registry says nothing about it. */
+export function sessionUrl(tenant: string, entityId: string): string | null {
+  const template = registry?.links.session;
+  return template ? fill(template, { tenant, id: entityId }) : null;
+}
+
+/** A scene's page in Sessions, or null in the same way. */
+export function sceneUrl(tenant: string, entityId: string): string | null {
+  const template = registry?.links.scene;
+  return template ? fill(template, { tenant, id: entityId }) : null;
+}

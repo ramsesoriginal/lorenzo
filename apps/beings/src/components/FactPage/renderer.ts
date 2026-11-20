@@ -21,7 +21,12 @@ export async function renderFactPage(
   );
   const heading = document.createElement('h1');
   heading.textContent = fact.name;
+  const appears = document.createElement('a');
+  appears.href = `/appears/?tenant=${encodeURIComponent(new URLSearchParams(location.search).get('tenant') ?? tenantId)}&id=${id}`;
+  appears.textContent = 'Where it appears';
+  appears.dataset.appears = '';
   root.replaceChildren(heading);
+  root.append(appears);
   if (subjects.length) {
     const about = document.createElement('p');
     about.className = 'caption';

@@ -1,6 +1,13 @@
 import { ok } from './support/api.ts';
 import { expect, test } from './support/fixtures.ts';
-import { enterMode } from './support/modes.ts';
+
+// The shell's confirmation: the name is typed before the button works.
+async function confirmDelete(page: import('@playwright/test').Page, name: string) {
+  const dialog = page.getByRole('dialog', { name: `Delete ${name}?` });
+
+  await dialog.getByLabel(`Type “${name}” to confirm`).fill(name);
+  await dialog.getByRole('button', { name: 'Delete being' }).click();
+}
 
 const url = (tenantId: string, entityId: string) => `/being/?tenant=${tenantId}&id=${entityId}`;
 
@@ -12,21 +19,24 @@ test('deletion is confirmed, settles inventory and returns to the list', async (
   await world.note(being.entity_id, 'Last note', 'Remember this goblin.');
   const page = await as(world.gm);
   await page.goto(url(world.tenantId, being.entity_id));
-  const remove = page.getByRole('button', { name: 'Delete being', exact: true });
+  const remove = page.locator('[data-delete-being]').getByRole('button', { name: 'Delete being' });
   await expect(remove).toBeHidden();
-  await enterMode(page, 'Edit');
   await expect(remove).toBeVisible();
 
-  page.once('dialog', async (dialog) => {
-    expect(dialog.message()).toContain('Departing Goblin');
-    expect(dialog.message()).toContain("can't be undone");
-    expect(dialog.message()).toContain('owns and carries');
-    await dialog.dismiss();
-  });
   await remove.click();
+  const asking = page.getByRole('dialog', { name: 'Delete Departing Goblin?' });
+  await expect(asking).toContainText("can't be undone");
+  await expect(asking).toContainText('owns and carries');
+  // The button does nothing until the name is typed.
+  await expect(asking.getByRole('button', { name: 'Delete being' })).toHaveAttribute(
+    'aria-disabled',
+    'true',
+  );
+  await asking.getByRole('button', { name: 'Cancel' }).click();
+  await expect(asking).toBeHidden();
   await expect(page.getByRole('heading', { name: 'Departing Goblin', level: 1 })).toBeVisible();
-  page.once('dialog', (dialog) => dialog.accept());
   await remove.click();
+  await confirmDelete(page, 'Departing Goblin');
   await expect(page).toHaveURL(`/beings/?tenant=${world.tenantId}`);
 
   const path = { tenant_id: world.tenantId, entity_id: being.entity_id };
@@ -56,9 +66,8 @@ test('deletion is confirmed, settles inventory and returns to the list', async (
 test('a player can delete their own being', async ({ world, as }) => {
   const page = await as(world.pia);
   await page.goto(url(world.tenantId, world.pia.character.entity_id));
-  await enterMode(page, 'Edit');
-  page.once('dialog', (dialog) => dialog.accept());
-  await page.getByRole('button', { name: 'Delete being', exact: true }).click();
+  await page.locator('[data-delete-being]').getByRole('button', { name: 'Delete being' }).click();
+  await confirmDelete(page, 'Ashfang');
   await expect(page).toHaveURL(`/beings/?tenant=${world.tenantId}`);
 });
 
@@ -66,14 +75,15 @@ test('another player has no deletion control', async ({ world, as }) => {
   const page = await as(world.oskar);
   await page.goto(url(world.tenantId, world.pia.character.entity_id));
   await expect(page.getByRole('heading', { name: 'Ashfang', level: 1 })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Delete being', exact: true })).toBeHidden();
+  await expect(
+    page.locator('[data-delete-being]').getByRole('button', { name: 'Delete being' }),
+  ).toBeHidden();
 });
 
 test('an API refusal stays on the page and makes retry possible', async ({ world, as }) => {
   const being = await world.npc('Staying Goblin');
   const page = await as(world.gm);
   await page.goto(url(world.tenantId, being.entity_id));
-  await enterMode(page, 'Edit');
   await page.route(`**/tenants/${world.tenantId}/beings/${being.entity_id}`, (route) =>
     route.fulfill({
       status: 412,
@@ -85,9 +95,9 @@ test('an API refusal stays on the page and makes retry possible', async ({ world
       }),
     }),
   );
-  page.once('dialog', (dialog) => dialog.accept());
-  const remove = page.getByRole('button', { name: 'Delete being', exact: true });
+  const remove = page.locator('[data-delete-being]').getByRole('button', { name: 'Delete being' });
   await remove.click();
+  await confirmDelete(page, 'Staying Goblin');
   await expect(page.locator('[data-delete-being] [data-status]')).toContainText(
     'This being changed',
   );

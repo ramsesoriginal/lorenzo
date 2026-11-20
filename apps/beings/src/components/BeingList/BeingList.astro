@@ -1,3 +1,7 @@
+---
+import { LIST_VIEWS } from '../../lib/listViews';
+---
+
 <section class="stack" data-being-list hidden>
   <div class="stack-tight">
     <label class="field">
@@ -27,11 +31,27 @@
         <input type="checkbox" data-mine />
         <span>Mine</span>
       </label>
+      <div class="segmented" role="radiogroup" aria-label="View" data-view-switch>
+        {LIST_VIEWS.map(({ view, label }) => (
+          <label>
+            <input type="radio" name="list-view" value={view} checked={view === 'rows'} />
+            {label}
+          </label>
+        ))}
+      </div>
     </div>
   </div>
 
   <p class="status-text" role="status" data-status hidden></p>
   <ul class="list being-list" data-list hidden></ul>
+  <div
+    class="side-by-side"
+    role="region"
+    aria-label="Beings side by side"
+    tabindex="0"
+    data-side
+    hidden
+  ></div>
 
   <div
     id="being-list-picture-preview"
@@ -98,6 +118,7 @@
             Mine
           </span>
         </div>
+        <span class="being-vital" data-vital hidden></span>
       </a>
     </li>
   </template>

@@ -1221,6 +1221,17 @@ class EntitySlugUpdate(BaseModel):
     slug: constr(pattern=r"^[A-Za-z0-9][A-Za-z0-9_-]*$", max_length=100) = Field(..., title="Slug")
 
 
+class EntityStatChangeOut(BaseModel):
+    id: UUID = Field(..., title="Id")
+    stat_definition_id: UUID = Field(..., title="Stat Definition Id")
+    stat_name: str = Field(..., title="Stat Name")
+    old: bool | int | float | str | None = Field(..., title="Old")
+    new: bool | int | float | str | None = Field(..., title="New")
+    actor_id: UUID | None = Field(..., title="Actor Id")
+    actor_name: str | None = Field(..., title="Actor Name")
+    created_at: AwareDatetime = Field(..., title="Created At")
+
+
 class EntitySummary(BaseModel):
     id: UUID = Field(..., title="Id")
     name: str = Field(..., title="Name")

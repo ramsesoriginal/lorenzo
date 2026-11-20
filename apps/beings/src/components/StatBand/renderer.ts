@@ -5,14 +5,15 @@
 //
 // What a mode does here: Read draws and nothing more. Play lets the person change what the library
 // calls adjustable, one change at a time and each one undoable: a number with a stepper and an
-// adjuster ("take away 7"), a tag with a toggle. Edit makes every value a field. Every control is a
-// convenience; the API refuses what the viewer may not do, and the page says so.
+// adjuster ("take away 7"), a tag with a toggle. In Read, a number a person may set has an Edit
+// button that turns it into a field, which saves on its own. Every control is a convenience; the API refuses what the viewer may not do, and the page says so.
 
-import { nextValue, parseAmount, UndoStack } from '../../lib/adjust';
+import { applyChange, nextValue, parseChange, UndoStack } from '../../lib/adjust';
 import { getEntityDetail } from '../../lib/entities';
 import { errorMessage } from '../../lib/errorMessage';
 import { explain } from '../../lib/explain';
 import type { Layout, Mode } from '../../lib/sheetMode';
+import { currentShell } from '../../lib/shell';
 import {
   type BandGroup,
   bandOf,
@@ -27,6 +28,7 @@ import {
   clearStat,
   getExplanation,
   parseStat,
+  type Seen,
   StatChangedError,
   setStat,
   statVocabulary,
@@ -51,6 +53,8 @@ export type StatBandOptions = {
   onChanged: (entity: EntityDetail) => void;
   // Says what changed to screen readers.
   announce: (message: string) => void;
+  // After the steps that can be undone changed in number, so the band can enable its Undo.
+  onSteps?: (count: number) => void;
   // A line that says Saving, Saved or what went wrong.
   say: (message: string, failed?: boolean) => void;
 };
@@ -64,6 +68,11 @@ export type RenderedStatBand = {
   vocabulary(): Vocabulary;
   /** Takes the last change back, if there is one. */
   undo(): Promise<void>;
+  /**
+   * Sends these stats (by definition id) back to these values, in one go: a step of History's
+   * "undo back to before". A null value takes the being's own value away.
+   */
+  restore(values: ReadonlyMap<string, boolean | number | string | null>): Promise<void>;
 };
 
 const required = requiredIn('Stat band');
@@ -108,9 +117,6 @@ export function renderStatBand(options: StatBandOptions): RenderedStatBand {
   const groups = required<HTMLElement>(root, '[data-groups]');
   const message = required<HTMLElement>(root, '[data-message]');
   const chips = required<HTMLUListElement>(page, '[data-tag-chips]');
-  const undoBar = required<HTMLElement>(page, '[data-undo-bar]');
-  const undoText = required<HTMLElement>(undoBar, '[data-undo-text]');
-  const undoButton = required<HTMLButtonElement>(undoBar, '[data-undo]');
 
   let vocabulary: Vocabulary = [];
   let beingStatGroupId: string | null = null;
@@ -121,22 +127,27 @@ export function renderStatBand(options: StatBandOptions): RenderedStatBand {
   let busy = false;
   // The name of the tile whose adjuster is open.
   let adjusting: string | null = null;
+  // The names of the numbers being edited in place, in Read.
+  const editingNames = new Set<string>();
   // The tile just changed and by how much, drawn for a moment.
   let flash: { name: string; delta: string } | null = null;
   const history = new UndoStack(30);
-  let undoTimer: number | undefined;
+  let toast: { dismiss(): void } | null = null;
   let drawn: BandGroup[] = [];
 
   const names = () =>
     new Map(vocabulary.map((entry) => [entry.definition.id, entry.definition.name]));
 
+  /** The shell's Undo toast for the step just made: "Hit points 9 → 8", by you. */
   function showUndoBar(label: string) {
-    undoText.textContent = label;
-    undoBar.hidden = false;
-    window.clearTimeout(undoTimer);
-    undoTimer = window.setTimeout(() => {
-      undoBar.hidden = true;
-    }, 9000);
+    toast?.dismiss();
+    toast =
+      currentShell()?.undoable({
+        title: label,
+        text: 'by you',
+        undo: () => void undo(),
+      }) ?? null;
+    options.onSteps?.(history.size);
   }
 
   /** The being as it is now, after a write that found it changed (or that failed). */
@@ -198,8 +209,9 @@ export function renderStatBand(options: StatBandOptions): RenderedStatBand {
       flash = null;
       options.announce(`Undone: ${last.label}`);
 
-      if (history.size > 0) showUndoBar(`Undone: ${last.label}`);
-      else undoBar.hidden = true;
+      toast?.dismiss();
+      toast = null;
+      options.onSteps?.(history.size);
 
       options.say('Saved.');
       if (entity) options.onChanged(entity);
@@ -210,7 +222,6 @@ export function renderStatBand(options: StatBandOptions): RenderedStatBand {
     }
   }
 
-  undoButton.addEventListener('click', () => void undo());
   document.addEventListener('keydown', (event) => {
     if (event.key === 'Escape' && adjusting) {
       const name = adjusting;
@@ -279,7 +290,7 @@ export function renderStatBand(options: StatBandOptions): RenderedStatBand {
 
   function adjusterFor(tile: Tile): HTMLElement {
     const panel = el('div', 'adjust');
-    const label = el('label', 'field-label', 'Amount');
+    const label = el('label', 'field-label', 'Change by');
     const amount = el('input', 'text-input');
     const actions = el('div', 'adjust-actions');
 
@@ -287,34 +298,38 @@ export function renderStatBand(options: StatBandOptions): RenderedStatBand {
     panel.setAttribute('aria-label', `Change ${tile.label}`);
     amount.id = 'adjust-amount';
     label.htmlFor = amount.id;
-    amount.type = 'number';
+    amount.type = 'text';
     amount.inputMode = 'numeric';
-    amount.min = '0';
-    amount.value = '1';
+    amount.placeholder = '-5, +3 or 12';
+    amount.setAttribute('aria-describedby', 'adjust-help');
 
-    const apply = (operation: 'sub' | 'add' | 'set') => () => {
-      const wanted = parseAmount(amount.value);
+    const help = el('span', 'caption', 'Type 12 to set it, or +3 or -5 to change it.');
+
+    help.id = 'adjust-help';
+
+    const apply = () => {
+      const wanted = parseChange(amount.value);
 
       if (wanted === null || typeof tile.value !== 'number') {
-        options.announce('Enter an amount, zero or more.');
+        options.announce('That is not a number. Type 12 to set it, or +3 or -5 to change it.');
+        options.say('That is not a number. Type 12 to set it, or +3 or -5 to change it.', true);
         amount.focus();
         return;
       }
 
-      setNumber(tile, nextValue(tile.value, operation, wanted, tile.floor));
+      setNumber(tile, applyChange(tile.value, wanted, tile.floor));
     };
+    const go = el('button', 'btn btn-secondary', 'Apply');
 
-    for (const [text, operation] of [
-      ['Take away', 'sub'],
-      ['Add', 'add'],
-      ['Set to', 'set'],
-    ] as const) {
-      const button = el('button', 'btn btn-secondary', text);
-
-      button.type = 'button';
-      button.addEventListener('click', apply(operation));
-      actions.append(button);
-    }
+    go.type = 'button';
+    go.addEventListener('click', apply);
+    amount.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        apply();
+      }
+    });
+    actions.append(go);
 
     const close = el('button', 'btn btn-quiet', 'Close');
 
@@ -326,7 +341,7 @@ export function renderStatBand(options: StatBandOptions): RenderedStatBand {
         .querySelector<HTMLElement>(`[data-stat="${quoted(tile.name)}"] .stat-value-btn`)
         ?.focus();
     });
-    panel.append(label, amount, actions, close);
+    panel.append(label, amount, help, actions, close);
 
     return panel;
   }
@@ -459,7 +474,34 @@ export function renderStatBand(options: StatBandOptions): RenderedStatBand {
     return button;
   }
 
-  const editable = (tile: Tile) => mode === 'edit' && canEdit && !tile.computed && Boolean(tile.id);
+  // A number a person may set in Read: not a calculated one, and one the library lets them name.
+  const settable = (tile: Tile) => mode === 'read' && canEdit && !tile.computed && Boolean(tile.id);
+  const editable = (tile: Tile) => settable(tile) && editingNames.has(tile.name);
+
+  /** The button that turns a number into a field and back (BN2: edit where it is). */
+  function editToggle(tile: Tile): HTMLButtonElement | null {
+    if (!settable(tile)) return null;
+
+    const open = editingNames.has(tile.name);
+    const button = el('button', 'btn btn-quiet', open ? 'Done' : 'Edit');
+
+    button.type = 'button';
+    button.dataset.editStat = '';
+    button.setAttribute('aria-label', `${open ? 'Done editing' : 'Edit'} ${tile.label}`);
+    button.setAttribute('aria-pressed', String(open));
+    button.addEventListener('click', () => {
+      if (open) editingNames.delete(tile.name);
+      else editingNames.add(tile.name);
+      redraw();
+      page
+        .querySelector<HTMLElement>(
+          `[data-stat="${quoted(tile.name)}"] ${open ? '[data-edit-stat]' : 'input, select'}`,
+        )
+        ?.focus({ preventScroll: true });
+    });
+
+    return button;
+  }
 
   // ---- tiles and rows ---------------------------------------------------------------------------
 
@@ -496,6 +538,9 @@ export function renderStatBand(options: StatBandOptions): RenderedStatBand {
 
     if (source) foot.append(source);
     if (editable(tile) && tile.own) foot.append(inheritButton(tile));
+    const toggle = editToggle(tile);
+
+    if (toggle) foot.append(toggle);
 
     if (canAdjust(tile)) {
       const stepper = el('span', 'stat-stepper');
@@ -535,6 +580,14 @@ export function renderStatBand(options: StatBandOptions): RenderedStatBand {
       if (row.own) detail.append(inheritButton(row));
     } else {
       detail.textContent = valueText(row);
+    }
+
+    const toggle = editToggle(row);
+
+    if (toggle) {
+      // The row is a <dd>: the button sits inside it, after the value, and names the stat it is for.
+      detail.dataset.stat = row.name;
+      detail.append(toggle);
     }
 
     if (!row.own || row.computed) detail.classList.add('is-derived');
@@ -679,7 +732,7 @@ export function renderStatBand(options: StatBandOptions): RenderedStatBand {
   function redraw() {
     if (!entity) return;
 
-    const editing = mode === 'edit' && canEdit;
+    const editing = mode === 'read' && canEdit;
     const focused = document.activeElement?.closest<HTMLElement>('[data-stat]')?.dataset.stat;
 
     drawn = bandOf(vocabulary, entity, { beingStatGroupId });
@@ -723,10 +776,55 @@ export function renderStatBand(options: StatBandOptions): RenderedStatBand {
       canEdit = nextCanEdit;
       layout = nextLayout;
       if (mode !== 'play') adjusting = null;
+      if (mode !== 'read') editingNames.clear();
       redraw();
 
       return drawn;
     },
     undo,
+    async restore(values) {
+      if (busy || !entity) return;
+
+      busy = true;
+      options.say('Saving…');
+
+      try {
+        let current = await getEntityDetail(tenantId, entity.id);
+
+        for (const [definitionId, value] of values) {
+          const definition = vocabulary.find(
+            (entry) => entry.definition.id === definitionId,
+          )?.definition;
+
+          if (!definition) continue;
+
+          const now = current.stats.find((stat) => stat.name === definition.name);
+          const seen = { value: now?.value ?? '', own: now?.own ?? false } as Seen;
+
+          if (value === null) {
+            if (now?.own) current = await clearStat(tenantId, current.id, definition, seen);
+          } else if (typeof value === 'boolean') {
+            current = await setTag(tenantId, current.id, definitionId, value ? 'on' : 'off');
+          } else {
+            current = await setStat(tenantId, current.id, definition, value, seen);
+          }
+        }
+
+        entity = current;
+        // What was undone before cannot be undone again after this: the steps are the new truth.
+        history.clear();
+        toast?.dismiss();
+        toast = null;
+        options.onSteps?.(0);
+        options.announce('Went back.');
+        options.say('Saved.');
+        options.onChanged(current);
+      } catch (error) {
+        options.say(errorMessage(error), true);
+        if (error instanceof StatChangedError) await reread();
+      } finally {
+        busy = false;
+      }
+    },
   };
 }

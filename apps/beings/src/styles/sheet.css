@@ -733,13 +733,6 @@ textarea.text-input {
     gap: var(--space-3);
   }
 
-  [data-mode="edit"] .sheet-head {
-    grid-template-rows: auto minmax(0, 1fr);
-    grid-template-columns: minmax(0, 1fr);
-    padding: var(--space-3);
-    gap: var(--space-3);
-  }
-
   .portrait {
     width: 80px;
     height: 80px;
@@ -1033,32 +1026,6 @@ textarea.text-input {
   }
 }
 
-.undo-bar {
-  position: fixed;
-  z-index: 21;
-  inset-inline: var(--space-3);
-  inset-block-end: calc(var(--space-3) + env(safe-area-inset-bottom, 0px));
-  margin-inline: auto;
-  width: fit-content;
-  max-width: 100%;
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-1) var(--space-1) var(--space-1) var(--space-3);
-  background: var(--text-primary);
-  color: var(--text-inverse);
-  border-radius: var(--radius-control);
-  font-size: 14px;
-}
-.undo-bar[hidden] {
-  display: none;
-}
-.undo-bar .btn {
-  background: var(--surface-default);
-  color: var(--text-primary);
-  border-color: transparent;
-}
-
 /* ---- The mode switch stays in reach ---- */
 .sticky-bar {
   gap: var(--space-2) var(--space-3);
@@ -1138,8 +1105,8 @@ textarea.text-input {
 }
 
 /* ---- Modes ---- */
-/* Moving, editing and deleting a note are for building the being, not for reading or playing it. */
-[data-mode]:not([data-mode="edit"]) [data-being-notes] [data-actions] {
+/* Moving, editing and deleting a note are for Read; the table has none of them. */
+[data-mode="play"] [data-being-notes] [data-actions] {
   display: none;
 }
 
@@ -1154,4 +1121,99 @@ textarea.text-input {
 /* The datasheet has its own order and no sections to link to. */
 .is-datasheet .sticky-nav {
   display: none;
+}
+
+/* ---- The band (BN6, BN7): the mode, what it is for, the pinned numbers and the conditions ---- */
+.sticky-bar {
+  flex-direction: column;
+  align-items: stretch;
+  flex-wrap: nowrap;
+  gap: var(--space-2);
+}
+.band-top,
+.band-numbers {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-4);
+}
+.mode-line {
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+.band-number {
+  display: inline-flex;
+  flex-direction: column;
+  min-width: 4.5rem;
+}
+.band-number strong {
+  font-size: 28px;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+.sticky-vitals {
+  gap: var(--space-2) var(--space-5);
+}
+.sticky-vitals span + span::before {
+  content: none;
+}
+/* The band shrinks once the header has scrolled away, and shows the name. */
+.sticky-bar:not(.is-compact) .sticky-name {
+  display: none;
+}
+.sticky-bar.is-compact .band-number {
+  flex-direction: row;
+  align-items: baseline;
+  gap: var(--space-1);
+  min-width: 0;
+}
+.sticky-bar.is-compact .band-number strong {
+  font-size: 16px;
+}
+.sticky-bar.is-compact .mode-line {
+  display: none;
+}
+/* Play is tinted, with a stripe of the action colour, so it is plain which mode this is. */
+[data-mode="play"] .sticky-bar {
+  background: var(--action-surface);
+  border-top: 3px solid var(--action);
+}
+@media (max-width: 720px) {
+  .band-number {
+    min-width: 0;
+  }
+  .band-number strong {
+    font-size: 22px;
+  }
+  .sticky-vitals {
+    flex-basis: auto;
+    order: 0;
+  }
+}
+
+.band-actions {
+  display: inline-flex;
+  gap: var(--space-2);
+}
+.band-actions[hidden] {
+  display: none;
+}
+
+/* On a phone everything pressed is at least 44px, whatever the pointer says (the audit of ADR 0524). */
+@media (max-width: 720px) {
+  .segmented.quiet label,
+  [data-page] summary,
+  .icon-btn,
+  label.field-row {
+    min-height: var(--target-min);
+  }
+  .icon-btn {
+    min-width: var(--target-min);
+  }
+  [data-page] summary,
+  label.field-row,
+  .segmented.quiet label {
+    display: flex;
+    align-items: center;
+  }
 }

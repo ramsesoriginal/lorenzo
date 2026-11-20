@@ -3,13 +3,19 @@
 // shown, who is looking) and tells each when something changed. Every control is a convenience: the
 // API refuses what the viewer may not do, and the page says so.
 
+import { openMenu } from '@lorenzo/app-shell';
 import { descriptionOf, getCharacter, pictureOf } from '../../lib/being';
 import { kindLabel } from '../../lib/beingList';
+import { BRANDING_CSS_URL } from '../../lib/config';
 import type { Renderer } from '../../lib/descriptions';
 import { getEntityDetail } from '../../lib/entities';
+import { errorMessage } from '../../lib/errorMessage';
 import { DEFAULT_GM_WORDS, gmWordsOfBeing } from '../../lib/gmTitle';
-import { gmCampaignsIn, isTenantMember, listCampaigns, myBeingIds } from '../../lib/me';
+import { gmCampaignsIn, isTenantMember, listCampaigns, myBeingIds, viewerId } from '../../lib/me';
+import { currentShell } from '../../lib/shell';
 import { valueText, vitalsOf } from '../../lib/statBand';
+import { backTo, stepText, whoLabel } from '../../lib/statHistory';
+import { listStatSteps } from '../../lib/statSteps';
 import { say } from '../../lib/statusLine';
 import { requiredIn } from '../../lib/template';
 import { getTenant } from '../../lib/tenants';
@@ -57,6 +63,9 @@ export function renderBeingPage(options: BeingPageOptions): RenderedBeingPage {
   const copyLink = required<HTMLButtonElement>(root, '[data-copy-link]');
   const nameSection = required<HTMLElement>(root, '[data-name-section] > div');
   const saveStatus = required<HTMLElement>(root, '[data-save-status]');
+  const appears = required<HTMLAnchorElement>(root, '[data-appears]');
+  const bandUndo = required<HTMLButtonElement>(root, '[data-band-undo]');
+  const bandHistory = required<HTMLButtonElement>(root, '[data-band-history]');
   const statBand = renderStatBand({
     root: required<HTMLElement>(root, '[data-stat-band]'),
     page: root,
@@ -64,7 +73,47 @@ export function renderBeingPage(options: BeingPageOptions): RenderedBeingPage {
     tenantId,
     onChanged: (entity) => showEntity(entity),
     announce: (message) => controls.announce(message),
+    onSteps: (count) => {
+      bandUndo.disabled = count === 0;
+    },
     say: (message, failed) => say(saveStatus, message, failed),
+  });
+
+  bandUndo.addEventListener('click', () => void statBand.undo());
+  // History (BN9): the steps the API keeps, who made each, and going back to before any of them.
+  bandHistory.addEventListener('click', async () => {
+    const entity = shown;
+
+    if (!entity) return;
+
+    try {
+      const [steps, me] = await Promise.all([
+        listStatSteps(tenantId, entity.id),
+        viewerId().catch(() => ''),
+      ]);
+
+      if (steps.length === 0) {
+        currentShell()?.toast({ title: 'No steps yet', text: 'Changes made in Play show here.' });
+        return;
+      }
+
+      openMenu(
+        bandHistory,
+        [
+          { heading: `Steps, newest first (${steps.length} of 30)` },
+          ...steps.map((step, index) => ({
+            label: `Undo back to before: ${stepText(step)}, by ${whoLabel(step, me)}, ${new Date(
+              step.created_at,
+            ).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`,
+            icon: 'undo',
+            run: () => void statBand.restore(backTo(steps, index)),
+          })),
+        ],
+        { label: 'History', sprite: `${BRANDING_CSS_URL}/icons.svg` },
+      );
+    } catch (error) {
+      say(saveStatus, errorMessage(error), true);
+    }
   });
 
   back.href = `/beings/?tenant=${encodeURIComponent(tenantAddress)}`;
@@ -137,8 +186,8 @@ export function renderBeingPage(options: BeingPageOptions): RenderedBeingPage {
       }
     },
     onMode: (mode) => {
-      // The description's way into its form is for building the being, not for reading it.
-      description.allow(canEdit && mode === 'edit');
+      // The description's way into its form is for Read, not for the table.
+      description.allow(canEdit && mode === 'read');
       if (shown) redrawStats(shown);
     },
   });
@@ -181,6 +230,7 @@ export function renderBeingPage(options: BeingPageOptions): RenderedBeingPage {
     title.textContent = entity.name;
     controls.setName(entity.name);
     showSlug(entity.slug);
+    appears.href = `/appears/?tenant=${encodeURIComponent(tenantAddress)}&id=${entity.id}`;
     view.show(entity);
     description.show({
       entityId: entity.id,
@@ -252,10 +302,7 @@ export function renderBeingPage(options: BeingPageOptions): RenderedBeingPage {
       });
 
       void notes.load({ canWrite: canEdit, runsTheTable });
-      controls.allowEdit(
-        canEdit,
-        'Only the people who run this table, or play this being, can edit it.',
-      );
+      controls.allowEdit(canEdit, tenantId, entityId);
       // Who may write is known now: the numbers and tags can show their controls.
       redrawStats(current());
 

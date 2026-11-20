@@ -28,7 +28,7 @@ test('the being group and valued stats are the same in every mode and both layou
       .getByText(layout, { exact: true })
       .click();
     const band = page.locator(layout === 'Sheet' ? '[data-stat-band]' : '[data-ds-lines]');
-    for (const mode of ['Read', 'Play', 'Edit'] as const) {
+    for (const mode of ['Read', 'Play'] as const) {
       await enterMode(page, mode);
       await expect(band.locator('[data-stat="hit_points"]')).toBeVisible();
       await expect(band.locator('[data-stat="speed"]')).toBeVisible();
@@ -40,21 +40,23 @@ test('the being group and valued stats are the same in every mode and both layou
       }
     }
   }
+  await enterMode(page, 'Read');
   const band = page.locator('[data-ds-lines]');
+  await band.getByRole('button', { name: 'Edit Damage', exact: true }).click();
   await band.getByRole('button', { name: 'Use inherited Damage' }).click();
   await expect(band.locator('[data-stat="damage"]')).toHaveCount(0);
-  await expect(band.getByLabel('Hit points', { exact: true })).toBeVisible();
+  await expect(band.locator('[data-stat="hit_points"]')).toBeVisible();
 });
 
-test('without a being group, only valued stats appear even in Edit', async ({ world, as }) => {
+test('without a being group, only valued stats appear even when editing', async ({ world, as }) => {
   const hp = await world.defineStat('vitals', 'hit_points', 'int');
   await world.defineStat('weapons', 'reach', 'int');
   const being = world.pia.character.entity_id;
   await world.setStat(being, hp.id, 0);
   const page = await as(world.pia);
   await page.goto(`/being/?tenant=${world.tenantId}&id=${being}`);
-  await enterMode(page, 'Edit');
   const band = page.locator('[data-stat-band]');
+  await band.getByRole('button', { name: 'Edit Hit points', exact: true }).click();
   await expect(band.getByLabel('Hit points', { exact: true })).toHaveValue('0');
   await expect(band.locator('[data-stat="reach"]')).toHaveCount(0);
   await band.getByRole('button', { name: 'Use inherited Hit points' }).click();

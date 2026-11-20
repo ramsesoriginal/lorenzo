@@ -2,7 +2,7 @@
 
 A fresh design of Lorenzo Beings, from the jobs people do there. The system it is built on is in [the web design](../README.md): the shell, the templates, the states and the decisions D1 to D29. The account hub, Writing, Calendars with Sessions and Maps are decided. This page holds the brief, the questions and the decision log for this app.
 
-Status: decided (BN1 to BN10). The checks are re-run once on the final screens before the write-up.
+Status: decided (BN1 to BN11). The checks are re-run once on the final screens before the write-up.
 
 ## What the app is for
 
@@ -168,6 +168,10 @@ Each step carries who made it and when: "Hit points 16 to 14, by Ana, 17:12". Th
 ### BN10. An active condition shows in the band
 
 A condition that is on (for example "Wounded") is shown under the pinned numbers, in Read and Play, so a table sees it without scrolling. Nothing shows when none is on.
+
+### BN11. A page says where an entry appears
+
+Facts keep their pages in the frame, and a being and a Fact each have a "Where it appears" page, reached from a link on the being's rail and on the Fact. It lists what links to the entry, as far as the person may read it: the Sessions and the Scenes that name it first, then the other entries, each with the titles of the pieces of information that link, and for a being a way to the scenes it lived through, in order, in Sessions. Nothing a person may not read is listed, and nothing says how much is hidden. This is added after the first review, on the maintainer's request (ADR 0524); it is not drawn in the directions or the prototype.
 
 ## The directions (drawn; A with C's band chosen)
 
