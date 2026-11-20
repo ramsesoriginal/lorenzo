@@ -70,22 +70,21 @@ Filled in as each slice lands.
 
 | Part | Slice | State |
 | --- | --- | --- |
-| The history of stat changes (API) | BA | Not built |
-| The frame and the tabs | B0, I0 | Not built |
-| The list: rows, cards, side by side | B1, B2 | Not built |
-| The band, Read and Play | B3 | Not built |
-| Editing in place | B4 | Not built |
-| Steppers, Change by and History | B5 | Not built |
-| The datasheet | B6 | Not built |
-| The dialogs | B7 | Not built |
-| Facts and Where it appears | B8, I6 | Not built |
+| The frame, the tabs | I0, B0 | Beings: built (B0, [#1347](https://github.com/ramsesoriginal/lorenzo/pull/1347)). Inventory: not built |
 | The board's switcher and weights | I1 | Not built |
 | One column on a phone | I2 | Not built |
 | The item panel and actions | I3 | Not built |
 | The drag ghost and the ring | I4 | Not built |
 | The catalog and item page | I5 | Not built |
 | The GM and author features | I6 | Not built |
-| The audits | B9, I7 | Not built |
+| The list: rows, cards, side by side | B1, B2 | Built ([#1348](https://github.com/ramsesoriginal/lorenzo/pull/1348)). Differences: the table has no "Played by" row; Play in side by side (BN8) is not built; the numbers are one read per being, six at a time, because there is no bulk read |
+| The band, Read and Play | B3 | Built ([#1349](https://github.com/ramsesoriginal/lorenzo/pull/1349)): the switch, the line saying what each mode is for, the pinned numbers, the conditions that are on, the tint and stripe of Play, shrinking, and the mode last used on a being. Difference: About is not closed in Play |
+| Editing in place | B4 | Built ([#1349](https://github.com/ramsesoriginal/lorenzo/pull/1349)): no Edit mode; an Edit button on each number, "Edit details" for name, link name, picture and tags, notes' actions in Read. Differences: About keeps its form with Save rather than saving as you type; the buttons are per number but name, link name, picture and tags are one disclosure |
+| Steppers, Change by and History | B5 | Built ([#1350](https://github.com/ramsesoriginal/lorenzo/pull/1350), with the API read of [#1346](https://github.com/ramsesoriginal/lorenzo/pull/1346), ADR 0525): the shell's Undo toast, "Change by" (`+3`, `-5`, a bare `12` sets), Undo and History on the band with who and when. Differences: "undo back to before" writes the old values as new steps, so what it undid cannot be undone again |
+| The datasheet | B6 | Unchanged: it was already a layout of the page, with steppers in Play |
+| The dialogs | B7 | Delete being (the name is typed) and Hand over are dialogs ([#1350](https://github.com/ramsesoriginal/lorenzo/pull/1350)). Not built: add a note as a dialog (it stays inline), undo of a hand over |
+| Facts and Where it appears | B8 | Built ([#1351](https://github.com/ramsesoriginal/lorenzo/pull/1351)): the Facts pages are in the frame; a being and a Fact each have a "Where it appears" page (BN11, added to the design) from the existing backlinks read. Not built: the Sessions a being takes part in without being named in their text, which needs its own read; Inventory's pages (I6) |
+| The audits | I7, B9 | Beings: built ([#1352](https://github.com/ramsesoriginal/lorenzo/pull/1352)): axe, both themes, 390px and 44px on eight pages and states. Inventory: not built |
 
 ## Consequences
 
