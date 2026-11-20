@@ -3374,6 +3374,35 @@ test('the export downloads Markdown with the headings and the source', async ({ 
   }
 });
 
+test('the export downloads a Word document that Word-compatible tools can read', async ({
+  browser,
+}) => {
+  test.setTimeout(120000);
+  const { page, context } = await world(browser);
+  try {
+    await page
+      .getByRole('textbox', { name: 'Manuscript', exact: true })
+      .fill('The **river**[^a] remembers.\n\n- one\n- two\n\n[^a]: A note.');
+    await expect(page.getByRole('status', { name: 'Save status' })).toHaveText('Saved');
+    await page.getByRole('button', { name: 'Export', exact: true }).click();
+    const dialog = page.getByRole('dialog', { name: 'Export' });
+    await dialog.getByRole('button', { name: 'Preview saved writing' }).click();
+    const downloading = page.waitForEvent('download');
+    await dialog.getByRole('button', { name: 'Download Word' }).click();
+    const download = await downloading;
+    expect(download.suggestedFilename()).toMatch(/\.docx$/);
+    const { readFileSync } = await import('node:fs');
+    const bytes = readFileSync(await download.path());
+    // A .docx is a ZIP: it starts with PK and holds the document and its footnotes.
+    expect(bytes.subarray(0, 2).toString('latin1')).toBe('PK');
+    const text = bytes.toString('latin1');
+    expect(text).toContain('word/document.xml');
+    expect(text).toContain('word/footnotes.xml');
+  } finally {
+    await context.close();
+  }
+});
+
 test('Markdown files and a folder of them are imported as Chapters', async ({ browser }) => {
   test.setTimeout(150000);
   const { page, context, tenant } = await world(browser);

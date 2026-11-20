@@ -3,6 +3,7 @@ import { parse, render } from '@lorenzo/lorenzoscript';
 import { client, unwrap } from './api';
 import { BRANDING_CSS_URL } from './config';
 import { contentsNavigation } from './contents';
+import { toDocx } from './formats/docx-export';
 import { exportParts } from './formats/export-parts';
 import { fileStem, toMarkdown } from './formats/markdown';
 
@@ -283,12 +284,26 @@ export function exportControls(tenant: string, id: string, review = false) {
     link.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   });
+  const word = action('Download Word', async () => {
+    if (!snapshot) return;
+    const name = snapshot.entries.find((entry) => entry.id === snapshot?.root_id)?.name ?? '';
+    const url = URL.createObjectURL(
+      new Blob([toDocx(exportParts(snapshot)).slice().buffer as ArrayBuffer], {
+        type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      }),
+    );
+    const link = node('a');
+    link.href = url;
+    link.download = `${fileStem(name)}.docx`;
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  });
   const print = action('Print / Save as PDF', async () => {
     if (!snapshot) return;
     const saved = await preview(tenant, id, review, snapshot.version);
     if (details.isConnected) await printExport(saved, () => details.isConnected);
   });
-  source.disabled = markdown.disabled = print.disabled = true;
+  source.disabled = markdown.disabled = word.disabled = print.disabled = true;
   details.append(
     actions,
     node(
