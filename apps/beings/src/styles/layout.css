@@ -51,3 +51,59 @@
     display: none;
   }
 }
+
+/* Cards: the same list, as tiles with the portrait on top and the first number below it (BN1). */
+.being-list.being-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
+  gap: var(--space-3);
+}
+.being-cards > li {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-card);
+  background: var(--surface-default);
+}
+.being-cards .being-list-link {
+  flex-direction: column;
+  align-items: flex-start;
+  padding: var(--space-3);
+  height: 100%;
+}
+.being-cards .being-list-picture {
+  flex-basis: auto;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1;
+}
+.being-vital {
+  color: var(--text-secondary);
+}
+
+/* Side by side: one column per being, one row per number (BN4). It scrolls sideways inside its
+   own region, never the page. */
+.side-by-side {
+  overflow-x: auto;
+  max-width: 100%;
+}
+.side-by-side table {
+  border-collapse: collapse;
+  min-width: 100%;
+}
+.side-by-side :is(th, td) {
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--border-subtle);
+  text-align: start;
+  white-space: nowrap;
+}
+.side-by-side thead th {
+  vertical-align: bottom;
+}
+.side-by-side thead th > .caption {
+  display: block;
+}
+.side-by-side tbody th {
+  font-weight: 400;
+  position: sticky;
+  inset-inline-start: 0;
+  background: var(--surface-default);
+}

@@ -12,11 +12,24 @@ import {
   listBeings,
   ownedBeingIds,
 } from '../../lib/beingList';
+import { getEntityDetail } from '../../lib/entities';
 import { beingPageHref } from '../../lib/entityLinks';
 import { errorMessage } from '../../lib/errorMessage';
+import {
+  isListView,
+  type ListView,
+  mapLimited,
+  type Numbers,
+  numbersOf,
+  rememberView,
+  savedView,
+  sideRows,
+  vitalLine,
+} from '../../lib/listViews';
 import { gmCampaignsIn, isTenantMember, listCampaigns, seatsIn } from '../../lib/me';
 import { createBeing, createOwnCharacter, seatOptions } from '../../lib/people';
 import { say } from '../../lib/statusLine';
+import { statVocabulary } from '../../lib/statValues';
 import { cloneTemplate, requiredIn } from '../../lib/template';
 import { renderListPictures } from './pictures';
 
@@ -42,6 +55,8 @@ export async function renderBeingList(options: BeingListOptions): Promise<void> 
   const template = required<HTMLTemplateElement>(root, '[data-being-template]');
   const form = required<HTMLFormElement>(root, '[data-create-form]');
   const pictures = renderListPictures(root, tenantId);
+  const side = required<HTMLElement>(root, '[data-side]');
+  const viewSwitch = required<HTMLElement>(root, '[data-view-switch]');
 
   root.hidden = false;
   say(status, 'Loading beings…');
@@ -78,6 +93,95 @@ export async function renderBeingList(options: BeingListOptions): Promise<void> 
   campaignSelect.value = campaigns.some((c) => c.id === campaignParam) ? campaignParam : '';
 
   let latest = 0;
+
+  // The view is the person's, kept in this browser (BN1).
+  let view: ListView = savedView();
+  const viewRadios = [...viewSwitch.querySelectorAll<HTMLInputElement>('input[type="radio"]')];
+  for (const radio of viewRadios) radio.checked = radio.value === view;
+
+  // Cards and side by side show numbers: one read of each being, once, at a few at a time.
+  const numbers = new Map<string, Numbers | null>();
+  let vocabulary: Awaited<ReturnType<typeof statVocabulary>> | undefined;
+
+  async function loadNumbers(shown: readonly ListedBeing[]) {
+    vocabulary ??= await statVocabulary(tenantId).catch(() => []);
+    const vocabularyNow = vocabulary;
+
+    await mapLimited(
+      shown.filter((being) => !numbers.has(being.entity_id)),
+      6,
+      async (being) => {
+        try {
+          numbers.set(
+            being.entity_id,
+            numbersOf(vocabularyNow, await getEntityDetail(tenantId, being.entity_id)),
+          );
+        } catch {
+          // A being whose numbers cannot be read is shown without them.
+          numbers.set(being.entity_id, null);
+        }
+      },
+    );
+  }
+
+  function drawSide(shown: readonly ListedBeing[]) {
+    const found = shown.map((being) => numbers.get(being.entity_id) ?? undefined);
+    const table = document.createElement('table');
+    const caption = document.createElement('caption');
+    const head = document.createElement('tr');
+    const body = document.createElement('tbody');
+    const corner = document.createElement('th');
+
+    table.className = 'datasheet-table';
+    caption.className = 'visually-hidden';
+    caption.textContent = 'Numbers of the beings, side by side';
+    corner.scope = 'col';
+    corner.textContent = 'Number';
+    head.append(corner);
+
+    for (const being of shown) {
+      const th = document.createElement('th');
+      const link = document.createElement('a');
+      const kind = document.createElement('span');
+
+      th.scope = 'col';
+      link.href = beingPageHref(tenantAddress, being);
+      link.textContent = being.name;
+      kind.className = 'caption';
+      kind.textContent = kindLabel(being);
+      th.append(link, kind);
+      head.append(th);
+    }
+
+    for (const row of sideRows(found)) {
+      const tr = document.createElement('tr');
+      const th = document.createElement('th');
+
+      th.scope = 'row';
+      th.textContent = row.label;
+      if (row.derived) {
+        const mark = document.createElement('span');
+
+        mark.className = 'caption';
+        mark.textContent = ' (derived)';
+        th.append(mark);
+      }
+      tr.append(th);
+
+      for (const being of found) {
+        const td = document.createElement('td');
+
+        td.textContent = being?.all.find((n) => n.name === row.name)?.text ?? '—';
+        tr.append(td);
+      }
+
+      body.append(tr);
+    }
+
+    table.append(caption, document.createElement('thead'), body);
+    table.tHead?.append(head);
+    side.replaceChildren(table);
+  }
 
   function remember() {
     const url = new URL(window.location.href);
@@ -122,6 +226,14 @@ export async function renderBeingList(options: BeingListOptions): Promise<void> 
     required<HTMLElement>(row, '[data-kind-badge]').textContent = kindLabel(being);
     required<HTMLElement>(row, '[data-mine-badge]').hidden = !ownedSet?.has(being.entity_id);
 
+    const vital = numbers.get(being.entity_id)?.vitals[0];
+    const vitalNode = required<HTMLElement>(row, '[data-vital]');
+
+    if (view === 'cards' && vital) {
+      vitalNode.textContent = vitalLine(vital);
+      vitalNode.hidden = false;
+    }
+
     pictures.observe(row, being.entity_id, being.name);
     return row;
   }
@@ -135,10 +247,18 @@ export async function renderBeingList(options: BeingListOptions): Promise<void> 
       const shown = filterBeings(beings, filters);
 
       if (turn !== latest) return;
+      if (view !== 'rows') {
+        say(status, 'Loading numbers…');
+        await loadNumbers(shown);
+        if (turn !== latest) return;
+      }
 
       pictures.reset();
       list.replaceChildren(...shown.map((being) => drawRow(being, ownedIds)));
-      list.hidden = shown.length === 0;
+      list.classList.toggle('being-cards', view === 'cards');
+      list.hidden = shown.length === 0 || view === 'side';
+      side.hidden = shown.length === 0 || view !== 'side';
+      if (view === 'side') drawSide(shown);
       say(
         status,
         shown.length === 0
@@ -158,6 +278,16 @@ export async function renderBeingList(options: BeingListOptions): Promise<void> 
     clearTimeout(debounce);
     debounce = setTimeout(() => void draw(), 150);
   });
+
+  for (const radio of viewRadios) {
+    radio.addEventListener('change', () => {
+      if (!radio.checked || !isListView(radio.value)) return;
+
+      view = radio.value;
+      rememberView(view);
+      void draw();
+    });
+  }
 
   for (const control of [campaignSelect, kindSelect, mine]) {
     control.addEventListener('change', () => void draw());
