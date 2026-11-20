@@ -35,8 +35,7 @@
   position: relative;
   display: flex;
   align-items: center;
-  flex: 1 1 12rem;
-  max-width: 16rem;
+  flex: 0 1 14rem;
 }
 .search-field .icon {
   position: absolute;

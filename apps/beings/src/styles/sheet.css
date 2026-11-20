@@ -1489,3 +1489,8 @@ textarea.text-input {
 .stat-tile .stat-value-btn {
   margin-bottom: 2px;
 }
+
+/* The section links are for the compact band, once the header has scrolled away. */
+.sticky-bar:not(.is-compact) .sticky-nav {
+  display: none;
+}

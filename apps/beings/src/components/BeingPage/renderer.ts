@@ -4,7 +4,6 @@
 // API refuses what the viewer may not do, and the page says so.
 
 import { openMenu } from '@lorenzo/app-shell';
-import { client, unwrap } from '../../lib/api';
 import { descriptionOf, getCharacter, pictureOf } from '../../lib/being';
 import { kindLabel } from '../../lib/beingList';
 import { BRANDING_CSS_URL } from '../../lib/config';
@@ -64,7 +63,6 @@ export function renderBeingPage(options: BeingPageOptions): RenderedBeingPage {
   const played = required<HTMLElement>(root, '[data-played]');
   const campaignsLine = required<HTMLElement>(root, '[data-campaigns]');
   const campaignText = required<HTMLElement>(root, '[data-campaign-text]');
-  const seenBy = required<HTMLElement>(root, '[data-seen-by]');
   const more = required<HTMLButtonElement>(root, '[data-more]');
   const nameSection = required<HTMLElement>(root, '[data-name-section] > div');
   const saveStatus = required<HTMLElement>(root, '[data-save-status]');
@@ -252,29 +250,6 @@ export function renderBeingPage(options: BeingPageOptions): RenderedBeingPage {
     campaignText.textContent = campaigns.length > 0 ? campaigns.join(', ') : 'None';
   }
 
-  /** Who may read the being at all, where the viewer may see that. */
-  async function showSeenBy(entityId: string, gm: string) {
-    try {
-      const audience = await unwrap(
-        await client.GET('/tenants/{tenant_id}/entities/{entity_id}/audience', {
-          params: { path: { tenant_id: tenantId, entity_id: entityId } },
-        }),
-      );
-      const some =
-        (audience.entity_ids?.length ?? 0) + (audience.player_ids?.length ?? 0) > 0 ||
-        audience.shared_with_participants === true;
-
-      required<HTMLElement>(seenBy, '[data-seen-by-text]').textContent = audience.is_public
-        ? 'Everyone'
-        : some
-          ? 'Some characters'
-          : `${gm} only`;
-      seenBy.hidden = false;
-    } catch {
-      seenBy.hidden = true;
-    }
-  }
-
   function showEntity(entity: EntityDetail) {
     shown = entity;
     document.title = `${entity.name} — Lorenzo Beings`;
@@ -352,7 +327,6 @@ export function renderBeingPage(options: BeingPageOptions): RenderedBeingPage {
       const words = inRepository ? DEFAULT_GM_WORDS : gmWordsOfBeing(character, campaigns);
 
       controls.setGmWord(words.title);
-      void showSeenBy(entityId, words.title);
       controls.allowEdit(canEdit, tenantId, entityId);
       // Who may write is known now: the numbers and tags can show their controls.
       redrawStats(current());
