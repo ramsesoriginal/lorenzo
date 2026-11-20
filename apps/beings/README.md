@@ -47,6 +47,10 @@ bundle with one audience ([ADR 0306](../../docs/adr/0306-information-bundles-and
 move/remove controls keep each part in order. A failed save keeps the draft and stable attachment
 IDs for retry. Read mode includes every part; protected pictures use authenticated requests.
 
+## Where it appears
+
+`/appears/?tenant=&id=` (or `&slug=`) lists what links to a being or a Fact, as far as the viewer may read it: the Sessions and Scenes that name it, then the other entries, each with the titles of the information that links, and for a being a link to its Lived order in Sessions. It uses the existing backlinks read ([ADR 0110](../../docs/adr/0110-lorenzoscript-content-references-and-backlinks.md)); the being's rail and the Fact page link to it. A being taking part in a Session without being named in its text is not listed: that needs its own read.
+
 ## Facts about an entry
 
 An entry lists the Facts explicitly about it when the reader can see their existence/name.

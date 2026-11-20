@@ -63,6 +63,7 @@ export function renderBeingPage(options: BeingPageOptions): RenderedBeingPage {
   const copyLink = required<HTMLButtonElement>(root, '[data-copy-link]');
   const nameSection = required<HTMLElement>(root, '[data-name-section] > div');
   const saveStatus = required<HTMLElement>(root, '[data-save-status]');
+  const appears = required<HTMLAnchorElement>(root, '[data-appears]');
   const bandUndo = required<HTMLButtonElement>(root, '[data-band-undo]');
   const bandHistory = required<HTMLButtonElement>(root, '[data-band-history]');
   const statBand = renderStatBand({
@@ -229,6 +230,7 @@ export function renderBeingPage(options: BeingPageOptions): RenderedBeingPage {
     title.textContent = entity.name;
     controls.setName(entity.name);
     showSlug(entity.slug);
+    appears.href = `/appears/?tenant=${encodeURIComponent(tenantAddress)}&id=${entity.id}`;
     view.show(entity);
     description.show({
       entityId: entity.id,
