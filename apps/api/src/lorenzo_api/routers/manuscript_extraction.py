@@ -369,3 +369,92 @@ async def checkpoint(
         chapter_id=receipt.chapter_id,
         checkpoint=receipt.checkpoint,
     )
+
+
+@router.delete("/entries/{id}/extractions/{operation_id}")
+async def undo_extraction(
+    tenant_id: uuid.UUID,
+    id: uuid.UUID,
+    operation_id: uuid.UUID,
+    response: Response,
+    session: SessionDep,
+    user: CurrentUser,
+    if_match: Annotated[str | None, Header()] = None,
+) -> ExtractionAcknowledgement:
+    """Puts an extracted Chapter's writing back where it was and removes the Chapter (ADR 0515).
+
+    For a Chapter or a Scene extraction by the caller, while the source is as the caller last read
+    it and the new Chapter or Scene is still exactly what the extraction made (ADR 0517).
+    """
+    await author(session, tenant_id, user)
+    source = await entry(session, tenant_id, id, user, lock=True)
+    receipt: ManuscriptExtraction | ManuscriptSceneExtraction | None = await existing_in_tenant(
+        session, ManuscriptExtraction, operation_id, tenant_id
+    )
+    telling_id: uuid.UUID | None = None
+    if receipt is None:
+        receipt = await existing_in_tenant(
+            session, ManuscriptSceneExtraction, operation_id, tenant_id
+        )
+    if receipt is None or receipt.source_id != id or receipt.actor_id != user.id:
+        raise EntityNotFoundError(detail="No such extraction to undo.")
+    if isinstance(receipt, ManuscriptSceneExtraction):
+        target_id, telling_id = receipt.scene_id, receipt.telling_id
+    else:
+        target_id = receipt.chapter_id
+    info, payloads = await manuscript_payloads(session, tenant_id, id, lock=True)
+    if info:
+        await authorize_information_edit(session, tenant_id=tenant_id, user=user, information=info)
+    current = await result(session, tenant_id, id, user, response)
+    response.headers["Cache-Control"] = "private, no-store"
+    require_version(if_match, current.version)
+    target = await result(session, tenant_id, target_id, user, Response())
+    before = [uuid.UUID(x) for x in receipt.checkpoint["before"][str(id)]]
+    after_source = [uuid.UUID(x) for x in receipt.checkpoint["after"][str(id)]]
+    if telling_id is not None:
+        await entry(session, tenant_id, telling_id, user, lock=True)
+    after_target = [uuid.UUID(x) for x in receipt.checkpoint["after"][str(target_id)]]
+    if [el.id for el in current.elements] != after_source or [
+        el.id for el in target.elements
+    ] != after_target:
+        raise ManuscriptMoveConflictError(
+            detail="The page or the new Chapter changed since, so the extraction cannot be undone."
+        )
+    target_info, target_payloads = await manuscript_payloads(
+        session, tenant_id, target_id, lock=True
+    )
+    everything = list(payloads) + list(target_payloads)
+    by_id = {p.id: p for p in everything}
+    wanted = [i for i in before if i in by_id]
+    if target_payloads:
+        assert info is not None and target_info is not None
+        floor = min((p.order for p in everything), default=0) - len(everything) - 1
+        for n, payload in enumerate(everything):
+            payload.order = floor + n
+        await session.flush()
+        for payload in target_payloads:
+            payload.information_id = info.id
+        for position, payload_id in enumerate(wanted):
+            by_id[payload_id].order = position
+            by_id[payload_id].updated_at = datetime.now(UTC)
+        info.updated_at = datetime.now(UTC)
+        await session.flush()
+    for parent in (id, target_id):
+        await session.execute(
+            delete(ManuscriptPlacement).where(
+                ManuscriptPlacement.tenant_id == tenant_id,
+                ManuscriptPlacement.parent_entity_id == parent,
+            )
+        )
+    place(session, tenant_id, id, before, set(wanted))
+    await session.flush()
+    if telling_id is not None:
+        await session.delete(await session.get_one(Entity, telling_id))
+        await session.flush()
+    await session.delete(await session.get_one(Entity, target_id))
+    source.updated_at = datetime.now(UTC)
+    source.updated_by = user.id
+    await session.commit()
+    await set_tenant_rls_context(session, tenant_id)
+    del response.headers["ETag"]
+    return ExtractionAcknowledgement(operation_id=operation_id, source_id=id, chapter_id=target_id)

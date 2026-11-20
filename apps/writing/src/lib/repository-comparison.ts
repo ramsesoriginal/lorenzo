@@ -1,3 +1,4 @@
+import { closeDialog, fadeOnDismiss, openDialog } from '@lorenzo/app-shell';
 import { DELETED, renderReview } from '@lorenzo/repo-ui';
 import '@lorenzo/repo-ui/repo-ui.css';
 import { client, unwrap } from './api';
@@ -26,9 +27,20 @@ export type ApplyRepositoryUpdate = (
 ) => Promise<void>;
 
 export function repositoryComparison(tenant: string, id: string, apply?: ApplyRepositoryUpdate) {
-  const panel = document.createElement('details');
-  const summary = document.createElement('summary');
-  summary.textContent = 'Repository comparison';
+  // The comparison is a dialog opened from a button (ADR 0494, W6); the panel is what it was.
+  const host = document.createElement('div');
+  const open = document.createElement('button');
+  open.type = 'button';
+  open.className = 'btn btn-secondary';
+  open.textContent = 'Repository comparison';
+  open.setAttribute('aria-haspopup', 'dialog');
+  const dialog = document.createElement('dialog');
+  const heading = document.createElement('h2');
+  heading.textContent = 'Repository comparison';
+  heading.id = `comparison-${crypto.randomUUID()}`;
+  dialog.setAttribute('aria-labelledby', heading.id);
+  const panel = document.createElement('div');
+  panel.className = 'stack-tight';
   const hint = document.createElement('p');
   hint.textContent =
     'Compare saved direct writing. Unsaved edits and chapter structure are not included. Pictures and attachments are compared by content; their previews are not shown here.';
@@ -39,7 +51,7 @@ export function repositoryComparison(tenant: string, id: string, apply?: ApplyRe
   const status = document.createElement('p');
   status.setAttribute('role', 'status');
   const result = document.createElement('div');
-  panel.append(summary, hint, check, status, result);
+  panel.append(hint, check, status, result);
   check.addEventListener('click', async () => {
     check.disabled = true;
     result.replaceChildren();
@@ -50,7 +62,7 @@ export function repositoryComparison(tenant: string, id: string, apply?: ApplyRe
           params: { path: { tenant_id: tenant, id } },
         }),
       );
-      if (!panel.isConnected || !panel.open) return;
+      if (!panel.isConnected || !dialog.open) return;
       const words = {
         not_copied: 'This entry was not copied from a repository.',
         no_baseline:
@@ -132,11 +144,18 @@ export function repositoryComparison(tenant: string, id: string, apply?: ApplyRe
       check.disabled = false;
     }
   });
-  panel.addEventListener('toggle', () => {
-    if (!panel.open) {
-      result.replaceChildren();
-      status.textContent = '';
-    }
+  dialog.addEventListener('close', () => {
+    result.replaceChildren();
+    status.textContent = '';
   });
-  return panel;
+  const close = document.createElement('button');
+  close.type = 'button';
+  close.className = 'btn btn-secondary';
+  close.textContent = 'Close';
+  close.addEventListener('click', () => closeDialog(dialog));
+  dialog.append(heading, panel, close);
+  fadeOnDismiss(dialog);
+  open.addEventListener('click', () => openDialog(dialog));
+  host.append(open, dialog);
+  return host;
 }

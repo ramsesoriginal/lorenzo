@@ -54,7 +54,10 @@ export function contentsControls(
   current: Contents,
   refresh: () => Promise<void>,
 ) {
+  // A card of the outline page: open to begin with, and it can still be folded away.
   const details = document.createElement('details');
+  details.className = 'card';
+  details.open = true;
   const summary = document.createElement('summary');
   summary.textContent = 'Contents';
   details.append(summary);

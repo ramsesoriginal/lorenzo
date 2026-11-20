@@ -25,6 +25,21 @@ Authors. Revocation closes subsequent reads and clears an open review at its nex
 source Scene access, research, editing or saved history. Grants and review notes are excluded
 from repository copies and releases. Review notes use explicit Save; they are not stored offline.
 
+## The interface
+
+Writing is on the web shell ([ADR 0494](../../docs/adr/0494-writing-moves-into-the-web-shell.md)),
+which is being built as a stack of pull requests. Built so far: the shelf (Start writing opens an
+untitled Scene at once, a menu for Chapter, Book, Carrier and Character biography, Continue,
+filter and search, and the Editions shared with you to review); a work's page at `/write/` and
+`/read/` (the old `?entry=` addresses redirect; `?review=` is never changed) with a page head, a
+drawer of side views, the save state and word count in the status bar, and a leave dialog; the
+page as blocks (a grip and menu on each part, Alt with the arrow keys, a plus between parts,
+selecting parts, Split here, Make a Chapter or a Scene); the Layout menu (Source, Split, Live,
+the last from `@lorenzo/lorenzoscript-semilive-editor`); paste from Word and find and replace; the
+outline of the work beside its pages. Not built yet, each tracked in an issue: restructuring by
+gesture and undo, the side views reshaped, Read and the reviewer's view in the new frame, and
+the small editor helpers still open.
+
 ## Moving writing
 
 The outline's **Move** action finds an Edition or Chapter by title, chooses a position,
@@ -127,7 +142,7 @@ Generated navigation, code, math, notes and structural titles contribute no word
 - `mise run //apps/writing:test-e2e` — real API, isolated Postgres database, fake Authgear.
   Set `E2E_BROWSER_CHANNEL=msedge` to use installed Edge locally.
 
-The app uses the shared brand, app shell, API client, LorenzoScript editor and Information
+The app is in the web shell ([ADR 0494](../../docs/adr/0494-writing-moves-into-the-web-shell.md)), and uses the shared brand, app shell, API client, LorenzoScript editor and Information
 bundle editor. No app-specific CSS. `PUBLIC_API_BASE_URL`, `PUBLIC_AUTHGEAR_ENDPOINT`,
 `PUBLIC_AUTHGEAR_CLIENT_ID` and optional `PUBLIC_BRANDING_CSS_URL` configure the build.
 

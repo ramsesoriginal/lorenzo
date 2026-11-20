@@ -53,6 +53,10 @@
       "release-type": "node",
       "component": "lorenzoscript-editor"
     },
+    "packages/lorenzoscript-semilive-editor": {
+      "release-type": "node",
+      "component": "lorenzoscript-semilive-editor"
+    },
     "apps/beings": {
       "release-type": "node",
       "component": "beings"

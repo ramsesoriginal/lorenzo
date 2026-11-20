@@ -1,7 +1,12 @@
 // The DOM layer (ADR 0106): enhances an existing <textarea> with a toolbar, keyboard
 // helpers, and a live preview. Every edit itself is a pure action from ./actions.
 import { parse, render as renderScript } from '@lorenzo/lorenzoscript';
-import { ACTIONS, type ActionName, indent, newline, type State } from './actions';
+import { ACTIONS, type ActionName, type State } from './actions';
+import { complete, completionContext } from './complete';
+import { findAll, replaceMatches } from './find';
+import { highlightSource } from './highlight';
+import { keyAction } from './keys';
+import { htmlToScript, worthConverting } from './paste';
 
 export type Tool = ActionName | 'undo' | 'redo' | '|';
 
@@ -18,6 +23,14 @@ export type EditorOptions = {
   render?: (source: string) => string | Promise<string>;
   /** Milliseconds after the last keystroke before the preview re-renders. */
   delay?: number;
+  /** Pasted HTML from Word, Google Docs or a page becomes LorenzoScript (ADR 0512). Off by default. */
+  pasteFromWord?: boolean;
+  /** Ctrl/Cmd+H opens find and replace over the text (ADR 0512). Off by default. */
+  findReplace?: boolean;
+  /** Names to offer after `[[`, for the words typed so far (ADR 0514). Off by default. */
+  completeNames?: (query: string) => Promise<string[]>;
+  /** Show the markers in a quieter colour (ADR 0516). Off by default. */
+  highlight?: boolean;
 };
 
 export type Editor = {
@@ -37,9 +50,6 @@ export const DEFAULT_TOOLBAR: Tool[] = [
 ];
 
 const HISTORY = { undo: { label: '↶', title: 'Undo' }, redo: { label: '↷', title: 'Redo' } };
-const SHORTCUTS = new Map(
-  Object.entries(ACTIONS).flatMap(([name, a]) => ('key' in a ? [[a.key, name as ActionName]] : [])),
-);
 
 export function createEditor(options: EditorOptions): Editor {
   const { textarea, toolbar = DEFAULT_TOOLBAR, layout = 'split', delay = 150 } = options;
@@ -82,7 +92,7 @@ export function createEditor(options: EditorOptions): Editor {
     if (prev !== next.text) {
       textarea.setSelectionRange(a, prev.length - b);
       const insert = next.text.slice(a, next.text.length - b);
-      doc.execCommand(insert ? 'insertText' : 'delete', false, insert);
+      doc.execCommand?.(insert ? 'insertText' : 'delete', false, insert);
       // Where insertText isn't supported: the same result, without native undo.
       if (textarea.value !== next.text) {
         textarea.value = next.text;
@@ -126,25 +136,264 @@ export function createEditor(options: EditorOptions): Editor {
   const onKey = (e: KeyboardEvent) => {
     const wasEscaped = escaped;
     escaped = e.key === 'Escape';
-    const modified = e.ctrlKey || e.metaKey || e.altKey;
-    if (e.key === 'Tab' && !modified) {
-      // Escape, then Tab, leaves the editor: taking Tab over must not trap keyboard users.
-      if (wasEscaped) return;
-      e.preventDefault();
-      apply(indent(e.shiftKey)(state()));
-    } else if (e.key === 'Enter' && !modified && !e.shiftKey && !e.isComposing) {
-      const next = newline(state());
-      if (!next) return;
-      e.preventDefault();
-      apply(next);
-    } else if ((e.ctrlKey || e.metaKey) && !e.altKey) {
-      const name = SHORTCUTS.get(e.key.toLowerCase());
-      if (!name) return;
-      e.preventDefault();
-      apply(ACTIONS[name].run(state()));
-    }
+    const result = keyAction(e, state(), wasEscaped);
+    if (!result.handled) return;
+    e.preventDefault();
+    apply(result.state);
   };
   textarea.addEventListener('keydown', onKey);
+
+  const onPaste = (e: ClipboardEvent) => {
+    const html = e.clipboardData?.getData('text/html') ?? '';
+    if (!html || !worthConverting(html)) return;
+    const converted = htmlToScript(html);
+    if (!converted) return;
+    e.preventDefault();
+    const current = state();
+    const end = current.start + converted.length;
+    apply({
+      text: current.text.slice(0, current.start) + converted + current.text.slice(current.end),
+      start: end,
+      end,
+    });
+  };
+  if (options.pasteFromWord) textarea.addEventListener('paste', onPaste);
+
+  // `[[` completion: a list under the text, picked by Arrow keys and Enter or Tab.
+  const lookup = options.completeNames;
+  const list = make('ul', 'ls-complete', { role: 'listbox', 'aria-label': 'Names' });
+  list.hidden = true;
+  let names: string[] = [];
+  let choice = 0;
+  let asked = 0;
+  let askTimer: ReturnType<typeof setTimeout> | undefined;
+  const hideList = () => {
+    asked++;
+    clearTimeout(askTimer);
+    list.hidden = true;
+    names = [];
+  };
+  // A blur that gives the focus straight back (a block moved in the page) does not close it.
+  const onBlur = () => {
+    setTimeout(() => {
+      if (doc.activeElement !== textarea) hideList();
+    }, 120);
+  };
+  const showList = () => {
+    list.replaceChildren(
+      ...names.map((name, i) => {
+        const item = make('li', '', { role: 'option', 'aria-selected': String(i === choice) });
+        item.textContent = name;
+        item.addEventListener('mousedown', (e) => {
+          e.preventDefault();
+          pick(name);
+        });
+        return item;
+      }),
+    );
+    list.hidden = names.length === 0;
+  };
+  const pick = (name: string) => {
+    const done = complete(textarea.value, textarea.selectionStart, name);
+    hideList();
+    if (done) apply({ text: done.text, start: done.caret, end: done.caret });
+  };
+  const onComplete = () => {
+    if (!lookup) return;
+    const at = completionContext(textarea.value, textarea.selectionStart);
+    if (!at?.query.trim()) return hideList();
+    const mine = ++asked;
+    clearTimeout(askTimer);
+    // A short pause, so a word typed quickly is asked for once.
+    askTimer = setTimeout(() => {
+      void lookup(at.query).then((found) => {
+        if (mine !== asked) return;
+        const next = found.slice(0, 8);
+        if (next.join('\n') === names.join('\n') && !list.hidden) return;
+        names = next;
+        choice = 0;
+        showList();
+      });
+    }, 150);
+  };
+  const onCompleteKey = (e: KeyboardEvent) => {
+    if (list.hidden) return;
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      choice = (choice + (e.key === 'ArrowDown' ? 1 : names.length - 1)) % names.length;
+      showList();
+    } else if ((e.key === 'Enter' || e.key === 'Tab') && names[choice] !== undefined) {
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      pick(names[choice] as string);
+    } else if (e.key === 'Escape') hideList();
+  };
+  if (lookup) {
+    // Before the editor's own key rules, so Enter picks rather than continues a list.
+    textarea.addEventListener('keydown', onCompleteKey, true);
+    textarea.addEventListener('input', onComplete);
+    textarea.addEventListener('blur', onBlur);
+    panes.before(list);
+  }
+
+  // Quiet highlighting: a layer behind the text area with the same text and metrics, whose
+  // markers are coloured; the text area's own text is made see-through, so only one is seen.
+  let unhighlight = () => {};
+  if (options.highlight) {
+    const wrap = make('div', 'ls-hl-wrap');
+    const layer = make('div', 'ls-hl-layer', { 'aria-hidden': 'true' });
+    textarea.before(wrap);
+    wrap.append(layer, textarea);
+    const view = doc.defaultView;
+    const copy = () => {
+      const style = view?.getComputedStyle(textarea);
+      if (!style) return;
+      for (const name of [
+        'fontFamily',
+        'fontSize',
+        'fontWeight',
+        'lineHeight',
+        'letterSpacing',
+        'tabSize',
+        'paddingTop',
+        'paddingRight',
+        'paddingBottom',
+        'paddingLeft',
+        'borderTopWidth',
+        'borderRightWidth',
+        'borderBottomWidth',
+        'borderLeftWidth',
+      ] as const)
+        layer.style[name] = style[name];
+      layer.style.boxSizing = style.boxSizing;
+      layer.style.borderStyle = 'solid';
+      layer.style.borderColor = 'transparent';
+    };
+    const draw = () => {
+      layer.innerHTML = `${highlightSource(textarea.value)}\n `;
+      layer.scrollTop = textarea.scrollTop;
+    };
+    copy();
+    draw();
+    textarea.classList.add('ls-hl-text');
+    textarea.addEventListener('input', draw);
+    textarea.addEventListener('scroll', draw);
+    const watch = view?.ResizeObserver ? new view.ResizeObserver(copy) : null;
+    watch?.observe(textarea);
+    unhighlight = () => {
+      watch?.disconnect();
+      textarea.removeEventListener('input', draw);
+      textarea.removeEventListener('scroll', draw);
+      textarea.classList.remove('ls-hl-text');
+      wrap.before(textarea);
+      wrap.remove();
+    };
+  }
+
+  const finder = options.findReplace ? findBar() : null;
+  const onFind = (e: KeyboardEvent) => {
+    if ((e.ctrlKey || e.metaKey) && !e.altKey && e.key.toLowerCase() === 'h') {
+      e.preventDefault();
+      finder?.open();
+    }
+  };
+  if (finder) {
+    textarea.addEventListener('keydown', onFind);
+    root.insertBefore(finder.element, panes);
+  }
+
+  /** The find and replace bar: Find, Replace, Next, Replace, Replace all, and a count. */
+  function findBar() {
+    const element = make('div', 'row ls-find', {
+      role: 'search',
+      'aria-label': 'Find and replace',
+    });
+    element.hidden = true;
+    const field = (label: string) => {
+      const input = make('input', 'text-input', {
+        type: 'text',
+        'aria-label': label,
+        placeholder: label,
+      });
+      return input as HTMLInputElement;
+    };
+    const find = field('Find');
+    const replace = field('Replace with');
+    const count = make('span', 'caption', { role: 'status' });
+    const button = (label: string, run: () => void) => {
+      const b = make('button', 'btn btn-secondary', { type: 'button' });
+      b.textContent = label;
+      b.addEventListener('click', run);
+      return b;
+    };
+    const matches = () => findAll(textarea.value, find.value);
+    const refresh = () => {
+      const n = matches().length;
+      count.textContent = find.value ? `${n} ${n === 1 ? 'match' : 'matches'}` : '';
+    };
+    const next = () => {
+      const all = matches();
+      const from = textarea.selectionEnd;
+      const hit = all.find(([start]) => start >= from) ?? all[0];
+      if (!hit) return refresh();
+      textarea.focus();
+      textarea.setSelectionRange(hit[0], hit[1]);
+    };
+    const replaceOne = () => {
+      const selected = textarea.value.slice(textarea.selectionStart, textarea.selectionEnd);
+      if (find.value && selected.toLocaleLowerCase() === find.value.toLocaleLowerCase()) {
+        const text = textarea.value;
+        apply({
+          text:
+            text.slice(0, textarea.selectionStart) +
+            replace.value +
+            text.slice(textarea.selectionEnd),
+          start: textarea.selectionStart + replace.value.length,
+          end: textarea.selectionStart + replace.value.length,
+        });
+      }
+      next();
+      refresh();
+    };
+    const replaceEvery = () => {
+      const result = replaceMatches(textarea.value, find.value, replace.value);
+      if (!result.count) return refresh();
+      apply({ text: result.text, start: 0, end: 0 });
+      count.textContent = `${result.count} replaced`;
+    };
+    find.addEventListener('input', refresh);
+    find.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        next();
+      }
+      if (e.key === 'Escape') close();
+    });
+    const close = () => {
+      element.hidden = true;
+      textarea.focus();
+    };
+    element.append(
+      find,
+      replace,
+      button('Next', next),
+      button('Replace', replaceOne),
+      button('Replace all', replaceEvery),
+      button('Close', close),
+      count,
+    );
+    return {
+      element,
+      open() {
+        element.hidden = false;
+        const word = textarea.value.slice(textarea.selectionStart, textarea.selectionEnd);
+        if (word && !word.includes('\n')) find.value = word;
+        refresh();
+        find.focus();
+        find.select();
+      },
+    };
+  }
 
   let version = 0;
   const refresh = async () => {
@@ -201,6 +450,14 @@ export function createEditor(options: EditorOptions): Editor {
     destroy() {
       clearTimeout(timer);
       textarea.removeEventListener('keydown', onKey);
+      unhighlight();
+      textarea.removeEventListener('paste', onPaste);
+      textarea.removeEventListener('keydown', onCompleteKey, true);
+      textarea.removeEventListener('input', onComplete);
+      textarea.removeEventListener('blur', onBlur);
+      list.remove();
+      textarea.removeEventListener('keydown', onFind);
+      finder?.element.remove();
       textarea.removeEventListener('input', onInput);
       textarea.classList.remove('editor-content');
       textarea.hidden = false;

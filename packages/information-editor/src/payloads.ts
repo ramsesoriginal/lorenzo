@@ -1,7 +1,26 @@
 import type { DraftPayload, Information, Payload } from './bundles';
 import { initialText } from './bundles';
 
-type TextEditor = { value(): string; focus(): void; destroy(): void };
+type TextEditor = {
+  value(): string;
+  focus(): void;
+  destroy(): void;
+  /** Where the caret is in the text, when the editor can say (blocks mode). */
+  caret?(): number;
+};
+
+/** One entry of a block's menu. */
+export type BlockItem = { label: string; run(): void; disabled?: boolean };
+
+/** Opt-in block handling (ADR 0494, W3): a grip and a menu on each part, Alt with the arrow keys
+ * to move it, a quiet plus between parts, and a selection of parts the app can act on. */
+export type BlockOptions = {
+  openMenu(anchor: HTMLElement, items: BlockItem[]): void;
+  /** What the app adds to a part's menu, after Move, Select and Remove. */
+  extraItems?(payload: DraftPayload, caret: number | null): BlockItem[];
+  /** The selected parts, in reading order, whenever the selection changes. */
+  onSelect?(ids: string[]): void;
+};
 type LoadFile = (payload: Extract<Payload, { kind: 'picture' | 'document' }>) => Promise<string>;
 const button = (label: string, action: () => void) => {
   const node = document.createElement('button');
@@ -97,7 +116,15 @@ export function renderBundleEditor(options: {
   textLabel: string;
   createTextEditor(host: HTMLElement, label: string, content: string): TextEditor;
   loadFile: LoadFile;
-}): { element: HTMLElement; read(): DraftPayload[]; ready(): Promise<void>; destroy(): void } {
+  blocks?: BlockOptions;
+}): {
+  element: HTMLElement;
+  read(): DraftPayload[];
+  ready(): Promise<void>;
+  destroy(): void;
+  selected(): string[];
+  clearSelection(): void;
+} {
   type Row = {
     payload: DraftPayload;
     element: HTMLElement;
@@ -121,20 +148,59 @@ export function renderBundleEditor(options: {
   picker.hidden = true;
   root.append(list, actions, picker);
   let textNumber = 0;
+  let insertAt: number | null = null;
+  const blocks = options.blocks;
+  const chosen = new Set<string>();
+  const selectedIds = () => rows.filter((r) => chosen.has(r.payload.id)).map((r) => r.payload.id);
+  const announce = () => {
+    for (const row of rows) row.element.dataset.selected = String(chosen.has(row.payload.id));
+    blocks?.onSelect?.(selectedIds());
+  };
+  // A change made from a menu is outside the page's own events; say so for its autosave.
+  const touched = () => {
+    if (blocks) root.dispatchEvent(new Event('change', { bubbles: true }));
+  };
+  const gap = (at: number) => {
+    const plus = button('+', () =>
+      blocks?.openMenu(plus, [
+        {
+          label: 'Add text',
+          run: () => addText(at),
+        },
+        {
+          label: 'Add picture',
+          run: () => {
+            insertAt = at;
+            picker.click();
+          },
+        },
+      ]),
+    );
+    plus.setAttribute('aria-label', 'Add a block here');
+    plus.title = 'Add a block here';
+    plus.dataset.gap = '';
+    return plus;
+  };
   function paint() {
     const active = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     for (const [index, row] of rows.entries()) {
       row.payload.order = index;
-      row.controls.hidden = rows.length === 1 && row.payload.kind === 'description';
+      row.controls.hidden = !blocks && rows.length === 1 && row.payload.kind === 'description';
       const up = row.controls.querySelector<HTMLButtonElement>('[data-up]');
       const down = row.controls.querySelector<HTMLButtonElement>('[data-down]');
       if (up) up.disabled = index === 0;
       if (down) down.disabled = index === rows.length - 1;
     }
-    list.append(...rows.map((r) => r.element));
+    if (blocks) {
+      // The plus between parts, and one after the last: it is where the end buttons used to be.
+      list.replaceChildren(
+        ...rows.flatMap((r, i) => [...(i === 0 ? [] : [gap(i)]), r.element]),
+        gap(rows.length),
+      );
+    } else list.append(...rows.map((r) => r.element));
     if (active?.isConnected) active.focus();
   }
-  function add(payload: DraftPayload): Row {
+  function add(payload: DraftPayload, at = rows.length): Row {
     const row: Row = {
       payload,
       element: document.createElement('div'),
@@ -196,6 +262,18 @@ export function renderBundleEditor(options: {
       rows.splice(index, 1);
       rows.splice(to, 0, row);
       paint();
+      announce();
+      touched();
+    };
+    const remove = () => {
+      row.editor?.destroy();
+      row.revoke?.();
+      rows = rows.filter((r) => r !== row);
+      chosen.delete(row.payload.id);
+      row.element.remove();
+      paint();
+      announce();
+      touched();
     };
     const up = button('↑', () => move(-1));
     up.dataset.up = '';
@@ -205,36 +283,100 @@ export function renderBundleEditor(options: {
     down.dataset.down = '';
     down.setAttribute('aria-label', 'Move this part down');
     down.title = 'Move down';
-    row.controls.append(up, down);
-    if (['description', 'picture'].includes(payload.kind))
-      row.controls.append(
-        button(payload.kind === 'picture' ? 'Remove picture' : 'Remove text', () => {
-          row.editor?.destroy();
-          row.revoke?.();
-          rows = rows.filter((r) => r !== row);
-          row.element.remove();
-          paint();
-        }),
-      );
-    rows.push(row);
+    const removable = ['description', 'picture'].includes(payload.kind);
+    const removeButton = removable
+      ? button(payload.kind === 'picture' ? 'Remove picture' : 'Remove text', remove)
+      : null;
+    if (blocks) {
+      const grip = button('⋮⋮', () => {});
+      grip.setAttribute('aria-label', 'Block options');
+      grip.setAttribute('aria-haspopup', 'menu');
+      grip.title = 'Block options';
+      grip.dataset.grip = '';
+      const items = (): BlockItem[] => {
+        const index = rows.indexOf(row);
+        return [
+          { label: 'Move up', run: () => move(-1), disabled: index === 0 },
+          { label: 'Move down', run: () => move(1), disabled: index === rows.length - 1 },
+          {
+            label: chosen.has(payload.id) ? 'Unselect this block' : 'Select this block',
+            run: () => {
+              if (chosen.has(payload.id)) chosen.delete(payload.id);
+              else chosen.add(payload.id);
+              announce();
+            },
+          },
+          ...(blocks.extraItems?.(row.payload, row.editor?.caret?.() ?? null) ?? []),
+          ...(removable
+            ? [
+                {
+                  label: payload.kind === 'picture' ? 'Remove picture' : 'Remove text',
+                  run: remove,
+                },
+              ]
+            : []),
+        ];
+      };
+      const open = () => blocks.openMenu(grip, items());
+      grip.addEventListener('click', open);
+      let press: ReturnType<typeof setTimeout> | undefined;
+      grip.addEventListener('pointerdown', (event) => {
+        if (event.pointerType === 'touch') press = setTimeout(open, 500);
+      });
+      for (const end of ['pointerup', 'pointercancel', 'pointerleave'])
+        grip.addEventListener(end, () => clearTimeout(press));
+      const wantsMenu = (event: KeyboardEvent) =>
+        event.key === 'ContextMenu' || (event.shiftKey && event.key === 'F10');
+      row.element.addEventListener('contextmenu', (event) => {
+        if ((event.target as HTMLElement).closest('textarea,input')) return;
+        event.preventDefault();
+        open();
+      });
+      row.element.addEventListener('keydown', (event) => {
+        if (event.altKey && (event.key === 'ArrowUp' || event.key === 'ArrowDown')) {
+          event.preventDefault();
+          move(event.key === 'ArrowUp' ? -1 : 1);
+        } else if (wantsMenu(event)) {
+          event.preventDefault();
+          open();
+        }
+      });
+      // The grip is the one control; Move and Remove live in its menu.
+      row.controls.replaceChildren(grip);
+      up.hidden = down.hidden = true;
+    } else {
+      row.controls.append(up, down);
+      if (removeButton) row.controls.append(removeButton);
+    }
+    rows.splice(at, 0, row);
     paint();
     return row;
   }
   for (const payload of options.initial ?? [initialText(options.content)]) add({ ...payload });
-  actions.append(
-    button('Add picture', () => picker.click()),
-    button('Add text', () => {
-      const row = add({
+  function addText(at = rows.length) {
+    const row = add(
+      {
         id: crypto.randomUUID(),
         kind: 'description',
         content: '',
         locale: '',
-        order: rows.length,
+        order: at,
         updated_at: '',
-      });
-      row.editor?.focus();
-    }),
-  );
+      },
+      at,
+    );
+    row.editor?.focus();
+    touched();
+  }
+  // With blocks the plus after the last part does this (ADR 0494, W3); the buttons stay for the rest.
+  if (!blocks)
+    actions.append(
+      button('Add picture', () => {
+        insertAt = null;
+        picker.click();
+      }),
+      button('Add text', () => addText()),
+    );
   picker.addEventListener('change', () => {
     for (const selected of Array.from(picker.files ?? [])) {
       const fallback = (
@@ -253,16 +395,22 @@ export function renderBundleEditor(options: {
               type: fallback,
               lastModified: selected.lastModified,
             });
-      add({
-        id: crypto.randomUUID(),
-        kind: 'picture',
-        url: '',
-        file_type: file.type,
-        file,
-        order: rows.length,
-        updated_at: '',
-      });
+      const at = insertAt === null ? rows.length : insertAt;
+      add(
+        {
+          id: crypto.randomUUID(),
+          kind: 'picture',
+          url: '',
+          file_type: file.type,
+          file,
+          order: at,
+          updated_at: '',
+        },
+        at,
+      );
+      if (insertAt !== null) insertAt += 1;
     }
+    insertAt = null;
     picker.value = '';
   });
   return {
@@ -273,6 +421,11 @@ export function renderBundleEditor(options: {
           ? { ...row.payload, content: row.editor?.value() ?? row.payload.content }
           : { ...row.payload },
       ),
+    selected: selectedIds,
+    clearSelection: () => {
+      chosen.clear();
+      announce();
+    },
     ready: async () => {
       await Promise.all(rows.map((row) => row.validation));
       const error = rows.find((row) => row.error)?.error;

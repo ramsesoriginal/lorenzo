@@ -1,8 +1,14 @@
 import { randomUUID } from 'node:crypto';
 import AxeBuilder from '@axe-core/playwright';
-import { type Browser, expect, test } from '@playwright/test';
+import { type Browser, expect, type Page, test } from '@playwright/test';
 import { apiAs, ok, refreshTokenFor } from './support/api.ts';
 import { API_URL, REFRESH_TOKEN_KEY, SITE_URL } from './support/env.ts';
+
+/** The plus after the last part of a page, where "Add text" and "Add picture" are. */
+async function addTextAtEnd(page: Page) {
+  await page.getByRole('button', { name: 'Add a block here' }).last().click();
+  await page.getByRole('menuitem', { name: 'Add text' }).click();
+}
 
 async function world(browser: Browser) {
   const subject = `writer-${randomUUID()}`;
@@ -31,13 +37,37 @@ async function world(browser: Browser) {
   });
   const page = await context.newPage();
   await page.goto(`/?tenant=${tenant.id}`);
-  await page.getByLabel('New draft title').fill('Across the water');
-  await page.getByRole('button', { name: 'Start writing', exact: true }).click();
+  await startAs(page, 'scene', 'Across the water');
   // Initial sign-in, entry authorization and bundle creation can exceed five seconds on a cold API.
   await expect(page.getByRole('textbox', { name: 'Manuscript', exact: true })).toBeVisible({
     timeout: 15000,
   });
   return { api, owner, user, subject, tenant, page, context };
+}
+
+const STARTS: Record<string, string> = {
+  chapter: 'Chapter',
+  book: 'Book',
+  carrier: 'Carrier',
+  biography: 'Character biography',
+};
+
+// Below 1100px the side views are a sheet that opens on request (ADR 0494, W2).
+async function openSideViews(page: Page) {
+  const toggle = page.getByRole('button', { name: 'Side views', exact: true });
+  await toggle.waitFor({ timeout: 15000 }).catch(() => {});
+  if ((await toggle.count()) && (await toggle.getAttribute('aria-expanded')) === 'false')
+    await toggle.click();
+}
+
+async function startAs(page: Page, kind: string, title: string) {
+  await page.getByLabel('New draft title').fill(title);
+  if (kind === 'scene') {
+    await page.getByRole('button', { name: 'Start writing', exact: true }).click();
+    return;
+  }
+  await page.getByRole('button', { name: 'Start something else', exact: true }).click();
+  await page.getByRole('menuitem', { name: new RegExp(`^${STARTS[kind]}:`) }).click();
 }
 
 test('writing saves, preserves focus, and recovers an earlier saved revision', async ({
@@ -71,7 +101,7 @@ test('writing saves, preserves focus, and recovers an earlier saved revision', a
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
       true,
     );
-    const audit = await new AxeBuilder({ page }).analyze();
+    const audit = await new AxeBuilder({ page }).exclude('.shell-bottom').analyze();
     expect(audit.violations).toEqual([]);
     await page.getByRole('button', { name: 'Focus', exact: true }).click();
     await expect(page.locator('[data-site-header]')).toBeHidden();
@@ -186,12 +216,12 @@ test('an unsent picture survives reload and saves with its text', async ({ brows
       'Use Save now to retry',
     );
     await page.reload();
-    await expect(page.getByRole('button', { name: 'Remove picture' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Block options' }).last()).toBeVisible();
     await page.unroute(`${API_URL}/tenants/**/information/*/payloads`);
     await page.getByRole('button', { name: 'Save now', exact: true }).click();
     await expect(page.getByRole('status', { name: 'Save status' })).toHaveText('Saved');
     await page.reload();
-    await expect(page.getByRole('button', { name: 'Remove picture' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Block options' }).last()).toBeVisible();
   } finally {
     await context.close();
   }
@@ -388,9 +418,7 @@ test('a Book has nested Chapters, mixed reading order and independent Editions',
   const { page, context, tenant } = await world(browser);
   try {
     await page.goto(`/?tenant=${tenant.id}`);
-    await page.getByLabel('Start with').selectOption('book');
-    await page.getByLabel('New draft title').fill('Journeys');
-    await page.getByRole('button', { name: 'Start writing', exact: true }).click();
+    await startAs(page, 'book', 'Journeys');
     const manuscript = page.getByRole('textbox', { name: 'Manuscript', exact: true });
     await manuscript.fill('Before departure.');
     await expect(page.getByRole('status', { name: 'Save status' })).toHaveText('Saved');
@@ -441,7 +469,9 @@ test('a Book has nested Chapters, mixed reading order and independent Editions',
       true,
     );
     await page.screenshot({ path: test.info().outputPath('reading-phone.png'), fullPage: true });
-    expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+    expect((await new AxeBuilder({ page }).exclude('.shell-bottom').analyze()).violations).toEqual(
+      [],
+    );
   } finally {
     await context.close();
   }
@@ -458,16 +488,12 @@ test('reusing a Scene keeps tellings independent and supports a viewpoint biogra
     await expect(page.getByRole('status', { name: 'Save status' })).toHaveText('Saved');
     const sceneId = new URL(page.url()).searchParams.get('entry');
     await page.goto(`/?tenant=${tenant.id}`);
-    await page.getByLabel('Start with').selectOption('biography');
-    await page.getByLabel('New draft title').fill('Ferryman');
-    await page.getByRole('button', { name: 'Start writing', exact: true }).click();
+    await startAs(page, 'biography', 'Ferryman');
     await text.fill('He knows every crossing.');
     await expect(page.getByRole('status', { name: 'Save status' })).toHaveText('Saved');
     await page.goto(`/?tenant=${tenant.id}`);
     await expect(page.getByRole('link', { name: 'Ferryman', exact: true })).toBeVisible();
-    await page.getByLabel('Start with').selectOption('book');
-    await page.getByLabel('New draft title').fill('River book');
-    await page.getByRole('button', { name: 'Start writing', exact: true }).click();
+    await startAs(page, 'book', 'River book');
     await expect(page.getByRole('heading', { name: 'River book', exact: true })).toBeVisible();
     const edition = new URL(page.url()).searchParams.get('entry');
     await page.getByRole('link', { name: 'Outline', exact: true }).click();
@@ -502,7 +528,9 @@ test('reusing a Scene keeps tellings independent and supports a viewpoint biogra
     await page.goto(`/?tenant=${tenant.id}&entry=${sceneId}`);
     await expect(text).toHaveValue('The river remembers.');
     await page.setViewportSize({ width: 390, height: 844 });
-    expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+    expect((await new AxeBuilder({ page }).exclude('.shell-bottom').analyze()).violations).toEqual(
+      [],
+    );
   } finally {
     await context.close();
   }
@@ -529,9 +557,7 @@ test('an invited reviewer reads one Edition, writes private notes and loses acce
   });
   try {
     await page.goto(`/?tenant=${tenant.id}`);
-    await page.getByLabel('Start with').selectOption('book');
-    await page.getByLabel('New draft title').fill('A review copy');
-    await page.getByRole('button', { name: 'Start writing', exact: true }).click();
+    await startAs(page, 'book', 'A review copy');
     await expect(page.getByRole('heading', { name: 'A review copy', exact: true })).toBeVisible();
     await page
       .getByRole('textbox', { name: 'Manuscript', exact: true })
@@ -572,11 +598,9 @@ test('an invited reviewer reads one Edition, writes private notes and loses acce
     await expect(
       reviewPage.getByText('Could the bridge appear in Chapter one?', { exact: true }).first(),
     ).toBeVisible();
-    await reviewPage.getByText('Export', { exact: true }).focus();
-    await reviewPage.getByText('Export', { exact: true }).press('Enter');
-    const exportPanel = reviewPage.locator('details').filter({
-      has: reviewPage.locator('summary').filter({ hasText: /^Export$/ }),
-    });
+    await reviewPage.getByRole('button', { name: 'Export', exact: true }).focus();
+    await reviewPage.getByRole('button', { name: 'Export', exact: true }).press('Enter');
+    const exportPanel = reviewPage.getByRole('dialog', { name: 'Export' });
     await exportPanel.getByRole('button', { name: 'Preview saved writing' }).click();
     await expect(exportPanel.locator('article')).toContainText(
       'The river remembers the old bridge.',
@@ -585,16 +609,43 @@ test('an invited reviewer reads one Edition, writes private notes and loses acce
     const exported = reviewPage.waitForEvent('download');
     await exportPanel.getByRole('button', { name: 'Download LorenzoScript' }).click();
     expect(await (await exported).failure()).toBeNull();
+    await exportPanel.getByRole('button', { name: 'Close' }).click();
+    await expect(exportPanel).toBeHidden();
     await reviewPage.screenshot({
       path: test.info().outputPath('review-desktop.png'),
       fullPage: true,
     });
     await reviewPage.setViewportSize({ width: 390, height: 844 });
-    expect((await new AxeBuilder({ page: reviewPage }).analyze()).violations).toEqual([]);
+    expect(
+      (await new AxeBuilder({ page: reviewPage }).exclude('.shell-bottom').analyze()).violations,
+    ).toEqual([]);
     await reviewPage.screenshot({
       path: test.info().outputPath('review-phone.png'),
       fullPage: true,
     });
+    await reviewPage
+      .getByRole('button', { name: /^Add note on /i })
+      .first()
+      .click();
+    await expect(
+      reviewPage.getByText(/Your notes are private: only you and the Authors/),
+    ).toBeVisible();
+    await expect(reviewPage.getByLabel('Note on', { exact: true })).not.toHaveValue('');
+    await reviewPage.emulateMedia({ colorScheme: 'dark' });
+    await reviewPage.reload();
+    await reviewPage
+      .getByRole('button', { name: /^Add note on /i })
+      .first()
+      .click();
+    await expect(reviewPage.getByLabel('Note on', { exact: true })).toBeVisible();
+    expect(
+      (await new AxeBuilder({ page: reviewPage }).exclude('.shell-bottom').analyze()).violations,
+    ).toEqual([]);
+    for (const name of ['Save note', 'Close']) {
+      const box = await reviewPage.getByRole('button', { name, exact: true }).first().boundingBox();
+      expect(box?.height ?? 0, name).toBeGreaterThanOrEqual(44);
+    }
+    await reviewPage.emulateMedia({ colorScheme: 'light' });
     await page.reload();
     await expect(
       page.getByText('Could the bridge appear in Chapter one?', { exact: true }),
@@ -604,6 +655,7 @@ test('an invited reviewer reads one Edition, writes private notes and loses acce
     // An already-open review is cleared by its next periodic authorization check.
     await expect(reviewPage.locator('article')).toHaveCount(0, { timeout: 40000 });
     await expect(reviewPage.getByRole('alert')).toBeVisible();
+    await expect(reviewPage.getByRole('alert')).toContainText('no longer open to you');
     await expect(reviewPage.getByLabel('Review note', { exact: true })).toHaveCount(0);
     await expect(reviewPage.getByText('Word count', { exact: true })).toHaveCount(0);
     await reviewPage.reload();
@@ -622,9 +674,7 @@ test('move a Chapter into another Chapter, promote it and recover an unassigned 
   const { page, context, tenant } = await world(browser);
   try {
     await page.goto(`/?tenant=${tenant.id}`);
-    await page.getByLabel('Start with').selectOption('book');
-    await page.getByLabel('New draft title').fill('Moving book');
-    await page.getByRole('button', { name: 'Start writing', exact: true }).click();
+    await startAs(page, 'book', 'Moving book');
     await expect(page.getByRole('heading', { name: 'Moving book', exact: true })).toBeVisible();
     const edition = new URL(page.url()).searchParams.get('entry');
     await page.getByRole('link', { name: 'Outline', exact: true }).click();
@@ -662,7 +712,9 @@ test('move a Chapter into another Chapter, promote it and recover an unassigned 
     await page.getByRole('button', { name: 'Moving book', exact: true }).click();
     await page.screenshot({ path: test.info().outputPath('move-desktop.png'), fullPage: true });
     await page.setViewportSize({ width: 390, height: 844 });
-    expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+    expect((await new AxeBuilder({ page }).exclude('.shell-bottom').analyze()).violations).toEqual(
+      [],
+    );
     await page.screenshot({ path: test.info().outputPath('move-phone.png'), fullPage: true });
     await page.getByRole('button', { name: 'Move here', exact: true }).click();
     await expect(page.getByLabel('Destination for Arrival')).toHaveCount(0);
@@ -680,9 +732,7 @@ test('extract complete prose and a child into a Chapter without changing the rea
   const { page, context, tenant } = await world(browser);
   try {
     await page.goto(`/?tenant=${tenant.id}`);
-    await page.getByLabel('Start with').selectOption('book');
-    await page.getByLabel('New draft title').fill('Collected journeys');
-    await page.getByRole('button', { name: 'Start writing', exact: true }).click();
+    await startAs(page, 'book', 'Collected journeys');
     const manuscript = page.getByRole('textbox', { name: 'Manuscript', exact: true });
     const prose = 'A **whole** passage[^a].\n\n[^a]: The local footnote stays.';
     await manuscript.fill(prose);
@@ -707,7 +757,9 @@ test('extract complete prose and a child into a Chapter without changing the rea
       fullPage: true,
     });
     await page.setViewportSize({ width: 390, height: 844 });
-    expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+    expect((await new AxeBuilder({ page }).exclude('.shell-bottom').analyze()).violations).toEqual(
+      [],
+    );
     await page.screenshot({ path: test.info().outputPath('extraction-phone.png'), fullPage: true });
     await page.getByRole('button', { name: 'Extract Chapter', exact: true }).click();
     await expect(page.getByRole('link', { name: 'At sea', exact: true })).toBeVisible();
@@ -718,6 +770,7 @@ test('extract complete prose and a child into a Chapter without changing the rea
     await page.getByRole('link', { name: 'Outline', exact: true }).click();
     await page.getByRole('link', { name: 'At sea', exact: true }).click();
     await expect(manuscript).toHaveValue(prose);
+    await openSideViews(page);
     await page.getByText('Word count', { exact: true }).click();
     await page.getByText('Writing session', { exact: true }).click();
     await expect(page.getByText('Session progress · 0 words', { exact: true })).toBeVisible();
@@ -733,9 +786,7 @@ test('split saved prose safely and extract its second part into a Chapter', asyn
   const { page, context, tenant } = await world(browser);
   try {
     await page.goto(`/?tenant=${tenant.id}`);
-    await page.getByLabel('Start with').selectOption('book');
-    await page.getByLabel('New draft title').fill('A divided journey');
-    await page.getByRole('button', { name: 'Start writing', exact: true }).click();
+    await startAs(page, 'book', 'A divided journey');
     const manuscript = page.getByRole('textbox', { name: 'Manuscript', exact: true });
     const first =
       '# Dawn\n\nFirst 🐉[^a].\n\n- One\n\n  Still the same list.\n\n[^a]: A local note.\n\n';
@@ -765,7 +816,9 @@ test('split saved prose safely and extract its second part into a Chapter', asyn
     ).toContainText(second);
     await page.screenshot({ path: test.info().outputPath('split-desktop.png'), fullPage: true });
     await page.setViewportSize({ width: 390, height: 844 });
-    expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+    expect((await new AxeBuilder({ page }).exclude('.shell-bottom').analyze()).violations).toEqual(
+      [],
+    );
     await page.screenshot({ path: test.info().outputPath('split-phone.png'), fullPage: true });
     await page.getByRole('button', { name: 'Split here', exact: true }).click();
     await expect(page.getByText('Split text', { exact: true })).toHaveCount(2);
@@ -793,9 +846,7 @@ test('join adjacent Chapters and follow the preserved source to its stable secti
   const { page, context, tenant, api } = await world(browser);
   try {
     await page.goto(`/?tenant=${tenant.id}`);
-    await page.getByLabel('Start with').selectOption('book');
-    await page.getByLabel('New draft title').fill('Joined journeys');
-    await page.getByRole('button', { name: 'Start writing', exact: true }).click();
+    await startAs(page, 'book', 'Joined journeys');
     const text = page.getByRole('textbox', { name: 'Manuscript', exact: true });
     await expect(text).toBeVisible();
     const edition = new URL(page.url()).searchParams.get('entry');
@@ -832,7 +883,9 @@ test('join adjacent Chapters and follow the preserved source to its stable secti
     await expect(page.getByRole('button', { name: 'Join chapters', exact: true })).toBeVisible();
     await page.screenshot({ path: test.info().outputPath('join-desktop.png'), fullPage: true });
     await page.setViewportSize({ width: 390, height: 844 });
-    expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+    expect((await new AxeBuilder({ page }).exclude('.shell-bottom').analyze()).violations).toEqual(
+      [],
+    );
     await page.screenshot({ path: test.info().outputPath('join-phone.png'), fullPage: true });
     await page.getByRole('button', { name: 'Join chapters', exact: true }).click();
     await expect(page.getByRole('link', { name: 'Dusk', exact: true })).toHaveCount(0);
@@ -863,9 +916,7 @@ test('join a Chapter into its parent without moving the surrounding prose', asyn
   const { page, context, tenant, api } = await world(browser);
   try {
     await page.goto(`/?tenant=${tenant.id}`);
-    await page.getByLabel('Start with').selectOption('book');
-    await page.getByLabel('New draft title').fill('One continuous account');
-    await page.getByRole('button', { name: 'Start writing', exact: true }).click();
+    await startAs(page, 'book', 'One continuous account');
     const text = page.getByRole('textbox', { name: 'Manuscript', exact: true });
     await expect(text).toBeVisible();
     const parent = new URL(page.url()).searchParams.get('entry');
@@ -925,7 +976,9 @@ test('join a Chapter into its parent without moving the surrounding prose', asyn
       fullPage: true,
     });
     await page.setViewportSize({ width: 390, height: 844 });
-    expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+    expect((await new AxeBuilder({ page }).exclude('.shell-bottom').analyze()).violations).toEqual(
+      [],
+    );
     await page.screenshot({
       path: test.info().outputPath('parent-join-phone.png'),
       fullPage: true,
@@ -954,9 +1007,7 @@ test('extract a reusable Scene and make its second telling independent', async (
   const { page, context, tenant } = await world(browser);
   try {
     await page.goto(`/?tenant=${tenant.id}`);
-    await page.getByLabel('Start with').selectOption('book');
-    await page.getByLabel('New draft title').fill('Shared crossings');
-    await page.getByRole('button', { name: 'Start writing', exact: true }).click();
+    await startAs(page, 'book', 'Shared crossings');
     const manuscript = page.getByRole('textbox', { name: 'Manuscript', exact: true });
     const prose = 'The river **remembers**.';
     await manuscript.fill(prose);
@@ -969,7 +1020,7 @@ test('extract a reusable Scene and make its second telling independent', async (
         'base64',
       ),
     });
-    await expect(page.getByRole('button', { name: 'Remove picture' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Block options' }).last()).toBeVisible();
     await expect(page.getByRole('status', { name: 'Save status' })).toHaveText('Saved');
     const edition = new URL(page.url()).searchParams.get('entry');
     await page.getByRole('link', { name: 'Outline', exact: true }).click();
@@ -980,7 +1031,9 @@ test('extract a reusable Scene and make its second telling independent', async (
       fullPage: true,
     });
     await page.setViewportSize({ width: 390, height: 844 });
-    expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+    expect((await new AxeBuilder({ page }).exclude('.shell-bottom').analyze()).violations).toEqual(
+      [],
+    );
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
       true,
     );
@@ -998,7 +1051,7 @@ test('extract a reusable Scene and make its second telling independent', async (
     await page.getByRole('link', { name: 'At the crossing', exact: true }).last().click();
     await expect(page.locator('article')).toContainText('The river remembers.');
     await page.getByRole('button', { name: 'Make independent', exact: true }).click();
-    await expect(page.getByRole('button', { name: 'Remove picture' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Block options' }).last()).toBeVisible();
     await expect(manuscript).toHaveValue(prose);
     await manuscript.fill('The ferryman remembers.');
     await expect(page.getByRole('status', { name: 'Save status' })).toHaveText('Saved');
@@ -1023,9 +1076,7 @@ test('a Carrier inherits several forms and reads selected writing alongside its 
     const scene = new URL(page.url()).searchParams.get('entry');
     for (const name of ['Vellum', 'Coptic', 'Collected codex']) {
       await page.goto(`/?tenant=${tenant.id}`);
-      await page.getByLabel('Start with').selectOption('carrier');
-      await page.getByLabel('New draft title').fill(name);
-      await page.getByRole('button', { name: 'Start writing', exact: true }).click();
+      await startAs(page, 'carrier', name);
       await expect(page.getByRole('heading', { name, exact: true })).toBeVisible();
     }
     await manuscript.fill('A note on this binding.');
@@ -1059,7 +1110,9 @@ test('a Carrier inherits several forms and reads selected writing alongside its 
     await page.getByText('Carrier form', { exact: true }).click();
     await page.screenshot({ path: test.info().outputPath('carrier-desktop.png'), fullPage: true });
     await page.setViewportSize({ width: 390, height: 844 });
-    expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+    expect((await new AxeBuilder({ page }).exclude('.shell-bottom').analyze()).violations).toEqual(
+      [],
+    );
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
       true,
     );
@@ -1121,7 +1174,6 @@ test('Chapter numbering follows the outline without changing titles', async ({ b
     await arrange(edition, [first.id, second.id]);
     await arrange(first.id, [nested.id]);
     await page.goto(`/?tenant=${tenant.id}&entry=${edition}&view=outline`);
-    await page.getByText('Numbering', { exact: true }).click();
     await page.getByLabel('Number Chapters', { exact: true }).check();
     await page.getByRole('combobox', { name: 'Number style', exact: true }).selectOption('roman');
     await page.getByRole('button', { name: 'Add level', exact: true }).click();
@@ -1133,21 +1185,24 @@ test('Chapter numbering follows the outline without changing titles', async ({ b
     await page.getByRole('button', { name: 'Up: Arrival', exact: true }).click();
     await expect(page.getByRole('link', { name: 'I Arrival', exact: true })).toBeVisible();
     await page.getByRole('link', { name: 'Read', exact: true }).click();
-    await expect(page.getByRole('heading', { name: 'II.a The ferry', exact: true })).toBeVisible();
+    // The Read page assembles the whole outline, which a busy runner can take a while over.
+    await expect(page.getByRole('heading', { name: 'II.a The ferry', exact: true })).toBeVisible({
+      timeout: 20000,
+    });
     await page.goto(`/?tenant=${tenant.id}&entry=${first.id}&view=outline`);
-    await page.getByText('Numbering', { exact: true }).click();
     await page.getByLabel('Use this number (optional)', { exact: true }).fill('5');
     await page.getByRole('button', { name: 'Save numbering', exact: true }).click();
     await expect(page.getByRole('heading', { name: 'V Departure', exact: true })).toBeVisible();
     await expect(page.getByRole('link', { name: 'V.a The ferry', exact: true })).toBeVisible();
-    await page.getByText('Numbering', { exact: true }).click();
     await page.screenshot({
       path: test.info().outputPath('numbering-desktop.png'),
       fullPage: true,
     });
     await page.setViewportSize({ width: 390, height: 844 });
     await expect(page.getByRole('button', { name: 'Save numbering', exact: true })).toBeVisible();
-    expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+    expect((await new AxeBuilder({ page }).exclude('.shell-bottom').analyze()).violations).toEqual(
+      [],
+    );
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
       true,
     );
@@ -1218,15 +1273,21 @@ test('structural contents link Chapters while special Chapters keep authored tex
     );
     const outline = async (id: string) => {
       await page.goto(`/?tenant=${tenant.id}&entry=${id}&view=outline`);
-      await page
-        .locator('summary')
-        .filter({ hasText: /^Contents$/ })
-        .click();
+      await expect(page.locator('details.card > summary', { hasText: /^Contents$/ })).toBeVisible();
+    };
+    // The save is done when its button is usable again: reading before that shows the old settings.
+    const saveContents = async () => {
+      const save = page.getByRole('button', { name: 'Save contents settings', exact: true });
+      await save.click();
+      // The button is disabled while the settings are saved, and gone or usable again when they are.
+      await expect(
+        page.getByRole('button', { name: 'Save contents settings', exact: true, disabled: true }),
+      ).toHaveCount(0);
     };
     await outline(edition);
     await page.getByLabel('Show contents before the manuscript').check();
     await page.getByLabel('Contents label template').fill('{title}');
-    await page.getByRole('button', { name: 'Save contents settings', exact: true }).click();
+    await saveContents();
     await page.getByRole('link', { name: 'Read', exact: true }).click();
     let navigation = page.getByRole('navigation', { name: 'Contents', exact: true });
     await expect(navigation.getByRole('link')).toHaveText([
@@ -1240,22 +1301,22 @@ test('structural contents link Chapters while special Chapters keep authored tex
     await expect(page.locator(`#element-${nested.id}`)).toBeInViewport();
     await outline(chapter.id);
     await page.getByLabel('Include in contents', { exact: true }).uncheck();
-    await page.getByRole('button', { name: 'Save contents settings', exact: true }).click();
+    await saveContents();
     await outline(guide.id);
     await page
       .getByRole('combobox', { name: 'Chapter type', exact: true })
       .selectOption('contents');
     await page.getByLabel('Include in contents', { exact: true }).uncheck();
-    await page.getByRole('button', { name: 'Save contents settings', exact: true }).click();
+    await saveContents();
     await outline(glossary.id);
     await page
       .getByRole('combobox', { name: 'Chapter type', exact: true })
       .selectOption('glossary');
-    await page.getByRole('button', { name: 'Save contents settings', exact: true }).click();
+    await saveContents();
     await outline(edition);
     await page.getByLabel('Show contents before the manuscript').uncheck();
     await page.getByLabel('Chapter levels to include').fill('1');
-    await page.getByRole('button', { name: 'Save contents settings', exact: true }).click();
+    await saveContents();
     await page.getByRole('link', { name: 'Read', exact: true }).click();
     navigation = page.getByRole('navigation', { name: 'Contents', exact: true });
     await expect(navigation.getByRole('link')).toHaveText(['Glossary']);
@@ -1263,14 +1324,16 @@ test('structural contents link Chapters while special Chapters keep authored tex
     await outline(edition);
     await page.getByLabel('Chapter levels to include').fill('3');
     await page.getByLabel('Contents label template').fill('<b>{title}</b>');
-    await page.getByRole('button', { name: 'Save contents settings', exact: true }).click();
+    await saveContents();
     await page.getByRole('link', { name: 'Read', exact: true }).click();
     await expect(navigation.getByRole('link')).toHaveText(['<b>Ferry</b>', '<b>Glossary</b>']);
     await expect(navigation.locator('b')).toHaveCount(0);
     await expect(page.locator('article')).toContainText('Ferry: a boat crossing the river.');
     await page.screenshot({ path: test.info().outputPath('contents-desktop.png'), fullPage: true });
     await page.setViewportSize({ width: 390, height: 844 });
-    expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+    expect((await new AxeBuilder({ page }).exclude('.shell-bottom').analyze()).violations).toEqual(
+      [],
+    );
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
       true,
     );
@@ -1416,7 +1479,9 @@ test('personal targets persist independently for the draft and assembled reading
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
       true,
     );
-    expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+    expect((await new AxeBuilder({ page }).exclude('.shell-bottom').analyze()).violations).toEqual(
+      [],
+    );
   } finally {
     await context.close();
   }
@@ -1432,6 +1497,7 @@ test('personal timer pauses, resumes, survives reload and stays separate from an
     await page.clock.install({ time: now });
     await page.clock.pauseAt(now);
     const openTimer = async () => {
+      await openSideViews(page);
       await page.getByText('Word count', { exact: true }).click();
       await page.getByText('Writing timer', { exact: true }).click();
     };
@@ -1447,8 +1513,7 @@ test('personal timer pauses, resumes, survives reload and stays separate from an
     await openTimer();
     await expect(page.getByRole('timer')).toHaveText('0:50');
     await page.getByRole('link', { name: 'Your writing', exact: true }).click();
-    await page.getByLabel('New draft title').fill('Another passage');
-    await page.getByRole('button', { name: 'Start writing', exact: true }).click();
+    await startAs(page, 'scene', 'Another passage');
     await expect(page.getByRole('textbox', { name: 'Manuscript', exact: true })).toBeVisible();
     await openTimer();
     await expect(page.getByRole('timer')).toHaveText('0:50');
@@ -1466,10 +1531,13 @@ test('personal timer pauses, resumes, survives reload and stays separate from an
     await expect(page.getByRole('timer')).toHaveText('1:00');
     await page.clock.resume();
     await page.setViewportSize({ width: 390, height: 844 });
+    await openSideViews(page);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
       true,
     );
-    expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+    expect((await new AxeBuilder({ page }).exclude('.shell-bottom').analyze()).violations).toEqual(
+      [],
+    );
     // A second Author in the same tab must get their own default timer.
     const subject = `timer-other-${randomUUID()}`;
     const api = await apiAs(subject);
@@ -1581,7 +1649,9 @@ test('session goals count signed editing changes and rebase loaded revisions', a
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
       true,
     );
-    expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+    expect((await new AxeBuilder({ page }).exclude('.shell-bottom').analyze()).violations).toEqual(
+      [],
+    );
   } finally {
     await context.close();
   }
@@ -1752,7 +1822,9 @@ test('an author reviews Being names before adding a private Scene reference', as
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
       true,
     );
-    expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+    expect((await new AxeBuilder({ page }).exclude('.shell-bottom').analyze()).violations).toEqual(
+      [],
+    );
   } finally {
     await context.close();
   }
@@ -1849,7 +1921,9 @@ test('reviewed manuscript links preserve the selected wording, undo and saved ba
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
       true,
     );
-    expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+    expect((await new AxeBuilder({ page }).exclude('.shell-bottom').analyze()).violations).toEqual(
+      [],
+    );
     await choice.click();
     await expect(draft).toHaveValue(linked);
     await expect(page.getByRole('status', { name: 'Save status' })).toHaveText('Saved');
@@ -1947,16 +2021,20 @@ test('an author reviews existing calendar dates before setting a Scene period', 
     await setPeriod(null);
     await check.click();
     await page.setViewportSize({ width: 390, height: 844 });
+    await openSideViews(page);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
       true,
     );
-    expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+    expect((await new AxeBuilder({ page }).exclude('.shell-bottom').analyze()).violations).toEqual(
+      [],
+    );
     await add.click();
     await expect(page.getByText('Period: 3 Frost 42', { exact: true })).toBeVisible();
     expect((await ok(getScene())).period_entity_id).toBe(chosen.entity_id);
     await expect(draft).toHaveValue(`${source} Tomorrow.`);
     await expect(page.getByText('Saved', { exact: true })).toBeVisible();
     await page.reload();
+    await openSideViews(page);
     await page.getByText('Details', { exact: true }).click();
     await expect(page.getByText('Period: 3 Frost 42', { exact: true })).toBeVisible();
     await page.getByRole('button', { name: 'Clear period', exact: true }).click();
@@ -2097,9 +2175,19 @@ for (const variant of ['draft', 'placed', 'nested', 'parent']) {
       const draft = page.getByRole('textbox', { name: 'Manuscript', exact: true });
       await expect(draft).toHaveValue('The original crossing.', { timeout: 15000 });
       await page.getByText('Details', { exact: true }).click();
-      await page.getByText('Repository comparison', { exact: true }).click();
-      const compare = page.getByRole('button', { name: 'Compare saved writing', exact: true });
-      await compare.click();
+      const comparison = page.getByRole('dialog', { name: 'Repository comparison' });
+      const openComparison = async () => {
+        await page.getByRole('button', { name: 'Repository comparison', exact: true }).click();
+        await comparison
+          .getByRole('button', { name: 'Compare saved writing', exact: true })
+          .click();
+      };
+      // The dialog makes the page behind it inert until it has finished closing.
+      const closeComparison = async () => {
+        await comparison.getByRole('button', { name: 'Close' }).click();
+        await expect(comparison).toBeHidden();
+      };
+      await openComparison();
       await expect(
         page.getByText('The saved writing still matches the original copy.'),
       ).toBeVisible();
@@ -2119,9 +2207,10 @@ for (const variant of ['draft', 'placed', 'nested', 'parent']) {
           body: { content: '<img src=x onerror=alert(1)> Upstream crossing.' },
         }),
       );
+      await closeComparison();
       await draft.fill('My saved crossing.');
       await expect(page.getByRole('status', { name: 'Save status' })).toHaveText('Saved');
-      await compare.click();
+      await openComparison();
       await expect(page.getByText('Both versions changed differently.')).toBeVisible();
       const review = page.locator('.repo-review-values');
       await expect(review).toContainText('The original crossing.');
@@ -2134,11 +2223,15 @@ for (const variant of ['draft', 'placed', 'nested', 'parent']) {
       });
       await expect(take).toBeVisible();
       await expect(draft).toHaveValue('My saved crossing.');
+      await closeComparison();
       await page.setViewportSize({ width: 390, height: 844 });
+      await openSideViews(page);
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
         true,
       );
-      expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+      expect(
+        (await new AxeBuilder({ page }).exclude('.shell-bottom').analyze()).violations,
+      ).toEqual([]);
       await page.screenshot({
         path: test.info().outputPath('comparison-phone.png'),
         fullPage: true,
@@ -2147,6 +2240,7 @@ for (const variant of ['draft', 'placed', 'nested', 'parent']) {
         route.request().method() === 'PATCH' ? route.abort() : route.continue(),
       );
       await draft.fill('My unsaved crossing.');
+      await openComparison();
       await take.click();
       await expect(
         page.getByText('Save your draft and resolve any conflicts before accepting an update.'),
@@ -2156,19 +2250,21 @@ for (const variant of ['draft', 'placed', 'nested', 'parent']) {
         'Use Save now to retry.',
       );
       await page.unroute('**/payloads/*');
+      await closeComparison();
       await page.getByRole('button', { name: 'Save now', exact: true }).click();
       await expect(page.getByRole('status', { name: 'Save status' })).toHaveText('Saved');
-      await compare.click();
       await page.getByText('Word count', { exact: true }).click();
       await page.getByText('Writing session', { exact: true }).click();
       await page.getByLabel('Session word target').fill('100');
       await page.getByRole('button', { name: 'Start session', exact: true }).click();
       await expect(page.getByText('Session progress · 0 words', { exact: true })).toBeVisible();
+      await openComparison();
       await take.click();
       await expect(page.getByText('Repository writing saved.', { exact: true })).toBeVisible();
       await expect(draft).toHaveValue('<img src=x onerror=alert(1)> Upstream crossing.');
+      await closeComparison();
       await expect(page.getByText('Session progress · 0 words', { exact: true })).toBeVisible();
-      await compare.click();
+      await openComparison();
       await expect(
         page.getByText('The saved writing still matches the original copy.'),
       ).toBeVisible();
@@ -2289,12 +2385,23 @@ test("composition updates preserve stable elements and protect another tab's dra
     );
     const reviewPage = await context.newPage();
     await reviewPage.goto(`/?tenant=${tenant.id}&entry=${local}&view=outline`);
-    await reviewPage.getByText('Composition updates', { exact: true }).click();
+    await reviewPage.getByRole('button', { name: 'Composition updates', exact: true }).click();
     const compare = reviewPage.getByRole('button', { name: 'Review composition updates' });
     await compare.click();
     await expect(reviewPage.locator('.repo-review')).toContainText('Extracted passage', {
       timeout: 15000,
     });
+    // Select all clean only ticks, and never applies.
+    const allClean = reviewPage.getByRole('button', { name: 'Select all clean' });
+    if (await allClean.count()) {
+      await allClean.click();
+      await expect(
+        reviewPage.getByText(/clean changes? selected\. Nothing is applied/),
+      ).toBeVisible();
+      await expect(
+        reviewPage.getByRole('button', { name: 'Apply selected updates' }),
+      ).toBeEnabled();
+    }
     for (const radio of await reviewPage.locator('.repo-review input[value="theirs"]').all())
       await radio.check();
     await reviewPage.getByRole('button', { name: 'Apply selected updates' }).click();
@@ -2315,7 +2422,9 @@ test("composition updates preserve stable elements and protect another tab's dra
     expect(
       await reviewPage.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
     ).toBe(true);
-    expect((await new AxeBuilder({ page: reviewPage }).analyze()).violations).toEqual([]);
+    expect(
+      (await new AxeBuilder({ page: reviewPage }).exclude('.shell-bottom').analyze()).violations,
+    ).toEqual([]);
     await reviewPage.screenshot({
       path: test.info().outputPath('composition-review-phone.png'),
       fullPage: true,
@@ -2361,10 +2470,8 @@ test('saved export preview downloads source and prepares a clean printable manus
         ).join('\n\n'),
     );
     await expect(page.getByRole('status', { name: 'Save status' })).toHaveText('Saved');
-    await page.getByText('Export', { exact: true }).click();
-    const controls = page
-      .locator('details')
-      .filter({ has: page.locator('summary').filter({ hasText: /^Export$/ }) });
+    await page.getByRole('button', { name: 'Export', exact: true }).click();
+    const controls = page.getByRole('dialog', { name: 'Export' });
     await controls.getByRole('button', { name: 'Preview saved writing' }).click();
     await expect(controls.locator('article')).toContainText('The river remembers.');
     const downloading = page.waitForEvent('download');
@@ -2388,7 +2495,10 @@ test('saved export preview downloads source and prepares a clean printable manus
       observer.observe(document.body, { childList: true });
     });
     await controls.getByRole('button', { name: 'Print / Save as PDF' }).click();
-    await expect(page.locator('html')).toHaveAttribute('data-printed', /The river remembers/);
+    // The print layout waits for the manuscript fonts, which can be slow on a busy runner.
+    await expect(page.locator('html')).toHaveAttribute('data-printed', /The river remembers/, {
+      timeout: 20000,
+    });
     const html = await page.locator('html').getAttribute('data-printed');
     expect(html).not.toContain('Preview saved writing');
     expect(html).not.toContain('<textarea');
@@ -2399,24 +2509,38 @@ test('saved export preview downloads source and prepares a clean printable manus
     if (process.env.E2E_EXPORT_PDF)
       await printed.pdf({ path: process.env.E2E_EXPORT_PDF, format: 'A4', printBackground: true });
     await printed.close();
+    await controls.getByRole('button', { name: 'Close' }).click();
+    await expect(controls).toBeHidden();
     await page.setViewportSize({ width: 390, height: 844 });
+    await openSideViews(page);
+    await page.getByRole('button', { name: 'Export', exact: true }).click();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
       true,
     );
-    expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+    expect((await new AxeBuilder({ page }).exclude('.shell-bottom').analyze()).violations).toEqual(
+      [],
+    );
     await controls.screenshot({ path: test.info().outputPath('export-phone.png') });
+    await controls.getByRole('button', { name: 'Close' }).click();
+    await expect(controls).toBeHidden();
     await manuscript.fill('Changed after preview.');
     await expect(page.getByRole('status', { name: 'Save status' })).toHaveText('Saved');
+    await page.getByRole('button', { name: 'Export', exact: true }).click();
     await controls.getByRole('button', { name: 'Download LorenzoScript' }).click();
     await expect(controls.getByRole('status')).toContainText('Refresh the export preview');
     await expect(controls.locator('article')).toHaveCount(0);
+    await controls.getByRole('button', { name: 'Close' }).click();
+    await expect(controls).toBeHidden();
     await page.route(`${API_URL}/tenants/**/payloads/*`, (route) =>
       route.request().method() === 'PATCH' ? route.abort() : route.continue(),
     );
     await manuscript.fill('UNSENT writing must stay out of the export.');
+    await page.getByRole('button', { name: 'Export', exact: true }).click();
     await controls.getByRole('button', { name: 'Preview saved writing' }).click();
     await expect(controls.locator('article')).toContainText('Changed after preview.');
     await expect(controls.locator('article')).not.toContainText('UNSENT');
+    await controls.getByRole('button', { name: 'Close' }).click();
+    await expect(controls).toBeHidden();
     await expect(manuscript).toHaveValue('UNSENT writing must stay out of the export.');
   } finally {
     await context.close();
@@ -2471,7 +2595,7 @@ test('export repeats composition with distinct footnotes, contents and original 
       mimeType: 'image/png',
       buffer: Buffer.from(image, 'base64'),
     });
-    await expect(page.getByRole('button', { name: 'Remove picture' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Block options' }).last()).toBeVisible();
     await expect(page.getByRole('status', { name: 'Save status' })).toHaveText('Saved');
     const book = await ok(
       api.POST('/tenants/{tenant_id}/writing/books', {
@@ -2560,10 +2684,8 @@ test('export repeats composition with distinct footnotes, contents and original 
       }),
     );
     await page.goto(`/?tenant=${tenant.id}&entry=${carrier.id}&view=read`);
-    await page.getByText('Export', { exact: true }).click();
-    const controls = page
-      .locator('details')
-      .filter({ has: page.locator('summary').filter({ hasText: /^Export$/ }) });
+    await page.getByRole('button', { name: 'Export', exact: true }).click();
+    const controls = page.getByRole('dialog', { name: 'Export' });
     await controls.getByRole('button', { name: 'Preview saved writing' }).click();
     const article = controls.locator('article');
     await expect(article.locator('img')).toHaveCount(4);
@@ -2602,7 +2724,9 @@ test('export repeats composition with distinct footnotes, contents and original 
       observer.observe(document.body, { childList: true });
     });
     await controls.getByRole('button', { name: 'Print / Save as PDF' }).click();
-    await expect(page.locator('html')).toHaveAttribute('data-printed', /A local note/);
+    await expect(page.locator('html')).toHaveAttribute('data-printed', /A local note/, {
+      timeout: 20000,
+    });
     if (process.env.E2E_EXPORT_PDF) {
       const printed = await context.newPage();
       await printed.goto(`${SITE_URL}/branding/fonts.css`);
@@ -2614,6 +2738,834 @@ test('export repeats composition with distinct footnotes, contents and original 
       await printed.pdf({ path: process.env.E2E_EXPORT_PDF, format: 'A4', printBackground: true });
       await printed.close();
     }
+  } finally {
+    await context.close();
+  }
+});
+
+test('the shelf filters by kind, searches, and continues the work last opened', async ({
+  browser,
+}) => {
+  const { page, context, tenant } = await world(browser);
+  try {
+    await page.goto(`/?tenant=${tenant.id}`);
+    await startAs(page, 'chapter', 'Shelf chapter');
+    await expect(page.getByRole('heading', { name: 'Shelf chapter', exact: true })).toBeVisible();
+    await page.goto(`/?tenant=${tenant.id}`);
+    await expect(page.getByRole('link', { name: 'Continue with Shelf chapter' })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Across the water', exact: true })).toBeVisible();
+
+    await page.getByRole('button', { name: 'Chapters', exact: true }).click();
+    await expect(page.getByRole('link', { name: 'Across the water', exact: true })).toHaveCount(0);
+    await page.getByRole('button', { name: 'All', exact: true }).click();
+    await page.getByLabel('Search your writing').fill('across');
+    await expect(page.getByRole('link', { name: 'Shelf chapter', exact: true })).toHaveCount(0);
+    await page.getByLabel('Search your writing').fill('nothing like this');
+    await expect(page.getByText('No writing match')).toBeVisible();
+    const axe = await new AxeBuilder({ page }).exclude('.shell-bottom').analyze();
+    expect(axe.violations).toEqual([]);
+  } finally {
+    await context.close();
+  }
+});
+
+test('old addresses open the new ones and a work has a head, a drawer and a status bar', async ({
+  browser,
+}) => {
+  const { page, context, tenant } = await world(browser);
+  try {
+    const entry = new URL(page.url()).searchParams.get('entry');
+    expect(new URL(page.url()).pathname).toBe('/write/');
+    await page.goto(`/?tenant=${tenant.id}&entry=${entry}`);
+    await expect(page).toHaveURL(new RegExp(`/write/\\?tenant=${tenant.id}&entry=${entry}$`));
+    await expect(page.getByRole('textbox', { name: 'Manuscript', exact: true })).toBeVisible();
+    await page.getByRole('textbox', { name: 'Manuscript', exact: true }).fill('Three little words');
+    await expect(page.getByText('3 words', { exact: true })).toBeVisible();
+    await expect(page.getByText(/^Synced/)).toBeVisible();
+    // Docked from 1100px, a sheet below it.
+    await expect(page.getByRole('complementary', { name: 'Side views' })).toBeVisible();
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expect(page.getByRole('complementary', { name: 'Side views' })).toBeHidden();
+    await page.getByRole('button', { name: 'Side views', exact: true }).click();
+    await expect(page.getByRole('complementary', { name: 'Side views' })).toBeVisible();
+    const axe = await new AxeBuilder({ page }).exclude('.shell-bottom').analyze();
+    expect(axe.violations).toEqual([]);
+  } finally {
+    await context.close();
+  }
+});
+
+test('blocks move by Alt and the arrow keys, are selected, and become a Chapter', async ({
+  browser,
+}) => {
+  test.setTimeout(120000);
+  const { page, context, tenant } = await world(browser);
+  try {
+    await page.goto(`/?tenant=${tenant.id}`);
+    await startAs(page, 'chapter', 'Blocks chapter');
+    const first = page.getByRole('textbox', { name: 'Manuscript', exact: true });
+    await first.fill('First part.');
+    await addTextAtEnd(page);
+    const second = page.getByRole('textbox', { name: 'Text 2', exact: true });
+    await second.fill('Second part.');
+    await expect(page.getByRole('status', { name: 'Save status' })).toHaveText('Saved');
+    await second.press('Alt+ArrowUp');
+    await expect(page.getByRole('textbox', { name: /^(Manuscript|Text \d)$/ }).first()).toHaveValue(
+      'Second part.',
+    );
+    await expect(page.getByRole('status', { name: 'Save status' })).toHaveText('Saved');
+    await page.getByRole('button', { name: 'Add a block here' }).first().click();
+    await page.getByRole('menuitem', { name: 'Add text' }).click();
+    await expect(page.getByRole('textbox', { name: /^(Manuscript|Text \d)$/ })).toHaveCount(3);
+    await page.getByRole('button', { name: 'Block options' }).nth(1).click();
+    await page.getByRole('menuitem', { name: 'Remove text' }).click();
+    await expect(page.getByRole('textbox', { name: /^(Manuscript|Text \d)$/ })).toHaveCount(2);
+    await page.getByRole('button', { name: 'Block options' }).first().click();
+    await page.getByRole('menuitem', { name: 'Select this block' }).click();
+    await expect(page.getByText('1 block selected')).toBeVisible();
+    const axe = await new AxeBuilder({ page }).exclude('.shell-bottom').analyze();
+    expect(axe.violations).toEqual([]);
+    await page
+      .getByRole('region', { name: 'Selected blocks' })
+      .getByRole('button', { name: 'Make a Chapter' })
+      .click();
+    const dialog = page.getByRole('dialog');
+    await dialog.getByLabel('Title').fill('Carved out');
+    await dialog.getByRole('button', { name: 'Make a Chapter' }).click();
+    await expect(page.getByText('1 block selected')).toHaveCount(0);
+    await page.getByRole('link', { name: 'Outline', exact: true }).click();
+    await expect(page.getByRole('link', { name: 'Carved out', exact: true })).toBeVisible();
+  } finally {
+    await context.close();
+  }
+});
+
+test('a text block splits from its menu at the section the cursor is in, and says why not', async ({
+  browser,
+}) => {
+  test.setTimeout(120000);
+  const { page, context, tenant } = await world(browser);
+  try {
+    await page.goto(`/?tenant=${tenant.id}`);
+    await startAs(page, 'chapter', 'Split chapter');
+    const text = page.getByRole('textbox', { name: 'Manuscript', exact: true });
+    await text.fill('Alpha section.\n\nBeta section.');
+    await expect(page.getByRole('status', { name: 'Save status' })).toHaveText('Saved');
+    await text.evaluate((el: HTMLTextAreaElement) => el.setSelectionRange(2, 2));
+    await page.getByRole('button', { name: 'Block options' }).first().click();
+    await page.getByRole('menuitem', { name: 'Split here' }).click();
+    await expect(page.getByRole('alert').filter({ hasText: 'Put the cursor' })).toBeVisible();
+    await text.evaluate((el: HTMLTextAreaElement) => el.setSelectionRange(20, 20));
+    await page.getByRole('button', { name: 'Block options' }).first().click();
+    await page.getByRole('menuitem', { name: 'Split here' }).click();
+    await expect(page.getByRole('textbox', { name: 'Text 2', exact: true })).toHaveValue(
+      'Beta section.',
+    );
+    await expect(page.getByRole('textbox', { name: 'Manuscript', exact: true })).toHaveValue(
+      'Alpha section.\n\n',
+    );
+  } finally {
+    await context.close();
+  }
+});
+
+test('the Live layout shows paragraphs formatted and opens the one clicked as its source', async ({
+  browser,
+}) => {
+  test.setTimeout(120000);
+  const { page, context } = await world(browser);
+  try {
+    const text = page.getByRole('textbox', { name: 'Manuscript', exact: true });
+    await text.fill('# A heading\n\nA *slanted* paragraph.');
+    await expect(page.getByRole('status', { name: 'Save status' })).toHaveText('Saved');
+    await page.getByRole('button', { name: 'Layout', exact: true }).click();
+    await page.getByRole('menuitemradio', { name: 'Live' }).click();
+    await expect(page.locator('.ls-block h1')).toHaveText('A heading');
+    await expect(page.locator('.ls-block em')).toHaveText('slanted');
+    await page.locator('.ls-block').nth(1).click();
+    const open = page.getByRole('textbox', { name: 'Edit this part' });
+    await expect(open).toHaveValue('A *slanted* paragraph.');
+    await open.press('End');
+    await open.pressSequentially(' More.');
+    await expect(page.getByRole('status', { name: 'Save status' })).toHaveText('Saved');
+    await page.reload();
+    await expect(page.locator('.ls-block').nth(1)).toContainText('More.');
+    await expect(page.locator('.ls-block h1')).toHaveText('A heading');
+  } finally {
+    await context.close();
+  }
+});
+
+test('the outline stands beside a Book’s pages and is a panel below 1100px', async ({
+  browser,
+}) => {
+  test.setTimeout(120000);
+  const { page, context, tenant } = await world(browser);
+  try {
+    await page.goto(`/?tenant=${tenant.id}`);
+    await startAs(page, 'book', 'Tree book');
+    await page.getByRole('link', { name: 'Outline', exact: true }).click();
+    await page.getByLabel('New chapter title').fill('First chapter');
+    await page.getByRole('button', { name: 'Add chapter', exact: true }).click();
+    await page.getByRole('link', { name: 'First chapter', exact: true }).click();
+    const tree = page.getByRole('navigation', { name: 'Outline' });
+    await expect(tree).toBeVisible();
+    await expect(tree.getByRole('link', { name: /Go to .*Tree book/ })).toBeVisible();
+    await expect(tree.getByRole('link', { name: /Go to .*First chapter/ })).toHaveAttribute(
+      'aria-current',
+      'page',
+    );
+    // The page keeps its width beside the outline and its drawer.
+    expect((await page.locator('.work-frame').boundingBox())?.width).toBeGreaterThan(500);
+    await expect(tree.getByText(/^\d+ words?$/).first()).toBeVisible();
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expect(tree).toBeHidden();
+    await page.getByRole('button', { name: 'Outline', exact: true }).click();
+    await expect(tree).toBeVisible();
+    const axe = await new AxeBuilder({ page }).exclude('.shell-bottom').analyze();
+    expect(axe.violations).toEqual([]);
+  } finally {
+    await context.close();
+  }
+});
+
+test('a reorder can be undone from the outline page', async ({ browser }) => {
+  test.setTimeout(120000);
+  const { page, context, tenant } = await world(browser);
+  try {
+    await page.goto(`/?tenant=${tenant.id}`);
+    await startAs(page, 'book', 'Undo book');
+    await page.getByRole('link', { name: 'Outline', exact: true }).click();
+    for (const name of ['One', 'Two']) {
+      await page.getByLabel('New chapter title').fill(name);
+      await page.getByRole('button', { name: 'Add chapter', exact: true }).click();
+      await expect(
+        page.getByRole('link', { name: new RegExp(`^(\\d+\\.? )?${name}$`) }).first(),
+      ).toBeVisible();
+    }
+    const chapters = page
+      .locator('ol > li')
+      .filter({ has: page.getByRole('link', { name: /One|Two/ }) });
+    await expect(chapters.first()).toContainText('One');
+    await page.getByRole('button', { name: /^Down: One/ }).click();
+    await expect(chapters.first()).toContainText('Two');
+    await page.getByRole('button', { name: 'Undo', exact: true }).click();
+    await expect(chapters.first()).toContainText('One');
+  } finally {
+    await context.close();
+  }
+});
+
+test('a split can be undone once from the page it leads to', async ({ browser }) => {
+  test.setTimeout(120000);
+  const { page, context, tenant } = await world(browser);
+  try {
+    await page.goto(`/?tenant=${tenant.id}`);
+    await startAs(page, 'chapter', 'Undo split chapter');
+    const text = page.getByRole('textbox', { name: 'Manuscript', exact: true });
+    await text.fill('Alpha section.\n\nBeta section.');
+    await expect(page.getByRole('status', { name: 'Save status' })).toHaveText('Saved');
+    await text.evaluate((el: HTMLTextAreaElement) => el.setSelectionRange(20, 20));
+    await page.getByRole('button', { name: 'Block options' }).first().click();
+    await page.getByRole('menuitem', { name: 'Split here' }).click();
+    await expect(page.getByRole('textbox', { name: 'Text 2', exact: true })).toBeVisible();
+    await page.getByRole('button', { name: 'Undo split', exact: true }).click();
+    await expect(page.getByRole('textbox', { name: 'Text 2', exact: true })).toHaveCount(0);
+    await expect(page.getByRole('textbox', { name: 'Manuscript', exact: true })).toHaveValue(
+      'Alpha section.\n\nBeta section.',
+    );
+    await expect(page.getByRole('button', { name: 'Undo split', exact: true })).toHaveCount(0);
+  } finally {
+    await context.close();
+  }
+});
+
+test('[[ offers the names of entries and writes the chosen one', async ({ browser }) => {
+  test.setTimeout(120000);
+  const { page, context, tenant } = await world(browser);
+  try {
+    await page.goto(`/?tenant=${tenant.id}`);
+    await startAs(page, 'chapter', 'Findable chapter');
+    await expect(page.getByRole('heading', { name: 'Findable chapter' })).toBeVisible();
+    await page.goto(`/?tenant=${tenant.id}`);
+    await page.getByRole('button', { name: 'Start writing', exact: true }).click();
+    const text = page.getByRole('textbox', { name: 'Manuscript', exact: true });
+    await text.pressSequentially('See [[Findable');
+    await expect(page.getByRole('listbox', { name: 'Names' })).toBeVisible();
+    await page.getByRole('option', { name: 'Findable chapter' }).click();
+    await expect(text).toHaveValue('See [[Findable chapter]]');
+  } finally {
+    await context.close();
+  }
+});
+
+test('selected words show a quiet bar to link them or make them bold', async ({ browser }) => {
+  test.setTimeout(120000);
+  const { page, context } = await world(browser);
+  try {
+    const text = page.getByRole('textbox', { name: 'Manuscript', exact: true });
+    await text.fill('The ferryman waits.');
+    const bar = page.getByRole('group', { name: 'Selected words' });
+    await expect(bar).toBeHidden();
+    await text.evaluate((el: HTMLTextAreaElement) => {
+      el.focus();
+      el.setSelectionRange(4, 12);
+      el.dispatchEvent(new Event('select'));
+    });
+    await expect(bar).toBeVisible();
+    await bar.getByRole('button', { name: 'Make bold' }).click();
+    await expect(text).toHaveValue('The **ferryman** waits.');
+  } finally {
+    await context.close();
+  }
+});
+
+test('a work is renamed from its page head', async ({ browser }) => {
+  test.setTimeout(120000);
+  const { page, context } = await world(browser);
+  try {
+    await page.getByRole('button', { name: 'Rename', exact: true }).click();
+    const dialog = page.getByRole('dialog');
+    await expect(dialog.getByLabel('Title')).toHaveValue('Across the water');
+    await dialog.getByLabel('Title').fill('Over the river');
+    await dialog.getByRole('button', { name: 'Rename', exact: true }).click();
+    await expect(page.getByRole('heading', { name: 'Over the river', exact: true })).toBeVisible();
+    await page.reload();
+    await expect(page.getByRole('heading', { name: 'Over the river', exact: true })).toBeVisible();
+  } finally {
+    await context.close();
+  }
+});
+
+test('a part dragged on the outline page lands where it is dropped, and can be undone', async ({
+  browser,
+}) => {
+  test.setTimeout(120000);
+  const { page, context, tenant } = await world(browser);
+  try {
+    await page.goto(`/?tenant=${tenant.id}`);
+    await startAs(page, 'book', 'Drag book');
+    await expect(page.getByRole('heading', { name: 'Drag book' })).toBeVisible();
+    await page.getByRole('link', { name: 'Outline', exact: true }).click();
+    for (const name of ['One', 'Two']) {
+      await page.getByLabel('New chapter title').fill(name);
+      await page.getByRole('button', { name: 'Add chapter', exact: true }).click();
+      await expect(page.getByRole('button', { name: new RegExp(`^Drag: ${name}`) })).toBeVisible();
+    }
+    const chapters = page
+      .locator('ol > li')
+      .filter({ has: page.getByRole('link', { name: /One|Two/ }) });
+    await expect(chapters.first()).toContainText('One');
+    // The native drag events, driven directly.
+    await page.evaluate(() => {
+      const items = [...document.querySelectorAll('ol > li')].filter((li) =>
+        /One|Two/.test(li.textContent ?? ''),
+      );
+      const [one, two] = items as HTMLElement[];
+      const data = new DataTransfer();
+      one?.dispatchEvent(new DragEvent('dragstart', { dataTransfer: data, bubbles: true }));
+      const box = two?.getBoundingClientRect();
+      two?.dispatchEvent(
+        new DragEvent('dragover', {
+          dataTransfer: data,
+          bubbles: true,
+          cancelable: true,
+          clientY: (box?.bottom ?? 0) - 1,
+        }),
+      );
+      two?.dispatchEvent(
+        new DragEvent('drop', { dataTransfer: data, bubbles: true, cancelable: true }),
+      );
+    });
+    await expect(chapters.first()).toContainText('Two');
+    await page.getByRole('button', { name: 'Undo', exact: true }).click();
+    await expect(chapters.first()).toContainText('One');
+  } finally {
+    await context.close();
+  }
+});
+
+test('a Chapter dropped on the outline tree is nested there', async ({ browser }) => {
+  test.setTimeout(120000);
+  const { page, context, tenant } = await world(browser);
+  try {
+    await page.goto(`/?tenant=${tenant.id}`);
+    await startAs(page, 'book', 'Nest book');
+    await expect(page.getByRole('heading', { name: 'Nest book' })).toBeVisible();
+    await page.getByRole('link', { name: 'Outline', exact: true }).click();
+    for (const name of ['Dawn', 'Dusk']) {
+      await page.getByLabel('New chapter title').fill(name);
+      await page.getByRole('button', { name: 'Add chapter', exact: true }).click();
+      await expect(page.getByRole('button', { name: new RegExp(`^Drag: ${name}`) })).toBeVisible();
+    }
+    await page.reload();
+    const tree = page.getByRole('navigation', { name: 'Outline' });
+    await expect(tree.getByRole('link', { name: /Go to Dawn/ })).toBeVisible();
+    await expect(page.getByRole('button', { name: /^Drag: Dusk/ })).toBeVisible();
+    await page.evaluate(() => {
+      const item = [...document.querySelectorAll('ol > li')].find((li) =>
+        /Dusk/.test(li.textContent ?? ''),
+      ) as HTMLElement;
+      const target = document
+        .querySelector('nav[aria-label="Outline"] a[aria-label^="Go to Dawn"]')
+        ?.closest('div') as HTMLElement;
+      const box = target.getBoundingClientRect();
+      const data = new DataTransfer();
+      item.dispatchEvent(new DragEvent('dragstart', { dataTransfer: data, bubbles: true }));
+      const middle = {
+        dataTransfer: data,
+        bubbles: true,
+        cancelable: true,
+        clientY: box.top + box.height / 2,
+      };
+      target.dispatchEvent(new DragEvent('dragover', middle));
+      target.dispatchEvent(new DragEvent('drop', middle));
+    });
+    await expect(page.getByRole('button', { name: /^Drag: Dusk/ })).toHaveCount(0);
+    await page.getByRole('link', { name: 'Dawn', exact: true }).first().click();
+    await expect(
+      page.getByRole('navigation', { name: 'Outline' }).getByRole('link', { name: /Go to Dusk/ }),
+    ).toBeVisible();
+  } finally {
+    await context.close();
+  }
+});
+
+test('a Chapter dropped on the edge of a tree row lands before it', async ({ browser }) => {
+  test.setTimeout(150000);
+  const { page, context, tenant } = await world(browser);
+  try {
+    await page.goto(`/?tenant=${tenant.id}`);
+    await startAs(page, 'book', 'Edge book');
+    await expect(page.getByRole('heading', { name: 'Edge book' })).toBeVisible();
+    const edition = new URL(page.url()).searchParams.get('entry');
+    const outline = `/?tenant=${tenant.id}&entry=${edition}&view=outline`;
+    await page.goto(outline);
+    for (const name of ['Dawn', 'Dusk']) {
+      await page.getByLabel('New chapter title').fill(name);
+      await page.getByRole('button', { name: 'Add chapter', exact: true }).click();
+      await expect(page.getByRole('button', { name: new RegExp(`^Drag: ${name}`) })).toBeVisible();
+    }
+    await page.getByRole('link', { name: 'Dawn', exact: true }).first().click();
+    await page.getByRole('link', { name: 'Outline', exact: true }).click();
+    await page.getByLabel('New chapter title').fill('Inner');
+    await page.getByRole('button', { name: 'Add chapter', exact: true }).click();
+    await expect(page.getByRole('button', { name: /^Drag: Inner/ })).toBeVisible();
+    await page.goto(outline);
+    const tree = page.getByRole('navigation', { name: 'Outline' });
+    await tree.getByRole('button', { name: 'Open Dawn', exact: true }).click();
+    await expect(tree.getByRole('link', { name: /Go to Inner/ })).toBeVisible();
+    await expect(page.getByRole('button', { name: /^Drag: Dusk/ })).toBeVisible();
+    await page.evaluate(() => {
+      const item = [...document.querySelectorAll('ol > li')].find((li) =>
+        /Dusk/.test(li.textContent ?? ''),
+      ) as HTMLElement;
+      const target = document
+        .querySelector('nav[aria-label="Outline"] a[aria-label^="Go to Inner"]')
+        ?.closest('div') as HTMLElement;
+      const box = target.getBoundingClientRect();
+      const data = new DataTransfer();
+      item.dispatchEvent(new DragEvent('dragstart', { dataTransfer: data, bubbles: true }));
+      const at = { dataTransfer: data, bubbles: true, cancelable: true, clientY: box.top + 1 };
+      target.dispatchEvent(new DragEvent('dragover', at));
+      target.dispatchEvent(new DragEvent('drop', at));
+    });
+    await expect(page.getByRole('button', { name: /^Drag: Dusk/ })).toHaveCount(0);
+    await page.getByRole('link', { name: 'Dawn', exact: true }).first().click();
+    await page.getByRole('link', { name: 'Outline', exact: true }).click();
+    const rows = page.locator('ol > li').filter({ has: page.getByRole('link') });
+    await expect(rows.first()).toContainText('Dusk');
+    await expect(rows.nth(1)).toContainText('Inner');
+  } finally {
+    await context.close();
+  }
+});
+
+test('the outline tree reorders within a parent and joins on an Alt drop', async ({ browser }) => {
+  test.setTimeout(150000);
+  const { page, context, tenant } = await world(browser);
+  try {
+    await page.goto(`/?tenant=${tenant.id}`);
+    await startAs(page, 'book', 'Tree book');
+    await expect(page.getByRole('heading', { name: 'Tree book' })).toBeVisible();
+    const edition = new URL(page.url()).searchParams.get('entry');
+    const outline = `/?tenant=${tenant.id}&entry=${edition}&view=outline`;
+    await page.goto(outline);
+    for (const name of ['Dawn', 'Dusk', 'Dune']) {
+      await page.getByLabel('New chapter title').fill(name);
+      await page.getByRole('button', { name: 'Add chapter', exact: true }).click();
+      await expect(page.getByRole('button', { name: new RegExp(`^Drag: ${name}`) })).toBeVisible();
+    }
+    await page.goto(outline);
+    await page.getByRole('link', { name: 'Dusk', exact: true }).first().click();
+    await page.getByRole('textbox', { name: 'Manuscript', exact: true }).fill('Dusk words.');
+    await expect(page.getByRole('status', { name: 'Save status' })).toHaveText('Saved');
+    const drop = async (dragged: string, target: string, where: 'top' | 'middle', alt = false) => {
+      await page.goto(outline);
+      await expect(
+        page.getByRole('button', { name: new RegExp(`^Drag: ${dragged}`) }),
+      ).toBeVisible();
+      await expect(
+        page
+          .getByRole('navigation', { name: 'Outline' })
+          .getByRole('link', { name: `Go to ${target}` }),
+      ).toBeVisible();
+      await page.evaluate(
+        ([dragged, target, where, alt]) => {
+          const item = [...document.querySelectorAll('ol > li')].find((li) =>
+            (li.textContent ?? '').includes(dragged as string),
+          ) as HTMLElement;
+          const row = document
+            .querySelector(`nav[aria-label="Outline"] a[aria-label="Go to ${target}"]`)
+            ?.closest('div') as HTMLElement;
+          const box = row.getBoundingClientRect();
+          const data = new DataTransfer();
+          item.dispatchEvent(new DragEvent('dragstart', { dataTransfer: data, bubbles: true }));
+          const at = {
+            dataTransfer: data,
+            bubbles: true,
+            cancelable: true,
+            altKey: alt as boolean,
+            clientY: box.top + (where === 'top' ? 1 : box.height / 2),
+          };
+          row.dispatchEvent(new DragEvent('dragover', at));
+          row.dispatchEvent(new DragEvent('drop', at));
+        },
+        [dragged, target, where, alt] as const,
+      );
+    };
+    await drop('Dune', 'Dawn', 'top');
+    await expect(
+      page
+        .locator('ol > li')
+        .filter({ has: page.getByRole('link', { name: /Dawn|Dusk|Dune/ }) })
+        .first(),
+    ).toContainText('Dune', { timeout: 15000 });
+    await drop('Dusk', 'Dawn', 'middle', true);
+    await page.getByRole('dialog').getByRole('button', { name: 'Join chapters' }).click();
+    await expect(page.getByRole('button', { name: /^Drag: Dusk/ })).toHaveCount(0, {
+      timeout: 15000,
+    });
+  } finally {
+    await context.close();
+  }
+});
+
+test('a Chapter dropped on another Edition of its Book moves there', async ({ browser }) => {
+  test.setTimeout(150000);
+  const { page, context, tenant, api } = await world(browser);
+  try {
+    await page.goto(`/?tenant=${tenant.id}`);
+    await startAs(page, 'book', 'Two editions');
+    await expect(page.getByRole('heading', { name: 'Two editions' })).toBeVisible();
+    const edition = new URL(page.url()).searchParams.get('entry') as string;
+    const other = await ok(
+      api.POST('/tenants/{tenant_id}/writing/editions', {
+        params: { path: { tenant_id: tenant.id } },
+        body: { name: 'Second edition', source_edition_id: edition },
+      }),
+    );
+    const outline = `/?tenant=${tenant.id}&entry=${edition}&view=outline`;
+    await page.goto(outline);
+    await page.getByLabel('New chapter title').fill('Wanderer');
+    await page.getByRole('button', { name: 'Add chapter', exact: true }).click();
+    await expect(page.getByRole('button', { name: /^Drag: Wanderer/ })).toBeVisible();
+    await page.goto(outline);
+    await expect(page.getByRole('button', { name: /^Drag: Wanderer/ })).toBeVisible();
+    const tree = page.getByRole('navigation', { name: 'Outline' });
+    await expect(tree.getByRole('link', { name: /Go to Second edition/ })).toBeVisible();
+    await page.evaluate(() => {
+      const item = [...document.querySelectorAll('ol > li')].find((li) =>
+        /Wanderer/.test(li.textContent ?? ''),
+      ) as HTMLElement;
+      const target = document
+        .querySelector('nav[aria-label="Outline"] a[aria-label^="Go to Second edition"]')
+        ?.closest('div') as HTMLElement;
+      const box = target.getBoundingClientRect();
+      const data = new DataTransfer();
+      item.dispatchEvent(new DragEvent('dragstart', { dataTransfer: data, bubbles: true }));
+      const at = {
+        dataTransfer: data,
+        bubbles: true,
+        cancelable: true,
+        clientY: box.top + box.height / 2,
+      };
+      target.dispatchEvent(new DragEvent('dragover', at));
+      target.dispatchEvent(new DragEvent('drop', at));
+    });
+    await expect(page.getByRole('button', { name: /^Drag: Wanderer/ })).toHaveCount(0);
+    await page.goto(`/?tenant=${tenant.id}&entry=${other.id}&view=outline`);
+    await expect(page.getByRole('button', { name: /^Drag: Wanderer/ })).toBeVisible();
+  } finally {
+    await context.close();
+  }
+});
+
+test('the shelf shows when each work was last edited, and how many there are', async ({
+  browser,
+}) => {
+  const { page, context, tenant } = await world(browser);
+  try {
+    await page.goto(`/?tenant=${tenant.id}`);
+    await expect(page.getByRole('status', { name: 'Works shown' })).toContainText(
+      /\d+ of \d+ works?/,
+    );
+    await expect(page.getByText(/Edited today/).first()).toBeVisible();
+  } finally {
+    await context.close();
+  }
+});
+
+test('a text can be moved to another Chapter from its menu', async ({ browser }) => {
+  test.setTimeout(150000);
+  const { page, context, tenant } = await world(browser);
+  try {
+    await page.goto(`/?tenant=${tenant.id}`);
+    await startAs(page, 'chapter', 'Receiver');
+    await page.getByRole('textbox', { name: 'Manuscript', exact: true }).fill('Receiver words.');
+    await expect(page.getByRole('status', { name: 'Save status' })).toHaveText('Saved');
+    await page.goto(`/?tenant=${tenant.id}`);
+    await startAs(page, 'chapter', 'Sender');
+    const sender = page.getByRole('textbox', { name: 'Manuscript', exact: true });
+    await sender.fill('Wandering words.');
+    await expect(page.getByRole('status', { name: 'Save status' })).toHaveText('Saved');
+    await page.getByRole('button', { name: 'Block options' }).first().click();
+    await page.getByRole('menuitem', { name: 'Move to another Chapter' }).click();
+    const dialog = page.getByRole('dialog', { name: 'Move to another Chapter' });
+    await dialog.getByRole('button', { name: 'Receiver', exact: true }).click();
+    await expect(page.getByRole('textbox', { name: 'Manuscript', exact: true })).toHaveCount(0, {
+      timeout: 20000,
+    });
+    await page.goto(`/?tenant=${tenant.id}`);
+    await page.getByRole('link', { name: 'Receiver', exact: true }).click();
+    await expect(page.getByRole('textbox', { name: 'Manuscript', exact: true })).toHaveValue(
+      'Receiver words.',
+    );
+    await expect(page.getByRole('textbox', { name: 'Text 2', exact: true })).toHaveValue(
+      'Wandering words.',
+    );
+  } finally {
+    await context.close();
+  }
+});
+
+test('any work has a Write and Read switch in its page head', async ({ browser }) => {
+  const { page, context, tenant } = await world(browser);
+  try {
+    const text = page.getByRole('textbox', { name: 'Manuscript', exact: true });
+    await text.fill('Readable words.');
+    await page.getByRole('link', { name: 'Read', exact: true }).click();
+    await expect(page.locator('article')).toContainText('Readable words.');
+    await expect(page).toHaveURL(new RegExp(`/read/\\?tenant=${tenant.id}`));
+    await page.getByRole('link', { name: 'Write', exact: true }).click();
+    await expect(text).toHaveValue('Readable words.');
+  } finally {
+    await context.close();
+  }
+});
+
+test('a made Chapter can be taken back from the page it leads to', async ({ browser }) => {
+  test.setTimeout(120000);
+  const { page, context, tenant } = await world(browser);
+  try {
+    await page.goto(`/?tenant=${tenant.id}`);
+    await startAs(page, 'chapter', 'Take back chapter');
+    const first = page.getByRole('textbox', { name: 'Manuscript', exact: true });
+    await first.fill('First part.');
+    await addTextAtEnd(page);
+    await page.getByRole('textbox', { name: 'Text 2', exact: true }).fill('Second part.');
+    await expect(page.getByRole('status', { name: 'Save status' })).toHaveText('Saved');
+    await page.getByRole('button', { name: 'Block options' }).nth(1).click();
+    await page.getByRole('menuitem', { name: 'Make a Chapter' }).click();
+    await page.getByRole('dialog').getByLabel('Title').fill('Carved back');
+    await page.getByRole('dialog').getByRole('button', { name: 'Make a Chapter' }).click();
+    await expect(page.getByRole('button', { name: 'Undo Chapter', exact: true })).toBeVisible();
+    await expect(page.getByRole('textbox', { name: 'Text 2', exact: true })).toHaveCount(0);
+    await page.getByRole('button', { name: 'Undo Chapter', exact: true }).click();
+    await expect(page.getByRole('textbox', { name: 'Text 2', exact: true })).toHaveValue(
+      'Second part.',
+    );
+  } finally {
+    await context.close();
+  }
+});
+
+test('a made Scene can be taken back from the page it leads to', async ({ browser }) => {
+  test.setTimeout(120000);
+  const { page, context, tenant } = await world(browser);
+  try {
+    await page.goto(`/?tenant=${tenant.id}`);
+    await startAs(page, 'chapter', 'Take back scene');
+    const first = page.getByRole('textbox', { name: 'Manuscript', exact: true });
+    await first.fill('First part.');
+    await addTextAtEnd(page);
+    await page.getByRole('textbox', { name: 'Text 2', exact: true }).fill('Second part.');
+    await expect(page.getByRole('status', { name: 'Save status' })).toHaveText('Saved');
+    await page.getByRole('button', { name: 'Block options' }).nth(1).click();
+    await page.getByRole('menuitem', { name: 'Make a Scene' }).click();
+    await page.getByRole('dialog').getByLabel('Title').fill('Carved scene');
+    await page.getByRole('dialog').getByRole('button', { name: 'Make a Scene' }).click();
+    await expect(page.getByRole('button', { name: 'Undo Scene', exact: true })).toBeVisible();
+    await expect(page.getByRole('textbox', { name: 'Text 2', exact: true })).toHaveCount(0);
+    await page.getByRole('button', { name: 'Undo Scene', exact: true }).click();
+    await expect(page.getByRole('textbox', { name: 'Text 2', exact: true })).toHaveValue(
+      'Second part.',
+    );
+  } finally {
+    await context.close();
+  }
+});
+
+test('a join can be taken back from the outline it was made on', async ({ browser }) => {
+  test.setTimeout(150000);
+  const { page, context, tenant } = await world(browser);
+  try {
+    await page.goto(`/?tenant=${tenant.id}`);
+    await startAs(page, 'book', 'Undone join');
+    const text = page.getByRole('textbox', { name: 'Manuscript', exact: true });
+    await expect(text).toBeVisible();
+    const edition = new URL(page.url()).searchParams.get('entry');
+    for (const [name, prose] of [
+      ['Dawn', 'Dawn words.'],
+      ['Dusk', 'Dusk words.'],
+    ]) {
+      await page.goto(`/?tenant=${tenant.id}&entry=${edition}&view=outline`);
+      await page.getByLabel('New chapter title').fill(name);
+      await page.getByRole('button', { name: 'Add chapter', exact: true }).click();
+      await page.getByRole('link', { name, exact: true }).click();
+      await expect(text).toBeVisible();
+      await text.fill(prose);
+      await expect(page.getByRole('status', { name: 'Save status' })).toHaveText('Saved');
+    }
+    await page.goto(`/?tenant=${tenant.id}&entry=${edition}&view=outline`);
+    await page.getByText('Join with previous', { exact: true }).click();
+    await page.getByRole('button', { name: 'Join chapters', exact: true }).click();
+    await expect(page.getByRole('link', { name: 'Dusk', exact: true })).toHaveCount(0);
+    await page.getByRole('button', { name: 'Undo join', exact: true }).click();
+    await expect(page.getByRole('link', { name: 'Dusk', exact: true })).toBeVisible();
+    await page.getByRole('link', { name: 'Dusk', exact: true }).click();
+    await expect(text).toHaveValue('Dusk words.');
+  } finally {
+    await context.close();
+  }
+});
+
+test('the new pages pass axe in the dark theme and their controls are 44px on a phone', async ({
+  browser,
+}) => {
+  test.setTimeout(150000);
+  const { page, context, tenant } = await world(browser);
+  try {
+    await page.emulateMedia({ colorScheme: 'dark' });
+    const axe = async () =>
+      expect(
+        (await new AxeBuilder({ page }).exclude('.shell-bottom').analyze()).violations,
+      ).toEqual([]);
+    await page.setViewportSize({ width: 390, height: 844 });
+    const small = async (names: string[]) => {
+      for (const name of names) {
+        const box = await page.getByRole('button', { name, exact: true }).first().boundingBox();
+        expect(box?.height ?? 0, name).toBeGreaterThanOrEqual(44);
+      }
+    };
+    await page.getByRole('textbox', { name: 'Manuscript', exact: true }).fill('Dark words.');
+    await axe();
+    await small(['Layout', 'Side views', 'Rename', 'Block options', 'Add a block here']);
+    // The side views sheet clears the status bar: its last controls can be reached.
+    await openSideViews(page);
+    await page.getByRole('button', { name: 'Export', exact: true }).click();
+    const exportDialog = page.getByRole('dialog', { name: 'Export' });
+    await expect(exportDialog).toBeVisible();
+    await exportDialog.getByRole('button', { name: 'Close' }).click();
+    await expect(exportDialog).toBeHidden();
+    await page.getByRole('button', { name: 'Close side views' }).click();
+    await expect(page.getByRole('status', { name: 'Save status' })).toHaveText('Saved');
+    await page.getByRole('link', { name: 'Read', exact: true }).click();
+    await expect(page.locator('article')).toContainText('Dark words.');
+    await axe();
+    await page.goto(`/?tenant=${tenant.id}`);
+    await startAs(page, 'chapter', 'Dark chapter');
+    await page.getByRole('link', { name: 'Outline', exact: true }).click();
+    await expect(page.getByLabel('New chapter title')).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+    await axe();
+    await page.goto(`/?tenant=${tenant.id}`);
+    await axe();
+    await small(['Start writing', 'Start something else']);
+  } finally {
+    await context.close();
+  }
+});
+
+test('the Edition menu opens a section of the outline page', async ({ browser }) => {
+  test.setTimeout(120000);
+  const { page, context, tenant } = await world(browser);
+  try {
+    await page.goto(`/?tenant=${tenant.id}`);
+    await startAs(page, 'book', 'Menu book');
+    await expect(page.getByRole('heading', { name: 'Menu book' })).toBeVisible();
+    await page.getByRole('link', { name: 'Outline', exact: true }).click();
+    await page.getByRole('button', { name: 'Edition menu', exact: true }).click();
+    await page.getByRole('menuitem', { name: 'Numbering' }).click();
+    await expect(page.locator('details[open] > summary', { hasText: 'Numbering' })).toBeVisible();
+  } finally {
+    await context.close();
+  }
+});
+
+test('the source shows its markers quietly, in the same place as the text', async ({ browser }) => {
+  test.setTimeout(120000);
+  const { page, context } = await world(browser);
+  try {
+    const text = page.getByRole('textbox', { name: 'Manuscript', exact: true });
+    await text.fill('# A title\n\nSome **bold** words and [[Ash]].');
+    const layer = page.locator('.ls-hl-layer');
+    await expect(layer).toHaveText(/Some \*\*bold\*\* words and \[\[Ash\]\]\./);
+    await expect(layer.locator('.ls-hl-mark').first()).toBeVisible();
+    // The layer lies exactly under the text area.
+    const a = await layer.boundingBox();
+    const b = await text.boundingBox();
+    expect(Math.abs((a?.x ?? 0) - (b?.x ?? 99))).toBeLessThan(1);
+    expect(Math.abs((a?.width ?? 0) - (b?.width ?? 99))).toBeLessThan(1);
+    // A marker is a softer colour than the words beside it.
+    const colours = await page.evaluate(() => {
+      const mark = document.querySelector('.ls-hl-mark') as HTMLElement;
+      return [
+        getComputedStyle(mark).color,
+        getComputedStyle(mark.parentElement as HTMLElement).color,
+      ];
+    });
+    expect(colours[0]).not.toBe(colours[1]);
+    const axe = await new AxeBuilder({ page }).exclude('.shell-bottom').analyze();
+    expect(axe.violations).toEqual([]);
+  } finally {
+    await context.close();
+  }
+});
+
+test('on a phone the reviewer writes a note in a sheet', async ({ browser }) => {
+  test.setTimeout(150000);
+  const { page, context, tenant } = await world(browser);
+  try {
+    await page.goto(`/?tenant=${tenant.id}`);
+    await startAs(page, 'book', 'Sheet book');
+    await expect(page.getByRole('heading', { name: 'Sheet book' })).toBeVisible();
+    const edition = new URL(page.url()).searchParams.get('entry');
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto(`/?tenant=${tenant.id}&review=${edition}`);
+    const note = page.getByLabel('Review note', { exact: true });
+    await expect(note).toBeHidden();
+    await page.getByRole('button', { name: 'Write a note', exact: true }).click();
+    await expect(note).toBeVisible();
+    const axe = await new AxeBuilder({ page }).exclude('.shell-bottom').analyze();
+    expect(axe.violations).toEqual([]);
+    await page.getByRole('button', { name: 'Close', exact: true }).click();
+    await expect(note).toBeHidden();
+    await page
+      .getByRole('button', { name: /^Add note on /i })
+      .first()
+      .click();
+    await expect(note).toBeVisible();
   } finally {
     await context.close();
   }

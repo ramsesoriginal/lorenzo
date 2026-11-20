@@ -1,3 +1,4 @@
+import { closeDialog, fadeOnDismiss, openDialog } from '@lorenzo/app-shell';
 import { parse, render } from '@lorenzo/lorenzoscript';
 import { client, unwrap } from './api';
 import { BRANDING_CSS_URL } from './config';
@@ -196,8 +197,18 @@ export async function printExport(snapshot: ExportSnapshot, active = () => true)
 }
 
 export function exportControls(tenant: string, id: string, review = false) {
-  const details = node('details');
-  details.append(node('summary', 'Export'));
+  // Export is a dialog opened from a button (ADR 0494, W6); the panel inside is what it always was.
+  const host = node('div');
+  const open = node('button', 'Export');
+  open.type = 'button';
+  open.className = 'btn btn-secondary';
+  open.setAttribute('aria-haspopup', 'dialog');
+  const dialog = node('dialog');
+  const heading = node('h2', 'Export');
+  heading.id = `export-${crypto.randomUUID()}`;
+  dialog.setAttribute('aria-labelledby', heading.id);
+  const details = node('div');
+  details.className = 'stack-tight';
   details.append(node('p', 'Export saved writing. Changes still in the editor are not included.'));
   const status = node('p');
   status.setAttribute('role', 'status');
@@ -273,5 +284,13 @@ export function exportControls(tenant: string, id: string, review = false) {
     status,
     output,
   );
-  return details;
+  const close = node('button', 'Close');
+  close.type = 'button';
+  close.className = 'btn btn-secondary';
+  close.addEventListener('click', () => closeDialog(dialog));
+  dialog.append(heading, details, close);
+  fadeOnDismiss(dialog);
+  open.addEventListener('click', () => openDialog(dialog));
+  host.append(open, dialog);
+  return host;
 }

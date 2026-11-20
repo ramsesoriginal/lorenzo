@@ -1,6 +1,6 @@
 import { parse, render } from '@lorenzo/lorenzoscript';
 import { createEditor, type Editor } from '@lorenzo/lorenzoscript-editor';
-import { client, loadFile, unwrap } from './api';
+import { client, LorenzoApiError, loadFile, unwrap } from './api';
 import { contentsNavigation } from './contents';
 import { exportControls } from './manuscript-export';
 import { numberedTitle } from './numbering';
@@ -72,9 +72,14 @@ export async function reviewScreen(
   const fail = (error: unknown) => {
     clear();
     draft = { id: crypto.randomUUID(), entry: edition, content: '', version: undefined };
+    // A review that was closed to this person is one sentence, not an error to decode.
     const message = node(
       'p',
-      error instanceof Error ? error.message : 'This review is no longer available.',
+      error instanceof LorenzoApiError && [401, 403, 404].includes(error.status)
+        ? 'This review is no longer open to you. Ask the Author who shared it if you need it again.'
+        : error instanceof Error
+          ? error.message
+          : 'This review is no longer available.',
     );
     message.setAttribute('role', 'alert');
     host.append(message);
@@ -100,6 +105,22 @@ export async function reviewScreen(
         node('p', 'Review — manuscript and private notes'),
         exportControls(tenant, edition, true),
       );
+      // A note on a part, one press away: the note's target is set and the cursor is in it.
+      const addNoteButton = (entry: { id: string; name: string }) => {
+        const add = node('button', 'Add note');
+        add.type = 'button';
+        add.className = 'btn btn-secondary';
+        add.setAttribute('aria-label', `Add note on ${entry.name}`);
+        add.addEventListener('click', () => {
+          draft = { ...draft, entry: entry.id };
+          if (select) select.value = entry.id;
+          const sheet = document.getElementById('review-composer');
+          if (sheet) sheet.dataset.open = 'true';
+          document.querySelector('.review-toggle')?.setAttribute('aria-expanded', 'true');
+          input?.focus();
+        });
+        return add;
+      };
       const passages: HTMLElement[] = [];
       const article = node('article');
       article.className = 'ls-content';
@@ -117,7 +138,9 @@ export async function reviewScreen(
           if (entry.id !== edition) {
             const title = node('h2', numberedTitle(entry.name, entry.number));
             title.id = `review-entry-${entry.id}`;
-            article.append(title);
+            article.append(title, addNoteButton(entry));
+          } else {
+            article.append(addNoteButton(entry));
           }
           if (entry.contents)
             article.append(
@@ -186,6 +209,37 @@ export async function reviewScreen(
           );
         host.append(section);
       }
+      // The note composer: beside the writing on a wide screen, a sheet from the bottom on a phone,
+      // opened by "Write a note" or by an Add note on a part (ADR 0494, W7).
+      const composer = node('section');
+      composer.className = 'review-composer';
+      composer.dataset.open = 'false';
+      composer.id = 'review-composer';
+      const toggle = node('button', 'Write a note');
+      toggle.type = 'button';
+      toggle.className = 'btn btn-primary review-toggle';
+      toggle.setAttribute('aria-controls', 'review-composer');
+      toggle.setAttribute('aria-expanded', 'false');
+      toggle.addEventListener('click', () => {
+        const open = composer.dataset.open !== 'true';
+        composer.dataset.open = String(open);
+        toggle.setAttribute('aria-expanded', String(open));
+      });
+      const closeSheet = node('button', 'Close');
+      closeSheet.type = 'button';
+      closeSheet.className = 'btn btn-secondary review-close';
+      closeSheet.addEventListener('click', () => {
+        composer.dataset.open = 'false';
+        toggle.setAttribute('aria-expanded', 'false');
+      });
+      composer.append(
+        closeSheet,
+        node(
+          'p',
+          'Your notes are private: only you and the Authors of this library can read them. A note is kept when you choose Save note.',
+        ),
+      );
+      host.append(toggle, composer);
       select = node('select');
       select.setAttribute('aria-label', 'Note on');
       for (const entry of data.entries) {
@@ -194,18 +248,18 @@ export async function reviewScreen(
         select.append(option);
       }
       select.value = draft.entry;
-      host.append(select);
+      composer.append(select);
       input = node('textarea');
       input.setAttribute('aria-label', 'Review note');
       input.value = draft.content;
-      host.append(input);
+      composer.append(input);
       editor = createEditor({
         textarea: input,
         layout: 'tabs',
         toolbar: ['bold', 'italic', 'bullets', 'undo', 'redo'],
         render: (source) => render(parse(source), { externalImages: false }),
       });
-      host.append(
+      composer.append(
         action('Save note', async () => {
           remember();
           status.textContent = 'Saving';

@@ -1,11 +1,13 @@
+import { openMenu } from '@lorenzo/app-shell';
 import { parse, render } from '@lorenzo/lorenzoscript';
 import { client, LorenzoApiError, loadFile, unwrap } from './api';
 import { carrierOutline } from './carriers';
 import { compositionReview } from './composition-review';
+import { BRANDING_CSS_URL } from './config';
 import { type Contents, contentsControls, contentsNavigation, contentsOf } from './contents';
 import { exportControls } from './manuscript-export';
 import { extractionControls } from './manuscript-extraction';
-import { joinControls } from './manuscript-join';
+import { joinControls, takeJoin, undoJoin } from './manuscript-join';
 import { moveControls } from './manuscript-move';
 import { splitControls } from './manuscript-split';
 import { numberedTitle, numberingControls, numberingOf } from './numbering';
@@ -17,8 +19,12 @@ const node = <K extends keyof HTMLElementTagNameMap>(tag: K, text = '') => {
   el.textContent = text;
   return el;
 };
+/** The drag type of a Chapter dragged from an outline page: its page, then the Chapter. */
+export const CHAPTER_DRAG = 'application/x-lorenzo-chapter';
 export const writingAddress = (tenant: string, entry: string, view = '') =>
-  `/?${new URLSearchParams({ tenant, entry, ...(view ? { view } : {}) })}`;
+  view === 'read'
+    ? `/read/?${new URLSearchParams({ tenant, entry })}`
+    : `/write/?${new URLSearchParams({ tenant, entry, ...(view ? { view } : {}) })}`;
 const link = (title: string, href: string) => {
   const a = node('a', title);
   a.href = href;
@@ -42,6 +48,9 @@ export const outlineOf = async (tenant: string, id: string) =>
       params: { path: { tenant_id: tenant, id } },
     }),
   );
+
+/** What the last reorder replaced, so that it can be undone on the page it was made on. */
+let lastOrder: { entry: string; before: string[]; what: string } | null = null;
 
 export async function compositionScreen(
   host: HTMLElement,
@@ -73,6 +82,36 @@ export async function compositionScreen(
     nav.append(link('Up to parent', writingAddress(tenant, current.parent_id, 'outline')));
   if (current.kind === 'edition')
     nav.append(link('Review and reviewers', reviewAddress(tenant, id)));
+  // One menu for the sections of this outline page (ADR 0494, W6): each opens and is shown.
+  if (!reading && !current.joined && ['edition', 'chapter'].includes(current.kind)) {
+    const menu = button(current.kind === 'edition' ? 'Edition menu' : 'Chapter menu', async () => {
+      const sections = [...host.querySelectorAll<HTMLDetailsElement>('details')].filter((d) =>
+        [
+          'Composition updates',
+          'Numbering',
+          'Contents',
+          'Export',
+          'Move',
+          'Extract a Chapter',
+          'Extract a Scene',
+        ].includes(d.querySelector(':scope > summary')?.textContent ?? ''),
+      );
+      openMenu(
+        menu,
+        sections.map((d) => ({
+          label: d.querySelector(':scope > summary')?.textContent ?? '',
+          run: () => {
+            d.open = true;
+            d.scrollIntoView({ block: 'start' });
+            d.querySelector('summary')?.focus();
+          },
+        })),
+        { label: 'Sections', sprite: `${BRANDING_CSS_URL}/icons.svg` },
+      );
+    });
+    menu.setAttribute('aria-haspopup', 'menu');
+    nav.append(menu);
+  }
   const status = node('p');
   status.setAttribute('role', 'status');
   const report = (error: unknown) => {
@@ -281,19 +320,63 @@ export async function compositionScreen(
         ),
       );
   }
-  const saveOrder = async (ids: string[]) => {
+  const saveOrder = async (ids: string[], what = 'Reordered') => {
     try {
+      const before = current.elements.map((x) => x.id);
       await unwrap(
         await client.PUT('/tenants/{tenant_id}/writing/entries/{id}/composition', {
           params: { path: { tenant_id: tenant, id }, header: { 'if-match': current.version } },
           body: { elements: ids },
         }),
       );
+      lastOrder = { entry: id, before, what };
       await compositionScreen(host, tenant, id, false);
     } catch (error) {
       report(error);
     }
   };
+  // The last reorder of this page can be undone, while nothing else has changed it (the version
+  // check of the write is what says so). The structural operations have no undo yet.
+  if (lastOrder && lastOrder.entry === id) {
+    const undo = lastOrder;
+    lastOrder = null;
+    const line = node('p');
+    line.setAttribute('role', 'status');
+    line.append(`${undo.what}. `);
+    line.append(
+      button('Undo', async () => {
+        try {
+          await unwrap(
+            await client.PUT('/tenants/{tenant_id}/writing/entries/{id}/composition', {
+              params: { path: { tenant_id: tenant, id }, header: { 'if-match': current.version } },
+              body: { elements: undo.before },
+            }),
+          );
+          await compositionScreen(host, tenant, id, false);
+        } catch (error) {
+          report(error);
+        }
+      }),
+    );
+    host.append(line);
+  }
+  const joined = takeJoin(id);
+  if (joined) {
+    const line = node('p');
+    line.setAttribute('role', 'status');
+    line.append('Chapters joined. ');
+    line.append(
+      button('Undo join', async () => {
+        try {
+          await undoJoin(tenant, joined);
+          await compositionScreen(host, tenant, id, false);
+        } catch (error) {
+          report(error);
+        }
+      }),
+    );
+    host.append(line);
+  }
   for (const [index, item] of current.elements.entries()) {
     const li = node('li');
     li.className = 'stack-tight';
@@ -307,8 +390,52 @@ export async function compositionScreen(
     li.append(
       item.kind !== 'payload' ? link(label, writingAddress(tenant, item.id)) : node('span', label),
     );
+    // Drag a part by its grip to a new place on the page (ADR 0494, W5). The Up and Down buttons
+    // remain the keyboard way; the drop says what will happen as it is hovered.
+    const grip = button('⋮⋮', async () => {});
+    grip.setAttribute('aria-label', `Drag: ${item.name ?? 'text or picture'}`);
+    grip.title = 'Drag to move';
+    grip.addEventListener('pointerdown', () => {
+      li.draggable = true;
+    });
+    for (const end of ['pointerup', 'pointercancel'])
+      grip.addEventListener(end, () => {
+        li.draggable = false;
+      });
+    li.addEventListener('dragstart', (event) => {
+      event.dataTransfer?.setData('text/plain', item.id);
+      // A Chapter can also be dropped on the outline tree beside the page, to nest it there.
+      if (item.kind === 'chapter') event.dataTransfer?.setData(CHAPTER_DRAG, `${id}|${item.id}`);
+      if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move';
+      li.dataset.dragging = 'true';
+    });
+    li.addEventListener('dragend', () => {
+      li.draggable = false;
+      delete li.dataset.dragging;
+      for (const other of list.querySelectorAll('[data-drop]')) other.removeAttribute('data-drop');
+    });
+    li.addEventListener('dragover', (event) => {
+      if (!list.querySelector('[data-dragging]')) return;
+      event.preventDefault();
+      const box = li.getBoundingClientRect();
+      const after = event.clientY > box.top + box.height / 2;
+      for (const other of list.querySelectorAll('[data-drop]')) other.removeAttribute('data-drop');
+      li.dataset.drop = after ? 'after' : 'before';
+      status.textContent = `Drop to place it ${after ? 'after' : 'before'} ${label}.`;
+    });
+    li.addEventListener('drop', (event) => {
+      const moved = event.dataTransfer?.getData('text/plain');
+      const after = li.dataset.drop === 'after';
+      event.preventDefault();
+      if (!moved || moved === item.id) return;
+      const ids = current.elements.map((x) => x.id).filter((x) => x !== moved);
+      const at = ids.indexOf(item.id) + (after ? 1 : 0);
+      ids.splice(at, 0, moved);
+      void saveOrder(ids, 'Moved by dragging');
+    });
     const controls = node('div');
     controls.className = 'row';
+    controls.append(grip);
     for (const [label, delta] of [
       ['Up', -1],
       ['Down', 1],
@@ -317,7 +444,7 @@ export async function compositionScreen(
         const ids = current.elements.map((x) => x.id);
         const target = index + delta;
         [ids[index], ids[target]] = [ids[target], ids[index]];
-        await saveOrder(ids);
+        await saveOrder(ids, `Moved ${delta < 0 ? 'up' : 'down'}`);
       });
       move.setAttribute('aria-label', `${label}: ${item.name ?? 'text or picture'}`);
       move.disabled = index + delta < 0 || index + delta >= current.elements.length;
@@ -329,7 +456,10 @@ export async function compositionScreen(
           ? [link('Subchapters', writingAddress(tenant, item.id, 'outline'))]
           : []),
         button('Remove from outline', async () =>
-          saveOrder(current.elements.filter((x) => x.id !== item.id).map((x) => x.id)),
+          saveOrder(
+            current.elements.filter((x) => x.id !== item.id).map((x) => x.id),
+            'Removed from the outline',
+          ),
         ),
       );
     li.append(controls);
@@ -515,7 +645,7 @@ export async function compositionScreen(
     );
   }
 }
-async function entityOf(tenant: string, id: string) {
+export async function entityOf(tenant: string, id: string) {
   return unwrap(
     await client.GET('/tenants/{tenant_id}/entities/{entity_id}', {
       params: { path: { tenant_id: tenant, entity_id: id } },

@@ -180,6 +180,36 @@ export const STORAGE_KEYS: StorageEntry[] = [
     ],
   },
   {
+    key: 'lorenzo:writing:last',
+    store: 'localStorage',
+    purpose: bi(
+      'Merkt sich, welchen Text Sie in Lorenzo Writing zuletzt geöffnet haben, damit „Weiterschreiben“ ihn anbietet. Enthält keinen Text.',
+      'Remembers which text you opened last in Lorenzo Writing, so that Continue can offer it. Contains no text.',
+    ),
+    lasts: bi('Bis Sie die Browserdaten löschen', 'Until you clear your browser data'),
+    files: ['apps/writing/src/lib/shelf-list.ts'],
+  },
+  {
+    key: 'lorenzo:writing:layout',
+    store: 'localStorage',
+    purpose: bi(
+      'Merkt sich, wie Sie in Lorenzo Writing schreiben: Quelltext, geteilt oder live. Enthält keinen Text.',
+      'Remembers how you write in Lorenzo Writing: source, split or live. Contains no text.',
+    ),
+    lasts: bi('Bis Sie die Browserdaten löschen', 'Until you clear your browser data'),
+    files: ['apps/writing/src/lib/shelf-list.ts'],
+  },
+  {
+    key: 'lorenzo:writing:split',
+    store: 'sessionStorage',
+    purpose: bi(
+      'Merkt sich in diesem Tab die Kennung der letzten Textteilung, damit sie rückgängig gemacht werden kann. Enthält keinen Text.',
+      'Remembers in this tab the id of the last text split, so that it can be undone. Contains no text.',
+    ),
+    lasts: bi('Bis der Tab geschlossen wird', 'Until the tab is closed'),
+    files: ['apps/writing/src/lib/blocks.ts'],
+  },
+  {
     key: 'lorenzo:writing-timer:*',
     store: 'sessionStorage',
     purpose: bi(

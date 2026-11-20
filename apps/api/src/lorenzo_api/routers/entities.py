@@ -381,6 +381,7 @@ async def list_entities(
                 name=entity.name,
                 kinds=kinds[entity.id],
                 parent_ids=parents[entity.id],
+                updated_at=entity.updated_at,
             )
             for entity in entities
         ]
@@ -2257,7 +2258,13 @@ async def list_facts_about(
         kinds = await kinds_of(session, ids)
         parents = await parents_of(session, ids, vis)
         return [
-            EntityListOut(id=e.id, name=e.name, kinds=kinds[e.id], parent_ids=parents[e.id])
+            EntityListOut(
+                id=e.id,
+                name=e.name,
+                kinds=kinds[e.id],
+                parent_ids=parents[e.id],
+                updated_at=e.updated_at,
+            )
             for e in entries
         ]
 

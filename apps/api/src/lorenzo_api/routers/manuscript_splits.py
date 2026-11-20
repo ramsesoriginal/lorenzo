@@ -19,6 +19,7 @@ from lorenzo_api.dependencies import (
 from lorenzo_api.description_payloads import write_description
 from lorenzo_api.exceptions import (
     ClientIdUnavailableError,
+    EntityNotFoundError,
     ManuscriptMoveConflictError,
     PayloadPreconditionRequiredError,
     PreconditionFailedError,
@@ -213,4 +214,73 @@ async def split(
         entry_id=id,
         first_payload_id=body.payload_id,
         second_payload_id=body.second_payload_id,
+    )
+
+
+@router.delete("/entries/{id}/splits/{operation_id}")
+async def undo_split(
+    tenant_id: uuid.UUID,
+    id: uuid.UUID,
+    operation_id: uuid.UUID,
+    response: Response,
+    session: SessionDep,
+    user: CurrentUser,
+    if_match: Annotated[str | None, Header()] = None,
+) -> SplitAcknowledgement:
+    """Joins the two texts a split made, as they were left (ADR 0513).
+
+    Allowed to whoever made the split, while the entry is as the caller last read it, and the
+    two texts still follow one another. The receipt goes with the second text, so it is used once.
+    """
+    await author(session, tenant_id, user)
+    row = await entry(session, tenant_id, id, user, lock=True)
+    info, payloads = await manuscript_payloads(session, tenant_id, id, lock=True)
+    if info is None:
+        raise ManuscriptMoveConflictError(detail="This entry has no manuscript text.")
+    await authorize_information_edit(session, tenant_id=tenant_id, user=user, information=info)
+    receipt = await existing_in_tenant(session, ManuscriptSplit, operation_id, tenant_id)
+    if receipt is None or receipt.entry_id != id or receipt.actor_id != user.id:
+        raise EntityNotFoundError(detail="No such split to undo.")
+    current = await result(session, tenant_id, id, user, response)
+    response.headers["Cache-Control"] = "private, no-store"
+    if if_match is None:
+        raise PayloadPreconditionRequiredError(detail="Read the saved text before undoing a split.")
+    if if_match != current.version:
+        raise PreconditionFailedError(
+            detail="This manuscript changed since the split. Reopen it before undoing."
+        )
+    ids = [p.id for p in payloads]
+    first_id, second_id = receipt.first_payload_id, receipt.second_payload_id
+    if (
+        first_id not in ids
+        or second_id not in ids
+        or ids.index(second_id) != ids.index(first_id) + 1
+    ):
+        raise ManuscriptMoveConflictError(
+            detail="The two texts no longer follow one another, so the split cannot be undone."
+        )
+    first_text = await text_payload(session, first_id, payloads)
+    second_text = await text_payload(session, second_id, payloads)
+    first = payloads[ids.index(first_id)]
+    second = payloads[ids.index(second_id)]
+    await session.refresh(first, ["description"])
+    await write_description(
+        session, payload=first, locale=None, content=first_text.content + second_text.content
+    )
+    first.updated_at = datetime.now(UTC)
+    # The receipt is removed with the second text (its foreign key cascades).
+    await session.delete(second)
+    await session.flush()
+    for index, payload in enumerate(p for p in payloads if p.id != second_id):
+        payload.order = index
+    info.updated_at = row.updated_at = datetime.now(UTC)
+    row.updated_by = user.id
+    await session.commit()
+    await set_tenant_rls_context(session, tenant_id)
+    del response.headers["ETag"]
+    return SplitAcknowledgement(
+        operation_id=operation_id,
+        entry_id=id,
+        first_payload_id=first_id,
+        second_payload_id=second_id,
     )

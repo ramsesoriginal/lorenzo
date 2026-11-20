@@ -1,0 +1,28 @@
+{
+  "name": "@lorenzo/lorenzoscript-semilive-editor",
+  "private": true,
+  "type": "module",
+  "version": "0.0.0",
+  "description": "A second editor for LorenzoScript: every paragraph shown formatted, the one clicked or moved into becomes a text area. Same options and editor object as @lorenzo/lorenzoscript-editor. See ADR 0494 and ADR 0511.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "build": "esbuild demo/demo.ts --bundle --format=iife --target=es2022 --outfile=demo/demo.js",
+    "dev": "pnpm run build --watch",
+    "lint": "biome check . && tsc --noEmit",
+    "format": "biome check --write .",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@lorenzo/lorenzoscript": "workspace:*",
+    "@lorenzo/lorenzoscript-editor": "workspace:*"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.6.7",
+    "esbuild": "^0.28.1",
+    "jsdom": "^30.1.3",
+    "typescript": "^6.0.3",
+    "vitest": "^5.1.0"
+  }
+}

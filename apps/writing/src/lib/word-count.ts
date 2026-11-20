@@ -3,8 +3,9 @@ import { countSources, prose, words } from './manuscript-count';
 
 const amount = (count: number) => `${count} ${count === 1 ? 'word' : 'words'}`;
 
-function disclosure(title: string) {
+function disclosure(title: string, card = false) {
   const details = document.createElement('details');
+  if (card) details.className = 'card';
   const summary = document.createElement('summary');
   summary.textContent = title;
   details.append(summary);
@@ -12,7 +13,7 @@ function disclosure(title: string) {
 }
 
 export function draftCount(sources: () => string[], context?: GoalContext) {
-  const element = disclosure('Word count');
+  const element = disclosure('Word count', true);
   const updateGoal = lengthGoal(element, context);
   const output = document.createElement('p');
   element.append(output);
@@ -50,7 +51,7 @@ export function readingCount(
   passages: readonly HTMLElement[],
   context?: GoalContext,
 ) {
-  const element = disclosure('Word count');
+  const element = disclosure('Word count', true);
   const updateGoal = lengthGoal(element, context);
   const total = document.createElement('p');
   const selection = document.createElement('p');

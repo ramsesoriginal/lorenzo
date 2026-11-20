@@ -693,6 +693,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/me/writing-reviews": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * My Writing Reviews
+         * @description The Editions shared with the caller for review, in every library (ADR 0508). A grant is
+         *     all that is needed: the caller need not belong to the library, and sees of it only what a
+         *     review shows, the Edition's name, never the library's name or the Book. Authenticated but not
+         *     tenant-scoped, and resolved tenant by tenant for the reason `GET /me/managed` is. Not
+         *     paginated: bounded by the caller's own grants.
+         */
+        get: operations["my_writing_reviews"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/me/notifications": {
         parameters: {
             query?: never;
@@ -3329,6 +3353,37 @@ export interface paths {
         put?: never;
         /** Split */
         post: operations["split"];
+        /**
+         * Undo Split
+         * @description Joins the two texts a split made, as they were left (ADR 0513).
+         *
+         *     Allowed to whoever made the split, while the entry is as the caller last read it, and the
+         *     two texts still follow one another. The receipt goes with the second text, so it is used once.
+         */
+        delete: operations["undo_split"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/writing/entries/{id}/payloads/{payload_id}/move": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Move Block
+         * @description Moves a text or picture of a Chapter's or Edition's manuscript into another one's.
+         *
+         *     The two outlines are read as the caller last saw them (`If-Match` for the source, the body for
+         *     the destination); the two must be shared alike, as in a join; the block lands before
+         *     `before_element_id` or at the end.
+         */
+        post: operations["move_block"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3346,7 +3401,16 @@ export interface paths {
         put?: never;
         /** Join */
         post: operations["join"];
-        delete?: never;
+        /**
+         * Undo Join
+         * @description Splits a joined Chapter back out and restores the outlines as they were (ADR 0518).
+         *
+         *     For a join by the caller made after joins recorded their redirects, while the joined Chapter is
+         *     still empty and the destination and the parent are exactly what the join left. `If-Match`
+         *     carries the destination's version as last read, since the joined Chapter itself reads as a
+         *     redirect.
+         */
+        delete: operations["undo_join"];
         options?: never;
         head?: never;
         patch?: never;
@@ -3364,7 +3428,14 @@ export interface paths {
         put?: never;
         /** Extract */
         post: operations["extract"];
-        delete?: never;
+        /**
+         * Undo Extraction
+         * @description Puts an extracted Chapter's writing back where it was and removes the Chapter (ADR 0515).
+         *
+         *     For a Chapter or a Scene extraction by the caller, while the source is as the caller last read
+         *     it and the new Chapter or Scene is still exactly what the extraction made (ADR 0517).
+         */
+        delete: operations["undo_extraction"];
         options?: never;
         head?: never;
         patch?: never;
@@ -8405,6 +8476,24 @@ export interface components {
             /** Is Pc */
             is_pc: boolean | null;
         };
+        /** BlockMoveAcknowledgement */
+        BlockMoveAcknowledgement: {
+            /**
+             * Payload Id
+             * Format: uuid
+             */
+            payload_id: string;
+            /**
+             * Source Id
+             * Format: uuid
+             */
+            source_id: string;
+            /**
+             * Destination Id
+             * Format: uuid
+             */
+            destination_id: string;
+        };
         /** Body_add_information_picture */
         Body_add_information_picture: {
             /** File */
@@ -11200,6 +11289,11 @@ export interface components {
             kinds: ("item" | "item_instance" | "being" | "character" | "fact" | "calendar" | "clock" | "location" | "map" | "connection" | "relationship" | "social_web" | "feature" | "feature_instance" | "calendar_period" | "event" | "observance" | "book" | "carrier" | "edition" | "chapter" | "scene_telling" | "scene" | "scene_appearance" | "session")[];
             /** Parent Ids */
             parent_ids: string[];
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
         };
         /**
          * EntityParentsRequest
@@ -14227,6 +14321,18 @@ export interface components {
             source_parent_id: string | null;
             /** Destination Parent Id */
             destination_parent_id: string | null;
+        };
+        /** MoveBlock */
+        MoveBlock: {
+            /**
+             * Destination Id
+             * Format: uuid
+             */
+            destination_id: string;
+            /** Destination Version */
+            destination_version: string;
+            /** Before Element Id */
+            before_element_id?: string | null;
         };
         /** MoveCheckpoint */
         MoveCheckpoint: {
@@ -18175,6 +18281,24 @@ export interface components {
              * @default []
              */
             prototype_ids: string[];
+        };
+        /**
+         * SharedForReviewOut
+         * @description An Edition shared with the caller for review: where to open it, and its name.
+         */
+        SharedForReviewOut: {
+            /**
+             * Tenant Id
+             * Format: uuid
+             */
+            tenant_id: string;
+            /**
+             * Edition Id
+             * Format: uuid
+             */
+            edition_id: string;
+            /** Name */
+            name: string;
         };
         /**
          * SheetOut
@@ -22828,6 +22952,60 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    my_writing_reviews: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SharedForReviewOut"][];
+                };
             };
             /** @description Client Error */
             "4XX": {
@@ -32923,6 +33101,148 @@ export interface operations {
             };
         };
     };
+    undo_split: {
+        parameters: {
+            query?: never;
+            header?: {
+                "if-match"?: string | null;
+            };
+            path: {
+                tenant_id: string;
+                id: string;
+                operation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SplitAcknowledgement"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    move_block: {
+        parameters: {
+            query?: never;
+            header?: {
+                "if-match"?: string | null;
+            };
+            path: {
+                tenant_id: string;
+                id: string;
+                payload_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MoveBlock"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BlockMoveAcknowledgement"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
     join: {
         parameters: {
             query?: never;
@@ -32941,6 +33261,75 @@ export interface operations {
                 "application/json": components["schemas"]["JoinChapters"];
             };
         };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JoinAcknowledgement"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    undo_join: {
+        parameters: {
+            query?: never;
+            header?: {
+                "if-match"?: string | null;
+            };
+            path: {
+                tenant_id: string;
+                id: string;
+                operation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Successful Response */
             200: {
@@ -33081,6 +33470,75 @@ export interface operations {
                 "application/json": components["schemas"]["ExtractChapter"];
             };
         };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExtractionAcknowledgement"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    undo_extraction: {
+        parameters: {
+            query?: never;
+            header?: {
+                "if-match"?: string | null;
+            };
+            path: {
+                tenant_id: string;
+                id: string;
+                operation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Successful Response */
             200: {

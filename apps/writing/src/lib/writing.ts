@@ -1,5 +1,5 @@
 import { getAppLinks } from '@lorenzo/api-client';
-import { bindShell } from '@lorenzo/app-shell';
+import { bindShell, confirmDialog, openMenu } from '@lorenzo/app-shell';
 import {
   type BundleReceipt,
   type DraftPayload,
@@ -11,10 +11,22 @@ import {
 } from '@lorenzo/information-editor';
 import { parse, render } from '@lorenzo/lorenzoscript';
 import { createEditor } from '@lorenzo/lorenzoscript-editor';
+import { createEditor as createLiveEditor } from '@lorenzo/lorenzoscript-semilive-editor';
+import { modernAddress } from './addresses';
 import { client, fetchAllPages, LorenzoApiError, loadFile, unwrap } from './api';
 import { isAuthConfigured, isAuthenticated, login, logout } from './auth';
+import {
+  askDestination,
+  askTitle,
+  extractParts,
+  moveBlock,
+  rememberSplit,
+  splitAtCaret,
+  takeSplit,
+  undoSplit,
+} from './blocks';
 import { compositionScreen, outlineOf, writingAddress } from './composition';
-import { API_BASE_URL } from './config';
+import { API_BASE_URL, BRANDING_CSS_URL } from './config';
 import {
   draftKey,
   forgetDrafts,
@@ -25,8 +37,12 @@ import {
   writeDraft,
 } from './drafts';
 import { linkReview } from './link-review';
+import { countSources } from './manuscript-count';
 import { exportControls } from './manuscript-export';
+import { outlineTree } from './outline-tree';
 import { reviewAddress, reviewScreen } from './review';
+import { shelf } from './shelf';
+import { LAYOUTS, rememberLayout, rememberWork, savedLayout } from './shelf-list';
 import { draftCount } from './word-count';
 import { writingDetails } from './writing-details';
 import { writingSession } from './writing-session';
@@ -51,7 +67,7 @@ function button(label: string, action: () => void) {
 }
 
 const address = (tenant: string, entry?: string) =>
-  `/?${new URLSearchParams({ tenant, ...(entry ? { entry } : {}) })}`;
+  `${entry ? '/write/' : '/'}?${new URLSearchParams({ tenant, ...(entry ? { entry } : {}) })}`;
 
 const fingerprint = (payloads: DraftPayload[]) =>
   JSON.stringify(
@@ -64,6 +80,11 @@ const fingerprint = (payloads: DraftPayload[]) =>
 export async function start() {
   const host = document.querySelector<HTMLElement>('#writing');
   if (!host) return;
+  const modern = modernAddress(location);
+  if (modern) {
+    location.replace(modern);
+    return;
+  }
 
   const shell = bindShell({
     themeKey: 'lorenzo:writing:theme',
@@ -78,8 +99,13 @@ export async function start() {
     },
   });
 
+  // The palette, the keys and the apps sheet are the shell's (ADR 0494).
+  shell?.palette();
   void getAppLinks(API_BASE_URL)
-    .then((registry) => shell?.accountLink(registry.apps.account_hub.url))
+    .then((registry) => {
+      shell?.accountLink(registry.apps.account_hub.url);
+      shell?.apps(registry);
+    })
     .catch(() => {});
   try {
     if (!isAuthConfigured() || !(await isAuthenticated())) {
@@ -96,6 +122,7 @@ export async function start() {
     if (reviewTenant && reviewEdition) {
       shell?.account({ state: 'signed-in', label: me.email ?? undefined });
       shell?.reveal();
+      shell?.statusBar({ sync: 'synced', syncedAt: new Date() });
       await reviewScreen(host, reviewTenant, reviewEdition, me.id);
       return;
     }
@@ -112,12 +139,14 @@ export async function start() {
 
     shell?.account({ state: 'signed-in', label: me.email ?? undefined });
     shell?.reveal();
+    shell?.statusBar({ sync: 'synced', syncedAt: new Date() });
 
     const params = new URLSearchParams(location.search);
 
     const tenant = params.get('tenant') ?? libraries[0]?.id;
 
     shell?.libraries(libraries, tenant ?? '', (id) => location.assign(address(id)));
+    shell?.library(tenant ?? null);
 
     if (!tenant) {
       host.textContent = 'Choose an author role in a library or repository to begin writing.';
@@ -127,11 +156,48 @@ export async function start() {
     const entry = params.get('entry');
 
     if (entry) {
+      rememberWork(tenant, entry);
+      // The outline of the work stands beside every page of it (ADR 0494, W4).
+      const frame = element('div', '', 'outline-frame');
+      const rail = element('div', '', 'stack-tight');
+      const panel = element('aside', '', 'outline-panel');
+      panel.setAttribute('aria-label', 'Outline');
+      panel.id = 'outline-panel';
+      panel.dataset.open = 'false';
+      const wide = window.matchMedia('(min-width: 1100px)');
+      const toggle = button('Outline', () => {
+        const open = panel.dataset.open !== 'true';
+        panel.dataset.open = String(open);
+        toggle.setAttribute('aria-expanded', String(open));
+      });
+      toggle.setAttribute('aria-controls', 'outline-panel');
+      toggle.setAttribute('aria-expanded', 'false');
+      toggle.hidden = true;
+      const dock = () => {
+        panel.dataset.docked = String(wide.matches);
+        toggle.hidden = wide.matches || !panel.firstChild;
+      };
+      wide.addEventListener('change', dock);
+      dock();
+      rail.append(toggle, panel);
+      rail.hidden = true;
+      const page = element('div', '', 'stack');
+      frame.append(rail, page);
+      host.replaceChildren(frame);
+      void outlineTree(tenant, entry)
+        .then((tree) => {
+          if (!tree) return;
+          panel.append(tree);
+          rail.hidden = false;
+          frame.dataset.outline = 'true';
+          dock();
+        })
+        .catch(() => {});
       try {
-        const view = params.get('view');
+        const view = params.get('view') ?? (location.pathname.startsWith('/read') ? 'read' : null);
         if (view === 'outline' || view === 'read')
-          await compositionScreen(host, tenant, entry, view === 'read');
-        else await manuscript(host, me.id, tenant, entry);
+          await compositionScreen(page, tenant, entry, view === 'read');
+        else await manuscript(page, me.id, tenant, entry, shell);
       } catch (error) {
         if (error instanceof LorenzoApiError && [401, 403, 404].includes(error.status))
           await forgetDrafts(draftKey(API_BASE_URL, me.id, tenant, entry)).catch(() => {});
@@ -140,124 +206,20 @@ export async function start() {
       return;
     }
 
-    const heading = element('h1', 'Your writing');
-
-    const name = element('input', '', 'text-input');
-    name.placeholder = 'Untitled';
-    name.maxLength = 300;
-
-    name.setAttribute('aria-label', 'New draft title');
-
-    const status = element('p', '', 'caption');
-    status.setAttribute('role', 'status');
-    status.setAttribute('aria-label', 'Save status');
-
-    const kind = element('select');
-    kind.setAttribute('aria-label', 'Start with');
-    for (const [value, label] of [
-      ['scene', 'Scene draft'],
-      ['book', 'Book'],
-      ['chapter', 'Chapter draft'],
-      ['carrier', 'Carrier'],
-      ['biography', 'Character biography'],
-    ]) {
-      const option = element('option', label);
-      option.value = value;
-      kind.append(option);
-    }
-    const creationId = crypto.randomUUID();
-    const firstEditionId = crypto.randomUUID();
-    const create = button('Start writing', () => {
-      create.disabled = true;
-
-      void (async () => {
-        try {
-          if (kind.value !== 'scene') {
-            const route =
-              kind.value === 'book'
-                ? '/tenants/{tenant_id}/writing/books'
-                : kind.value === 'carrier'
-                  ? '/tenants/{tenant_id}/writing/carriers'
-                  : kind.value === 'biography'
-                    ? '/tenants/{tenant_id}/writing/biographies'
-                    : '/tenants/{tenant_id}/writing/chapters';
-            const made = await unwrap(
-              await client.POST(route, {
-                params: { path: { tenant_id: tenant } },
-                body: {
-                  id: creationId,
-                  first_edition_id: firstEditionId,
-                  name: name.value.trim() || 'Untitled',
-                },
-              }),
-            );
-            location.assign(address(tenant, made.kind === 'book' ? made.editions[0]?.id : made.id));
-            return;
-          }
-          const scene = await unwrap(
-            await client.POST('/tenants/{tenant_id}/scenes', {
-              params: { path: { tenant_id: tenant } },
-              body: {
-                id: creationId,
-                name: name.value.trim() || 'Untitled',
-                is_public: false,
-              },
-            }),
-          );
-
-          location.assign(address(tenant, scene.id));
-        } catch (error) {
-          status.textContent = message(error);
-          create.disabled = false;
-        }
-      })();
-    });
-
-    const row = element('div', '', 'row');
-    row.append(kind, name, create);
-
-    host.replaceChildren(heading, row, status);
-
-    const scenes = await fetchAllPages(async (page) =>
-      unwrap(
-        await client.GET('/tenants/{tenant_id}/entities', {
-          params: {
-            path: { tenant_id: tenant },
-            query: {
-              page,
-              size: 100,
-              kind: ['scene', 'book', 'chapter', 'scene_telling', 'carrier'],
-            },
-          },
-        }),
-      ),
-    );
-
-    const list = element('ul', '', 'list');
-
-    const biographies = await fetchAllPages(async (page) =>
-      unwrap(
-        await client.GET('/tenants/{tenant_id}/writing/biographies', {
-          params: { path: { tenant_id: tenant }, query: { page, size: 100 } },
-        }),
-      ),
-    );
-    for (const scene of [...scenes, ...biographies]) {
-      const item = element('li');
-      const link = element('a', scene.name);
-      link.href = address(tenant, scene.id);
-      item.append(link);
-      list.append(item);
-    }
-
-    host.append(list);
+    await shelf(host, tenant);
   } catch (error) {
     host.textContent = message(error);
     shell?.status(message(error), 'error');
   }
 }
 
-async function manuscript(host: HTMLElement, account: string, tenant: string, entry: string) {
+async function manuscript(
+  host: HTMLElement,
+  account: string,
+  tenant: string,
+  entry: string,
+  shell: ReturnType<typeof bindShell>,
+) {
   const path = { tenant_id: tenant, entity_id: entry };
 
   const entityResult = await client.GET('/tenants/{tenant_id}/entities/{entity_id}', {
@@ -476,24 +438,28 @@ async function manuscript(host: HTMLElement, account: string, tenant: string, en
 
   let sceneVersion = entityResult.response.headers.get('etag') ?? '';
 
-  const rename = button('Save title', () => {
-    void (async () => {
-      try {
-        const result = await client.PATCH('/tenants/{tenant_id}/entities/{entity_id}', {
-          params: {
-            path: { tenant_id: tenant, entity_id: entry },
-            header: { 'if-match': sceneVersion },
-          },
-          body: { name: title.value.trim() || 'Untitled' },
-        });
+  /** Rename the work: the title in its Details and the one in its head both come here. */
+  const saveTitle = async (name: string) => {
+    try {
+      const result = await client.PATCH('/tenants/{tenant_id}/entities/{entity_id}', {
+        params: {
+          path: { tenant_id: tenant, entity_id: entry },
+          header: { 'if-match': sceneVersion },
+        },
+        body: { name: name.trim() || 'Untitled' },
+      });
 
-        const saved = await unwrap(result);
-        sceneVersion = result.response.headers.get('etag') ?? '';
-        heading.textContent = saved.name;
-      } catch (error) {
-        warning.textContent = message(error);
-      }
-    })();
+      const saved = await unwrap(result);
+      sceneVersion = result.response.headers.get('etag') ?? '';
+      heading.textContent = saved.name;
+      title.value = saved.name;
+    } catch (error) {
+      warning.textContent = message(error);
+    }
+  };
+
+  const rename = button('Save title', () => {
+    void saveTitle(title.value);
   });
 
   details.append(
@@ -522,6 +488,9 @@ async function manuscript(host: HTMLElement, account: string, tenant: string, en
       node.hidden = active;
 
     back.hidden = active;
+    drawer.hidden = active;
+    sideToggle.hidden = active;
+    renameHead.hidden = active;
     details.hidden = active;
     history.hidden = active;
     exports.hidden = active;
@@ -535,26 +504,28 @@ async function manuscript(host: HTMLElement, account: string, tenant: string, en
     void save();
   });
   actions.append(focus, saveButton);
-  if (structured)
-    for (const [label, view] of [
-      ['Outline', 'outline'],
-      ['Read', 'read'],
-    ]) {
-      const link = element('a', label);
-      link.href = writingAddress(tenant, entry, view);
-      link.addEventListener('click', (event) => {
-        event.preventDefault();
-        void (async () => {
-          if (saving) {
-            warning.textContent = 'Wait for this save before changing views.';
-            return;
-          }
-          if (dirty) await save();
-          if (!dirty) location.assign(link.href);
-        })();
-      });
-      actions.append(link);
-    }
+  // Write and Read are the two modes of every work; a structured one also has its outline.
+  for (const [label, view] of structured
+    ? [
+        ['Outline', 'outline'],
+        ['Read', 'read'],
+      ]
+    : [['Read', 'read']]) {
+    const link = element('a', label);
+    link.href = writingAddress(tenant, entry, view);
+    link.addEventListener('click', (event) => {
+      event.preventDefault();
+      void (async () => {
+        if (saving) {
+          warning.textContent = 'Wait for this save before changing views.';
+          return;
+        }
+        if (dirty) await save();
+        if (!dirty) location.assign(link.href);
+      })();
+    });
+    actions.append(link);
+  }
 
   const count = draftCount(
     () => editor.read().flatMap((p) => (p.kind === 'description' ? [p.content] : [])),
@@ -565,19 +536,166 @@ async function manuscript(host: HTMLElement, account: string, tenant: string, en
   );
   count.element.append(sessionGoal.element);
   count.element.append(writingTimer(API_BASE_URL, account, tenant));
-  host.replaceChildren(
-    back,
-    heading,
-    actions,
-    status,
-    warning,
-    conflicts,
-    area,
-    count.element,
-    details,
-    exports,
-    history,
+  // The page head: the way back, the title, the mode and the actions (ADR 0494, W2). The side
+  // views are one drawer, docked from 1100px and a sheet below it, in place of closed panels.
+  const head = element('header', '', 'page-head');
+  const headTitle = element('div', '', 'stack-tight');
+  headTitle.append(back, heading);
+  const renameHead = button('Rename', () => {
+    void askTitle('Rename this writing', 'Rename', heading.textContent ?? '').then((name) => {
+      if (name) return saveTitle(name);
+    });
+  });
+  const drawer = element('aside', '', 'side-drawer');
+  drawer.id = 'side-views';
+  drawer.setAttribute('aria-label', 'Side views');
+  const sideToggle = button('Side views', () => {
+    const open = drawer.dataset.open !== 'true';
+    drawer.dataset.open = String(open);
+    sideToggle.setAttribute('aria-expanded', String(open));
+  });
+  sideToggle.classList.add('side-toggle');
+  sideToggle.setAttribute('aria-controls', 'side-views');
+  sideToggle.setAttribute('aria-expanded', 'false');
+  const sideClose = button('Close side views', () => {
+    drawer.dataset.open = 'false';
+    sideToggle.setAttribute('aria-expanded', 'false');
+  });
+  sideClose.classList.add('side-close');
+  drawer.dataset.open = 'false';
+  drawer.append(sideClose, count.element, details, exports, history);
+  const wide = window.matchMedia('(min-width: 1100px)');
+  const dock = () => {
+    drawer.dataset.docked = String(wide.matches);
+  };
+  dock();
+  wide.addEventListener('change', dock);
+  // The writing layout: Source, Split or Live (ADR 0494, W3a). A choice of this browser.
+  const layoutButton = button('Layout', () =>
+    openMenu(
+      layoutButton,
+      LAYOUTS.map(([id, label]) => ({
+        label,
+        checked: layout === id,
+        run: () => {
+          layout = id;
+          rememberLayout(id);
+          mount(editor.read());
+        },
+      })),
+      { label: 'Layout', sprite: `${BRANDING_CSS_URL}/icons.svg` },
+    ),
   );
+  layoutButton.setAttribute('aria-haspopup', 'menu');
+  actions.append(renameHead, layoutButton, sideToggle);
+  head.append(headTitle, actions);
+  const main = element('div', '', 'stack');
+  main.append(status, warning, conflicts, area);
+  const frame = element('div', '', 'work-frame');
+  frame.append(main, drawer);
+  host.replaceChildren(head, frame);
+
+  // What the status bar says of the save and of the length.
+  const syncOf = (text: string) =>
+    text.includes('changed elsewhere')
+      ? 'conflict'
+      : text.includes('Your draft is kept')
+        ? 'offline'
+        : text === 'Saved' || text.startsWith('Recovered')
+          ? 'synced'
+          : 'waiting';
+  const tell = () =>
+    shell?.statusBar({
+      sync: syncOf(status.textContent ?? ''),
+      ...(syncOf(status.textContent ?? '') === 'synced' ? { syncedAt: new Date() } : {}),
+    });
+  new MutationObserver(tell).observe(status, {
+    childList: true,
+    characterData: true,
+    subtree: true,
+  });
+  tell();
+  let lengthTimer: ReturnType<typeof setTimeout> | undefined;
+  const refreshCount = () => {
+    count.refresh();
+    clearTimeout(lengthTimer);
+    lengthTimer = setTimeout(() => {
+      const n = countSources(
+        editor.read().flatMap((p) => (p.kind === 'description' ? [p.content] : [])),
+      );
+      shell?.statusBar({ meta: `${n} ${n === 1 ? 'word' : 'words'}` });
+    }, 400);
+  };
+
+  let layout = savedLayout();
+  // The page's parts act on saved text, so a change in the editor is saved first (ADR 0494, W3).
+  let selected: string[] = [];
+  const job = (run: () => Promise<void>) => {
+    warning.textContent = '';
+    void run().catch((error: unknown) => {
+      warning.textContent = message(error);
+    });
+  };
+  const settle = async () => {
+    for (let wait = 0; wait < 40 && (saving || dirty) && !blocked; wait++) {
+      if (saving) await new Promise((resolve) => setTimeout(resolve, 150));
+      else await save();
+    }
+    if (dirty || blocked || saving)
+      throw new Error('Save your changes first, and settle any conflict, then try again.');
+  };
+  const makeFrom = (ids: string[], kind: 'Chapter' | 'Scene') =>
+    job(async () => {
+      const title = await askTitle(`Name the new ${kind}`, `Make a ${kind}`);
+      if (!title) return;
+      await settle();
+      const operation = await extractParts(
+        tenant,
+        entry,
+        await outlineOf(tenant, entry),
+        ids,
+        kind,
+        title,
+      );
+      rememberSplit(entry, operation, 'extractions', kind);
+      location.reload();
+    });
+  const selection = element('div', '', 'row');
+  selection.setAttribute('role', 'region');
+  selection.setAttribute('aria-label', 'Selected blocks');
+  selection.hidden = true;
+  const selectionCount = element('span');
+  selection.append(
+    selectionCount,
+    button('Make a Chapter', () => makeFrom(selected, 'Chapter')),
+    button('Make a Scene', () => makeFrom(selected, 'Scene')),
+    button('Clear selection', () => editor.clearSelection()),
+  );
+  main.prepend(selection);
+  // After a split, this tab can undo it once (ADR 0513).
+  const splitMade = takeSplit(entry);
+  if (splitMade) {
+    const line = element('p');
+    line.setAttribute('role', 'status');
+    const chapter = splitMade.kind === 'extractions';
+    line.append(chapter ? `${splitMade.part} made. ` : 'Text split. ');
+    line.append(
+      button(chapter ? `Undo ${splitMade.part}` : 'Undo split', () =>
+        job(async () => {
+          await settle();
+          await undoSplit(
+            tenant,
+            entry,
+            splitMade.operation,
+            (await outlineOf(tenant, entry)).version,
+            splitMade.kind,
+          );
+          location.reload();
+        }),
+      ),
+    );
+    main.prepend(line);
+  }
 
   let editor: ReturnType<typeof renderBundleEditor>;
 
@@ -619,6 +737,64 @@ async function manuscript(host: HTMLElement, account: string, tenant: string, en
       content: '',
       textLabel: 'Manuscript',
       loadFile,
+      blocks: {
+        openMenu: (anchor, items) =>
+          openMenu(
+            anchor,
+            items.filter((item) => !item.disabled),
+            { label: 'Block options', sprite: `${BRANDING_CSS_URL}/icons.svg` },
+          ),
+        extraItems: (payload, caret) => [
+          ...(payload.kind === 'description'
+            ? [
+                {
+                  label: 'Split here',
+                  run: () =>
+                    job(async () => {
+                      await settle();
+                      rememberSplit(
+                        entry,
+                        await splitAtCaret(tenant, entry, payload.id, caret ?? 0),
+                      );
+                      location.reload();
+                    }),
+                },
+              ]
+            : []),
+          {
+            label: 'Move to another Chapter',
+            run: () =>
+              job(async () => {
+                const target = await askDestination(tenant, entry);
+                if (!target) return;
+                await settle();
+                const [from, to] = await Promise.all([
+                  outlineOf(tenant, entry),
+                  outlineOf(tenant, target.id),
+                ]);
+                await moveBlock(tenant, entry, payload.id, from.version, target.id, to.version);
+                location.reload();
+              }),
+          },
+          { label: 'Make a Chapter', run: () => makeFrom([payload.id], 'Chapter') },
+          { label: 'Make a Scene', run: () => makeFrom([payload.id], 'Scene') },
+          {
+            label: 'Copy link',
+            run: () =>
+              job(async () => {
+                await navigator.clipboard.writeText(
+                  `${location.origin}${writingAddress(tenant, entry, 'read')}#element-${payload.id}`,
+                );
+                warning.textContent = 'Link copied.';
+              }),
+          },
+        ],
+        onSelect: (ids) => {
+          selection.hidden = ids.length === 0;
+          selectionCount.textContent = `${ids.length} ${ids.length === 1 ? 'block' : 'blocks'} selected`;
+          selected = ids;
+        },
+      },
 
       createTextEditor(container, label, content) {
         const text = element('textarea');
@@ -630,10 +806,22 @@ async function manuscript(host: HTMLElement, account: string, tenant: string, en
         caption.htmlFor = text.id;
         container.append(caption, text);
 
-        const control = createEditor({
+        // One set of options for every layout: Source, Split and Live differ in the import only.
+        const control = (layout === 'live' ? createLiveEditor : createEditor)({
           textarea: text,
           reviewEntitySelection: () => review.open(),
-          layout: 'tabs',
+          completeNames: async (q) =>
+            (
+              await unwrap(
+                await client.GET('/tenants/{tenant_id}/entities', {
+                  params: { path: { tenant_id: tenant }, query: { q, page: 1, size: 8 } },
+                }),
+              )
+            ).items.map((entry) => entry.name),
+          highlight: true,
+          pasteFromWord: true,
+          findReplace: true,
+          layout: layout === 'split' ? 'split' : 'tabs',
           toolbar: ['bold', 'italic', 'heading', 'bullets', '|', 'link', 'entity', 'undo'],
 
           render: (source) => render(parse(source), { externalImages: false }),
@@ -642,9 +830,35 @@ async function manuscript(host: HTMLElement, account: string, tenant: string, en
         const review = linkReview(tenant, text, control);
         container.append(review.element);
 
+        // A quiet bar when words are selected: link them to an entity, or make them bold or slanted
+        // (ADR 0494, W3). It sits above the text, so it never covers what is being read.
+        const bubble = element('div', '', 'row');
+        bubble.setAttribute('role', 'group');
+        bubble.setAttribute('aria-label', 'Selected words');
+        bubble.hidden = true;
+        const around = (mark: string) => () => {
+          const chosen = text.value.slice(text.selectionStart, text.selectionEnd);
+          if (chosen) control.replaceSelection(`${mark}${chosen}${mark}`);
+        };
+        bubble.append(
+          button('Link these words', () => review.open()),
+          button('Make bold', around('**')),
+          button('Make italic', around('*')),
+        );
+        for (const node of bubble.querySelectorAll('button'))
+          node.addEventListener('mousedown', (event) => event.preventDefault());
+        const sync = () => {
+          bubble.hidden =
+            document.activeElement !== text || text.selectionStart === text.selectionEnd;
+        };
+        for (const type of ['select', 'keyup', 'mouseup', 'focus', 'blur', 'input'])
+          text.addEventListener(type, () => setTimeout(sync, 0));
+        container.prepend(bubble);
+
         return {
           value: () => text.value,
           focus: () => text.focus(),
+          caret: () => text.selectionStart,
           destroy: () => control.destroy(),
         };
       },
@@ -652,7 +866,7 @@ async function manuscript(host: HTMLElement, account: string, tenant: string, en
 
     area.replaceChildren(editor.element);
     sessionGoal.rebase();
-    count.refresh();
+    refreshCount();
     observed = fingerprint(editor.read());
   }
 
@@ -663,7 +877,7 @@ async function manuscript(host: HTMLElement, account: string, tenant: string, en
     if (next === observed) return;
     observed = next;
     sessionGoal.changed();
-    count.refresh();
+    refreshCount();
     dirty = true;
 
     void persist();
@@ -970,11 +1184,39 @@ async function manuscript(host: HTMLElement, account: string, tenant: string, en
     })();
   });
 
+  let leaving = false;
   window.addEventListener('beforeunload', (event) => {
-    if (dirty && !persisted) {
+    if (dirty && !persisted && !leaving) {
       event.preventDefault();
     }
   });
+
+  // Leaving by a link with changes that were not kept anywhere asks first, in words (ADR 0494, W2).
+  document.addEventListener(
+    'click',
+    (event) => {
+      const link = (event.target as Element | null)?.closest?.(
+        'a[href]',
+      ) as HTMLAnchorElement | null;
+      if (!link || !dirty || persisted || leaving) return;
+      if (link.target === '_blank' || link.origin !== location.origin) return;
+      if (link.pathname === location.pathname && link.search === location.search) return;
+      event.preventDefault();
+      event.stopPropagation();
+      void confirmDialog({
+        title: 'Leave without saving?',
+        body: 'Your latest changes are not saved yet, and could not be kept in this browser.',
+        confirm: 'Leave anyway',
+        cancel: 'Stay',
+        danger: true,
+      }).then((go) => {
+        if (!go) return;
+        leaving = true;
+        location.assign(link.href);
+      });
+    },
+    true,
+  );
 
   const stop = () => {
     alive = false;

@@ -1,0 +1,249 @@
+/*
+ * Writing's own arrangement of a work's page (ADR 0494, W2). Everything else is the brand's;
+ * this sheet uses tokens only. The drawer is docked from 1100px, which the brand's one breakpoint
+ * cannot say, so the page sets data-docked from the script and the sheet reads that.
+ */
+[data-page] :is(.stack, .stack-tight, .page-head, .row) > p {
+  margin: 0;
+}
+
+[data-page] :is(h1, h2, h3, p, li, a, span) {
+  overflow-wrap: anywhere;
+}
+
+.page-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding-bottom: var(--space-4);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.work-frame {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-6);
+}
+
+.side-drawer {
+  display: none;
+}
+
+.side-drawer[data-docked="true"] {
+  display: block;
+  padding-inline-start: var(--space-4);
+  border-inline-start: 1px solid var(--border-subtle);
+}
+
+.side-drawer[data-docked="false"][data-open="true"] {
+  display: block;
+  position: fixed;
+  inset-inline: 0;
+  bottom: 0;
+  /* Above the status bar and the tab bar (18), which would cover its last controls. */
+  z-index: 19;
+  max-height: 70vh;
+  overflow-y: auto;
+  padding: var(--space-4);
+  background: var(--fill-soft);
+  border-top: 1px solid var(--border-subtle);
+}
+
+.side-drawer > * + * {
+  margin-top: var(--space-4);
+}
+
+.side-drawer[data-docked="true"] .side-close,
+.side-toggle[hidden] {
+  display: none;
+}
+
+@media (min-width: 721px) {
+  .work-frame:has(.side-drawer[data-docked="true"]) {
+    grid-template-columns: minmax(0, 1fr) minmax(16rem, 22rem);
+  }
+}
+
+/* The Live layout: formatted paragraphs, the open one a text area (ADR 0511). */
+.ls-semilive-blocks {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-4);
+}
+
+.ls-semilive-blocks .ls-block {
+  padding: var(--space-2);
+  border-radius: var(--radius-control);
+}
+
+.ls-semilive-blocks .ls-block:not(.ls-block-open):hover,
+.ls-semilive-blocks .ls-block:focus-visible {
+  background: var(--fill-soft);
+}
+
+.ls-semilive-blocks .ls-block[data-selected] {
+  background: var(--fill-soft);
+  outline: 2px solid var(--border-subtle);
+}
+
+.ls-semilive-field {
+  width: 100%;
+  resize: none;
+}
+
+/* The outline beside a work's pages (ADR 0494, W4). Pinned from 1100px by the script. */
+.outline-frame {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-6);
+}
+
+.outline-panel {
+  display: none;
+}
+
+.outline-panel[data-docked="true"],
+.outline-panel[data-open="true"] {
+  display: block;
+}
+
+.outline-panel[data-docked="false"][data-open="true"] {
+  padding-bottom: var(--space-4);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.outline-tree ul {
+  margin: 0;
+  padding-inline-start: var(--space-4);
+  list-style: none;
+}
+
+.outline-tree > ul {
+  padding-inline-start: 0;
+}
+
+.outline-tree .row {
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.outline-tree [aria-current="page"] {
+  font-weight: 600;
+}
+
+@media (min-width: 721px) {
+  .outline-frame[data-outline="true"]:has(.outline-panel[data-docked="true"]) {
+    grid-template-columns: minmax(12rem, 18rem) minmax(0, 1fr);
+  }
+}
+
+/* A part dragged on the outline page, and where it would land (ADR 0494, W5). */
+li[data-dragging] {
+  opacity: 0.5;
+}
+
+li[data-drop="before"] {
+  border-top: 2px solid var(--border-subtle);
+}
+
+li[data-drop="after"] {
+  border-bottom: 2px solid var(--border-subtle);
+}
+
+/* Quiet highlighting of the source (ADR 0516): a layer of the same text behind the text area,
+   its markers in softer colours. Colour only, so the text keeps its place. */
+.ls-hl-wrap {
+  position: relative;
+  width: 100%;
+}
+
+.ls-hl-layer {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  pointer-events: none;
+  color: var(--text-primary);
+}
+
+textarea.ls-hl-text {
+  position: relative;
+  color: transparent;
+  caret-color: var(--text-primary);
+  background: transparent;
+}
+
+.ls-hl-mark,
+.ls-hl-quote {
+  color: var(--text-tertiary);
+}
+
+.ls-hl-code,
+.ls-hl-ref,
+.ls-hl-link {
+  color: var(--text-secondary);
+}
+
+/* The reviewer's note composer: in the page on a wide screen, a sheet from the bottom on a phone
+   (ADR 0494, W7). */
+.review-toggle,
+.review-close {
+  display: none;
+}
+
+@media (max-width: 720px) {
+  .review-toggle {
+    display: inline-flex;
+    position: sticky;
+    bottom: var(--space-4);
+    z-index: 2;
+  }
+
+  .review-close {
+    display: inline-flex;
+  }
+
+  .review-composer {
+    display: none;
+  }
+
+  .review-composer[data-open="true"] {
+    display: block;
+    position: fixed;
+    inset-inline: 0;
+    bottom: 0;
+    z-index: 19;
+    max-height: 80vh;
+    overflow-y: auto;
+    padding: var(--space-4);
+    background: var(--fill-soft);
+    border-top: 1px solid var(--border-subtle);
+  }
+}
+
+/* A Chapter dragged over a Chapter or Edition of the outline tree: it would be nested there. */
+.outline-tree [data-drop="into"] {
+  background: var(--fill-soft);
+}
+
+.outline-tree [data-drop="before"] {
+  border-top: 2px solid var(--border-subtle);
+}
+
+.outline-tree [data-drop="after"] {
+  border-bottom: 2px solid var(--border-subtle);
+}
+
+/* A card of a page: a bordered section with its own heading (ADR 0494, W6). */
+details.card {
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-control);
+}
+
+details.card > summary {
+  cursor: pointer;
+}

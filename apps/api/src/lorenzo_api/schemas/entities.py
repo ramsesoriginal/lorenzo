@@ -158,6 +158,8 @@ class EntityListOut(EntitySummary):
 
     kinds: list[EntityKind]
     parent_ids: list[uuid.UUID]
+    # When the entry was last changed (ADR 0519): the shelf of Writing shows it.
+    updated_at: datetime
 
 
 class BacklinkOut(BaseModel):
