@@ -5944,6 +5944,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/tenants/{tenant_id}/entities/{entity_id}/stat-changes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Stat Changes
+         * @description The entry's latest own-stat changes, newest first (ADR 0525, BN9).
+         *
+         *     The gate is `GET /{entity_id}`'s own (404 for an entry the caller cannot see): whoever may read
+         *     the entry's stats may read how they changed. Bounded: the latest `EntityStatChange.KEEP` are
+         *     kept, 30 are returned by default.
+         */
+        get: operations["list_stat_changes"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/tenants/{tenant_id}/entities/{entity_id}/computed-stats": {
         parameters: {
             query?: never;
@@ -11325,6 +11349,40 @@ export interface components {
         EntitySlugUpdate: {
             /** Slug */
             slug: string;
+        };
+        /**
+         * EntityStatChangeOut
+         * @description One step of GET .../entities/{id}/stat-changes (ADR 0525): a stat's own value went from
+         *     `old` to `new`, by `actor_name` at `created_at`. `old` is null when the entry had no own value
+         *     before, `new` when the value was removed. `actor_name` is the person's nickname or display
+         *     name, null when the account is gone.
+         */
+        EntityStatChangeOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Stat Definition Id
+             * Format: uuid
+             */
+            stat_definition_id: string;
+            /** Stat Name */
+            stat_name: string;
+            /** Old */
+            old: boolean | number | string | null;
+            /** New */
+            new: boolean | number | string | null;
+            /** Actor Id */
+            actor_id: string | null;
+            /** Actor Name */
+            actor_name: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
         };
         /**
          * EntityStatValueOut
@@ -44523,6 +44581,74 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["StatExplanationOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    list_stat_changes: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                tenant_id: string;
+                entity_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EntityStatChangeOut"][];
                 };
             };
             /** @description Validation Error */
