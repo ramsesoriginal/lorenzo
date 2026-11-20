@@ -12,7 +12,7 @@ test('a GM creates a being, which starts as an NPC, and hands it over to a playe
   await page.getByLabel('Name', { exact: true }).fill('Thorn');
   await page.getByRole('button', { name: 'Create being' }).click();
   await expect(page.getByRole('heading', { name: 'Thorn', level: 1 })).toBeVisible();
-  await expect(page.locator('[data-kind]')).toHaveText('NPC');
+  await expect(page.locator('[data-page] [data-kind]')).toHaveText('NPC');
 
   await enterMode(page, 'Edit');
   const handOver = page.locator('[data-hand-over]');
@@ -22,7 +22,7 @@ test('a GM creates a being, which starts as an NPC, and hands it over to a playe
   await expect(handOver.locator('li', { hasText: 'Oskar' })).toBeVisible();
   await pia.getByRole('button', { name: 'Hand over' }).click();
 
-  await expect(page.locator('[data-kind]')).toHaveText('Character');
+  await expect(page.locator('[data-page] [data-kind]')).toHaveText('Character');
   const owner = page.locator('[data-people] li', { hasText: 'Pia' });
   await expect(owner).toContainText('Owner');
 
@@ -57,7 +57,7 @@ test('a player makes a character of their own, which they own from the start', a
   await form.getByRole('button', { name: 'Create character' }).click();
 
   await expect(page.getByRole('heading', { name: 'Wren', level: 1 })).toBeVisible();
-  await expect(page.locator('[data-kind]')).toHaveText('Character');
+  await expect(page.locator('[data-page] [data-kind]')).toHaveText('Character');
   await expect(page.locator('[data-people] li', { hasText: 'Pia' })).toContainText('Owner');
 
   const found = await ok(

@@ -15,7 +15,7 @@ test('a being’s page shows its description, stats, tags, players and inventory
   await page.goto(`/being/?tenant=${world.tenantId}&id=${world.pia.character.entity_id}`);
 
   await expect(page.getByRole('heading', { name: 'Ashfang', level: 1 })).toBeVisible();
-  await expect(page.locator('[data-kind]')).toHaveText('Character');
+  await expect(page.locator('[data-page] [data-kind]')).toHaveText('Character');
   await expect(page.locator('[data-being-view] strong')).toHaveText('tall');
   await expect(page.locator('[data-stat-band] .stat-label')).toHaveText('Strength');
   await expect(page.locator('[data-stat-band] .stat-value')).toHaveText('17');
@@ -43,7 +43,7 @@ test('an NPC says nobody plays it, and is addressed by its link name', async ({ 
 
   await page.goto(`/being/?tenant=${world.tenantSlug}&slug=goblin-chief`);
   await expect(page.getByRole('heading', { name: 'Goblin Chief', level: 1 })).toBeVisible();
-  await expect(page.locator('[data-kind]')).toHaveText('NPC');
+  await expect(page.locator('[data-page] [data-kind]')).toHaveText('NPC');
   await expect(page.locator('[data-people]')).toContainText('Nobody plays this being');
   await expect(page.locator('[data-link-name]')).toHaveText('goblin-chief');
 

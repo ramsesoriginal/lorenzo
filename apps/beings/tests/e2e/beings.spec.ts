@@ -1,3 +1,4 @@
+import { ok } from './support/api.ts';
 import { expect, test } from './support/fixtures.ts';
 import { person } from './support/world.ts';
 
@@ -29,7 +30,8 @@ for (const path of ['/beings/?tenant=t', '/being/?tenant=t&id=i']) {
 test('logs out', async ({ world, as }) => {
   const page = await as(world.pia);
   await page.goto(`/beings/?tenant=${world.tenantId}`);
-  await page.getByRole('button', { name: 'Log out' }).click();
+  await page.getByRole('button', { name: 'Account menu' }).click();
+  await page.getByRole('menuitem', { name: 'Sign out' }).click();
   await expect(page.getByRole('button', { name: 'Log in' })).toBeVisible();
 });
 
@@ -75,4 +77,29 @@ test('a player lists the characters of the library and keeps their own with Mine
   await page.getByLabel('Mine').check();
   await expect(names).toHaveText(['Ashfang']);
   await expect(page).toHaveURL(/mine=1/);
+});
+
+test('the pages sit in the web shell: its navigation, the account menu and, with two libraries, the switcher', async ({
+  world,
+  as,
+}) => {
+  const page = await as(world.gm);
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto(`/beings/?tenant=${world.tenantId}`);
+  await expect(page.getByRole('link', { name: 'Skip to content' })).toBeAttached();
+  const pages = page.getByRole('navigation', { name: 'Pages' });
+  await expect(pages.getByRole('link', { name: 'Beings', exact: true })).toHaveAttribute(
+    'aria-current',
+    'page',
+  );
+  await expect(pages.getByRole('link', { name: 'Libraries' })).toBeVisible();
+  await expect(page.getByRole('combobox', { name: 'Library or repository' })).toBeHidden();
+
+  await ok(world.gm.api.POST('/tenants', { body: { name: 'Second library' } }));
+  await page.reload();
+  const switcher = page.getByRole('combobox', { name: 'Library or repository' });
+  await expect(switcher).toBeVisible();
+  await switcher.selectOption({ label: 'Second library' });
+  await expect(page).toHaveURL(/\/beings\/\?tenant=/);
+  await expect(page).not.toHaveURL(new RegExp(world.tenantId));
 });
