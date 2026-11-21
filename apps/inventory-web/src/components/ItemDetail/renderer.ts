@@ -58,7 +58,8 @@ export type RenderedItemDetail = {
   // A board card, with the board's actions; needs `board`.
   open(item: ItemInstance, card: HTMLElement, as?: 'panel' | 'sheet' | 'page'): void;
   // Just the item.
-  view(item: ShownItem): void;
+  // `as`: a sheet over the page, or beside it where the page has room for a panel (the default).
+  view(item: ShownItem, as?: 'panel' | 'sheet'): void;
   // A board card's "…" menu: what can be done with it, each opening the panel on that.
   menu(item: ItemInstance, card: HTMLElement, button: HTMLElement): void;
   // The panel is open on this item.
@@ -445,14 +446,28 @@ export function renderItemDetail(options: ItemDetailOptions): RenderedItemDetail
   return {
     open: openItem,
 
-    view(item) {
+    view(item, as) {
       current = null;
       openCard = null;
+      markOpen(null);
 
-      withReflow(() => {
+      const mode = as ?? (modeNow() === 'panel' ? 'panel' : 'sheet');
+
+      if (mode === 'panel') {
         populate(item);
-        root.showModal();
-      });
+
+        if (root.open && root.matches(':modal')) root.close();
+
+        if (!root.open) root.show();
+      } else {
+        withReflow(() => {
+          populate(item);
+
+          if (root.open) root.close();
+
+          root.showModal();
+        });
+      }
 
       void ancestryTree.load(ancestryRoot(item));
     },

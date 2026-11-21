@@ -1,4 +1,4 @@
-import { expect, type Page } from '@playwright/test';
+import { expect, type Locator, type Page } from '@playwright/test';
 
 /** The board's name, which says whose board it is. */
 export const boardTitle = (page: Page) => page.locator('[data-board-title]');
@@ -48,3 +48,16 @@ export async function openAdd(page: Page): Promise<void> {
 /** The shell's library switcher, which says which library this is. */
 export const libraryPicker = (page: Page) =>
   page.getByRole('combobox', { name: 'Library or repository' });
+
+/** An action off a catalog row's "…" menu. */
+export async function rowAction(row: Locator, name: string): Promise<void> {
+  await row.getByRole('button', { name: 'Actions' }).click();
+  await row.page().getByRole('menuitem', { name }).click();
+}
+
+/** The dialog that makes a catalog item, opened from the page's "New item". */
+export async function openNewItem(page: Page): Promise<Locator> {
+  await page.getByRole('button', { name: 'New item' }).click();
+
+  return page.getByRole('dialog', { name: 'New item' });
+}
