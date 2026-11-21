@@ -105,6 +105,7 @@ export function renderBoard(options: BoardOptions): RenderedBoard {
     undo: options.undo,
     onError: showError,
     reload: () => reloadCurrentView?.(),
+    weights: () => ({ unit, limitOf: (id) => limits.get(id) ?? null }),
   });
 
   // The card under the toolbar (ADR 0187). What it adds shows up on this board, and is what the
