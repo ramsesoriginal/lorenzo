@@ -2,12 +2,14 @@ import { describe, expect, it } from 'vitest';
 import {
   carriedWeight,
   columnLine,
+  dropVerdict,
   shownNumber,
   totalWeight,
   weightLine,
   weightOf,
   withUnit,
 } from './boardWeights';
+import type { ItemInstance } from './types';
 
 describe('weightOf and totalWeight', () => {
   it('weighs a stack by its quantity, and counts the unweighed as nothing', () => {
@@ -75,5 +77,51 @@ describe('carriedWeight', () => {
     expect(carriedWeight({ columns: [column(true, 5), column(false, 10), column(true, 12)] })).toBe(
       17,
     );
+  });
+});
+
+describe('dropVerdict', () => {
+  const item = (title: string, weight: number | null, quantity = 1): ItemInstance =>
+    ({ entity_id: title, title, weight, quantity, prototype_ids: [] }) as unknown as ItemInstance;
+  const base = { unit: 'lb', columnName: 'Backpack', joins: null };
+
+  it('says what a column would weigh with it', () => {
+    expect(
+      dropVerdict({ ...base, moved: [item('Lantern', 3)], there: [item('Rope', 10)], limit: null }),
+    ).toEqual({ kind: 'ok', text: 'Makes 13 lb' });
+  });
+
+  it('says it against a limit', () => {
+    expect(
+      dropVerdict({ ...base, moved: [item('Lantern', 3)], there: [item('Rope', 6)], limit: 12 }),
+    ).toEqual({ kind: 'ok', text: 'Makes 9 of 12 lb' });
+  });
+
+  it('refuses what is too heavy, with the sum', () => {
+    expect(
+      dropVerdict({ ...base, moved: [item('Anvil', 5)], there: [item('Rope', 10)], limit: 12 }),
+    ).toEqual({
+      kind: 'refuse',
+      text: 'Too heavy: the backpack holds 12 lb, this would make 15',
+    });
+  });
+
+  it('says when it joins a stack', () => {
+    expect(
+      dropVerdict({
+        ...base,
+        moved: [item('Rations', 1, 2)],
+        there: [item('Rations', 1, 6)],
+        limit: null,
+        joins: item('Rations', 1, 6),
+      }),
+    ).toEqual({ kind: 'join', text: 'Joins Rations × 6, making 8' });
+  });
+
+  it('has nothing to add when nothing weighs anything', () => {
+    expect(dropVerdict({ ...base, moved: [item('Note', null)], there: [], limit: null })).toEqual({
+      kind: 'ok',
+      text: 'Goes here',
+    });
   });
 });

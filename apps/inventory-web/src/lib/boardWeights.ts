@@ -71,3 +71,51 @@ export function carriedWeight(board: Pick<Board, 'columns'>): number {
     .filter((column) => column.carried)
     .reduce((sum, column) => sum + totalWeight(column.items), 0);
 }
+
+/** What a drag says about the column under it (IN12): where it would land and why not, in words. */
+export type DropVerdict = { kind: 'ok' | 'join' | 'refuse'; text: string };
+
+/**
+ * What a column says to a card being dragged to it. `there` is what the column holds now, `moved` what
+ * is dragged, `limit` what the column can carry (null: no limit). A single item that is identical to a
+ * stack already there joins it (ADR 0133). Over the limit it is refused, with the sum, as the API
+ * would (ADR 0128).
+ */
+export function dropVerdict(input: {
+  moved: readonly ItemInstance[];
+  there: readonly ItemInstance[];
+  limit: number | null;
+  unit: string | null;
+  columnName: string;
+  /** Another stack of the same item, when one is there. */
+  joins: ItemInstance | null;
+}): DropVerdict {
+  const after = totalWeight(input.there) + totalWeight(input.moved);
+
+  if (input.limit !== null && after > input.limit) {
+    return {
+      kind: 'refuse',
+      text: `Too heavy: the ${input.columnName.toLowerCase()} holds ${withUnit(input.limit, input.unit)}, this would make ${shownNumber(after)}`,
+    };
+  }
+
+  const [only] = input.moved;
+
+  if (input.joins && input.moved.length === 1 && only) {
+    const together = (input.joins.quantity ?? 1) + (only.quantity ?? 1);
+
+    return {
+      kind: 'join',
+      text: `Joins ${input.joins.title} × ${input.joins.quantity ?? 1}, making ${together}`,
+    };
+  }
+
+  if (input.limit !== null) {
+    return {
+      kind: 'ok',
+      text: `Makes ${shownNumber(after)} of ${withUnit(input.limit, input.unit)}`,
+    };
+  }
+
+  return { kind: 'ok', text: after > 0 ? `Makes ${withUnit(after, input.unit)}` : 'Goes here' };
+}

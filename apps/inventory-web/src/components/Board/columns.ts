@@ -74,8 +74,11 @@ export function createColumns(options: ColumnsOptions) {
 
     onIntent(card, () => options.onPrefetchItem(item), options.signal);
 
+    card.addEventListener('dragend', () => options.drops.end());
     card.addEventListener('dragstart', (event) => {
       event.dataTransfer?.setData('text/plain', item.entity_id);
+      // After the browser has drawn its drag image of the card as it is.
+      setTimeout(() => options.drops.start(card, item.entity_id));
 
       if (event.dataTransfer) {
         event.dataTransfer.effectAllowed = 'move';

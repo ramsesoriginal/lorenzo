@@ -4,11 +4,6 @@
     background-color 150ms ease;
 }
 
-.board-column--drop-target {
-  border-color: var(--action);
-  background: color-mix(in srgb, var(--action) 10%, var(--fill-soft));
-}
-
 /* Something of theirs in someone else's keeping (ADR 0131, 0134): shown, not moved. */
 .board-column--read-only {
   border-style: dashed;
@@ -529,4 +524,40 @@ dialog.item-panel:modal {
 .item-detail-content [data-view-link] {
   order: 8;
   align-self: flex-start;
+}
+
+/* A drag (IN12): the column under the card is lit, and a dashed ghost sits where the card would go. */
+.item-card--dragging {
+  opacity: 0.45;
+}
+.board-column--drop-target {
+  border-color: var(--action);
+  background: color-mix(in srgb, var(--action) 8%, var(--surface-muted));
+  box-shadow: 0 0 0 2px var(--action);
+}
+.board-column--refuse {
+  border-color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 8%, var(--surface-muted));
+  box-shadow: 0 0 0 2px var(--danger);
+}
+.list > .item-card--ghost {
+  display: grid;
+  gap: 2px;
+  border: 2px dashed var(--action);
+  background: color-mix(in srgb, var(--action) 8%, var(--surface-default));
+  color: var(--text-secondary);
+}
+.list > .item-card--ghost-refused {
+  border-color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 8%, var(--surface-default));
+}
+.list > .item-card--ghost-joins {
+  border-style: solid;
+}
+/* Equipped and Not carried: a thinner gold ring with its soft glow (IN10). */
+.board-column.glow-canonical::before {
+  inset: -1px;
+}
+.board-column.glow-canonical::after {
+  inset: 1px;
 }

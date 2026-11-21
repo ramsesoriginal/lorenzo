@@ -1,4 +1,5 @@
-import { failedEntityIds, mergedAway } from '../../lib/boardLogic';
+import { failedEntityIds, findMergeCandidates, mergedAway } from '../../lib/boardLogic';
+import { dropVerdict } from '../../lib/boardWeights';
 import { errorMessage } from '../../lib/errorMessage';
 import {
   bulkMoveItemInstances,
@@ -22,6 +23,9 @@ import type { BoardState } from './state';
 export type DropZones = {
   // containerEntityId is the column's container, or null for Not carried.
   bind(column: HTMLElement, list: HTMLUListElement, containerEntityId: string | null): void;
+  // A card is picked up and put down: what is dragged is dimmed, and the columns say where it would land.
+  start(card: HTMLElement, entityId: string): void;
+  end(): void;
 };
 
 export type DropZoneOptions = {
@@ -33,6 +37,8 @@ export type DropZoneOptions = {
   undo: RenderedUndoBanner;
   onError(message: string): void;
   reload(): void;
+  // The library's weight unit and what a container can carry, for what a drag says (IN12).
+  weights(): { unit: string | null; limitOf(containerId: string): number | null };
 };
 
 type MoveOutcome = { failedIds: Set<string>; merged: boolean };
@@ -48,11 +54,107 @@ export function createDropZones(options: DropZoneOptions): DropZones {
   const cardFor = (entityId: string) =>
     columns.querySelector<HTMLLIElement>(`.item-card[data-entity-id="${entityId}"]`);
 
+  // What is being dragged: one card, or the selection it belongs to.
+  let dragged: string[] = [];
+  let ghost: HTMLElement | null = null;
+  let lit: HTMLElement | null = null;
+  const status = () =>
+    columns.closest('[data-board]')?.querySelector<HTMLElement>('[data-drag-status]') ?? null;
+
+  function clearGhost() {
+    ghost?.remove();
+    ghost = null;
+
+    if (lit) {
+      lit.classList.remove('board-column--drop-target', 'board-column--refuse');
+      lit = null;
+    }
+
+    const live = status();
+
+    if (live) live.textContent = '';
+  }
+
+  // The ghost of the card in the column it is over, saying what the move makes, or why it can't (IN12).
+  function showGhost(
+    column: HTMLElement,
+    list: HTMLUListElement,
+    containerEntityId: string | null,
+  ) {
+    const moved = dragged.flatMap((id) => {
+      const item = state.items.get(id);
+
+      return item ? [item] : [];
+    });
+    const [first] = moved;
+
+    if (!first || list === cardFor(first.entity_id)?.parentElement) return;
+
+    const there = [
+      ...list.querySelectorAll<HTMLElement>('.item-card:not(.item-card--ghost)'),
+    ].flatMap((card) => {
+      const item = state.items.get(card.dataset.entityId ?? '');
+
+      return item ? [item] : [];
+    });
+    const { unit, limitOf } = options.weights();
+    const joins = moved.length === 1 ? (findMergeCandidates(there, first)[0] ?? null) : null;
+    const verdict = dropVerdict({
+      moved,
+      there,
+      limit: containerEntityId ? limitOf(containerEntityId) : null,
+      unit,
+      columnName: column.querySelector('h3')?.textContent ?? 'container',
+      joins,
+    });
+    const refused = verdict.kind === 'refuse';
+
+    column.dataset.verdict = verdict.kind;
+    column.classList.toggle('board-column--refuse', refused);
+
+    if (!ghost) {
+      ghost = document.createElement('li');
+      ghost.className = 'item-card item-card--ghost';
+      ghost.setAttribute('aria-hidden', 'true');
+    }
+
+    const name = document.createElement('span');
+    const words = document.createElement('span');
+    const title =
+      moved.length > 1
+        ? `${moved.length} items`
+        : `${first.title}${first.quantity && first.quantity > 1 ? ` ×${first.quantity}` : ''}`;
+
+    name.className = 'item-card-title';
+    name.textContent = title;
+    words.className = 'caption';
+    words.textContent =
+      options.viewerIsGm && refused ? `${verdict.text}; you can still move it` : verdict.text;
+    ghost.replaceChildren(name, words);
+    ghost.classList.toggle('item-card--ghost-refused', refused);
+    ghost.classList.toggle('item-card--ghost-joins', verdict.kind === 'join');
+
+    if (ghost.parentElement !== list) {
+      removePlaceholder(list);
+      list.append(ghost);
+      ghost.scrollIntoView({ block: 'nearest' });
+    }
+
+    const live = status();
+
+    if (live) live.textContent = `${title}: ${words.textContent}`;
+  }
+
   function bind(column: HTMLElement, list: HTMLUListElement, containerEntityId: string | null) {
     column.addEventListener('dragenter', (event) => {
       event.preventDefault();
       dragDepth.set(column, (dragDepth.get(column) ?? 0) + 1);
+
+      if (lit && lit !== column) clearGhost();
+
+      lit = column;
       column.classList.add('board-column--drop-target');
+      showGhost(column, list, containerEntityId);
     });
 
     column.addEventListener('dragleave', () => {
@@ -61,11 +163,22 @@ export function createDropZones(options: DropZoneOptions): DropZones {
       dragDepth.set(column, depth);
 
       if (depth <= 0) {
-        column.classList.remove('board-column--drop-target');
+        column.classList.remove('board-column--drop-target', 'board-column--refuse');
+
+        if (lit === column) clearGhost();
       }
     });
 
     column.addEventListener('dragover', (event) => {
+      // A column that can't take it isn't a place to drop (a GM may still ask to move it anyway).
+      const refused = column.dataset.verdict === 'refuse' && !options.viewerIsGm;
+
+      if (refused) {
+        if (event.dataTransfer) event.dataTransfer.dropEffect = 'none';
+
+        return;
+      }
+
       event.preventDefault();
 
       if (event.dataTransfer) {
@@ -76,7 +189,8 @@ export function createDropZones(options: DropZoneOptions): DropZones {
     column.addEventListener('drop', (event) => {
       event.preventDefault();
       dragDepth.set(column, 0);
-      column.classList.remove('board-column--drop-target');
+      clearGhost();
+      column.classList.remove('board-column--drop-target', 'board-column--refuse');
 
       const entityId = event.dataTransfer?.getData('text/plain');
 
@@ -221,5 +335,26 @@ export function createDropZones(options: DropZoneOptions): DropZones {
     });
   }
 
-  return { bind };
+  return {
+    bind,
+
+    start(card, entityId) {
+      const isBulk = selection.active() && selection.ids.has(entityId) && selection.ids.size > 1;
+
+      dragged = isBulk ? [...selection.ids] : [entityId];
+
+      // What is dragged stays where it was, dimmed.
+      for (const id of dragged) cardFor(id)?.classList.add('item-card--dragging');
+      card.classList.add('item-card--dragging');
+    },
+
+    end() {
+      clearGhost();
+      dragged = [];
+
+      for (const card of columns.querySelectorAll('.item-card--dragging')) {
+        card.classList.remove('item-card--dragging');
+      }
+    },
+  };
 }
