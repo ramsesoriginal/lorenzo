@@ -1,5 +1,6 @@
 import type { Locator, Page } from '@playwright/test';
 import { ok } from './support/api.ts';
+import { openNewItem, rowAction } from './support/board.ts';
 import { expect, readOnly, test } from './support/fixtures.ts';
 import { DESCRIPTIONS } from './support/scenes.ts';
 import type { World } from './support/world.ts';
@@ -32,7 +33,7 @@ test('a new item gets the slug its wikilinks look for', async ({ world, as }) =>
   const backpack = await world.item('Backpack', { description: DESCRIPTIONS.backpack });
   const page = await as(world.gm);
   await page.goto(`/items/?tenant=${world.tenantId}`);
-  const form = page.getByRole('region', { name: 'New item' });
+  const form = await openNewItem(page);
 
   await form.getByLabel('Name', { exact: true }).fill('Pouch');
   await expect(form.getByLabel('Slug')).toHaveValue('pouch');
@@ -54,7 +55,7 @@ test('a new item gets the slug its wikilinks look for', async ({ world, as }) =>
 readOnly('stops following the title once the slug is edited', async ({ world, as }) => {
   const page = await as(world.gm);
   await page.goto(`/items/?tenant=${world.tenantId}`);
-  const form = page.getByRole('region', { name: 'New item' });
+  const form = await openNewItem(page);
 
   await form.getByLabel('Name', { exact: true }).fill('Lantern');
   await expect(form.getByLabel('Slug')).toHaveValue('lantern');
@@ -72,7 +73,7 @@ readOnly('stops following the title once the slug is edited', async ({ world, as
 readOnly("refuses a slug that can't be one before creating anything", async ({ world, as }) => {
   const page = await as(world.gm);
   await page.goto(`/items/?tenant=${world.tenantId}`);
-  const form = page.getByRole('region', { name: 'New item' });
+  const form = await openNewItem(page);
 
   await form.getByLabel('Name', { exact: true }).fill('Odd Thing');
   await form.getByLabel('Slug').fill('odd thing');
@@ -90,13 +91,13 @@ test('suggests the next free slug for an item, and shows the one it has', async 
   await page.goto(`/items/?tenant=${world.tenantId}`);
 
   const oldRow = row(catalogList(page), 'Old Lantern');
-  await oldRow.getByRole('button', { name: 'Edit' }).click();
+  await rowAction(oldRow, 'Edit');
   await expect(oldRow.getByLabel('Slug')).toHaveValue('lantern');
   // Its open form holds the name "Lantern" too, which would make the next row ambiguous.
   await oldRow.getByRole('button', { name: 'Cancel' }).click();
 
   const newRow = row(catalogList(page), 'Lantern');
-  await newRow.getByRole('button', { name: 'Edit' }).click();
+  await rowAction(newRow, 'Edit');
   await expect(newRow.getByLabel('Slug')).toHaveValue('lantern-2');
   await newRow.getByRole('button', { name: 'Save' }).click();
   await expect.poll(() => slugOf(world, lantern)).toBe('lantern-2');
@@ -170,7 +171,7 @@ test('offers an instance a slug without giving it one', async ({ world, as }) =>
   await page.goto(`/items/?tenant=${world.tenantId}`);
 
   const bookRow = row(catalogList(page), 'Book');
-  await bookRow.getByRole('button', { name: 'Create instance' }).click();
+  await rowAction(bookRow, 'Create instance');
   await expect(bookRow.getByLabel('Slug')).toHaveAttribute('placeholder', 'e.g. book-2');
   await expect(bookRow.getByLabel('Slug')).toHaveValue('');
   await bookRow.getByRole('button', { name: 'Create without assigning' }).click();

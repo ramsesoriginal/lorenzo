@@ -380,7 +380,7 @@ test('someone who GMs another tenant is only a player here', async ({ world, as 
   await expect(libraryPicker(page)).toContainText(world.tenantName);
   await itemsLink(page).click();
   await expect(page.getByRole('region', { name: 'Catalog' })).toBeVisible();
-  await expect(page.getByRole('region', { name: 'New item' })).toBeHidden();
+  await expect(page.getByRole('button', { name: 'New item' })).toBeHidden();
 });
 
 test('a GM browses any being, and what nobody owns', async ({ world, as }) => {

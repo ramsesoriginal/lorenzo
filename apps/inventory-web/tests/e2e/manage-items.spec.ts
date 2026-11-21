@@ -1,5 +1,6 @@
 import type { Locator, Page } from '@playwright/test';
 import { ok } from './support/api.ts';
+import { openNewItem, rowAction } from './support/board.ts';
 import { expect, readOnly, test } from './support/fixtures.ts';
 import { catalog, packed } from './support/scenes.ts';
 import type { World } from './support/world.ts';
@@ -44,13 +45,15 @@ test('a player gets the public catalog, to look items up, and nothing to change'
   await expect(row(catalogList(page), 'Robe')).toBeVisible();
   await expect(row(catalogList(page), 'Backpack')).toBeVisible();
   await expect(row(catalogList(page), 'Crown of Ash')).toBeHidden();
-  await expect(page.getByRole('region', { name: 'New item' })).toBeHidden();
+  await expect(page.getByRole('button', { name: 'New item' })).toBeHidden();
   await expect(page.getByRole('region', { name: 'Instances' })).toBeHidden();
-  await expect(row(catalogList(page), 'Robe').getByRole('button')).toHaveText(['View']);
+  await row(catalogList(page), 'Robe').getByRole('button', { name: 'Actions' }).click();
+  await expect(page.getByRole('menuitem')).toHaveText(['View']);
+  await page.keyboard.press('Escape');
 
   await page.getByRole('searchbox', { name: 'Search the item catalog' }).fill('back');
   await expect(row(catalogList(page), 'Robe')).toBeHidden();
-  await row(catalogList(page), 'Backpack').getByRole('button', { name: 'View' }).click();
+  await row(catalogList(page), 'Backpack').getByRole('button', { name: 'Backpack' }).click();
   const dialog = page.getByRole('dialog');
   await expect(dialog.getByRole('heading', { name: 'Backpack' })).toBeVisible();
   // A catalog item has no board to act on.
@@ -70,7 +73,7 @@ test('opens an item or an instance in the dialog, linking to its page by slug', 
   const dialog = page.getByRole('dialog');
   const link = dialog.getByRole('link', { name: 'Open the page' });
 
-  await row(catalogList(page), 'Book').getByRole('button', { name: 'View' }).click();
+  await row(catalogList(page), 'Book').getByRole('button', { name: 'Book' }).click();
   // A catalog item's title is marked, an instance's isn't.
   await expect(dialog.getByRole('heading', { name: 'Book' })).toHaveClass(/canonical-marker/);
   await expect(link).toHaveAttribute('href', `/item/?tenant=${world.tenantSlug}&slug=book`);
@@ -100,7 +103,7 @@ test('opens an item or an instance in the dialog, linking to its page by slug', 
 
 test('a GM puts an item in the public catalog, and takes it out again', async ({ world, as }) => {
   const page = await manageItems(as, world);
-  const form = page.getByRole('region', { name: 'New item' });
+  const form = await openNewItem(page);
   await form.getByLabel('Name', { exact: true }).fill('Robe');
   await form.getByLabel('In the public catalog').check();
   await form.getByRole('button', { name: 'Create item' }).click();
@@ -116,7 +119,7 @@ test('a GM puts an item in the public catalog, and takes it out again', async ({
   ).items;
   expect(robe?.in_public_catalog).toBe(true);
 
-  await robeRow.getByRole('button', { name: 'Edit' }).click();
+  await rowAction(robeRow, 'Edit');
   await expect(robeRow.getByLabel('In the public catalog')).toBeChecked();
   await robeRow.getByLabel('In the public catalog').uncheck();
   await robeRow.getByRole('button', { name: 'Save' }).click();
@@ -131,7 +134,7 @@ test('a GM puts an item in the public catalog, and takes it out again', async ({
 test('creates an item with parents, a description, and a display title', async ({ world, as }) => {
   const { spellbook } = await catalog(world);
   const page = await manageItems(as, world);
-  const form = page.getByRole('region', { name: 'New item' });
+  const form = await openNewItem(page);
 
   await form.getByLabel('Name', { exact: true }).fill('Grimoire');
   // The display title follows the name until it's edited.
@@ -144,7 +147,9 @@ test('creates an item with parents, a description, and a display title', async (
   await form.getByRole('button', { name: 'Create item' }).click();
 
   await expect(row(catalogList(page), 'Grimoire of Ash')).toBeVisible();
-  await expect(form.getByLabel('Name', { exact: true })).toHaveValue('');
+  // The form is made new for the next item.
+  const next = await openNewItem(page);
+  await expect(next.getByLabel('Name', { exact: true })).toHaveValue('');
   const items = await ok(
     world.gm.api.GET('/tenants/{tenant_id}/items', {
       params: { path: { tenant_id: world.tenantId }, query: { q: 'Grimoire' } },
@@ -164,7 +169,7 @@ test('edits an item: the name field holds its name, not its display title', asyn
   const page = await manageItems(as, world);
 
   const lanternRow = row(catalogList(page), 'Hooded Lantern');
-  await lanternRow.getByRole('button', { name: 'Edit' }).click();
+  await rowAction(lanternRow, 'Edit');
   await expect(lanternRow.getByLabel('Name', { exact: true })).toHaveValue('Lantern');
   await expect(lanternRow.getByLabel('Display name')).toHaveValue('Hooded Lantern');
   await lanternRow.getByLabel('Name', { exact: true }).fill('Storm Lantern');
@@ -183,7 +188,7 @@ readOnly('shows what is built on an item', async ({ world, as }) => {
   const page = await manageItems(as, world);
 
   const bookRow = row(catalogList(page), 'Book');
-  await bookRow.getByRole('button', { name: 'Edit' }).click();
+  await rowAction(bookRow, 'Edit');
   const usedBy = bookRow.getByText('Used as a prototype by').locator('..');
   await expect(usedBy.getByText('Spellbook', { exact: true })).toBeVisible();
   await expect(usedBy.getByText('Ornate Spellbook', { exact: true })).toBeVisible();
@@ -203,7 +208,7 @@ test('deletes an item after asking', async ({ world, as }) => {
   const page = await manageItems(as, world);
 
   page.once('dialog', (dialog) => dialog.accept());
-  await row(catalogList(page), 'Arrow').getByRole('button', { name: 'Delete' }).click();
+  await rowAction(row(catalogList(page), 'Arrow'), 'Delete');
   await expect(row(catalogList(page), 'Arrow')).toBeHidden();
   await page.reload();
   await expect(row(catalogList(page), 'Book')).toBeVisible();
@@ -215,7 +220,7 @@ test('creates instances: for a character, with a slug, and for nobody', async ({
   const page = await manageItems(as, world);
 
   const bookRow = row(catalogList(page), 'Book');
-  await bookRow.getByRole('button', { name: 'Create instance' }).click();
+  await rowAction(bookRow, 'Create instance');
   await bookRow.getByLabel('Slug').fill('ashfangs-book');
   await bookRow.getByLabel('Search beings').fill('Ashf');
   await bookRow.getByRole('option').getByRole('button', { name: 'Ashfang' }).click();
@@ -227,7 +232,7 @@ test('creates instances: for a character, with a slug, and for nobody', async ({
   expect(bySlug.data?.owner_entity_id).toBe(world.pia.character.entity_id);
 
   const arrowRow = row(catalogList(page), 'Arrow');
-  await arrowRow.getByRole('button', { name: 'Create instance' }).click();
+  await rowAction(arrowRow, 'Create instance');
   await arrowRow.getByRole('button', { name: 'Create without assigning' }).click();
   await expect(arrowRow.getByText('Created without an owner.')).toBeVisible();
   const unowned = await ok(
