@@ -1,15 +1,35 @@
-import { describe, expect, it } from 'vitest';
-import { effectiveMode, isLayout, isMode, sectionOrder } from './sheetMode';
+import { describe, expect, it, vi } from 'vitest';
+import { isLayout, isMode, rememberMode, savedMode, sectionOrder } from './sheetMode';
 
-describe('effectiveMode', () => {
-  it('keeps Edit for someone who may edit and falls back to Read for someone who may not', () => {
-    expect(effectiveMode('edit', true)).toBe('edit');
-    expect(effectiveMode('edit', false)).toBe('read');
+describe('the mode remembered for a being', () => {
+  it('is Read until Play was last used, and is kept per being', () => {
+    const store = new Map<string, string>();
+
+    vi.stubGlobal('window', {
+      localStorage: {
+        getItem: (key: string) => store.get(key) ?? null,
+        setItem: (key: string, value: string) => void store.set(key, value),
+      },
+    });
+    expect(savedMode('t', 'a')).toBe('read');
+    rememberMode('t', 'a', 'play');
+    expect(savedMode('t', 'a')).toBe('play');
+    expect(savedMode('t', 'b')).toBe('read');
+    rememberMode('t', 'a', 'read');
+    expect(savedMode('t', 'a')).toBe('read');
+    vi.unstubAllGlobals();
   });
 
-  it('never changes Read or Play', () => {
-    expect(effectiveMode('read', false)).toBe('read');
-    expect(effectiveMode('play', false)).toBe('play');
+  it('is Read where storage is not available', () => {
+    vi.stubGlobal('window', {
+      localStorage: {
+        getItem: () => {
+          throw new Error('blocked');
+        },
+      },
+    });
+    expect(savedMode('t', 'a')).toBe('read');
+    vi.unstubAllGlobals();
   });
 });
 
@@ -18,15 +38,12 @@ describe('sectionOrder', () => {
     expect(sectionOrder('play')).toEqual(['stats', 'inventory', 'notes', 'about']);
     expect(sectionOrder('read')).toEqual(['about', 'notes', 'stats', 'inventory']);
   });
-
-  it('draws Edit in the same order as Read, so the page does not jump', () => {
-    expect(sectionOrder('edit')).toEqual(sectionOrder('read'));
-  });
 });
 
 describe('isMode', () => {
-  it('knows the three modes and nothing else', () => {
-    expect(['read', 'play', 'edit'].every(isMode)).toBe(true);
+  it('knows the two modes and nothing else', () => {
+    expect(['read', 'play'].every(isMode)).toBe(true);
+    expect(isMode('edit')).toBe(false);
     expect(isMode('datasheet')).toBe(false);
     expect(isMode(null)).toBe(false);
   });

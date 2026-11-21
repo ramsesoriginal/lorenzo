@@ -1,26 +1,54 @@
-// The three ways to look at a being (RFC 0043, docs/design/beings): Read, Play and Edit. A mode says
-// what you are doing, not what you may do; the API still decides every write, and Edit is only
-// offered to someone it would let write.
+// The two modes of a being's page (BN2, docs/design/web/beings): Read and Play. A mode says what
+// you are doing, not what you may do; the API still decides every write. There is no Edit mode:
+// a section a person may change has its own edit control, and saves on its own.
 
-export type Mode = 'read' | 'play' | 'edit';
+export type Mode = 'read' | 'play';
 
 export const MODES: readonly { mode: Mode; label: string }[] = [
   { mode: 'read', label: 'Read' },
   { mode: 'play', label: 'Play' },
-  { mode: 'edit', label: 'Edit' },
 ];
 
 export type SheetSection = 'about' | 'notes' | 'stats' | 'inventory';
 
-/** The mode to draw: Edit falls back to Read for someone who may not edit. */
-export function effectiveMode(wanted: Mode, canEdit: boolean): Mode {
-  return wanted === 'edit' && !canEdit ? 'read' : wanted;
-}
+/** What each mode is for, said on the band (BN7). */
+export const MODE_LINES: Record<Mode, string> = {
+  read: 'Reading. Edit a section where it is.',
+  play: 'At the table. Numbers first; every change can be undone.',
+};
+
+/** The line on the band: for someone who may not change the being, Play says so (BN7). */
+export const modeLineFor = (mode: Mode, canEdit: boolean, gm: string): string =>
+  mode === 'play' && !canEdit
+    ? `At the table. Only its player and the ${gm} change it.`
+    : MODE_LINES[mode];
+
+const memoryKey = (tenantId: string, entityId: string) =>
+  `lorenzo:beings:mode:${tenantId}:${entityId}`;
 
 /**
- * The order of the sections. Read puts the prose first and Play the numbers first; Edit follows
- * Read so the page does not jump when you start building the being.
+ * The mode last used on this being in this browser (BN5), so whoever plays it lands in Play at the
+ * table. Storage can throw (private browsing, disabled): then nothing is remembered.
  */
+export function savedMode(tenantId: string, entityId: string): Mode {
+  try {
+    const saved = window.localStorage.getItem(memoryKey(tenantId, entityId));
+
+    return saved === 'play' ? 'play' : 'read';
+  } catch {
+    return 'read';
+  }
+}
+
+export function rememberMode(tenantId: string, entityId: string, mode: Mode): void {
+  try {
+    window.localStorage.setItem(memoryKey(tenantId, entityId), mode);
+  } catch {
+    // The page opens in Read next time.
+  }
+}
+
+/** The order of the sections. Read puts the prose first and Play the numbers first. */
 export function sectionOrder(mode: Mode): readonly SheetSection[] {
   return mode === 'play'
     ? ['stats', 'inventory', 'notes', 'about']
@@ -28,7 +56,7 @@ export function sectionOrder(mode: Mode): readonly SheetSection[] {
 }
 
 export function isMode(value: string | null | undefined): value is Mode {
-  return value === 'read' || value === 'play' || value === 'edit';
+  return value === 'read' || value === 'play';
 }
 
 /** How densely a being is drawn: as a sheet, or as a datasheet (a stat line, a weapons table, abilities). */

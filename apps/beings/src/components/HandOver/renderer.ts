@@ -2,6 +2,7 @@
 // on the same routes: pick one of the campaigns the viewer GMs, then one of its players. The roster
 // names come back where the viewer may read them (ADR 0176); who may hand over is the API's.
 
+import { closeDialog, fadeOnDismiss, openDialog } from '@lorenzo/app-shell';
 import { errorMessage } from '../../lib/errorMessage';
 import { handOver, listCampaignPlayers, playerName } from '../../lib/people';
 import { say } from '../../lib/statusLine';
@@ -30,6 +31,24 @@ export function renderHandOver(options: HandOverOptions): RenderedHandOver {
   const players = required<HTMLUListElement>(root, '[data-players]');
   const template = required<HTMLTemplateElement>(root, '[data-player-template]');
 
+  // A dialog, opened from the rail's button (BN: Hand over and Delete are dialogs).
+  const found = root.closest('dialog');
+
+  if (!found) throw new Error('Hand over: its dialog is missing.');
+
+  const dialog: HTMLDialogElement = found;
+
+  const openButton = required<HTMLButtonElement>(
+    dialog.parentElement ?? root,
+    '[data-open-hand-over]',
+  );
+
+  fadeOnDismiss(dialog);
+  openButton.addEventListener('click', () => openDialog(dialog));
+  required<HTMLButtonElement>(dialog, '[data-close-hand-over]').addEventListener('click', () =>
+    closeDialog(dialog),
+  );
+
   select.append(
     new Option('Choose a campaign…', ''),
     ...campaigns.map((campaign) => new Option(campaign.name, campaign.id)),
@@ -51,6 +70,7 @@ export function renderHandOver(options: HandOverOptions): RenderedHandOver {
       await handOver(tenantId, entityId, playerId);
       say(status, 'Handed over.');
       options.onDone();
+      closeDialog(dialog);
     } catch (error) {
       say(status, errorMessage(error), true);
       players.querySelectorAll('button').forEach((button) => {
@@ -101,6 +121,7 @@ export function renderHandOver(options: HandOverOptions): RenderedHandOver {
     load(id) {
       entityId = id;
       root.hidden = false;
+      openButton.hidden = false;
     },
   };
 }

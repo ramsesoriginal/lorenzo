@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { nextValue, parseAmount, UndoStack } from './adjust';
+import { applyChange, nextValue, parseAmount, parseChange, UndoStack } from './adjust';
 
 describe('nextValue', () => {
   it('takes away, adds, sets and steps', () => {
@@ -48,5 +48,28 @@ describe('UndoStack', () => {
     await stack.pop()?.undo();
     expect(seen).toEqual(['c', 'b']);
     expect(stack.pop()).toBeUndefined();
+  });
+});
+
+describe('parseChange', () => {
+  it('reads +3 and -2 as changes and 12 as a value to set', () => {
+    expect(parseChange('+3')).toEqual({ kind: 'delta', value: 3 });
+    expect(parseChange('-2')).toEqual({ kind: 'delta', value: -2 });
+    expect(parseChange('−2')).toEqual({ kind: 'delta', value: -2 });
+    expect(parseChange(' 12 ')).toEqual({ kind: 'set', value: 12 });
+    expect(parseChange('2,5')).toEqual({ kind: 'set', value: 2.5 });
+  });
+
+  it('refuses what is not a number', () => {
+    for (const text of ['', 'abc', '+', '1+2', '--3']) expect(parseChange(text)).toBeNull();
+  });
+});
+
+describe('applyChange', () => {
+  it('changes or sets, and holds the floor', () => {
+    expect(applyChange(9, { kind: 'delta', value: -20 }, 0)).toBe(0);
+    expect(applyChange(9, { kind: 'delta', value: 3 }, 0)).toBe(12);
+    expect(applyChange(9, { kind: 'set', value: 5 }, null)).toBe(5);
+    expect(applyChange(2, { kind: 'delta', value: -5 }, null)).toBe(-3);
   });
 });

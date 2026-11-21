@@ -1,6 +1,8 @@
 import { expect, test } from './support/fixtures.ts';
 import { enterMode } from './support/modes.ts';
 
+const toasts = (page: import('@playwright/test').Page) => page.locator('[data-shell-toasts]');
+
 const url = (world: { tenantId: string }, id: string) =>
   `/being/?tenant=${world.tenantId}&id=${id}`;
 
@@ -36,20 +38,21 @@ test('in Play a number steps, takes away an amount and stops at its floor, each 
   await enterMode(page, 'Play');
 
   const tile = page.locator('[data-stat="hit_points"]');
-  await expect(tile).toContainText('of 9');
+  await expect(tile).toContainText('/ 9');
   await expect(tile.locator('.stat-value')).toContainText('9');
 
   await tile.getByRole('button', { name: 'Lower Hit points by 1' }).click();
   await expect(tile.locator('.stat-value')).toContainText('8');
-  await expect(page.locator('[data-undo-bar]')).toContainText('Hit points 9 → 8');
+  await expect(toasts(page)).toContainText('Hit points 9 → 8');
+  await expect(toasts(page)).toContainText('by you');
   await expect(page.locator('[data-live]')).toHaveText('Hit points 9 → 8');
 
-  // The adjuster says it as the table does: "take away 20", and the floor holds it at zero.
+  // "Change by" takes -20 as the table says it, and the floor holds it at zero.
   await tile.getByRole('button', { name: /Change Hit points/ }).click();
-  await page.getByLabel('Amount').fill('20');
-  await page.getByRole('button', { name: 'Take away' }).click();
+  await page.getByLabel('Change by').fill('-20');
+  await page.getByRole('button', { name: 'Apply' }).click();
   await expect(tile.locator('.stat-value')).toContainText('0');
-  await expect(page.locator('[data-undo-bar]')).toContainText('Hit points 8 → 0');
+  await expect(toasts(page)).toContainText('Hit points 8 → 0');
   await expect(tile.locator('.stat-delta')).toHaveText('−8');
 
   // It is what the API says: a reload shows it, and so does Undo, on the button and on Ctrl+Z.
@@ -59,7 +62,7 @@ test('in Play a number steps, takes away an amount and stops at its floor, each 
 
   await tile.getByRole('button', { name: 'Raise Hit points by 1' }).click();
   await expect(tile.locator('.stat-value')).toContainText('1');
-  await page.getByRole('button', { name: 'Undo' }).click();
+  await toasts(page).getByRole('button', { name: 'Undo' }).click();
   await expect(tile.locator('.stat-value')).toContainText('0');
   await expect(page.locator('[data-live]')).toHaveText('Undone: Hit points 0 → 1');
 });
@@ -88,7 +91,8 @@ test('the numbers a library pins stay in the sticky bar', async ({ world, as }) 
   await expect(page.getByRole('heading', { name: 'Note 5' })).toBeVisible();
   await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
 
-  await expect(page.locator('[data-vitals]')).toHaveText(/Hit points\s*9 hp/);
+  await expect(page.locator('[data-pins]')).toContainText('Hit points');
+  await expect(page.locator('[data-pins]')).toContainText('9');
 });
 
 test('someone who may not edit a being gets no steppers in Play', async ({ world, as }) => {
@@ -108,16 +112,16 @@ test('an adjustable tag is a toggle in Play, and can be taken back', async ({ wo
   await page.goto(url(world, world.pia.character.entity_id));
   await enterMode(page, 'Play');
 
-  const prone = page.locator('[data-tag-chips]').getByRole('button', { name: 'Prone' });
+  const prone = page.locator('[data-conditions]').getByRole('button', { name: 'Prone' });
   await expect(prone).toHaveAttribute('aria-pressed', 'false');
   // A tag the library does not call adjustable is not offered.
-  await expect(page.locator('[data-tag-chips]').getByText('Undead')).toHaveCount(0);
+  await expect(page.locator('[data-conditions]').getByText('Undead')).toHaveCount(0);
 
   await prone.click();
   await expect(prone).toHaveAttribute('aria-pressed', 'true');
   await expect(page.locator('[data-live]')).toHaveText('Prone on');
 
-  await page.getByRole('button', { name: 'Undo' }).click();
+  await toasts(page).getByRole('button', { name: 'Undo' }).click();
   await expect(prone).toHaveAttribute('aria-pressed', 'false');
 });
 
@@ -134,10 +138,8 @@ test('a calculated number says so and shows how it came to be', async ({ world, 
   await expect(tile.locator('.stat-value')).toContainText('15');
   // The page redraws its numbers once it knows who may write; an explanation opened before that
   // would be closed with it.
-  await expect(
-    page.locator('[data-sheet-head] [data-mode-switch] input[value="edit"]'),
-  ).toBeEnabled();
-  await tile.getByText('Calculated').click();
+  await expect(page.getByRole('button', { name: 'More for this being' })).toBeVisible();
+  await tile.getByRole('button', { name: /Why is Armour class/ }).click();
   const panel = tile.locator('.why-panel');
   await expect(panel).toContainText('Dexterity × 1 + 1');
   await expect(panel).toContainText('Dexterity');
@@ -163,4 +165,61 @@ test('a value shown with its sign and the stat that resolves it sit beside the n
 
   await expect(page.locator('[data-stat="strength"] .stat-sub')).toHaveText('+3');
   await expect(page.locator('[data-stat="strength_modifier"] .stat-value')).toHaveText('+3');
+});
+
+test('"Change by" sets a bare number and changes by a signed one, and refuses words', async ({
+  world,
+  as,
+}) => {
+  const { being } = await hitPoints(world);
+  const page = await as(world.pia);
+  await page.goto(url(world, being));
+  await enterMode(page, 'Play');
+  const tile = page.locator('[data-stat="hit_points"]');
+  const open = () => tile.getByRole('button', { name: /Change Hit points/ }).click();
+
+  await open();
+  await page.getByLabel('Change by').fill('5');
+  await page.getByLabel('Change by').press('Enter');
+  await expect(tile.locator('.stat-value')).toContainText('5');
+
+  await open();
+  await page.getByLabel('Change by').fill('+3');
+  await page.getByRole('button', { name: 'Apply' }).click();
+  await expect(tile.locator('.stat-value')).toContainText('8');
+
+  await open();
+  await page.getByLabel('Change by').fill('lots');
+  await page.getByRole('button', { name: 'Apply' }).click();
+  await expect(page.locator('[data-save-status]')).toContainText('That is not a number');
+  await expect(tile.locator('.stat-value')).toContainText('8');
+});
+
+test('History lists the steps with who made them, and goes back to before any of them', async ({
+  world,
+  as,
+}) => {
+  const { being } = await hitPoints(world);
+  const page = await as(world.pia);
+  await page.goto(url(world, being));
+  await enterMode(page, 'Play');
+  const tile = page.locator('[data-stat="hit_points"]');
+
+  await expect(page.getByRole('button', { name: 'Undo', exact: true }).first()).toBeDisabled();
+  await tile.getByRole('button', { name: 'Lower Hit points by 1' }).click();
+  await expect(tile.locator('.stat-value')).toContainText('8');
+  await tile.getByRole('button', { name: 'Lower Hit points by 1' }).click();
+  await expect(tile.locator('.stat-value')).toContainText('7');
+  await tile.getByRole('button', { name: 'Lower Hit points by 1' }).click();
+  await expect(tile.locator('.stat-value')).toContainText('6');
+
+  await page.getByRole('button', { name: 'History' }).click();
+  const menu = page.getByRole('menu', { name: 'History' });
+  // The three steps just made, and the ones that set the being up.
+  await expect(menu.getByRole('menuitem')).toHaveCount(6);
+  await expect(menu.getByRole('menuitem').first()).toContainText('Hit points 7 → 6, by you');
+  // Back to before the middle step: 8.
+  await menu.getByRole('menuitem').nth(1).click();
+  await expect(tile.locator('.stat-value')).toContainText('8');
+  await expect(page.getByRole('button', { name: 'Undo', exact: true }).first()).toBeDisabled();
 });

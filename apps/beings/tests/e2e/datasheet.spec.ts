@@ -7,10 +7,7 @@ const datasheet = (page: import('@playwright/test').Page) => page.locator('[data
 
 async function layout(page: import('@playwright/test').Page, name: 'Sheet' | 'Datasheet') {
   await expect(page.locator('[data-title]')).not.toBeEmpty();
-  await page
-    .locator('[data-sheet-head] [data-layout-switch]')
-    .getByText(name, { exact: true })
-    .click();
+  await page.locator('[data-layout-switch]:visible').getByText(name, { exact: true }).click();
   await expect(page.locator('[data-being-page]')).toHaveAttribute(
     'data-layout',
     name.toLowerCase(),
@@ -76,15 +73,12 @@ test('a number changes in the datasheet in Play, as on the sheet', async ({ worl
   const page = await as(world.pia);
   await page.goto(url(world, being));
   await layout(page, 'Datasheet');
-  await page
-    .locator('[data-sheet-head] [data-mode-switch]')
-    .getByText('Play', { exact: true })
-    .click();
+  await page.locator('[data-band] [data-mode-switch]').getByText('Play', { exact: true }).click();
 
   const cell = datasheet(page).locator('.ds-cell[data-stat="hit_points"]');
   await cell.getByRole('button', { name: 'Lower Hit points by 1' }).click();
   await expect(cell.locator('.stat-value')).toContainText('8');
-  await page.getByRole('button', { name: 'Undo' }).click();
+  await page.locator('[data-shell-toasts]').getByRole('button', { name: 'Undo' }).click();
   await expect(cell.locator('.stat-value')).toContainText('9');
 });
 

@@ -1,6 +1,5 @@
 import { ok } from './support/api.ts';
 import { expect, test } from './support/fixtures.ts';
-import { enterMode } from './support/modes.ts';
 
 test('a GM creates a being, which starts as an NPC, and hands it over to a player', async ({
   world,
@@ -9,20 +8,23 @@ test('a GM creates a being, which starts as an NPC, and hands it over to a playe
   const page = await as(world.gm);
   await page.goto(`/beings/?tenant=${world.tenantId}`);
 
-  await page.getByLabel('Name', { exact: true }).fill('Thorn');
-  await page.getByRole('button', { name: 'Create being' }).click();
+  await page.getByRole('button', { name: 'New being' }).click();
+  const creating = page.getByRole('dialog', { name: 'New being' });
+  await creating.getByLabel('Name', { exact: true }).fill('Thorn');
+  await creating.getByRole('button', { name: 'Create being' }).click();
   await expect(page.getByRole('heading', { name: 'Thorn', level: 1 })).toBeVisible();
-  await expect(page.locator('[data-kind]')).toHaveText('NPC');
+  await expect(page.locator('[data-page] [data-kind]')).toHaveText('NPC');
 
-  await enterMode(page, 'Edit');
-  const handOver = page.locator('[data-hand-over]');
+  // Hand over is a dialog, opened from the rail.
+  await page.getByRole('button', { name: 'Hand over…' }).click();
+  const handOver = page.getByRole('dialog', { name: 'Hand over to a player' });
   await handOver.getByLabel('Campaign').selectOption({ label: 'The Sunken Crown' });
   const pia = handOver.locator('li', { hasText: 'Pia' });
   await expect(pia).toBeVisible();
   await expect(handOver.locator('li', { hasText: 'Oskar' })).toBeVisible();
   await pia.getByRole('button', { name: 'Hand over' }).click();
 
-  await expect(page.locator('[data-kind]')).toHaveText('Character');
+  await expect(page.locator('[data-page] [data-kind]')).toHaveText('Character');
   const owner = page.locator('[data-people] li', { hasText: 'Pia' });
   await expect(owner).toContainText('Owner');
 
@@ -51,13 +53,14 @@ test('a player makes a character of their own, which they own from the start', a
   const page = await as(world.pia);
   await page.goto(`/beings/?tenant=${world.tenantId}`);
 
-  const form = page.locator('[data-own-form]');
+  await page.getByRole('button', { name: 'New character of mine' }).click();
+  const form = page.getByRole('dialog', { name: 'New character of mine' });
   await expect(form.getByLabel('Where you play')).toContainText('The Sunken Crown');
   await form.getByLabel('Character name').fill('Wren');
   await form.getByRole('button', { name: 'Create character' }).click();
 
   await expect(page.getByRole('heading', { name: 'Wren', level: 1 })).toBeVisible();
-  await expect(page.locator('[data-kind]')).toHaveText('Character');
+  await expect(page.locator('[data-page] [data-kind]')).toHaveText('Character');
   await expect(page.locator('[data-people] li', { hasText: 'Pia' })).toContainText('Owner');
 
   const found = await ok(
@@ -79,5 +82,5 @@ test('a player is offered no form for an NPC and no hand over', async ({ world, 
   const page = await as(world.pia);
   await page.goto(`/beings/?tenant=${world.tenantId}`);
   await expect(page.getByRole('link', { name: 'Ashfang' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Create being' })).toBeHidden();
+  await expect(page.getByRole('button', { name: 'New being' })).toBeHidden();
 });

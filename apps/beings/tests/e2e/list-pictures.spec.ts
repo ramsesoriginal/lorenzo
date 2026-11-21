@@ -24,13 +24,16 @@ async function portrait(world: World, id: string, isPublic = true) {
   );
 }
 
-test('80px portraits and a live desktop preview follow the hovered row', async ({ world, as }) => {
+test('avatars show the portrait and a live desktop preview follows the hovered row', async ({
+  world,
+  as,
+}) => {
   await portrait(world, world.pia.character.entity_id);
   await portrait(world, world.oskar.character.entity_id);
   const page = await as(world.gm);
   await page.goto(`/beings/?tenant=${world.tenantId}`);
-  const ash = page.locator('[data-list] > li').filter({ hasText: 'Ashfang' });
-  const brisk = page.locator('[data-list] > li').filter({ hasText: 'Brisk' });
+  const ash = page.locator('[data-list] .being-row').filter({ hasText: 'Ashfang' });
+  const brisk = page.locator('[data-list] .being-row').filter({ hasText: 'Brisk' });
   const thumbnail = ash.locator('[data-list-picture]');
   await expect(thumbnail).toBeVisible();
   expect(
@@ -38,7 +41,7 @@ test('80px portraits and a live desktop preview follow the hovered row', async (
       const rect = image.getBoundingClientRect();
       return { width: rect.width, height: rect.height };
     }),
-  ).toEqual({ width: 80, height: 80 });
+  ).toEqual({ width: 26, height: 26 });
   const popup = page.locator('[data-picture-preview]');
   await expect(popup).toBeHidden();
   await ash.hover();
@@ -76,7 +79,7 @@ test('a picture hidden from the viewer is neither shown nor downloaded', async (
     if (/\/payloads\/[^/]+\/content/.test(request.url())) downloads.push(request.url());
   });
   await page.goto(`/beings/?tenant=${world.tenantId}`);
-  const row = page.locator('[data-list] > li').filter({ hasText: 'Ashfang' });
+  const row = page.locator('[data-list] .being-row').filter({ hasText: 'Ashfang' });
   await expect(row).toHaveAttribute('data-picture-state', 'none');
   await expect(row.locator('[data-list-picture]')).toBeHidden();
   expect((await row.getByRole('link').boundingBox())?.height).toBeLessThan(80);
@@ -97,7 +100,7 @@ test('late pictures do not open a popup after the pointer leaves', async ({ worl
     await route.continue();
   });
   await page.goto(`/beings/?tenant=${world.tenantId}`);
-  const row = page.locator('[data-list] > li').filter({ hasText: 'Ashfang' });
+  const row = page.locator('[data-list] .being-row').filter({ hasText: 'Ashfang' });
   expect((await row.getByRole('link').boundingBox())?.height).toBeLessThan(80);
   await row.hover();
   await page.mouse.move(0, 0);
@@ -122,7 +125,7 @@ test('touch devices get portraits without a popup or an intercepted tap', async 
   try {
     const page = await context.newPage();
     await page.goto(`/beings/?tenant=${world.tenantId}`);
-    const row = page.locator('[data-list] > li').filter({ hasText: 'Ashfang' });
+    const row = page.locator('[data-list] .being-row').filter({ hasText: 'Ashfang' });
     await expect(row.locator('[data-list-picture]')).toBeVisible();
     await row.getByRole('link').focus();
     await row.dispatchEvent('pointerenter', { pointerType: 'touch' });
@@ -159,7 +162,7 @@ test('the browser revalidates cached pictures across reloads and the sheet', asy
   });
   await network.send('Network.enable');
   await page.goto(`/beings/?tenant=${world.tenantId}`);
-  const row = page.locator('[data-list] > li').filter({ hasText: 'Ashfang' });
+  const row = page.locator('[data-list] .being-row').filter({ hasText: 'Ashfang' });
   await expect(row.locator('[data-list-picture]')).toBeVisible();
   await expect.poll(() => statuses).toEqual([200]);
   await page.reload();

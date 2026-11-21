@@ -2,6 +2,7 @@
 // campaign they play it in, named where the viewer may read the names (ADR 0176).
 
 import { errorMessage } from '../../lib/errorMessage';
+import type { Person } from '../../lib/people';
 import { whoPlays } from '../../lib/people';
 import { say } from '../../lib/statusLine';
 import { cloneTemplate, requiredIn } from '../../lib/template';
@@ -10,8 +11,8 @@ import type { Character } from '../../lib/types';
 const required = requiredIn('People');
 
 export type RenderedPeople = {
-  /** Shows the people of `character`, or that nobody plays a being that has no character row. */
-  load(tenantId: string, character: Character | null): Promise<void>;
+  /** Shows the people of `character`, or that nobody plays a being that has no character row; returns them. */
+  load(tenantId: string, character: Character | null): Promise<Person[]>;
 };
 
 // `root` is the <People /> block.
@@ -28,7 +29,7 @@ export function renderPeople(root: HTMLElement): RenderedPeople {
 
       if (!character || character.players.length === 0) {
         say(none, 'Nobody plays this being. It is an NPC.');
-        return;
+        return [];
       }
 
       say(none, '');
@@ -51,8 +52,12 @@ export function renderPeople(root: HTMLElement): RenderedPeople {
           }),
         );
         list.hidden = false;
+
+        return people;
       } catch (error) {
         say(none, `Couldn't load the players: ${errorMessage(error)}`, true);
+
+        return [];
       }
     },
   };

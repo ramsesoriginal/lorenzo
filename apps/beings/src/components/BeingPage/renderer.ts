@@ -3,13 +3,19 @@
 // shown, who is looking) and tells each when something changed. Every control is a convenience: the
 // API refuses what the viewer may not do, and the page says so.
 
+import { openMenu } from '@lorenzo/app-shell';
 import { descriptionOf, getCharacter, pictureOf } from '../../lib/being';
 import { kindLabel } from '../../lib/beingList';
+import { BRANDING_CSS_URL } from '../../lib/config';
 import type { Renderer } from '../../lib/descriptions';
 import { getEntityDetail } from '../../lib/entities';
+import { errorMessage } from '../../lib/errorMessage';
 import { DEFAULT_GM_WORDS, gmWordsOfBeing } from '../../lib/gmTitle';
-import { gmCampaignsIn, isTenantMember, listCampaigns, myBeingIds } from '../../lib/me';
-import { valueText, vitalsOf } from '../../lib/statBand';
+import { gmCampaignsIn, isTenantMember, listCampaigns, myBeingIds, viewerId } from '../../lib/me';
+import type { Person } from '../../lib/people';
+import { currentShell } from '../../lib/shell';
+import { backTo, stepText, whoLabel } from '../../lib/statHistory';
+import { listStatSteps } from '../../lib/statSteps';
 import { say } from '../../lib/statusLine';
 import { requiredIn } from '../../lib/template';
 import { getTenant } from '../../lib/tenants';
@@ -54,9 +60,15 @@ export function renderBeingPage(options: BeingPageOptions): RenderedBeingPage {
   const title = required<HTMLElement>(root, '[data-title]');
   const kind = required<HTMLElement>(root, '[data-kind]');
   const slug = required<HTMLElement>(root, '[data-link-name]');
-  const copyLink = required<HTMLButtonElement>(root, '[data-copy-link]');
+  const played = required<HTMLElement>(root, '[data-played]');
+  const campaignsLine = required<HTMLElement>(root, '[data-campaigns]');
+  const campaignText = required<HTMLElement>(root, '[data-campaign-text]');
+  const more = required<HTMLButtonElement>(root, '[data-more]');
   const nameSection = required<HTMLElement>(root, '[data-name-section] > div');
   const saveStatus = required<HTMLElement>(root, '[data-save-status]');
+  const appears = required<HTMLAnchorElement>(root, '[data-appears]');
+  const bandUndo = required<HTMLButtonElement>(root, '[data-band-undo]');
+  const bandHistory = required<HTMLButtonElement>(root, '[data-band-history]');
   const statBand = renderStatBand({
     root: required<HTMLElement>(root, '[data-stat-band]'),
     page: root,
@@ -64,7 +76,48 @@ export function renderBeingPage(options: BeingPageOptions): RenderedBeingPage {
     tenantId,
     onChanged: (entity) => showEntity(entity),
     announce: (message) => controls.announce(message),
+    onSteps: (count, last) => {
+      bandUndo.disabled = count === 0;
+      controls.setSteps(count, last);
+    },
     say: (message, failed) => say(saveStatus, message, failed),
+  });
+
+  bandUndo.addEventListener('click', () => void statBand.undo());
+  // History (BN9): the steps the API keeps, who made each, and going back to before any of them.
+  bandHistory.addEventListener('click', async () => {
+    const entity = shown;
+
+    if (!entity) return;
+
+    try {
+      const [steps, me] = await Promise.all([
+        listStatSteps(tenantId, entity.id),
+        viewerId().catch(() => ''),
+      ]);
+
+      if (steps.length === 0) {
+        currentShell()?.toast({ title: 'No steps yet', text: 'Changes made in Play show here.' });
+        return;
+      }
+
+      openMenu(
+        bandHistory,
+        [
+          { heading: `Steps, newest first (${steps.length} of 30)` },
+          ...steps.map((step, index) => ({
+            label: `Undo back to before: ${stepText(step)}, by ${whoLabel(step, me)}, ${new Date(
+              step.created_at,
+            ).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`,
+            icon: 'undo',
+            run: () => void statBand.restore(backTo(steps, index)),
+          })),
+        ],
+        { label: 'History', sprite: `${BRANDING_CSS_URL}/icons.svg` },
+      );
+    } catch (error) {
+      say(saveStatus, errorMessage(error), true);
+    }
   });
 
   back.href = `/beings/?tenant=${encodeURIComponent(tenantAddress)}`;
@@ -137,8 +190,8 @@ export function renderBeingPage(options: BeingPageOptions): RenderedBeingPage {
       }
     },
     onMode: (mode) => {
-      // The description's way into its form is for building the being, not for reading it.
-      description.allow(canEdit && mode === 'edit');
+      // The description's way into its form is for Read, not for the table.
+      description.allow(canEdit && mode === 'read');
       if (shown) redrawStats(shown);
     },
   });
@@ -162,18 +215,40 @@ export function renderBeingPage(options: BeingPageOptions): RenderedBeingPage {
     tenantId,
     onChanged: () => void refresh(),
   });
-  copyLink.addEventListener('click', async () => {
+  async function copyLink() {
     try {
       await navigator.clipboard.writeText(window.location.href);
-      copyLink.textContent = 'Copied!';
+      currentShell()?.toast({ kind: 'ok', title: 'Link copied' });
     } catch {
-      copyLink.textContent = "Couldn't copy";
-    } finally {
-      window.setTimeout(() => {
-        copyLink.textContent = 'Copy link';
-      }, 1500);
+      currentShell()?.toast({ kind: 'error', title: "Couldn't copy the link" });
     }
+  }
+
+  // The page's menu (BN6): the things done to the being as a whole.
+  more.addEventListener('click', () => {
+    openMenu(
+      more,
+      [
+        { label: 'Edit details', icon: 'edit', run: () => controls.toggleDetails() },
+        { label: 'Copy link', icon: 'link', run: () => void copyLink() },
+        { separator: true },
+        { label: 'Delete being…', icon: 'delete', danger: true, run: () => void deletion.run() },
+      ],
+      { label: 'More for this being', sprite: `${BRANDING_CSS_URL}/icons.svg` },
+    );
   });
+
+  /** Who plays it and in which campaign, in the line under the name and in the rail. */
+  function showPeople(people: readonly Person[]) {
+    const names = people.map((person) => person.name);
+    const campaigns = [
+      ...new Set(people.flatMap((person) => (person.campaign ? [person.campaign] : []))),
+    ];
+
+    played.textContent = names.length > 0 ? `· played by ${names.join(', ')}` : '· not played';
+    campaignsLine.textContent = campaigns.length > 0 ? `· ${campaigns.join(', ')}` : '';
+    campaignText.textContent = campaigns.length > 0 ? campaigns.join(', ') : 'None';
+  }
 
   function showEntity(entity: EntityDetail) {
     shown = entity;
@@ -181,6 +256,7 @@ export function renderBeingPage(options: BeingPageOptions): RenderedBeingPage {
     title.textContent = entity.name;
     controls.setName(entity.name);
     showSlug(entity.slug);
+    appears.href = `/appears/?tenant=${encodeURIComponent(tenantAddress)}&id=${entity.id}`;
     view.show(entity);
     description.show({
       entityId: entity.id,
@@ -198,10 +274,6 @@ export function renderBeingPage(options: BeingPageOptions): RenderedBeingPage {
     const drawn = statBand.show(entity, controls.mode(), canEdit, controls.layout());
 
     datasheet.setHasStats(drawn.length > 0);
-
-    controls.setVitals(
-      vitalsOf(drawn).map((tile) => ({ label: tile.label, value: valueText(tile) })),
-    );
   }
 
   return {
@@ -221,7 +293,7 @@ export function renderBeingPage(options: BeingPageOptions): RenderedBeingPage {
       // Asked for the datasheet before the being had arrived (a link, or a quick hand).
       if (controls.layout() === 'datasheet') void datasheet.load(entityId);
 
-      void people.load(tenantId, character);
+      void people.load(tenantId, character).then(showPeople);
       void inventory.load(tenantId, tenantAddress, entityId);
       void events.load(tenantId, tenantAddress, entityId);
       void relationships.load(tenantId, entityId, entity.name);
@@ -252,10 +324,10 @@ export function renderBeingPage(options: BeingPageOptions): RenderedBeingPage {
       });
 
       void notes.load({ canWrite: canEdit, runsTheTable });
-      controls.allowEdit(
-        canEdit,
-        'Only the people who run this table, or play this being, can edit it.',
-      );
+      const words = inRepository ? DEFAULT_GM_WORDS : gmWordsOfBeing(character, campaigns);
+
+      controls.setGmWord(words.title);
+      controls.allowEdit(canEdit, tenantId, entityId);
       // Who may write is known now: the numbers and tags can show their controls.
       redrawStats(current());
 
@@ -279,7 +351,7 @@ export function renderBeingPage(options: BeingPageOptions): RenderedBeingPage {
             void getCharacter(tenantId, entityId).then((updated) => {
               character = updated;
               kind.textContent = updated ? kindLabel(updated) : 'NPC';
-              void people.load(tenantId, updated);
+              void people.load(tenantId, updated).then(showPeople);
             });
           },
         });

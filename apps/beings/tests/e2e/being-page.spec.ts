@@ -15,9 +15,9 @@ test('a being’s page shows its description, stats, tags, players and inventory
   await page.goto(`/being/?tenant=${world.tenantId}&id=${world.pia.character.entity_id}`);
 
   await expect(page.getByRole('heading', { name: 'Ashfang', level: 1 })).toBeVisible();
-  await expect(page.locator('[data-kind]')).toHaveText('Character');
+  await expect(page.locator('[data-page] [data-kind]')).toHaveText('Character');
   await expect(page.locator('[data-being-view] strong')).toHaveText('tall');
-  await expect(page.locator('[data-stat-band] .stat-label')).toHaveText('Strength');
+  await expect(page.locator('[data-stat-band] .stat-tile .stat-label')).toHaveText('Strength');
   await expect(page.locator('[data-stat-band] .stat-value')).toHaveText('17');
 
   // Who plays it: Pia, as the owner, named because Gwen GMs the campaign.
@@ -43,7 +43,7 @@ test('an NPC says nobody plays it, and is addressed by its link name', async ({ 
 
   await page.goto(`/being/?tenant=${world.tenantSlug}&slug=goblin-chief`);
   await expect(page.getByRole('heading', { name: 'Goblin Chief', level: 1 })).toBeVisible();
-  await expect(page.locator('[data-kind]')).toHaveText('NPC');
+  await expect(page.locator('[data-page] [data-kind]')).toHaveText('NPC');
   await expect(page.locator('[data-people]')).toContainText('Nobody plays this being');
   await expect(page.locator('[data-link-name]')).toHaveText('goblin-chief');
 
@@ -69,9 +69,7 @@ test('the list links to a being’s page', async ({ world, as }) => {
   await page.goto(`/beings/?tenant=${world.tenantId}`);
   await page.getByRole('link', { name: 'Brisk' }).click();
   await expect(page.getByRole('heading', { name: 'Brisk', level: 1 })).toBeVisible();
-  // A player of another character is not offered Edit, nor a note to add.
-  await expect(
-    page.locator('[data-sheet-head] [data-mode-switch] input[value="edit"]'),
-  ).toBeDisabled();
+  // A player of another character is not offered editing, nor a note to add.
+  await expect(page.getByRole('button', { name: 'More for this being' })).toBeHidden();
   await expect(page.getByRole('button', { name: 'Add a note' })).toBeHidden();
 });

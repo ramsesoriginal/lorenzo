@@ -1,0 +1,58 @@
+---
+import Base from '../../layouts/Base.astro';
+---
+
+<Base title="Where it appears — Lorenzo Beings">
+  <p id="appears-status" role="status">
+    Loading&hellip; <span class="spinner" aria-hidden="true"></span>
+  </p>
+  <article class="stack" data-appears-page hidden></article>
+  <script>
+    import { renderAppearsPage } from '../../components/AppearsPage/renderer';
+    import { addressedTenant, isId } from '../../lib/addresses';
+    import { client, unwrap } from '../../lib/api';
+    import { isAuthenticated } from '../../lib/auth';
+    import { errorMessage } from '../../lib/errorMessage';
+
+    const status = document.querySelector<HTMLElement>('#appears-status');
+    const root = document.querySelector<HTMLElement>('[data-appears-page]');
+
+    if (status && root) {
+      try {
+        if (!(await isAuthenticated())) {
+          throw new Error("You're not logged in. Log in to continue.");
+        }
+
+        const params = new URLSearchParams(window.location.search);
+        const named = params.get('tenant');
+        const tenant = await addressedTenant(named);
+
+        if (tenant.problem) throw new Error(tenant.problem);
+        if (!tenant.id || !named) throw new Error('This link is missing a library.');
+
+        let id = params.get('id');
+        const slug = params.get('slug') ?? (id && !isId(id) ? id : null);
+
+        if (slug) {
+          const found = await unwrap(
+            await client.GET('/tenants/{tenant_id}/entities/resolve', {
+              params: { path: { tenant_id: tenant.id }, query: { slug: [slug] } },
+            }),
+          );
+
+          id = found[0]?.entity_id ?? null;
+        }
+
+        if (!id) throw new Error('This entry is not available.');
+
+        await renderAppearsPage(root, tenant.id, named, id);
+        status.textContent = '';
+        status.hidden = true;
+      } catch (error) {
+        root.replaceChildren();
+        root.hidden = true;
+        status.textContent = errorMessage(error);
+      }
+    }
+  </script>
+</Base>

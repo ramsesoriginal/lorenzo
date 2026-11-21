@@ -1,0 +1,9 @@
+/*
+ * Single entry point, linked once from Base.astro - this app's own domain-specific layout and
+ * components only. The brand's stylesheets and the web shell's come from AppPage (ADR 0410), and
+ * load first, so these rules apply on top.
+ */
+
+@import "./layout.css";
+@import "./components.css";
+@import "./sheet.css";

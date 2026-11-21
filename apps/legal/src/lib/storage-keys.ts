@@ -87,7 +87,7 @@ export const STORAGE_KEYS: StorageEntry[] = [
     ),
     files: [
       'apps/beings/src/lib/lastTenant.ts',
-      'apps/beings/src/components/SiteHead/SiteHead.astro',
+      'apps/beings/src/layouts/Base.astro',
       'apps/calendars/src/lib/lastTenant.ts',
       'apps/inventory-web/src/lib/lastTenant.ts',
       'apps/inventory-web/src/lib/lastHolder.ts',
@@ -113,6 +113,16 @@ export const STORAGE_KEYS: StorageEntry[] = [
     ),
     lasts: bi('Bis zum Löschen der Browserdaten', 'Until browser data is cleared'),
     files: ['apps/sessions/src/lib/regions.ts'],
+  },
+  {
+    key: 'lorenzo:beings:view, lorenzo:beings:mode:*',
+    store: 'localStorage',
+    purpose: bi(
+      'Merkt sich, wie Sie die Liste der Figuren ansehen (Zeilen, Karten oder nebeneinander) und ob Sie eine Figur zuletzt gelesen oder gespielt haben. Bleibt in Ihrem Browser und wird nirgendwohin gesendet.',
+      'Remembers how you look at the list of beings (rows, cards or side by side) and whether you last read or played a being. It stays in your browser and is sent nowhere.',
+    ),
+    lasts: bi('Bis zum Löschen der Browserdaten', 'Until browser data is cleared'),
+    files: ['apps/beings/src/lib/listViews.ts', 'apps/beings/src/lib/sheetMode.ts'],
   },
   {
     key: 'lorenzo:calendars:recent:*',
