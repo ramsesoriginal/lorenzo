@@ -1,5 +1,6 @@
 // Unpacking a pack from its dialog on the board (ADR 0189).
 import type { Page } from '@playwright/test';
+import { browseBeing } from './support/board.ts';
 import { expect, test } from './support/fixtures.ts';
 import type { Person, Player, World } from './support/world.ts';
 
@@ -32,9 +33,7 @@ test("a GM unpacks a player's pack: what it lists, then the pack gone", async ({
   await packFor(world, world.pia);
   const page = await as(world.gm);
   await page.goto(`/board/?tenant=${world.tenantId}`);
-  await page.getByRole('tab', { name: 'Browse a being' }).click();
-  await page.getByLabel('Search beings').filter({ visible: true }).fill('Ashfang');
-  await page.getByRole('option').getByRole('button', { name: 'Ashfang' }).click();
+  await browseBeing(page, 'Ashfang');
 
   await card(page, "Explorer's pack").click();
   await dialog(page).getByRole('button', { name: 'Unpack…' }).click();

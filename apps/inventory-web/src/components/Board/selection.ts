@@ -72,7 +72,9 @@ export function createSelection(options: SelectionOptions): Selection {
 
   function setMode(on: boolean) {
     selecting = on;
-    modeButton.textContent = on ? 'Cancel selecting' : 'Select items';
+    const label = modeButton.querySelector('[data-select-label]');
+
+    if (label) label.textContent = on ? 'Cancel selecting' : 'Select';
     modeButton.setAttribute('aria-pressed', String(on));
 
     if (!on) clear();

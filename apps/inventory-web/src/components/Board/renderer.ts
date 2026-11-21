@@ -1,8 +1,15 @@
+import { closeDialog, fadeOnDismiss, openDialog } from '@lorenzo/app-shell';
 import type { AddItemStanding } from '../../lib/addItem';
 import { type Board, controlledBoard, unownedBoard } from '../../lib/boardColumns';
+import { carriedWeight, shownNumber, withUnit } from '../../lib/boardWeights';
 import { errorMessage } from '../../lib/errorMessage';
 import type { GmWords } from '../../lib/gmTitle';
-import { getControlledItemInstances, getUnownedItemInstances } from '../../lib/items';
+import {
+  getControlledItemInstances,
+  getEntityDetail,
+  getUnownedItemInstances,
+} from '../../lib/items';
+import { statDefinitions } from '../../lib/statValues';
 import { fromTemplate, requiredIn } from '../../lib/template';
 import type { ControlledByResponse, ItemInstance } from '../../lib/types';
 import { findUnsortedItem } from '../../lib/unsorted';
@@ -31,7 +38,8 @@ export type BoardOptions = {
 export type RenderedBoard = {
   state: BoardState;
   // A being's or a group's board: anything controlled-by accepts. `viewing` says whose it is,
-  // or null when it's the viewer's own character; `name` is who or what it is.
+  // or null when it's the viewer's own character; `name` is who or what it is. It is the one a column
+  // says holds its Equipped things ("Imani holds these").
   load(entityId: string, viewing: string | null, name: string): Promise<void>;
   // GM only: unclaimed loot, nobody has owned it yet (ADR 0077).
   loadUnowned(viewing: string): Promise<void>;
@@ -48,11 +56,16 @@ export function renderBoard(options: BoardOptions): RenderedBoard {
   const controller = new AbortController();
   const { signal } = controller;
 
-  const viewing = required<HTMLElement>(root, '[data-viewing]');
   const empty = required<HTMLElement>(root, '[data-empty]');
   const error = required<HTMLElement>(root, '[data-error]');
   const columns = required<HTMLElement>(root, '[data-columns]');
   const search = required<HTMLInputElement>(root, '[data-search]');
+  const carried = required<HTMLElement>(root, '[data-carried]');
+  const carriedText = required<HTMLElement>(root, '[data-carried-text]');
+  const carriedBar = required<HTMLElement>(root, '[data-carried-bar]');
+  const addOpen = required<HTMLButtonElement>(root, '[data-add-open]');
+  const addDialog = required<HTMLDialogElement>(root, '[data-add-dialog]');
+  const tabs = required<HTMLElement>(root, '[data-column-tabs]');
 
   const state = createBoardState();
 
@@ -105,7 +118,15 @@ export function renderBoard(options: BoardOptions): RenderedBoard {
     onUndone: async () => reloadCurrentView?.(),
   });
 
-  const { renderColumn } = createColumns({
+  // What the columns say about weight (IN8, IN11): the library's unit, what each container can carry
+  // and who holds the board. The unit and the limits are read after the columns are drawn.
+  let unit: string | null = null;
+  let holderName: string | null = null;
+  const limits = new Map<string, number>();
+  let unitLoading: Promise<{ unit: string | null; capacity: string }> | undefined;
+
+  const { renderColumn, refreshNotes, forgetColumns } = createColumns({
+    weights: () => ({ unit, limitOf: (id) => limits.get(id) ?? null, holderName }),
     root,
     state,
     selection,
@@ -120,6 +141,7 @@ export function renderBoard(options: BoardOptions): RenderedBoard {
   // while the board loads.
   function renderSkeleton() {
     columns.setAttribute('aria-busy', 'true');
+    tabs.hidden = true;
     columns.replaceChildren(
       ...Array.from({ length: 2 }, () => {
         const fragment = fromTemplate(root, '[data-column-template]');
@@ -127,6 +149,7 @@ export function renderBoard(options: BoardOptions): RenderedBoard {
         const list = required<HTMLUListElement>(fragment, '[data-items]');
 
         required<HTMLElement>(fragment, '[data-name]').parentElement?.remove();
+        fragment.querySelector('[data-note]')?.remove();
 
         for (let i = 0; i < 3; i++) {
           const card = document.createElement('li');
@@ -149,8 +172,10 @@ export function renderBoard(options: BoardOptions): RenderedBoard {
     state.occupied.clear();
     state.readOnly.clear();
     selection.clear();
+    forgetColumns();
     empty.hidden = true;
     error.hidden = true;
+    carried.hidden = true;
     renderSkeleton();
 
     try {
@@ -169,12 +194,119 @@ export function renderBoard(options: BoardOptions): RenderedBoard {
 
       // One row, in the order the listing gives.
       columns.append(...shown.columns.map(renderColumn));
+      drawTabs();
+      void loadWeights(shown);
     } catch (cause) {
       columns.replaceChildren();
       columns.removeAttribute('aria-busy');
       error.hidden = false;
       error.textContent = errorMessage(cause);
     }
+  }
+
+  // On a phone the board is one column at a time, with a row of their names to switch (IN2). The
+  // row is drawn always and shown by the stylesheet only where the columns would not fit.
+  function drawTabs(active = 0) {
+    const sections = [...columns.querySelectorAll<HTMLElement>('[data-column]')];
+
+    tabs.hidden = sections.length < 2;
+    tabs.replaceChildren(
+      ...sections.map((section, index) => {
+        const tab = document.createElement('button');
+        const name = section.querySelector('[data-name]')?.textContent ?? '';
+        const count = section.querySelector('[data-column-count]')?.textContent ?? '';
+
+        tab.type = 'button';
+        tab.className = 'column-tab';
+        tab.setAttribute('role', 'tab');
+        tab.textContent = name;
+        tab.append(' ');
+
+        const badge = document.createElement('span');
+
+        badge.className = 'caption';
+        badge.textContent = count;
+        tab.append(badge);
+        tab.addEventListener('click', () => drawTabs(index), { signal });
+
+        return tab;
+      }),
+    );
+
+    sections.forEach((section, index) => {
+      const on = index === active;
+
+      section.classList.toggle('is-active', on);
+      tabs.children[index]?.setAttribute('aria-selected', String(on));
+    });
+  }
+
+  // The library's weight unit and what each container column can carry, then the weights said again
+  // (IN8, IN11), and what the being carries against what it can (IN8). A failed read only leaves the
+  // columns saying their weight without a limit.
+  async function loadWeights(shown: Board) {
+    unitLoading ??= statDefinitions(tenantId)
+      .then((definitions) => ({
+        unit:
+          definitions.find(({ definition: d }) => d.role === 'weight' || d.name === 'weight')
+            ?.definition.unit ?? null,
+        capacity:
+          definitions.find(({ definition: d }) => d.role === 'carry_capacity')?.definition.name ??
+          'carry_capacity',
+      }))
+      .catch(() => ({ unit: null, capacity: 'carry_capacity' }));
+
+    const loaded = await unitLoading;
+
+    unit = loaded.unit;
+
+    const limitOf = async (id: string): Promise<number | null> => {
+      try {
+        const found = (await getEntityDetail(tenantId, id)).stats.find(
+          (stat) => stat.name === loaded.capacity,
+        )?.value;
+
+        return typeof found === 'number' ? found : null;
+      } catch {
+        return null;
+      }
+    };
+    const containerIds = shown.columns
+      .filter((column) => !column.fixed && column.dropTarget !== null)
+      .map((column) => column.dropTarget as string);
+
+    await Promise.all(
+      containerIds.map(async (id) => {
+        if (limits.has(id)) return;
+
+        const limit = await limitOf(id);
+
+        if (limit !== null) limits.set(id, limit);
+      }),
+    );
+
+    if (state.current !== shown) return;
+
+    refreshNotes();
+
+    // The being's own carry limit, for the meter; a group or the unowned things carry nothing.
+    if (!shown.holderIsBeing || shown.holderId === null) return;
+
+    const own = await limitOf(shown.holderId);
+
+    if (state.current !== shown) return;
+
+    const weight = carriedWeight(shown);
+
+    carried.hidden = false;
+    carriedText.textContent =
+      own === null ? withUnit(weight, unit) : `${shownNumber(weight)} of ${withUnit(own, unit)}`;
+    carriedBar.hidden = own === null || own <= 0;
+
+    const fill = carriedBar.querySelector('i');
+
+    if (fill)
+      fill.style.width = `${Math.max(0, Math.min(100, Math.round((weight / (own || 1)) * 100)))}%`;
   }
 
   // The library's `unsorted` item, looked up once: it marks the placeholders (ADR 0238). Not
@@ -209,8 +341,7 @@ export function renderBoard(options: BoardOptions): RenderedBoard {
 
     if (fresh) void addItem.show(null);
 
-    viewing.hidden = viewingText === null;
-    viewing.textContent = viewingText ?? '';
+    holderName = name;
 
     const request = prefetched.get(entityId);
 
@@ -234,8 +365,7 @@ export function renderBoard(options: BoardOptions): RenderedBoard {
     reloadCurrentView = () => loadUnowned(viewingText);
     state.ownerId = null;
     void addItem.show(null);
-    viewing.hidden = false;
-    viewing.textContent = viewingText;
+    holderName = null;
 
     await show(
       async () => unownedBoard(await getUnownedItemInstances(tenantId)),
@@ -254,6 +384,25 @@ export function renderBoard(options: BoardOptions): RenderedBoard {
     card.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
     card.focus({ preventScroll: true });
   }
+
+  // "Add an item" is a button that opens the card in a dialog, offered where the viewer may add (ADR 0187).
+  const syncAdd = () => {
+    addOpen.hidden = addItemRoot.hidden;
+  };
+  const addItemRoot = required<HTMLElement>(root, '[data-add-item]');
+
+  fadeOnDismiss(addDialog);
+  new MutationObserver(syncAdd).observe(addItemRoot, {
+    attributes: true,
+    attributeFilter: ['hidden'],
+  });
+  syncAdd();
+  addOpen.addEventListener('click', () => openDialog(addDialog), { signal });
+  required<HTMLButtonElement>(addDialog, '[data-add-close]').addEventListener(
+    'click',
+    () => closeDialog(addDialog),
+    { signal },
+  );
 
   search.addEventListener(
     'input',

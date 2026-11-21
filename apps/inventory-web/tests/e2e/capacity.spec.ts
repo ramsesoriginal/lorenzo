@@ -1,5 +1,6 @@
 // What a container can take, and a GM's "Move anyway" (ADR 0128).
 import type { Page } from '@playwright/test';
+import { browseBeing } from './support/board.ts';
 import { expect, test } from './support/fixtures.ts';
 import { packed } from './support/scenes.ts';
 import type { Person, World } from './support/world.ts';
@@ -12,9 +13,7 @@ async function piasBoard(as: (who: Person) => Promise<Page>, world: World, who: 
   }
   // A GM browses to her character.
   await page.goto(`/board/?tenant=${world.tenantId}`);
-  await page.getByRole('tab', { name: 'Browse a being' }).click();
-  await page.getByLabel('Search beings').filter({ visible: true }).fill('Ashfang');
-  await page.getByRole('option').getByRole('button', { name: 'Ashfang' }).click();
+  await browseBeing(page, 'Ashfang');
   return page;
 }
 

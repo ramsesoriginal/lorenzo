@@ -3,15 +3,51 @@ import { BRANDING_CSS_URL } from '../../lib/config';
 import AddItem from '../AddItem/AddItem.astro';
 ---
 
-<section class="section" data-board>
-  <p data-viewing hidden></p>
+<section class="board" data-board>
+  <div class="board-bar">
+    <label class="search-field">
+      <svg class="icon" aria-hidden="true">
+        <use href={`${BRANDING_CSS_URL}/icons.svg#icon-search`}></use>
+      </svg>
+      <span class="visually-hidden">Search this inventory</span>
+      <input
+        type="search"
+        class="text-input"
+        data-search
+        placeholder="Search this board"
+        autocomplete="off"
+      />
+    </label>
+    <button type="button" class="btn btn-secondary row-tight" data-add-open hidden>
+      <svg class="icon" aria-hidden="true">
+        <use href={`${BRANDING_CSS_URL}/icons.svg#icon-add`}></use>
+      </svg>
+      Add an item
+    </button>
+    <button type="button" class="btn btn-secondary row-tight" aria-pressed="false" data-select-mode>
+      <svg class="icon" aria-hidden="true">
+        <use href={`${BRANDING_CSS_URL}/icons.svg#icon-select-item`}></use>
+      </svg>
+      <span data-select-label>Select</span>
+    </button>
+    <span class="grow"></span>
+    <div class="carried" data-carried hidden>
+      <div class="carried-line">
+        <span>Carried weight</span>
+        <span data-carried-text></span>
+      </div>
+      <div class="stat-bar" aria-hidden="true" data-carried-bar hidden>
+        <i></i>
+      </div>
+    </div>
+  </div>
 
   <div class="selection-toolbar" data-selection-toolbar hidden>
     <span data-selection-count></span>
-    <button type="button" data-selection-give>
+    <button type="button" class="btn btn-secondary" data-selection-give>
       Give selected to&hellip;
     </button>
-    <button type="button" data-selection-clear>
+    <button type="button" class="btn btn-quiet" data-selection-clear>
       Clear
     </button>
   </div>
@@ -19,54 +55,63 @@ import AddItem from '../AddItem/AddItem.astro';
 
   <p data-empty hidden></p>
   <p class="error-text" data-error hidden></p>
-  <div class="grid full-width h-scroll board-row" style="--grid-min: 260px" data-columns></div>
 
-  <section class="board-toolbar card card-body">
-    <input
-      type="search"
-      class="text-input"
-      data-search
-      placeholder="Search this inventory…"
-      aria-label="Search this inventory"
-    />
-    <button type="button" data-select-mode>
-      Select items
-    </button>
-  </section>
+  <div class="column-tabs" role="tablist" aria-label="Columns" data-column-tabs hidden></div>
+  <div class="board-columns h-scroll" data-columns></div>
 
-  <AddItem />
+  <dialog aria-labelledby="add-item-heading" data-add-dialog>
+    <AddItem />
+    <div class="dialog-actions">
+      <button type="button" class="btn btn-secondary" data-add-close>
+        Close
+      </button>
+    </div>
+  </dialog>
 
   <template data-column-template>
-    <section class="card card-body stack board-column" data-column>
-      <div class="row">
+    <section class="board-column" data-column>
+      <header class="column-head">
         <h3 data-name>Name</h3>
-        <span class="pill" hidden data-note>
-          Note
+        <span class="read-only-mark" hidden data-read-only>
+          <svg class="icon" aria-hidden="true">
+            <use href={`${BRANDING_CSS_URL}/icons.svg#icon-private`}></use>
+          </svg>
+          Read only
         </span>
-      </div>
+        <span class="grow"></span>
+        <span class="column-count" data-column-count></span>
+      </header>
+      <p class="caption column-line" data-note hidden></p>
       <ul class="list" data-items></ul>
     </section>
   </template>
 
   <template data-card-template>
     <li class="item-card" tabindex="0" role="button">
-      <span class="badge" hidden data-container>
-        <svg class="icon" aria-hidden="true">
-          <use href={`${BRANDING_CSS_URL}/icons.svg#icon-container`}></use>
-        </svg>
-      </span>
-      <span data-name>Name</span>
-      <span class="badge" hidden data-count>
-        ×3
-      </span>
-      <span class="badge" hidden data-owner-mark>
-        Someone's
-      </span>
-      <span class="badge" hidden data-bound>
-        Bound
-      </span>
-      <span class="badge" hidden data-unsorted>
-        Unsorted
+      <span class="item-card-main">
+        <span class="item-card-title">
+          <span class="badge" hidden data-container>
+            <svg class="icon" aria-hidden="true">
+              <use href={`${BRANDING_CSS_URL}/icons.svg#icon-container`}></use>
+            </svg>
+          </span>
+          <span data-name>Name</span>
+          <span class="caption" hidden data-count>
+            ×3
+          </span>
+        </span>
+        <span class="item-card-meta caption">
+          <span data-weight></span>
+          <span class="badge" hidden data-owner-mark>
+            Someone's
+          </span>
+          <span class="badge" hidden data-bound>
+            Bound
+          </span>
+          <span class="badge" hidden data-unsorted>
+            Unsorted
+          </span>
+        </span>
       </span>
     </li>
   </template>
