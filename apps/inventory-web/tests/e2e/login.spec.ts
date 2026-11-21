@@ -16,7 +16,8 @@ readOnly(
 readOnly('logs out', async ({ world, as }) => {
   const page = await as(world.pia);
   await page.goto(`/board/?tenant=${world.tenantId}`);
-  await page.getByRole('button', { name: 'Log out' }).click();
+  await page.getByRole('button', { name: 'Account menu' }).click();
+  await page.getByRole('menuitem', { name: 'Sign out' }).click();
   await expect(page.getByRole('button', { name: 'Log in' })).toBeVisible();
   await page.reload();
   await expect(page.getByRole('button', { name: 'Log in' })).toBeVisible();

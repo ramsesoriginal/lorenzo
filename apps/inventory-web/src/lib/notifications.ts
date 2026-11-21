@@ -44,3 +44,14 @@ export async function markAllRead(): Promise<{ failed: number }> {
 
   return { failed: results.filter((r) => r.status === 'rejected').length };
 }
+
+/** How many are unread in all: the envelope's own total, from one item to keep it cheap (ADR 0085). */
+export async function unreadCount(): Promise<number> {
+  const unread = await unwrap(
+    await client.GET('/me/notifications', {
+      params: { query: { unread_only: true, page: 1, size: 1 } },
+    }),
+  );
+
+  return unread.total;
+}

@@ -17,7 +17,7 @@ const card = (page: Page, in_: string, name: string) =>
   column(page, in_).getByRole('button', { name, exact: true });
 /** The header's link to the current tenant's catalog. */
 const itemsLink = (page: Page) =>
-  page.getByRole('navigation', { name: 'Subpages' }).getByRole('link', { name: 'Items' });
+  page.getByRole('navigation', { name: 'Pages' }).getByRole('link', { name: 'Catalog' });
 
 /** Picks `name` in a being search, as every give and assign panel offers one. */
 async function pickBeing(page: Page, name: string) {
