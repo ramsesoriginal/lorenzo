@@ -53,7 +53,7 @@ test("a GM's hand-over can be undone, back into the backpack", async ({ world, a
 
   await page.getByRole('button', { name: 'Undo' }).click();
   await expect(card(page, 'Backpack', 'Ornate Spellbook')).toBeVisible();
-  expect(await world.carried(world.pia)).toContain('Backpack: Ornate Spellbook');
+  await expect.poll(() => world.carried(world.pia)).toContain('Backpack: Ornate Spellbook');
   expect(await world.carried(world.oskar)).toEqual([]);
 });
 

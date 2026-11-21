@@ -2,8 +2,6 @@
 import Base from '../../layouts/Base.astro';
 import Board from '../../components/Board/Board.astro';
 import HolderPicker from '../../components/HolderPicker/HolderPicker.astro';
-import ItemDetail from '../../components/ItemDetail/ItemDetail.astro';
-import UndoBanner from '../../components/UndoBanner/UndoBanner.astro';
 import { BRANDING_CSS_URL } from '../../lib/config';
 ---
 
@@ -25,14 +23,10 @@ import { BRANDING_CSS_URL } from '../../lib/config';
       <p class="caption" data-board-sub></p>
     </header>
 
-    <UndoBanner />
-
     <Board />
   </div>
 
   <HolderPicker />
-
-  <ItemDetail />
 
   <script>
     import { errorMessage } from '../../lib/errorMessage';
@@ -77,7 +71,6 @@ import { BRANDING_CSS_URL } from '../../lib/config';
         // and offers the Undo, which needs to know the viewer's characters. Each reaches the
         // others only through these callbacks, when something happens.
         const undo = renderUndoBanner({
-          root: required(document, '[data-undo-banner]'),
           tenantId,
           mayUndoGiveTo: (recipientId) => viewerIsGm || picker.isMine(recipientId),
           onApplied: () => board.reload(),
@@ -93,6 +86,7 @@ import { BRANDING_CSS_URL } from '../../lib/config';
             addItemStanding({ viewerIsGm, holderId, seats: await seatsIn(tenantId) }),
           addItemGmWords: (holderId) => gmWordsOfBeing(tenantId, holderId),
           onOpenItem: (item, card) => detail.open(item, card),
+          onOpenMenu: (item, card, button) => detail.menu(item, card, button),
           onPrefetchItem: (item) => detail.prefetch(item),
         });
 
@@ -103,6 +97,7 @@ import { BRANDING_CSS_URL } from '../../lib/config';
           viewerIsGm,
           renderer: descriptionRenderer(tenantId),
           myCharacters: () => picker.myCharacters(),
+          weightUnit: () => board.weightUnit(),
           board: { state: board.state, undo, onChanged: () => board.reload() },
         });
 

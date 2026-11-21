@@ -55,7 +55,7 @@ test('a player gets the public catalog, to look items up, and nothing to change'
   await expect(dialog.getByRole('heading', { name: 'Backpack' })).toBeVisible();
   // A catalog item has no board to act on.
   await expect(dialog.getByRole('button', { name: 'Give to…' })).toBeHidden();
-  await dialog.getByRole('link', { name: 'View standalone page' }).click();
+  await dialog.getByRole('link', { name: 'Open the page' }).click();
   await expect(page.getByRole('heading', { level: 1, name: 'Backpack' })).toBeVisible();
 });
 
@@ -68,7 +68,7 @@ test('opens an item or an instance in the dialog, linking to its page by slug', 
   await world.slug(spellbook, 'ornate-spellbook');
   const page = await manageItems(as, world);
   const dialog = page.getByRole('dialog');
-  const link = dialog.getByRole('link', { name: 'View standalone page' });
+  const link = dialog.getByRole('link', { name: 'Open the page' });
 
   await row(catalogList(page), 'Book').getByRole('button', { name: 'View' }).click();
   // A catalog item's title is marked, an instance's isn't.

@@ -32,6 +32,7 @@ export type BoardOptions = {
   // What the being's campaigns call their game master (ADR 0294).
   addItemGmWords(holderId: string): Promise<GmWords>;
   onOpenItem(item: ItemInstance, card: HTMLElement): void;
+  onOpenMenu(item: ItemInstance, card: HTMLElement, button: HTMLElement): void;
   onPrefetchItem(item: ItemInstance): void;
 };
 
@@ -48,6 +49,8 @@ export type RenderedBoard = {
   // Shows whatever board is current again, after something changed what's on it.
   reload(): Promise<void>;
   showError(message: string): void;
+  // The library's weight unit, once known.
+  weightUnit(): string | null;
   destroy(): void;
 };
 
@@ -133,6 +136,7 @@ export function renderBoard(options: BoardOptions): RenderedBoard {
     drops,
     query: () => search.value.trim().toLowerCase(),
     onOpenItem: options.onOpenItem,
+    onOpenMenu: options.onOpenMenu,
     onPrefetchItem: options.onPrefetchItem,
     signal,
   });
@@ -425,6 +429,7 @@ export function renderBoard(options: BoardOptions): RenderedBoard {
     prefetch,
     reload: async () => reloadCurrentView?.(),
     showError,
+    weightUnit: () => unit,
 
     destroy() {
       addItem.destroy();

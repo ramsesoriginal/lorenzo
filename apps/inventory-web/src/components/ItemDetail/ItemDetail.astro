@@ -1,60 +1,75 @@
 ---
+import { BRANDING_CSS_URL } from '../../lib/config';
 import AncestryTree from '../AncestryTree/AncestryTree.astro';
 import ItemView from '../ItemView/ItemView.astro';
 import Notes from '../Notes/Notes.astro';
 import ActionPanels from './ActionPanels.astro';
 ---
 
-<dialog class="card" aria-labelledby="item-detail-title" data-item-detail style="overflow-y: auto;">
-  <div class="item-detail-content card-body stack">
-    <button type="button" class="item-detail-close" aria-label="Close" data-close>
-      &times;
-    </button>
-    <div class="row">
-      <h2 id="item-detail-title" class="display" data-title></h2>
-      <span class="badge" data-quantity hidden></span>
-      <span class="badge" data-bound hidden>
-        Bound to its owner
-      </span>
+<!-- One item, as a panel beside the board, a sheet on a tablet, or the page on a phone (IN3). -->
+<dialog class="item-panel" aria-labelledby="item-detail-title" data-item-detail>
+  <div class="item-detail-content stack">
+    <div class="item-panel-head">
+      <div class="item-panel-title">
+        <h2 id="item-detail-title" class="item-panel-name" data-title></h2>
+        <span class="badge" data-quantity hidden></span>
+        <span class="badge" data-bound hidden>
+          Bound to its owner
+        </span>
+      </div>
+      <button type="button" class="item-panel-close" aria-label="Close" data-close>
+        <svg class="icon" aria-hidden="true">
+          <use href={`${BRANDING_CSS_URL}/icons.svg#icon-close`}></use>
+        </svg>
+      </button>
     </div>
+    <p class="caption" data-sub></p>
+
     <div data-view>
       <ItemView />
     </div>
+
+    <div class="row" data-actions>
+      <button type="button" class="btn btn-primary" data-move>
+        Move to&hellip;
+      </button>
+      <button type="button" class="btn btn-secondary" data-give>
+        Give to&hellip;
+      </button>
+      <button type="button" class="btn btn-secondary" data-set-down>
+        Set down
+      </button>
+      <button type="button" class="btn btn-secondary" data-add-note>
+        Add a note
+      </button>
+      <button type="button" class="btn btn-secondary" data-give-contents hidden>
+        Give what's inside&hellip;
+      </button>
+      <button type="button" class="btn btn-secondary" data-split>
+        Split&hellip;
+      </button>
+      <button type="button" class="btn btn-secondary" data-merge>
+        Merge into&hellip;
+      </button>
+      <button type="button" class="btn btn-secondary" data-unpack hidden>
+        Unpack&hellip;
+      </button>
+    </div>
+    <div data-action-panel></div>
+    <ActionPanels />
+
     <div class="stack" data-ancestry hidden>
       <h3>Ancestry</h3>
       <AncestryTree />
     </div>
-    <section class="" aria-labelledby="item-detail-notes-heading">
+    <section aria-labelledby="item-detail-notes-heading">
       <h3 id="item-detail-notes-heading">Notes</h3>
       <div data-notes>
         <Notes />
       </div>
     </section>
     <a class="btn btn-secondary" href="" data-view-link>
-      View standalone page
+      Open the page
     </a>
-
-    <div class="row" data-actions>
-      <button type="button" data-give>
-        Give to&hellip;
-      </button>
-      <button type="button" data-give-contents hidden>
-        Give what's inside&hellip;
-      </button>
-      <button type="button" data-move>
-        Move to&hellip;
-      </button>
-      <button type="button" data-split>
-        Split&hellip;
-      </button>
-      <button type="button" data-merge>
-        Merge into&hellip;
-      </button>
-      <button type="button" data-unpack hidden>
-        Unpack&hellip;
-      </button>
-    </div>
-    <div data-action-panel></div>
-    <ActionPanels />
   </div>
 </dialog>

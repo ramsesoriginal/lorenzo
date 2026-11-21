@@ -66,7 +66,7 @@ test("links an item's dialog to its page by the slugs it has", async ({ world, a
   await world.slug(spellbook, 'ornate-spellbook');
   const page = await as(world.pia);
   await page.goto(`/board/?tenant=${world.tenantId}`);
-  const link = page.getByRole('link', { name: 'View standalone page' });
+  const link = page.getByRole('link', { name: 'Open the page' });
 
   await card(page, 'Backpack', 'Ornate Spellbook').click();
   await expect(link).toHaveAttribute(

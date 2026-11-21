@@ -1,8 +1,14 @@
+import { type MenuItem, openMenu } from '@lorenzo/app-shell';
 import { blobUrl } from '../../lib/api';
+import { ownerMark } from '../../lib/boardColumns';
+import { weightOf, withUnit } from '../../lib/boardWeights';
+import { BRANDING_CSS_URL } from '../../lib/config';
 import type { Renderer } from '../../lib/descriptions';
 import { itemPageHref } from '../../lib/entityLinks';
+import { errorMessage } from '../../lib/errorMessage';
 import { getEntityDetail } from '../../lib/items';
 import { withReflow } from '../../lib/reflow';
+import { currentShell } from '../../lib/shell';
 import { createStaleCache, RECENT_MS } from '../../lib/staleCache';
 import { requiredIn } from '../../lib/template';
 import { textHome } from '../../lib/textSources';
@@ -15,7 +21,7 @@ import { renderNotes } from '../Notes/renderer';
 import type { RenderedUndoBanner } from '../UndoBanner/renderer';
 import { giveContentsPanel, givePanel } from './give';
 import { mergePanel } from './merge';
-import { movePanel } from './move';
+import { moveItem, movePanel } from './move';
 import type { ActionContext } from './panels';
 import { splitPanel } from './split';
 import { unpackPanel } from './unpack';
@@ -44,13 +50,19 @@ export type ItemDetailOptions = {
   myCharacters(): CharacterSummary[];
   // Without a board the dialog only shows the item.
   board?: ItemDetailBoard;
+  // The weight unit of the library, for the line under the title.
+  weightUnit?(): string | null;
 };
 
 export type RenderedItemDetail = {
   // A board card, with the board's actions; needs `board`.
-  open(item: ItemInstance, card: HTMLElement): void;
+  open(item: ItemInstance, card: HTMLElement, as?: 'panel' | 'sheet' | 'page'): void;
   // Just the item.
   view(item: ShownItem): void;
+  // A board card's "…" menu: what can be done with it, each opening the panel on that.
+  menu(item: ItemInstance, card: HTMLElement, button: HTMLElement): void;
+  // The panel is open on this item.
+  isOpen(): boolean;
   // Fetches what showing the item needs, ahead of `open` or `view`.
   prefetch(item: ShownItem): void;
   destroy(): void;
@@ -90,6 +102,10 @@ export function renderItemDetail(options: ItemDetailOptions): RenderedItemDetail
     renderer: options.renderer,
     rowHeading: 'h4',
   });
+  const sub = required<HTMLElement>(root, '[data-sub]');
+  const notesRoot = required<HTMLElement>(root, '[data-notes]');
+  const setDown = required<HTMLButtonElement>(root, '[data-set-down]');
+  const addNote = required<HTMLButtonElement>(root, '[data-add-note]');
   const viewLink = required<HTMLAnchorElement>(root, '[data-view-link]');
   const actionsRegion = required<HTMLElement>(root, '[data-actions]');
   const actionPanel = required<HTMLElement>(root, '[data-action-panel]');
@@ -97,10 +113,31 @@ export function renderItemDetail(options: ItemDetailOptions): RenderedItemDetail
   let current: ItemInstance | null = null;
   let openCard: HTMLElement | null = null;
 
+  // A panel beside the board on a wide screen, a side sheet on a tablet, the page on a phone (IN3).
+  const wide = window.matchMedia('(min-width: 1100px)');
+  const tablet = window.matchMedia('(min-width: 721px)');
+  const modeNow = () => (wide.matches ? 'panel' : tablet.matches ? 'sheet' : 'page');
+
+  const markOpen = (card: HTMLElement | null) => {
+    for (const other of document.querySelectorAll('.item-card--open')) {
+      other.classList.remove('item-card--open');
+    }
+
+    card?.classList.add('item-card--open');
+  };
+
   function close() {
     const card = openCard;
 
     openCard = null;
+    markOpen(null);
+
+    if (!root.matches(':modal')) {
+      root.close();
+
+      return;
+    }
+
     withReflow(() => {
       root.close();
       root.style.viewTransitionName = '';
@@ -168,6 +205,24 @@ export function renderItemDetail(options: ItemDetailOptions): RenderedItemDetail
       },
     };
 
+    setDown.addEventListener(
+      'click',
+      () => {
+        const item = current;
+
+        if (!item) return;
+
+        moveItem(context, item, null).catch((error) =>
+          currentShell()?.toast({
+            kind: 'error',
+            title: `Couldn’t set down ${item.title}`,
+            text: errorMessage(error),
+          }),
+        );
+      },
+      { signal },
+    );
+
     for (const action of actions) {
       action.button.addEventListener(
         'click',
@@ -185,6 +240,20 @@ export function renderItemDetail(options: ItemDetailOptions): RenderedItemDetail
       );
     }
   }
+
+  // The same note form the Notes section has, one tap from the actions.
+  addNote.addEventListener(
+    'click',
+    () => {
+      const add = notesRoot.querySelector<HTMLButtonElement>('[data-add]');
+
+      if (!add || add.hidden) return;
+
+      add.click();
+      add.scrollIntoView({ block: 'nearest' });
+    },
+    { signal },
+  );
 
   // A catalog item's slug isn't in its listing: the link goes by what was looked up before, or
   // by the id, until it's looked up.
@@ -237,6 +306,42 @@ export function renderItemDetail(options: ItemDetailOptions): RenderedItemDetail
     // Bound to its owner (ADR 0129).
     bound.hidden = !item.bound;
 
+    sub.textContent = subtitle(item);
+    addNote.hidden = !(options.viewerIsGm || reader !== null);
+    applyActions(item);
+  }
+
+  // What the line under the title says: how many, its weight, where it is, and whose.
+  function subtitle(item: ShownItem): string {
+    const parts: string[] = [];
+    const stacked = Boolean(item.quantity && item.quantity > 1);
+
+    if (isInstance(item)) parts.push(stacked ? `${item.quantity} together` : 'One');
+
+    const each = weightOf(item);
+
+    if (each !== null) parts.push(withUnit(each, options.weightUnit?.() ?? null));
+
+    if (board && isInstance(item)) {
+      const holder = (item as ItemInstance).container_entity_id;
+      const where = holder ? board.state.items.get(holder)?.title : null;
+
+      if (where) parts.push(where);
+
+      const mark = board.state.current
+        ? ownerMark(item as ItemInstance, board.state.current)
+        : null;
+
+      if (mark) parts.push(mark);
+    }
+
+    return parts.join(' · ');
+  }
+
+  // Which actions this item has: the panel and the card's menu say the same.
+  function applyActions(item: ShownItem) {
+    const stacked = Boolean(item.quantity && item.quantity > 1);
+
     actionsRegion.hidden = !board;
     closePanels();
 
@@ -252,6 +357,9 @@ export function renderItemDetail(options: ItemDetailOptions): RenderedItemDetail
 
     // A read-only column's cards aren't moved from this board (ADR 0131).
     move.hidden = board.state.readOnly.has(item.entity_id);
+
+    // Anything in a container can be set down, what's equipped too (ADR 0132).
+    setDown.hidden = move.hidden || !('container_entity_id' in item && item.container_entity_id);
 
     // A pack is unpacked for its owner, one at a time, from a column you can act in (ADR 0189).
     // Whether it really is one is the API's dry run to say.
@@ -276,6 +384,15 @@ export function renderItemDetail(options: ItemDetailOptions): RenderedItemDetail
     { signal },
   );
 
+  // A panel isn't modal, so Escape reaches it as a key, not as 'cancel'.
+  root.addEventListener(
+    'keydown',
+    (event) => {
+      if (event.key === 'Escape' && !root.matches(':modal')) close();
+    },
+    { signal },
+  );
+
   // A click on the <dialog> itself rather than something in it is a click on the backdrop.
   root.addEventListener(
     'click',
@@ -285,25 +402,48 @@ export function renderItemDetail(options: ItemDetailOptions): RenderedItemDetail
     { signal },
   );
 
-  return {
-    // The dialog borrows the card's view-transition-name while open and gives it back on
-    // close: two elements sharing one name, one at a time, is what makes the browser morph
-    // between them instead of cross-fading.
-    open(item, card) {
-      if (!board) throw new Error('Item detail was made without a board.');
+  function openItem(item: ItemInstance, card: HTMLElement, as?: 'panel' | 'sheet' | 'page') {
+    if (!board) throw new Error('Item detail was made without a board.');
 
-      current = item;
-      openCard = card;
+    const mode = as ?? modeNow();
 
+    // On a phone an item is its page.
+    if (mode === 'page') {
+      linkTo(item);
+      window.location.assign(viewLink.href);
+
+      return;
+    }
+
+    current = item;
+    openCard = card;
+    markOpen(card);
+
+    if (mode === 'panel') {
+      populate(item);
+
+      if (!root.open) root.show();
+      else if (root.matches(':modal')) {
+        root.close();
+        root.show();
+      }
+    } else {
+      // The sheet borrows the card's view-transition-name while open and gives it back on
+      // close: two elements sharing one name, one at a time, is what makes the browser morph
+      // between them instead of cross-fading.
       withReflow(() => {
         card.style.viewTransitionName = '';
         root.style.viewTransitionName = `item-${item.entity_id}`;
         populate(item);
         root.showModal();
       });
+    }
 
-      void ancestryTree.load(ancestryRoot(item));
-    },
+    void ancestryTree.load(ancestryRoot(item));
+  }
+
+  return {
+    open: openItem,
 
     view(item) {
       current = null;
@@ -316,6 +456,38 @@ export function renderItemDetail(options: ItemDetailOptions): RenderedItemDetail
 
       void ancestryTree.load(ancestryRoot(item));
     },
+
+    // The card's "…" menu: Open, then whatever this item can have done to it. Each opens the panel (a
+    // sheet on a phone) with that action's form ready.
+    menu(item, card, button) {
+      if (!board) return;
+
+      applyActions(item);
+
+      const open = (act?: HTMLButtonElement) => {
+        openItem(item, card, modeNow() === 'page' ? 'sheet' : undefined);
+        act?.click();
+      };
+      const entries: MenuItem[] = [
+        { label: 'Open', icon: 'kind-item', run: () => openItem(item, card) },
+      ];
+
+      for (const action of [move, give, setDown, split, actions[4]?.button, unpack, giveContents]) {
+        if (!action || action.hidden || action.disabled) continue;
+
+        entries.push({
+          label: action.textContent?.trim() ?? '',
+          run: () => open(action),
+        });
+      }
+
+      openMenu(button, entries, {
+        label: `Actions for ${item.title}`,
+        sprite: `${BRANDING_CSS_URL}/icons.svg`,
+      });
+    },
+
+    isOpen: () => root.open,
 
     prefetch(item) {
       const rootId = ancestryRoot(item);

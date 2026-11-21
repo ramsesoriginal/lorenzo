@@ -19,6 +19,8 @@ export type ColumnsOptions = {
   // The board search's current, lower-cased text.
   query(): string;
   onOpenItem(item: ItemInstance, card: HTMLElement): void;
+  // The card's "…" menu: what can be done with it without opening it (IN4).
+  onOpenMenu(item: ItemInstance, card: HTMLElement, button: HTMLElement): void;
   // A card's item is likely to be opened next.
   onPrefetchItem(item: ItemInstance): void;
   signal: AbortSignal;
@@ -49,13 +51,15 @@ export function createColumns(options: ColumnsOptions) {
     const bound = required<HTMLElement>(fragment, '[data-bound]');
     const unsorted = required<HTMLElement>(fragment, '[data-unsorted]');
     const weight = required<HTMLElement>(fragment, '[data-weight]');
+    const main = required<HTMLButtonElement>(fragment, '[data-open]');
+    const menuButton = required<HTMLButtonElement>(fragment, '[data-menu]');
 
     card.draggable = !readOnly;
     card.dataset.entityId = item.entity_id;
     card.style.viewTransitionName = `item-${item.entity_id}`;
     card.hidden = !matchesSearch(item, options.query());
 
-    if (selection.active()) card.setAttribute('aria-pressed', 'false');
+    if (selection.active()) main.setAttribute('aria-pressed', 'false');
 
     container.hidden = !item.is_container;
     name.textContent = item.title;
@@ -87,12 +91,10 @@ export function createColumns(options: ColumnsOptions) {
       }
     };
 
-    card.addEventListener('click', activate);
-    card.addEventListener('keydown', (event) => {
-      if (event.key === ' ' || event.key === 'Enter') {
-        event.preventDefault(); // keeps Space from scrolling the page
-        activate();
-      }
+    main.addEventListener('click', activate);
+    menuButton.addEventListener('click', (event) => {
+      event.stopPropagation();
+      options.onOpenMenu(item, card, menuButton);
     });
 
     if (item.quantity && item.quantity > 1) {

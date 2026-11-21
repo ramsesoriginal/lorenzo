@@ -147,7 +147,10 @@ test("marks what isn't hers, and shows his things held elsewhere", async ({ worl
   await expect(column(oskar, 'Equipped')).toContainText('Nothing equipped.');
 
   // Her backpack is read-only on his board (ADR 0131): his book isn't moved from here.
-  await expect(card(oskar, 'Backpack', 'Book')).toHaveAttribute('draggable', 'false');
+  await expect(card(oskar, 'Backpack', 'Book').locator('xpath=..')).toHaveAttribute(
+    'draggable',
+    'false',
+  );
   await card(oskar, 'Backpack', 'Book').click();
   await expect(oskar.getByRole('button', { name: 'Give to…' })).toBeVisible();
   await expect(oskar.getByRole('button', { name: 'Move to…' })).toBeHidden();
