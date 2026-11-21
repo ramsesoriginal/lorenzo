@@ -565,6 +565,9 @@ dialog.item-panel:modal {
 /* The catalog: its list, and the item beside it (IN3, IN5). */
 .list > .catalog-row {
   display: block;
+  /* The list is a column with a height of its own: a row with a form open must not be squeezed. */
+  flex: none;
+  padding-block-end: 0;
 }
 .catalog-row-head {
   display: flex;
