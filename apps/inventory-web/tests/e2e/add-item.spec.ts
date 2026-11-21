@@ -1,12 +1,14 @@
 // Adding an item from the board (ADR 0187): a player makes their own, from the public catalog.
 import type { Page } from '@playwright/test';
 import { ok } from './support/api.ts';
+import { browseBeing, openAdd } from './support/board.ts';
 import { expect, test } from './support/fixtures.ts';
 import type { Person, Player, World } from './support/world.ts';
 
 async function boardOf(as: (who: Person) => Promise<Page>, world: World, player: Player) {
   const page = await as(player);
   await page.goto(`/board/?tenant=${world.tenantId}&character=${player.character.entity_id}`);
+  await openAdd(page);
   return page;
 }
 
@@ -172,9 +174,8 @@ test('a GM adds to any being, and sees the whole catalog, not only the public on
   await world.item('Vault key');
   const page = await as(world.gm);
   await page.goto(`/board/?tenant=${world.tenantId}`);
-  await page.getByRole('tab', { name: 'Browse a being' }).click();
-  await page.getByLabel('Search beings').filter({ visible: true }).fill('Brisk');
-  await page.getByRole('option').getByRole('button', { name: 'Brisk' }).click();
+  await browseBeing(page, 'Brisk');
+  await openAdd(page);
 
   await pick(page, 'Vault key');
   await card(page).getByRole('button', { name: 'Add to Brisk' }).click();

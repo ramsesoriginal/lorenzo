@@ -160,3 +160,218 @@
   font-size: 14px;
   line-height: 1.6;
 }
+
+/* ======== The board as the design draws it (IN1, IN7 to IN9, IN11) ======== */
+
+/* The head: the board's name is the switcher, with what the board is under it. */
+.board-head {
+  margin-block-end: var(--space-3);
+}
+.board-head h1 {
+  margin: 0;
+}
+.board-head p {
+  margin: 0;
+  color: var(--text-secondary);
+}
+.board-switcher {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 0;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.board-switcher .icon {
+  width: 20px;
+  height: 20px;
+  color: var(--text-secondary);
+}
+
+/* The bar: search, Add an item, Select, and the weight carried at the right. */
+.board-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  margin-block-end: var(--space-4);
+}
+.board-bar .grow {
+  flex: 1;
+}
+.search-field {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex: 1 1 16rem;
+  max-width: 28rem;
+}
+.search-field .icon {
+  position: absolute;
+  inset-inline-start: var(--space-3);
+  color: var(--text-secondary);
+  pointer-events: none;
+}
+.search-field .text-input {
+  width: 100%;
+  max-width: none;
+  padding-inline-start: calc(var(--space-3) * 2 + 16px);
+}
+.carried {
+  display: grid;
+  gap: var(--space-1);
+  min-width: 14rem;
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+.carried-line {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+.stat-bar {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--border-subtle);
+  overflow: hidden;
+}
+.stat-bar i {
+  display: block;
+  height: 100%;
+  background: var(--text-secondary);
+}
+
+/* The columns fill the page and are as tall as the tallest, no taller than the screen; one with more
+   cards than fit scrolls inside itself (IN9). */
+.board-columns {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(15rem, 1fr);
+  gap: var(--space-3);
+  align-items: stretch;
+  overflow-x: auto;
+  padding-block-end: var(--space-2);
+}
+.board-column {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+  max-height: calc(100dvh - 16rem);
+  padding: var(--space-3);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-card);
+  background: var(--surface-muted);
+}
+.board-column > .list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+.column-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+}
+.column-head h3 {
+  margin: 0;
+  font-size: 16px;
+}
+.column-count {
+  color: var(--text-secondary);
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+}
+.column-line {
+  margin: 0;
+  color: var(--text-secondary);
+}
+.read-only-mark {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+.read-only-mark .icon {
+  width: 14px;
+  height: 14px;
+}
+
+/* A card: its name and quantity, then its weight and who it belongs to. */
+.item-card-main {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.item-card-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-1);
+  font-weight: 500;
+}
+.item-card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-2);
+  color: var(--text-secondary);
+}
+
+/* On a phone the board is one column at a time, with their names to switch between (IN2). */
+.column-tabs {
+  display: none;
+}
+@media (max-width: 720px) {
+  .column-tabs {
+    display: flex;
+    gap: var(--space-1);
+    overflow-x: auto;
+    margin-block-end: var(--space-2);
+    border-bottom: 1px solid var(--border-subtle);
+  }
+  .column-tabs[hidden] {
+    display: none;
+  }
+  .column-tab {
+    flex: none;
+    min-height: var(--target-min);
+    padding-inline: var(--space-3);
+    border: none;
+    border-bottom: 2px solid transparent;
+    background: none;
+    color: var(--text-secondary);
+    font: inherit;
+    cursor: pointer;
+  }
+  .column-tab[aria-selected="true"] {
+    border-bottom-color: var(--action);
+    color: var(--text-primary);
+    font-weight: 600;
+  }
+  .board-columns {
+    display: block;
+  }
+  .board-columns > .board-column:not(.is-active) {
+    display: none;
+  }
+  .board-column {
+    max-height: none;
+  }
+  .carried {
+    flex-basis: 100%;
+  }
+  .search-field {
+    max-width: none;
+  }
+}
+
+/* In the add dialog the suggestions push down what is under them rather than covering it. */
+[data-add-dialog] .combobox-suggestions {
+  position: static;
+  margin-block-start: var(--space-1);
+}

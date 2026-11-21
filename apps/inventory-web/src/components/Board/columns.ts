@@ -1,4 +1,5 @@
 import { type BoardColumn, ownerMark } from '../../lib/boardColumns';
+import { columnLine, totalWeight, weightLine, weightOf, withUnit } from '../../lib/boardWeights';
 import { onIntent } from '../../lib/hoverIntent';
 import { fromTemplate, requiredIn } from '../../lib/template';
 import type { ItemInstance } from '../../lib/types';
@@ -21,6 +22,13 @@ export type ColumnsOptions = {
   // A card's item is likely to be opened next.
   onPrefetchItem(item: ItemInstance): void;
   signal: AbortSignal;
+  // What the columns say about weight: the library's unit, what each container can carry, and who holds
+  // the board (IN8, IN11). Read when a column is drawn and again when the limits arrive.
+  weights(): {
+    unit: string | null;
+    limitOf(containerId: string): number | null;
+    holderName: string | null;
+  };
 };
 
 export function matchesSearch(item: ItemInstance, query: string): boolean {
@@ -40,6 +48,7 @@ export function createColumns(options: ColumnsOptions) {
     const ownerMarkField = required<HTMLElement>(fragment, '[data-owner-mark]');
     const bound = required<HTMLElement>(fragment, '[data-bound]');
     const unsorted = required<HTMLElement>(fragment, '[data-unsorted]');
+    const weight = required<HTMLElement>(fragment, '[data-weight]');
 
     card.draggable = !readOnly;
     card.dataset.entityId = item.entity_id;
@@ -50,6 +59,14 @@ export function createColumns(options: ColumnsOptions) {
 
     container.hidden = !item.is_container;
     name.textContent = item.title;
+
+    const each = weightOf(item);
+
+    // The card's name stays its name; the weight is read in the panel and in the column's line.
+    weight.setAttribute('aria-hidden', 'true');
+
+    if (each !== null) weight.textContent = withUnit(each, options.weights().unit);
+    else weight.hidden = true;
 
     onIntent(card, () => options.onPrefetchItem(item), options.signal);
 
@@ -100,6 +117,23 @@ export function createColumns(options: ColumnsOptions) {
     return card;
   }
 
+  // The columns drawn, to say their weights again when the limits arrive.
+  const noted = new Map<HTMLElement, { column: BoardColumn; field: HTMLElement }>();
+
+  function drawNote(column: BoardColumn, field: HTMLElement) {
+    const { unit, limitOf, holderName } = options.weights();
+    // Only a container column has a limit of its own; Equipped and Not carried say their weight.
+    const limit = !column.fixed && column.dropTarget !== null ? limitOf(column.dropTarget) : null;
+    const weight = weightLine(totalWeight(column.items), limit, unit);
+
+    field.textContent = columnLine(column, weight, holderName);
+    field.hidden = false;
+  }
+
+  function refreshNotes() {
+    for (const { column, field } of noted.values()) drawNote(column, field);
+  }
+
   // Equipped and Not carried, the two every board has, glow; a read-only column takes no
   // drops, and its cards aren't dragged (ADR 0131).
   function renderColumn(column: BoardColumn): HTMLElement {
@@ -107,6 +141,8 @@ export function createColumns(options: ColumnsOptions) {
     const section = required<HTMLElement>(fragment, '[data-column]');
     const nameField = required<HTMLElement>(fragment, '[data-name]');
     const noteField = required<HTMLElement>(fragment, '[data-note]');
+    const countField = required<HTMLElement>(fragment, '[data-column-count]');
+    const readOnlyMark = required<HTMLElement>(fragment, '[data-read-only]');
     const list = required<HTMLUListElement>(fragment, '[data-items]');
 
     section.classList.toggle('glow-canonical', column.fixed);
@@ -128,12 +164,13 @@ export function createColumns(options: ColumnsOptions) {
     nameField.textContent = column.title;
     section.setAttribute('aria-labelledby', nameField.id);
 
-    // Where its container is: "In Backpack", "Brisk has these", "Not carried".
-    if (column.note) {
-      noteField.hidden = false;
-      noteField.textContent = column.note;
-      noteField.classList.add(column.carried ? 'pill-success' : 'pill-warning');
-    }
+    countField.textContent = String(column.items.length);
+    readOnlyMark.hidden = column.droppable || column.fixed;
+    section.dataset.columnKey = column.key;
+
+    // Its weight, how much room is left, and where it is: "12 of 12 lb · full · Imani has these".
+    noted.set(section, { column, field: noteField });
+    drawNote(column, noteField);
 
     // Holding more than it lists (ADR 0130): it says so, rather than that it's empty.
     list.dataset.empty = column.contentsHidden ? 'Contents not shown.' : column.empty;
@@ -164,5 +201,5 @@ export function createColumns(options: ColumnsOptions) {
     return section;
   }
 
-  return { renderColumn };
+  return { renderColumn, refreshNotes, forgetColumns: () => noted.clear() };
 }
