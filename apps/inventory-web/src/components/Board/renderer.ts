@@ -5,15 +5,18 @@ import { carriedWeight, shownNumber, withUnit } from '../../lib/boardWeights';
 import { errorMessage } from '../../lib/errorMessage';
 import type { GmWords } from '../../lib/gmTitle';
 import {
+  findCatalogItems,
   getControlledItemInstances,
   getEntityDetail,
   getUnownedItemInstances,
 } from '../../lib/items';
 import { statDefinitions } from '../../lib/statValues';
 import { fromTemplate, requiredIn } from '../../lib/template';
-import type { ControlledByResponse, ItemInstance } from '../../lib/types';
+import type { CatalogItem, ControlledByResponse, ItemInstance } from '../../lib/types';
 import { findUnsortedItem } from '../../lib/unsorted';
 import { renderAddItem } from '../AddItem/renderer';
+import { renderCombobox } from '../Combobox/renderer';
+import { renderInstantiateItem } from '../InstantiateItem/renderer';
 import type { RenderedUndoBanner } from '../UndoBanner/renderer';
 import { createColumns, matchesSearch } from './columns';
 import { createDropZones } from './dragDrop';
@@ -68,6 +71,9 @@ export function renderBoard(options: BoardOptions): RenderedBoard {
   const carriedBar = required<HTMLElement>(root, '[data-carried-bar]');
   const addOpen = required<HTMLButtonElement>(root, '[data-add-open]');
   const addDialog = required<HTMLDialogElement>(root, '[data-add-dialog]');
+  const makeOpen = required<HTMLButtonElement>(root, '[data-make-open]');
+  const makeDialog = required<HTMLDialogElement>(root, '[data-make-dialog]');
+  const makeMount = required<HTMLElement>(root, '[data-make-mount]');
   const tabs = required<HTMLElement>(root, '[data-column-tabs]');
 
   const state = createBoardState();
@@ -126,6 +132,8 @@ export function renderBoard(options: BoardOptions): RenderedBoard {
   // and who holds the board. The unit and the limits are read after the columns are drawn.
   let unit: string | null = null;
   let holderName: string | null = null;
+  // The being or group whose board this is, who a thing made here is made for.
+  let holderId: string | null = null;
   const limits = new Map<string, number>();
   let unitLoading: Promise<{ unit: string | null; capacity: string }> | undefined;
 
@@ -343,6 +351,7 @@ export function renderBoard(options: BoardOptions): RenderedBoard {
   ): Promise<void> {
     reloadCurrentView = () => load(entityId, viewingText, name, false);
     state.ownerId = null;
+    holderId = entityId;
 
     if (fresh) void addItem.show(null);
 
@@ -369,6 +378,7 @@ export function renderBoard(options: BoardOptions): RenderedBoard {
   async function loadUnowned(viewingText: string): Promise<void> {
     reloadCurrentView = () => loadUnowned(viewingText);
     state.ownerId = null;
+    holderId = null;
     void addItem.show(null);
     holderName = null;
 
@@ -408,6 +418,53 @@ export function renderBoard(options: BoardOptions): RenderedBoard {
     () => closeDialog(addDialog),
     { signal },
   );
+
+  // Make from catalog (a game master's): an item of the catalog becomes one that exists, for whose board
+  // this is unless another is picked.
+  makeOpen.hidden = !options.viewerIsGm;
+  fadeOnDismiss(makeDialog);
+  makeOpen.addEventListener(
+    'click',
+    () => {
+      makeMount.replaceChildren();
+      finder.input.value = '';
+      openDialog(makeDialog);
+      finder.input.focus();
+    },
+    { signal },
+  );
+  required<HTMLButtonElement>(makeDialog, '[data-make-close]').addEventListener(
+    'click',
+    () => closeDialog(makeDialog),
+    { signal },
+  );
+
+  const finder = renderCombobox<CatalogItem>(makeDialog, {
+    search: async (query) =>
+      (await findCatalogItems(tenantId, query, 10)).map((item) => ({
+        label: item.title,
+        value: item,
+      })),
+    onPick(item) {
+      finder.input.value = item.title;
+
+      const panel = renderInstantiateItem({
+        tenantId,
+        item,
+        ...(holderId && holderName
+          ? { defaultOwner: { entity_id: holderId, name: holderName } }
+          : {}),
+        onDone() {
+          closeDialog(makeDialog);
+          void reloadCurrentView?.();
+        },
+      });
+
+      makeMount.replaceChildren(panel.element);
+    },
+    browseOnFocus: true,
+    signal,
+  });
 
   search.addEventListener(
     'input',
