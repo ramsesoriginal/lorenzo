@@ -9,6 +9,7 @@
   "groups.spec.ts": 20,
   "hand-over.spec.ts": 48,
   "item-gm.spec.ts": 19,
+  "item-panel.spec.ts": 40,
   "item.spec.ts": 14,
   "link-previews.spec.ts": 20,
   "login.spec.ts": 4,

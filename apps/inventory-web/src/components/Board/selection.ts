@@ -46,7 +46,7 @@ export function createSelection(options: SelectionOptions): Selection {
 
   function setCardSelected(card: HTMLLIElement, selected: boolean) {
     card.classList.toggle('item-card--selected', selected);
-    card.setAttribute('aria-pressed', String(selected));
+    card.querySelector('.item-card-main')?.setAttribute('aria-pressed', String(selected));
 
     const entityId = card.dataset.entityId;
 
@@ -79,11 +79,13 @@ export function createSelection(options: SelectionOptions): Selection {
 
     if (!on) clear();
 
-    for (const card of columns.querySelectorAll('.item-card')) {
+    columns.classList.toggle('is-selecting', on);
+
+    for (const main of columns.querySelectorAll('.item-card-main')) {
       if (on) {
-        card.setAttribute('aria-pressed', 'false');
+        main.setAttribute('aria-pressed', 'false');
       } else {
-        card.removeAttribute('aria-pressed');
+        main.removeAttribute('aria-pressed');
       }
     }
   }

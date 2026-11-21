@@ -375,3 +375,158 @@
   position: static;
   margin-block-start: var(--space-1);
 }
+
+/* A card: its name and weight, and its "…" menu at the end of the row (IN4). */
+.item-card {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+.item-card-main {
+  flex: 1;
+  min-width: 0;
+  justify-items: start;
+  justify-content: start;
+  align-content: center;
+  inline-size: 100%;
+  background: none;
+  border: 0;
+  padding: 0;
+  text-align: start;
+  color: inherit;
+  font: inherit;
+  cursor: inherit;
+}
+.item-card-menu {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  inline-size: 28px;
+  block-size: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-control);
+  background: none;
+  color: var(--text-secondary);
+}
+.item-card-menu:hover {
+  background: var(--surface-muted);
+  color: var(--text-primary);
+}
+.is-selecting .item-card-menu {
+  display: none;
+}
+/* The card whose item is open in the panel. */
+.list > .item-card--open {
+  border-color: var(--action);
+  background: color-mix(in srgb, var(--action) 10%, var(--surface-default));
+}
+
+/* The item beside the board (IN3): a panel on a wide screen, a side sheet on a tablet. */
+.board-body {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-4);
+}
+.board-body > .board-columns {
+  flex: 1;
+  min-width: 0;
+}
+dialog.item-panel {
+  padding: var(--space-4);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-card);
+  background: var(--surface-default);
+  color: var(--text-primary);
+  overflow-y: auto;
+}
+/* Beside the board: in the row, as tall as the columns can be. */
+dialog.item-panel:not(:modal) {
+  position: static;
+  flex: none;
+  inline-size: 22rem;
+  max-block-size: calc(100dvh - 17rem);
+  margin: 0;
+}
+/* A sheet: from the right edge, over the board. */
+dialog.item-panel:modal {
+  position: fixed;
+  inset: 0 0 0 auto;
+  margin: 0;
+  inline-size: min(26rem, 92vw);
+  block-size: 100dvh;
+  max-block-size: none;
+  border-radius: var(--radius-card) 0 0 var(--radius-card);
+}
+.item-panel-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+.item-panel-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+.item-panel-name {
+  margin: 0;
+  font-size: 1.1rem;
+}
+.item-panel-close {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  inline-size: 28px;
+  block-size: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-control);
+  background: none;
+  color: var(--text-secondary);
+}
+.item-panel-close:hover {
+  background: var(--surface-muted);
+  color: var(--text-primary);
+}
+@media (min-width: 1100px) {
+  .board-body .board-columns {
+    grid-auto-columns: minmax(13rem, 1fr);
+  }
+}
+
+/* The panel reads in the order the design gives: what it is, what to do with it, then its details. */
+.item-detail-content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+.item-detail-content [data-view],
+.item-detail-content [data-item-view] {
+  display: contents;
+}
+.item-detail-content [data-descriptions] {
+  order: 2;
+}
+.item-detail-content [data-actions] {
+  order: 3;
+}
+.item-detail-content [data-action-panel] {
+  order: 4;
+}
+.item-detail-content [data-groups],
+.item-detail-content [data-tags],
+.item-detail-content [data-pictures] {
+  order: 5;
+}
+.item-detail-content [data-ancestry] {
+  order: 6;
+}
+.item-detail-content > section {
+  order: 7;
+}
+.item-detail-content [data-view-link] {
+  order: 8;
+  align-self: flex-start;
+}
