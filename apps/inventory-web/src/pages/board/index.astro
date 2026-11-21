@@ -1,6 +1,7 @@
 ---
 import Base from '../../layouts/Base.astro';
 import Board from '../../components/Board/Board.astro';
+import InstantiateItem from '../../components/InstantiateItem/InstantiateItem.astro';
 import HolderPicker from '../../components/HolderPicker/HolderPicker.astro';
 import { BRANDING_CSS_URL } from '../../lib/config';
 ---
@@ -27,6 +28,8 @@ import { BRANDING_CSS_URL } from '../../lib/config';
   </div>
 
   <HolderPicker />
+
+  <InstantiateItem />
 
   <script>
     import { errorMessage } from '../../lib/errorMessage';

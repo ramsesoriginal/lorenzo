@@ -10,6 +10,8 @@ import { renderCombobox } from '../Combobox/renderer';
 export type InstantiateItemOptions = {
   tenantId: string;
   item: CatalogItem;
+  // Who it is for unless another is picked: the being whose board this is made on.
+  defaultOwner?: BeingRef;
   onDone(): void;
 };
 
@@ -51,6 +53,8 @@ export function renderInstantiateItem(options: InstantiateItemOptions): Rendered
   const slugInput = required<HTMLInputElement>(panel, '[data-slug]');
   const noOwnerButton = required<HTMLButtonElement>(panel, '[data-no-owner]');
   const status = required<HTMLElement>(panel, '[data-status]');
+  const defaultRow = required<HTMLElement>(panel, '[data-default-owner]');
+  const defaultButton = required<HTMLButtonElement>(panel, '[data-create-default]');
 
   // Several rows can have a panel open at once, so ids can't be fixed.
   const id = crypto.randomUUID();
@@ -81,6 +85,7 @@ export function renderInstantiateItem(options: InstantiateItemOptions): Rendered
     search.disabled = true;
     slugInput.disabled = true;
     noOwnerButton.disabled = true;
+    defaultButton.disabled = true;
     beings.close();
     say(status, '');
 
@@ -94,6 +99,7 @@ export function renderInstantiateItem(options: InstantiateItemOptions): Rendered
       search.disabled = false;
       slugInput.disabled = false;
       noOwnerButton.disabled = false;
+      defaultButton.disabled = false;
       busy = false;
     }
   }
@@ -135,7 +141,30 @@ export function renderInstantiateItem(options: InstantiateItemOptions): Rendered
     { signal },
   );
 
-  window.setTimeout(() => search.focus(), 0);
+  const owner = options.defaultOwner;
+
+  if (owner) {
+    defaultRow.hidden = false;
+    defaultButton.textContent = `Create for ${owner.name}`;
+    defaultButton.addEventListener(
+      'click',
+      () => {
+        void finish(async () => {
+          await createItemInstance(
+            options.tenantId,
+            options.item.entity_id,
+            owner.entity_id,
+            slugInput.value.trim() || undefined,
+          );
+
+          return `Created and assigned to ${owner.name}.`;
+        });
+      },
+      { signal },
+    );
+  }
+
+  window.setTimeout(() => (owner ? defaultButton : search).focus(), 0);
 
   return {
     element: panel,

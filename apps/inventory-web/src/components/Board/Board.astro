@@ -1,6 +1,7 @@
 ---
 import { BRANDING_CSS_URL } from '../../lib/config';
 import AddItem from '../AddItem/AddItem.astro';
+import Combobox from '../Combobox/Combobox.astro';
 import ItemDetail from '../ItemDetail/ItemDetail.astro';
 ---
 
@@ -24,6 +25,12 @@ import ItemDetail from '../ItemDetail/ItemDetail.astro';
         <use href={`${BRANDING_CSS_URL}/icons.svg#icon-add`}></use>
       </svg>
       Add an item
+    </button>
+    <button type="button" class="btn btn-secondary row-tight" data-make-open hidden>
+      <svg class="icon" aria-hidden="true">
+        <use href={`${BRANDING_CSS_URL}/icons.svg#icon-kind-item`}></use>
+      </svg>
+      Make from catalog
     </button>
     <button type="button" class="btn btn-secondary row-tight" aria-pressed="false" data-select-mode>
       <svg class="icon" aria-hidden="true">
@@ -71,6 +78,24 @@ import ItemDetail from '../ItemDetail/ItemDetail.astro';
       <button type="button" class="btn btn-secondary" data-add-close>
         Close
       </button>
+    </div>
+  </dialog>
+
+  <dialog aria-labelledby="make-heading" data-make-dialog>
+    <div class="stack">
+      <h3 id="make-heading">Make from catalog</h3>
+      <div class="field">
+        <span class="field-label" id="make-find-label">
+          Find an item
+        </span>
+        <Combobox placeholder="Search the catalog…" labelledby="make-find-label" />
+      </div>
+      <div data-make-mount></div>
+      <div class="dialog-actions">
+        <button type="button" class="btn btn-secondary" data-make-close>
+          Close
+        </button>
+      </div>
     </div>
   </dialog>
 

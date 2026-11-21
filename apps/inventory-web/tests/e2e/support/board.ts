@@ -51,8 +51,11 @@ export const libraryPicker = (page: Page) =>
 
 /** An action off a catalog row's "…" menu. */
 export async function rowAction(row: Locator, name: string): Promise<void> {
-  await row.getByRole('button', { name: 'Actions' }).click();
-  await row.page().getByRole('menuitem', { name }).click();
+  // The list is drawn again when the catalog's answers arrive, which can close a menu just opened.
+  await expect(async () => {
+    await row.getByRole('button', { name: 'Actions' }).click({ timeout: 2000 });
+    await row.page().getByRole('menuitem', { name }).click({ timeout: 2000 });
+  }).toPass({ timeout: 10_000 });
 }
 
 /** The dialog that makes a catalog item, opened from the page's "New item". */

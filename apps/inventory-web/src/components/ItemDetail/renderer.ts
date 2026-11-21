@@ -6,6 +6,7 @@ import { BRANDING_CSS_URL } from '../../lib/config';
 import type { Renderer } from '../../lib/descriptions';
 import { itemPageHref } from '../../lib/entityLinks';
 import { errorMessage } from '../../lib/errorMessage';
+import { gmWordsOfBeing } from '../../lib/gmTitle';
 import { getEntityDetail } from '../../lib/items';
 import { withReflow } from '../../lib/reflow';
 import { currentShell } from '../../lib/shell';
@@ -20,6 +21,7 @@ import { renderItemView } from '../ItemView/renderer';
 import { renderNotes } from '../Notes/renderer';
 import type { RenderedUndoBanner } from '../UndoBanner/renderer';
 import { giveContentsPanel, givePanel } from './give';
+import { reassignPanel, removeInstance, unassign } from './gm';
 import { mergePanel } from './merge';
 import { moveItem, movePanel } from './move';
 import type { ActionContext } from './panels';
@@ -106,6 +108,11 @@ export function renderItemDetail(options: ItemDetailOptions): RenderedItemDetail
   const sub = required<HTMLElement>(root, '[data-sub]');
   const notesRoot = required<HTMLElement>(root, '[data-notes]');
   const setDown = required<HTMLButtonElement>(root, '[data-set-down]');
+  const gm = required<HTMLElement>(root, '[data-gm]');
+  const gmHeading = required<HTMLElement>(root, '[data-gm-heading]');
+  const reassign = required<HTMLButtonElement>(root, '[data-reassign]');
+  const unassignButton = required<HTMLButtonElement>(root, '[data-unassign]');
+  const remove = required<HTMLButtonElement>(root, '[data-delete]');
   const addNote = required<HTMLButtonElement>(root, '[data-add-note]');
   const viewLink = required<HTMLAnchorElement>(root, '[data-view-link]');
   const actionsRegion = required<HTMLElement>(root, '[data-actions]');
@@ -180,6 +187,7 @@ export function renderItemDetail(options: ItemDetailOptions): RenderedItemDetail
       label: 'Unpack…',
       panel: unpackPanel,
     },
+    { button: reassign, label: 'Reassign…', panel: reassignPanel },
   ];
 
   const [give, giveContents, move, split, , unpack] = actions.map((action) => action.button);
@@ -220,6 +228,26 @@ export function renderItemDetail(options: ItemDetailOptions): RenderedItemDetail
             text: errorMessage(error),
           }),
         );
+      },
+      { signal },
+    );
+
+    const failed = (title: string) => (error: unknown) =>
+      currentShell()?.toast({ kind: 'error', title, text: errorMessage(error) });
+
+    unassignButton.addEventListener(
+      'click',
+      () => {
+        if (current) unassign(context, current).catch(failed(`Couldn’t unassign ${current.title}`));
+      },
+      { signal },
+    );
+    remove.addEventListener(
+      'click',
+      () => {
+        if (current) {
+          removeInstance(context, current).catch(failed(`Couldn’t delete ${current.title}`));
+        }
       },
       { signal },
     );
@@ -358,6 +386,16 @@ export function renderItemDetail(options: ItemDetailOptions): RenderedItemDetail
 
     // A read-only column's cards aren't moved from this board (ADR 0131).
     move.hidden = board.state.readOnly.has(item.entity_id);
+
+    // A game master's tools, for an instance on a board (ADR 0294 for what they are called).
+    gm.hidden = !options.viewerIsGm || !isInstance(item);
+    unassignButton.hidden = !item.owner_entity_id;
+
+    if (!gm.hidden) {
+      void gmWordsOfBeing(options.tenantId, item.owner_entity_id ?? null).then((words) => {
+        gmHeading.textContent = words.title;
+      });
+    }
 
     // Anything in a container can be set down, what's equipped too (ADR 0132).
     setDown.hidden = move.hidden || !('container_entity_id' in item && item.container_entity_id);
