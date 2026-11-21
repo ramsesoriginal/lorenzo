@@ -4,6 +4,7 @@ import { searchBeingsAndGroups } from '../../lib/beingPicker';
 import { listMyCharacters } from '../../lib/characters';
 import { BRANDING_CSS_URL } from '../../lib/config';
 import { errorMessage } from '../../lib/errorMessage';
+import { DEFAULT_GM_WORDS, gmWordsOfBeing } from '../../lib/gmTitle';
 import { groupsOf } from '../../lib/groups';
 import { defaultHolder, getLastHolder, type Holder, rememberHolder } from '../../lib/lastHolder';
 import { requiredIn } from '../../lib/template';
@@ -61,6 +62,8 @@ export function renderHolderPicker(options: HolderPickerOptions): RenderedHolder
   const entries: Entry[] = [];
   // What the board shows now: one of the entries, a being a GM found, or the unowned things.
   let shown: { key: string } | null = null;
+  // What the campaign calls its game master, for the menu's heading (ADR 0294).
+  let gmTitle = DEFAULT_GM_WORDS.title;
 
   fadeOnDismiss(dialog);
   required<HTMLButtonElement>(dialog, '[data-find-close]').addEventListener(
@@ -72,6 +75,9 @@ export function renderHolderPicker(options: HolderPickerOptions): RenderedHolder
   // The board's name and what it is: "Character · what they control".
   function say(name: string, what: string, key: string) {
     shown = { key };
+    void gmWordsOfBeing(tenantId, key.split(':')[1] ?? null).then((words) => {
+      gmTitle = words.title;
+    });
     options.title.textContent = name;
     options.subtitle.textContent = what;
     document.title = `${name} — Lorenzo Inventory`;
@@ -240,7 +246,7 @@ export function renderHolderPicker(options: HolderPickerOptions): RenderedHolder
           ...(groupItems.length > 0 ? [{ heading: 'My groups' }, ...groupItems] : []),
           ...(options.viewerIsGm
             ? [
-                { heading: 'GM' },
+                { heading: gmTitle },
                 {
                   label: 'Find any being…',
                   icon: 'search',
