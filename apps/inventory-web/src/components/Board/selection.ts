@@ -1,7 +1,7 @@
 import { failedEntityIds, findMergeCandidates, summarizeBulkResults } from '../../lib/boardLogic';
 import { errorMessage } from '../../lib/errorMessage';
 import { bulkAssignItemInstances, bulkMoveItemInstances, mergeItemInstance } from '../../lib/items';
-import { bulkMoveAnywayQuestion, overridableIds } from '../../lib/moveAnyway';
+import { bulkMoveAnywayQuestion } from '../../lib/moveAnyway';
 import { collectMoveTargets } from '../../lib/moveTargets';
 import type { ItemInstance } from '../../lib/types';
 import { renderBeingPicker } from '../BeingPicker/renderer';
@@ -208,23 +208,26 @@ export function createSelection(options: SelectionOptions): Selection {
       const selected = [...ids];
       const items = [...options.state.items.values()];
       // A container every selected card could go into.
-      const targets = selected
-        .map((id) => options.state.items.get(id))
-        .filter((item): item is ItemInstance => item !== undefined)
-        .map(
-          (item) =>
-            new Map(
-              collectMoveTargets(item, options.state.containers.values(), items).map((t) => [
-                t.id,
-                t.name,
-              ]),
-            ),
-        )
-        .reduce<Map<string, string>>(
-          (common, next, i) =>
-            i === 0 ? next : new Map([...common].filter(([id]) => next.has(id))),
-          new Map(),
-        );
+      const targets =
+        selected
+          .map((id) => options.state.items.get(id))
+          .filter((item): item is ItemInstance => item !== undefined)
+          .map(
+            (item) =>
+              new Map(
+                collectMoveTargets(item, options.state.containers.values(), items).map((t) => [
+                  t.id,
+                  t.name,
+                ]),
+              ),
+          )
+          .reduce<Map<string, string> | null>((common, next) => {
+            if (!common) return next;
+
+            for (const id of [...common.keys()]) if (!next.has(id)) common.delete(id);
+
+            return common;
+          }, null) ?? new Map<string, string>();
       const panel = document.createElement('div');
       const status = document.createElement('p');
 

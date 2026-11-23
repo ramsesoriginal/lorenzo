@@ -5,6 +5,7 @@
   "binding.spec.ts": 22,
   "board.spec.ts": 106,
   "capacity.spec.ts": 13,
+  "catalog-edit.spec.ts": 40,
   "drag-ghost.spec.ts": 20,
   "giving-contents.spec.ts": 18,
   "gm-title.spec.ts": 15,

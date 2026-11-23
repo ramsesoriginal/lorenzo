@@ -276,3 +276,11 @@ test("browses a being's instances, and reassigns, unassigns, and deletes them", 
   expect(await world.carried(world.pia)).toEqual(['(none): Backpack']);
   expect(await world.carried(world.oskar)).toEqual(['Backpack: Ornate Spellbook']);
 });
+
+test('says how many were made from each item', async ({ world, as }) => {
+  await packed(world, world.pia);
+  const page = await manageItems(as, world);
+
+  await expect(row(catalogList(page), 'Arrow')).toContainText('1 made');
+  await expect(row(catalogList(page), 'Book')).toContainText('0 made');
+});

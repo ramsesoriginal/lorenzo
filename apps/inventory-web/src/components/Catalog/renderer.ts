@@ -5,6 +5,7 @@ import { errorMessage } from '../../lib/errorMessage';
 import { onIntent } from '../../lib/hoverIntent';
 import { getDescription, saveDescription } from '../../lib/information';
 import {
+  countMadeByItem,
   deleteCatalogItem,
   getEntityDetail,
   listItemsUsingPrototype,
@@ -80,12 +81,40 @@ export function renderCatalog(options: CatalogOptions): RenderedCatalog {
     },
   });
 
+  // "3 made": read once, and said on every row that is there.
+  let madeCounts: Map<string, number> | null = null;
+
+  function paintMade(field: HTMLElement, entityId: string) {
+    if (!madeCounts) return;
+
+    const count = madeCounts.get(entityId) ?? 0;
+
+    field.textContent = `${count} made`;
+    field.hidden = false;
+  }
+
+  function loadMade() {
+    countMadeByItem(options.tenantId).then(
+      (counts) => {
+        madeCounts = counts;
+
+        for (const row of list.querySelectorAll<HTMLElement>('.catalog-row')) {
+          const field = row.querySelector<HTMLElement>('[data-made]');
+
+          if (field && row.dataset.entityId) paintMade(field, row.dataset.entityId);
+        }
+      },
+      () => {},
+    );
+  }
+
   function renderRow(item: CatalogItem): HTMLLIElement {
     const row = cloneTemplate<HTMLLIElement>(rowTemplate);
     const title = required<HTMLElement>(row, '[data-title]');
     const publicChip = required<HTMLElement>(row, '[data-public]');
     const gmOnly = required<HTMLElement>(row, '[data-gm-only]');
     const kind = required<HTMLElement>(row, '[data-kind]');
+    const made = required<HTMLElement>(row, '[data-made]');
     const view = required<HTMLButtonElement>(row, '[data-view]');
     const menu = required<HTMLButtonElement>(row, '[data-menu]');
     const panel = required<HTMLElement>(row, '[data-panel]');
@@ -103,6 +132,9 @@ export function renderCatalog(options: CatalogOptions): RenderedCatalog {
     kind.hidden = kind.textContent === '';
     menu.setAttribute('aria-describedby', '');
     menu.removeAttribute('aria-describedby');
+
+    row.dataset.entityId = item.entity_id;
+    paintMade(made, item.entity_id);
 
     view.addEventListener(
       'click',
@@ -317,8 +349,13 @@ export function renderCatalog(options: CatalogOptions): RenderedCatalog {
     },
   });
 
+  loadMade();
+
   return {
-    reload: catalogSearch.reload,
+    reload: async () => {
+      await catalogSearch.reload();
+      loadMade();
+    },
     destroy() {
       catalogSearch.destroy();
       prototypeFilter.destroy();

@@ -25,6 +25,8 @@ import ActionPanels from './ActionPanels.astro';
     </div>
     <p class="caption" data-sub></p>
 
+    <div class="stack" data-editor hidden></div>
+
     <div data-view>
       <ItemView />
     </div>
@@ -71,6 +73,11 @@ import ActionPanels from './ActionPanels.astro';
     </div>
     <div data-action-panel></div>
     <ActionPanels />
+
+    <div class="stack-tight item-panel-made" data-made-from hidden>
+      <p class="field-label">Made from</p>
+      <ul class="row" data-made-chips></ul>
+    </div>
 
     <div class="stack" data-ancestry hidden>
       <h3>Ancestry</h3>

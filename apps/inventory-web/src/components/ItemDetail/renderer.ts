@@ -52,6 +52,8 @@ export type ItemDetailOptions = {
   myCharacters(): CharacterSummary[];
   // Without a board the dialog only shows the item.
   board?: ItemDetailBoard;
+  // A catalog item, for a game master, is written in place: this fills the place (IN5).
+  editor?(host: HTMLElement, item: ShownItem): { dirty(): boolean; destroy(): void };
   // The weight unit of the library, for the line under the title.
   weightUnit?(): string | null;
 };
@@ -106,6 +108,23 @@ export function renderItemDetail(options: ItemDetailOptions): RenderedItemDetail
     rowHeading: 'h4',
   });
   const sub = required<HTMLElement>(root, '[data-sub]');
+  const editorHost = required<HTMLElement>(root, '[data-editor]');
+  const viewHost = required<HTMLElement>(root, '[data-view]');
+  let editor: { dirty(): boolean; destroy(): void } | null = null;
+
+  // Leaving what is written in place, with something not saved, is refused in words.
+  const mayLeave = () =>
+    !editor?.dirty() ||
+    window.confirm('You have changes that are not saved. Leave without saving them?');
+  const dropEditor = () => {
+    editor?.destroy();
+    editor = null;
+    editorHost.hidden = true;
+    viewHost.hidden = false;
+  };
+  const madeFrom = required<HTMLElement>(root, '[data-made-from]');
+  const madeChips = required<HTMLElement>(root, '[data-made-chips]');
+  let madeRequest = 0;
   const notesRoot = required<HTMLElement>(root, '[data-notes]');
   const setDown = required<HTMLButtonElement>(root, '[data-set-down]');
   const gm = required<HTMLElement>(root, '[data-gm]');
@@ -135,6 +154,10 @@ export function renderItemDetail(options: ItemDetailOptions): RenderedItemDetail
   };
 
   function close() {
+    if (!mayLeave()) return;
+
+    dropEditor();
+
     const card = openCard;
 
     openCard = null;
@@ -323,6 +346,15 @@ export function renderItemDetail(options: ItemDetailOptions): RenderedItemDetail
 
     itemView.show(item);
 
+    // A game master writes a catalog item in place; everyone else reads it.
+    dropEditor();
+
+    if (options.editor && !isInstance(item)) {
+      viewHost.hidden = true;
+      editorHost.hidden = false;
+      editor = options.editor(editorHost, item);
+    }
+
     // Its notes (ADR 0113), written by a GM or by a player whose character owns it.
     const reader = options.myCharacters().find((c) => c.entity_id === item.owner_entity_id) ?? null;
 
@@ -336,6 +368,29 @@ export function renderItemDetail(options: ItemDetailOptions): RenderedItemDetail
     bound.hidden = !item.bound;
 
     sub.textContent = subtitle(item);
+
+    // What it is made from, by name: the items it comes from (the shell's chips, as drawn).
+    const request = ++madeRequest;
+
+    madeFrom.hidden = true;
+    getEntityDetail(tenantId, item.entity_id).then(
+      (entity) => {
+        if (request !== madeRequest || entity.prototypes.length === 0) return;
+
+        madeChips.replaceChildren(
+          ...entity.prototypes.map((prototype) => {
+            const chip = document.createElement('li');
+
+            chip.className = 'chip';
+            chip.textContent = prototype.name;
+
+            return chip;
+          }),
+        );
+        madeFrom.hidden = false;
+      },
+      () => {},
+    );
     addNote.hidden = !(options.viewerIsGm || reader !== null);
     applyActions(item);
   }
@@ -489,6 +544,8 @@ export function renderItemDetail(options: ItemDetailOptions): RenderedItemDetail
     open: openItem,
 
     view(item, as) {
+      if (!mayLeave()) return;
+
       current = null;
       openCard = null;
       markOpen(null);

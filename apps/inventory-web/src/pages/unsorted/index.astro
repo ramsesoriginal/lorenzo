@@ -9,7 +9,12 @@ import Unsorted from '../../components/Unsorted/Unsorted.astro';
   </p>
 
   <div id="page" hidden>
-    <h1 class="display" id="tenant-name"></h1>
+    <header class="catalog-head">
+      <div>
+        <h1 class="display">Unsorted</h1>
+        <p class="caption" id="tenant-name"></p>
+      </div>
+    </header>
 
     <Unsorted />
   </div>
@@ -49,7 +54,7 @@ import Unsorted from '../../components/Unsorted/Unsorted.astro';
           findUnsortedItem(tenantId),
         ]);
 
-        tenantName.textContent = tenant.name;
+        tenantName.textContent = `Things players wrote in that the catalog does not have yet.`;
 
         if (!viewerIsGm) {
           say(status, 'Sorting unsorted items is for a GM.');

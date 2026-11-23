@@ -97,3 +97,23 @@ test('is its page on a phone, with the actions on the card menu', async ({ world
   await card(page, 'Backpack', 'Ornate Spellbook').click();
   await expect(page).toHaveURL(/\/item\//);
 });
+
+test("an item's page has the way back: to the board that holds it, or to the catalog", async ({
+  world,
+  as,
+}) => {
+  const { spellbook, items } = await packed(world, world.pia);
+  const page = await as(world.gm);
+
+  await page.goto(`/item/?tenant=${world.tenantId}&id=${spellbook}`);
+  const back = page.getByRole('link', { name: "Back to Ashfang's board" });
+
+  await expect(back).toBeVisible();
+  await expect(back).toHaveAttribute(
+    'href',
+    `/board/?tenant=${world.tenantId}&character=${world.pia.character.entity_id}`,
+  );
+
+  await page.goto(`/item/?tenant=${world.tenantId}&id=${items.book}`);
+  await expect(page.getByRole('link', { name: 'Back to the catalog' })).toBeVisible();
+});

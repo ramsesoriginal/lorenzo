@@ -173,6 +173,25 @@ export async function listCatalogItems(tenantId: string, query = ''): Promise<Ca
   );
 }
 
+// How many instances were made from each catalog item, for the catalog's "N made": one read of every
+// instance, counted by the item each is made from.
+export async function countMadeByItem(tenantId: string): Promise<Map<string, number>> {
+  const instances = await fetchAllPages(async (page) =>
+    unwrap(
+      await client.GET('/tenants/{tenant_id}/item-instances', {
+        params: { path: { tenant_id: tenantId }, query: { page, size: MAX_PAGE_SIZE } },
+      }),
+    ),
+  );
+  const counts = new Map<string, number>();
+
+  for (const instance of instances) {
+    for (const id of instance.prototype_ids) counts.set(id, (counts.get(id) ?? 0) + 1);
+  }
+
+  return counts;
+}
+
 // The first `size` catalog items matching `query` (all of them when it's empty), by name: what a
 // suggestion list shows, where listCatalogItems' every page would be far too many. Players
 // list the public catalog only (ADR 0116).

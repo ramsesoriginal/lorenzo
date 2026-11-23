@@ -49,6 +49,9 @@ import ItemForm from '../../components/ItemForm/ItemForm.astro';
     import { say } from '../../lib/statusLine';
     import { requiredIn } from '../../lib/template';
     import { renderCatalog } from '../../components/Catalog/renderer';
+    import { renderCatalogEditor } from '../../components/CatalogEditor/renderer';
+    import type { ShownItem } from '../../components/ItemDetail/renderer';
+    import type { CatalogItem } from '../../lib/types';
     import { renderInstances } from '../../components/Instances/renderer';
     import { renderInstantiateItem } from '../../components/InstantiateItem/renderer';
     import { renderItemDetail } from '../../components/ItemDetail/renderer';
@@ -180,6 +183,17 @@ import ItemForm from '../../components/ItemForm/ItemForm.astro';
           viewerIsGm,
           renderer,
           myCharacters: () => [],
+          ...(viewerIsGm
+            ? {
+                editor: (host: HTMLElement, item: ShownItem) =>
+                  renderCatalogEditor({
+                    host,
+                    tenantId,
+                    item: item as CatalogItem,
+                    onChanged: () => void catalog.reload(),
+                  }),
+              }
+            : {}),
         });
 
         catalog = renderCatalog({

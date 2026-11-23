@@ -709,7 +709,7 @@ dialog.item-panel:modal .item-panel-close-bottom {
   column-gap: var(--space-2);
   align-items: center;
 }
-.is-selecting .item-card-check {
+.is-selecting .item-card-main .item-card-check {
   grid-row: 1 / span 2;
   margin-inline-end: 0;
 }
@@ -746,4 +746,105 @@ dialog.item-panel:modal .item-panel-close-bottom {
 }
 .item-detail-content .key-values dd {
   text-align: end;
+}
+.catalog-made {
+  min-inline-size: 4.5rem;
+  text-align: end;
+  color: var(--text-secondary);
+}
+.item-detail-content .item-panel-made {
+  order: 5;
+}
+/* A note says who can read it as a pill, as drawn. */
+[data-notes] [data-describe] {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px var(--space-2);
+  border: 1px solid var(--border-strong, var(--border-subtle));
+  border-radius: 999px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+/* A catalog item written in place (IN5). */
+.item-editor-fields {
+  display: grid;
+  gap: var(--space-2);
+}
+.item-editor-field {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+.item-editor-field .text-input {
+  inline-size: 7rem;
+  text-align: end;
+}
+.item-editor-tags {
+  flex-wrap: wrap;
+}
+.chip-choice {
+  cursor: pointer;
+}
+.chip-choice[aria-pressed="true"] {
+  background: color-mix(in srgb, var(--action) 14%, var(--surface-default));
+  border-color: var(--action);
+}
+.item-editor-structure {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border: 1px dashed var(--border-subtle);
+  border-radius: var(--radius-card);
+}
+
+/* Unsorted (IN6): the groups in a list, the open one in a panel beside it. */
+[data-unsorted-view] [data-groups] {
+  position: relative;
+  gap: 0;
+  padding-inline-end: 26rem;
+  min-block-size: 24rem;
+}
+[data-unsorted-view] [data-groups] > li {
+  display: block;
+  padding: var(--space-2) var(--space-3);
+  border: 0;
+  border-bottom: 1px solid var(--border-subtle);
+  border-radius: 0;
+  background: transparent;
+}
+[data-unsorted-view] [data-body]:not([hidden]) {
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline-end: 0;
+  inline-size: 24rem;
+  padding: var(--space-4);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-card);
+  background: var(--surface-default);
+}
+@media (max-width: 960px) {
+  [data-unsorted-view] [data-groups] {
+    padding-inline-end: 0;
+  }
+  [data-unsorted-view] [data-body]:not([hidden]) {
+    position: static;
+    inline-size: auto;
+  }
+}
+
+/* An item's page: a card, with the way back above it (IN3). */
+.back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin-block-end: var(--space-3);
+  font-size: 13px;
+}
+.item-page-card {
+  padding: var(--space-4);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-card);
+  background: var(--surface-default);
 }
