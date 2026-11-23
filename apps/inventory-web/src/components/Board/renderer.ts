@@ -1,7 +1,8 @@
-import { closeDialog, fadeOnDismiss, openDialog } from '@lorenzo/app-shell';
+import { closeDialog, fadeOnDismiss, openDialog, pageState } from '@lorenzo/app-shell';
 import type { AddItemStanding } from '../../lib/addItem';
 import { type Board, controlledBoard, unownedBoard } from '../../lib/boardColumns';
 import { carriedWeight, shownNumber, withUnit } from '../../lib/boardWeights';
+import { BRANDING_CSS_URL } from '../../lib/config';
 import { errorMessage } from '../../lib/errorMessage';
 import type { GmWords } from '../../lib/gmTitle';
 import {
@@ -10,7 +11,6 @@ import {
   getEntityDetail,
   getUnownedItemInstances,
 } from '../../lib/items';
-import { currentShell } from '../../lib/shell';
 import { statDefinitions } from '../../lib/statValues';
 import { fromTemplate, requiredIn } from '../../lib/template';
 import type { CatalogItem, ControlledByResponse, ItemInstance } from '../../lib/types';
@@ -193,7 +193,7 @@ export function renderBoard(options: BoardOptions): RenderedBoard {
     selection.clear();
     forgetColumns();
     empty.hidden = true;
-    currentShell()?.state(empty, null);
+    empty.replaceChildren();
     error.hidden = true;
     carried.hidden = true;
     renderSkeleton();
@@ -211,19 +211,22 @@ export function renderBoard(options: BoardOptions): RenderedBoard {
         (emptyMessage !== null || !shown.holderIsBeing) &&
         !shown.columns.some((c) => c.items.length > 0)
       ) {
-        const shell = currentShell();
         const mayAdd = !addOpen.hidden;
 
         empty.hidden = false;
-        empty.textContent = emptyMessage ?? 'Nothing here yet.';
-        shell?.state(empty, {
-          kind: 'empty',
-          title: 'Nothing here yet.',
-          text: mayAdd ? 'Add an item to start.' : (emptyMessage ?? ''),
-          actions: mayAdd
-            ? [{ label: 'Add an item', primary: true, run: () => addOpen.click() }]
-            : [],
-        });
+        // The mascot's picture follows; until it does, the shell draws its place (dashed, with its words).
+        empty.replaceChildren(
+          pageState(BRANDING_CSS_URL, {
+            art: 'empty-inventory',
+            alt: 'Illustration: empty-inventory. Nothing carried',
+            level: 2,
+            title: 'Nothing here yet.',
+            text: mayAdd ? 'Add an item to start.' : (emptyMessage ?? ''),
+            actions: mayAdd
+              ? [{ label: 'Add an item', primary: true, run: () => addOpen.click() }]
+              : [],
+          }),
+        );
         return;
       }
 

@@ -863,3 +863,8 @@ dialog.unpack-dialog .dialog-actions {
   justify-content: flex-end;
   margin-block-start: var(--space-3);
 }
+
+/* An empty board: the mascot's place, smaller than a whole page's. */
+[data-empty] .page-state-art {
+  width: 140px;
+}
