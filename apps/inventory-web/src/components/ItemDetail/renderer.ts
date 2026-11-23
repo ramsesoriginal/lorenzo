@@ -1,4 +1,10 @@
-import { type MenuItem, openMenu } from '@lorenzo/app-shell';
+import {
+  closeDialog,
+  fadeOnDismiss,
+  type MenuItem,
+  openDialog,
+  openMenu,
+} from '@lorenzo/app-shell';
 import { blobUrl } from '../../lib/api';
 import { ownerMark } from '../../lib/boardColumns';
 import { weightOf, withUnit } from '../../lib/boardWeights';
@@ -134,6 +140,7 @@ export function renderItemDetail(options: ItemDetailOptions): RenderedItemDetail
   const remove = required<HTMLButtonElement>(root, '[data-delete]');
   const addNote = required<HTMLButtonElement>(root, '[data-add-note]');
   const viewLink = required<HTMLAnchorElement>(root, '[data-view-link]');
+  const editPage = required<HTMLAnchorElement>(root, '[data-edit-page]');
   const actionsRegion = required<HTMLElement>(root, '[data-actions]');
   const actionPanel = required<HTMLElement>(root, '[data-action-panel]');
 
@@ -279,6 +286,13 @@ export function renderItemDetail(options: ItemDetailOptions): RenderedItemDetail
       action.button.addEventListener(
         'click',
         () => {
+          // Unpacking asks in a dialog of its own: what it will make, and that the pack goes.
+          if (action.button === unpack && current) {
+            openUnpackDialog(context, current);
+
+            return;
+          }
+
           const wasOpen = action.button.textContent === 'Cancel';
 
           closePanels();
@@ -291,6 +305,47 @@ export function renderItemDetail(options: ItemDetailOptions): RenderedItemDetail
         { signal },
       );
     }
+  }
+
+  function openUnpackDialog(context: ActionContext, item: ItemInstance) {
+    const dialog = document.createElement('dialog');
+    const cancel = document.createElement('button');
+    const row = document.createElement('div');
+    const heading = document.createElement('h3');
+    const finish = () => {
+      closeDialog(dialog);
+      setTimeout(() => dialog.remove(), 600);
+      context.finish();
+    };
+
+    dialog.className = 'unpack-dialog';
+    dialog.setAttribute('aria-labelledby', 'unpack-dialog-title');
+    heading.id = 'unpack-dialog-title';
+    heading.textContent = `Unpack ${item.title}?`;
+    cancel.type = 'button';
+    cancel.className = 'btn btn-secondary';
+    cancel.textContent = 'Cancel';
+    cancel.addEventListener('click', () => {
+      closeDialog(dialog);
+      setTimeout(() => dialog.remove(), 600);
+    });
+    row.className = 'dialog-actions';
+    row.append(cancel);
+
+    const body = unpackPanel({ ...context, finish }, item);
+
+    // Cancel and Unpack sit together at the foot, as drawn.
+    const submit = body.querySelector<HTMLButtonElement>('[data-submit]');
+
+    if (submit) {
+      submit.className = 'btn btn-primary';
+      row.append(submit);
+    }
+
+    dialog.append(heading, body, row);
+    document.body.append(dialog);
+    fadeOnDismiss(dialog);
+    openDialog(dialog);
   }
 
   // The same note form the Notes section has, one tap from the actions.
@@ -320,6 +375,7 @@ export function renderItemDetail(options: ItemDetailOptions): RenderedItemDetail
     const known = 'slug' in item ? item.slug : slugs.peek(item.entity_id);
 
     viewLink.href = hrefFor(known);
+    editPage.href = viewLink.href;
 
     if ('slug' in item) return;
 
@@ -327,7 +383,10 @@ export function renderItemDetail(options: ItemDetailOptions): RenderedItemDetail
 
     slugs.refresh(item.entity_id, RECENT_MS).then(
       (slug) => {
-        if (request === slugRequest && slug !== known) viewLink.href = hrefFor(slug);
+        if (request === slugRequest && slug !== known) {
+          viewLink.href = hrefFor(slug);
+          editPage.href = viewLink.href;
+        }
       },
       () => {},
     );

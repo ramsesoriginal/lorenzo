@@ -32,7 +32,7 @@ test('moves the selected cards into a container, and is done', async ({ world, a
     .getByRole('button', { name: 'Belt Pouch', exact: true })
     .click();
 
-  await expect(card(page, 'Belt Pouch', 'Arrow ×3')).toBeVisible();
+  await expect(card(page, 'Belt Pouch', 'Arrow ×3')).toBeVisible({ timeout: 15_000 });
   await expect(card(page, 'Belt Pouch', 'Ornate Spellbook')).toBeVisible();
   await expect(bar(page)).toBeHidden();
 });

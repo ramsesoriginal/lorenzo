@@ -10,6 +10,7 @@ import {
   getEntityDetail,
   getUnownedItemInstances,
 } from '../../lib/items';
+import { currentShell } from '../../lib/shell';
 import { statDefinitions } from '../../lib/statValues';
 import { fromTemplate, requiredIn } from '../../lib/template';
 import type { CatalogItem, ControlledByResponse, ItemInstance } from '../../lib/types';
@@ -192,6 +193,7 @@ export function renderBoard(options: BoardOptions): RenderedBoard {
     selection.clear();
     forgetColumns();
     empty.hidden = true;
+    currentShell()?.state(empty, null);
     error.hidden = true;
     carried.hidden = true;
     renderSkeleton();
@@ -204,9 +206,24 @@ export function renderBoard(options: BoardOptions): RenderedBoard {
       columns.replaceChildren();
       columns.removeAttribute('aria-busy');
 
-      if (emptyMessage !== null && !shown.columns.some((c) => c.items.length > 0)) {
+      // A group's board, or what nobody owns, with nothing on it says so; a being's keeps its columns.
+      if (
+        (emptyMessage !== null || !shown.holderIsBeing) &&
+        !shown.columns.some((c) => c.items.length > 0)
+      ) {
+        const shell = currentShell();
+        const mayAdd = !addOpen.hidden;
+
         empty.hidden = false;
-        empty.textContent = emptyMessage;
+        empty.textContent = emptyMessage ?? 'Nothing here yet.';
+        shell?.state(empty, {
+          kind: 'empty',
+          title: 'Nothing here yet.',
+          text: mayAdd ? 'Add an item to start.' : (emptyMessage ?? ''),
+          actions: mayAdd
+            ? [{ label: 'Add an item', primary: true, run: () => addOpen.click() }]
+            : [],
+        });
         return;
       }
 

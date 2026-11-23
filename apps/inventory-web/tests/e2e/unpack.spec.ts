@@ -27,7 +27,9 @@ async function boardOf(as: (who: Person) => Promise<Page>, world: World, player:
 
 const card = (page: Page, name: string) =>
   page.getByRole('region', { name: 'Not carried' }).getByRole('button', { name, exact: true });
-const dialog = (page: Page) => page.getByRole('dialog');
+/** What asks before a pack goes: a dialog of its own, over the item. */
+const asking = (page: Page) => page.getByRole('dialog', { name: /^Unpack / });
+const item = (page: Page) => page.locator('[data-item-detail]');
 
 test("a GM unpacks a player's pack: what it lists, then the pack gone", async ({ world, as }) => {
   await packFor(world, world.pia);
@@ -36,17 +38,17 @@ test("a GM unpacks a player's pack: what it lists, then the pack gone", async ({
   await browseBeing(page, 'Ashfang');
 
   await card(page, "Explorer's pack").click();
-  await dialog(page).getByRole('button', { name: 'Unpack…' }).click();
+  await item(page).getByRole('button', { name: 'Unpack…' }).click();
   await expect(
-    dialog(page).getByText(
+    asking(page).getByText(
       "Unpacking Explorer's pack makes Backpack (Rations ×5), Rope ×2, and the pack goes. This can't be undone.",
     ),
   ).toBeVisible();
   // Asking made nothing.
   expect(await world.carried(world.pia)).toEqual(["(none): Explorer's pack"]);
 
-  await dialog(page).getByRole('button', { name: 'Unpack', exact: true }).click();
-  await expect(dialog(page)).toBeHidden();
+  await asking(page).getByRole('button', { name: 'Unpack', exact: true }).click();
+  await expect(asking(page)).toBeHidden();
 
   expect(await world.carried(world.pia)).toEqual([
     '(none): Backpack',
@@ -60,9 +62,9 @@ test('a player unpacks their own pack when everything in it is public', async ({
   const page = await boardOf(as, world, world.pia);
 
   await card(page, "Explorer's pack").click();
-  await dialog(page).getByRole('button', { name: 'Unpack…' }).click();
-  await dialog(page).getByRole('button', { name: 'Unpack', exact: true }).click();
-  await expect(dialog(page)).toBeHidden();
+  await item(page).getByRole('button', { name: 'Unpack…' }).click();
+  await asking(page).getByRole('button', { name: 'Unpack', exact: true }).click();
+  await expect(asking(page)).toBeHidden();
 
   await expect(
     page.getByRole('region', { name: 'Equipped' }).getByRole('button', { name: 'Backpack' }),
@@ -78,10 +80,10 @@ test("a player isn't let to unpack a pack with something private in it, and noth
   const page = await boardOf(as, world, world.pia);
 
   await card(page, "Explorer's pack").click();
-  await dialog(page).getByRole('button', { name: 'Unpack…' }).click();
+  await item(page).getByRole('button', { name: 'Unpack…' }).click();
 
-  await expect(dialog(page).getByText(/can't be handed out as it is/)).toBeVisible();
-  await expect(dialog(page).getByRole('button', { name: 'Unpack', exact: true })).toBeHidden();
+  await expect(asking(page).getByText(/can't be handed out as it is/)).toBeVisible();
+  await expect(asking(page).getByRole('button', { name: 'Unpack', exact: true })).toBeHidden();
   expect(await world.carried(world.pia)).toEqual(["(none): Explorer's pack"]);
 });
 
@@ -93,8 +95,8 @@ test('offers nothing on an item that does not list contents', async ({ world, as
   const page = await boardOf(as, world, world.pia);
 
   await card(page, 'Rope').click();
-  await expect(dialog(page).getByRole('button', { name: 'Give to…' })).toBeVisible();
-  await expect(dialog(page).getByRole('button', { name: 'Unpack…' })).toBeHidden();
+  await expect(item(page).getByRole('button', { name: 'Give to…' })).toBeVisible();
+  await expect(item(page).getByRole('button', { name: 'Unpack…' })).toBeHidden();
 });
 
 test('a stack of packs is unpacked one at a time: the button says to split one off', async ({
@@ -110,7 +112,7 @@ test('a stack of packs is unpacked one at a time: the button says to split one o
     .getByRole('button', { name: /Explorer's pack/ })
     .click();
 
-  const unpack = dialog(page).getByRole('button', { name: 'Unpack…' });
+  const unpack = item(page).getByRole('button', { name: 'Unpack…' });
   await expect(unpack).toBeDisabled();
   await expect(unpack).toHaveAttribute('title', 'Split one off to unpack it.');
 });

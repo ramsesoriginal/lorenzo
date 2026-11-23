@@ -163,7 +163,9 @@ test("a group's board offers nothing to add", async ({ world, as }) => {
   const page = await as(world.pia);
   await page.goto(`/board/?tenant=${world.tenantId}&group=${company}`);
 
-  await expect(column(page, 'Not carried')).toBeVisible();
+  // With nothing on it, a group's board says so (and a player has nothing to add to it).
+  await expect(page.getByText('Nothing here yet.')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Add an item' })).toBeHidden();
   await expect(card(page)).toBeHidden();
 });
 

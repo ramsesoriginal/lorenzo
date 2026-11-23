@@ -848,3 +848,18 @@ dialog.item-panel:modal .item-panel-close-bottom {
   border-radius: var(--radius-card);
   background: var(--surface-default);
 }
+
+/* Unpack asks in a dialog (dialog-unpack): what it will make, and that the pack goes. */
+dialog.unpack-dialog {
+  inline-size: min(30rem, 92vw);
+  padding: var(--space-4);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-surface);
+  background: var(--surface-default);
+  color: var(--text-primary);
+}
+dialog.unpack-dialog .dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-block-start: var(--space-3);
+}
