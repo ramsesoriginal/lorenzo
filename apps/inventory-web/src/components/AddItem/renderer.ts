@@ -6,6 +6,7 @@ import { type AddItemStanding, searchAddableItems } from '../../lib/addItem';
 import { errorMessage } from '../../lib/errorMessage';
 import { DEFAULT_GM_WORDS, type GmWords } from '../../lib/gmTitle';
 import { createItemInstance, deleteItemInstance } from '../../lib/items';
+import { currentShell } from '../../lib/shell';
 import { requiredIn } from '../../lib/template';
 import type { CatalogItem, ItemInstance } from '../../lib/types';
 import { addUnsortedItem, findUnsortedItem, readDraft } from '../../lib/unsorted';
@@ -85,10 +86,14 @@ export function renderAddItem(options: AddItemOptions): RenderedAddItem {
     undo.hidden = true;
   }
 
+  let undoToast: { dismiss(): void } | null = null;
+
   function forgetUndo() {
     clearTimeout(undoTimer);
     undoable = null;
     undo.hidden = true;
+    undoToast?.dismiss();
+    undoToast = null;
   }
 
   function offerUndo(entityId: string, text: string) {
@@ -97,6 +102,9 @@ export function renderAddItem(options: AddItemOptions): RenderedAddItem {
     undoable = entityId;
     undo.hidden = false;
     undoTimer = setTimeout(forgetUndo, UNDO_MS);
+    // The dialog may be closed by then: the shell's toast keeps the Undo within reach (IN4).
+    undoToast?.dismiss();
+    undoToast = currentShell()?.undoable({ title: text, undo: () => undo.click() }) ?? null;
   }
 
   function setBusy(value: boolean) {
