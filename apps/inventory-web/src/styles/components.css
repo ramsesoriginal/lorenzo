@@ -469,15 +469,24 @@ dialog.item-panel:not(:modal) {
   max-block-size: calc(100dvh - 17rem);
   margin: 0;
 }
-/* A sheet: from the right edge, over the board. */
+/* A sheet: up from the bottom edge, over the board, with a Close at its foot. */
 dialog.item-panel:modal {
   position: fixed;
-  inset: 0 0 0 auto;
+  inset: auto 0 0 0;
   margin: 0;
-  inline-size: min(26rem, 92vw);
-  block-size: 100dvh;
-  max-block-size: none;
-  border-radius: var(--radius-card) 0 0 var(--radius-card);
+  inline-size: 100%;
+  max-inline-size: none;
+  block-size: auto;
+  max-block-size: 88dvh;
+  border-radius: var(--radius-surface) var(--radius-surface) 0 0;
+}
+.item-panel-close-bottom {
+  display: none;
+  order: 9;
+}
+dialog.item-panel:modal .item-panel-close-bottom {
+  display: inline-flex;
+  justify-content: center;
 }
 .item-panel-head {
   display: flex;
@@ -705,10 +714,36 @@ dialog.item-panel:modal {
   margin-inline-end: 0;
 }
 .catalog-row-head .catalog-title {
+  justify-content: start;
   justify-items: start;
   text-align: start;
   background: none;
   border: 0;
   padding: 0;
   color: inherit;
+}
+
+/* The game master's tools sit under the item's own actions, and the stats read as plain rows. */
+.item-detail-content .item-panel-gm {
+  order: 4;
+  padding-block-start: var(--space-3);
+  border-block-start: 1px solid var(--border-subtle);
+}
+.item-panel-gm .btn-danger {
+  background: transparent;
+  color: var(--danger);
+  border: 1px solid var(--danger);
+}
+.item-detail-content [data-groups] h3 {
+  font-size: var(--fs-meta, 13px);
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+.item-detail-content .key-values {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  column-gap: var(--space-4);
+}
+.item-detail-content .key-values dd {
+  text-align: end;
 }

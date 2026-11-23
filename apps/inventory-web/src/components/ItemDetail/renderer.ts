@@ -413,7 +413,9 @@ export function renderItemDetail(options: ItemDetailOptions): RenderedItemDetail
         : '';
   }
 
-  required<HTMLElement>(root, '[data-close]').addEventListener('click', close, { signal });
+  for (const button of root.querySelectorAll('[data-close]')) {
+    button.addEventListener('click', close, { signal });
+  }
 
   // Escape fires 'cancel' first: intercepting it gives Escape the animated close too.
   root.addEventListener(
