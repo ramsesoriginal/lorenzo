@@ -23,7 +23,7 @@ test('picks the pieces of a set-down stack up as one stack again', async ({ worl
 
   await page.getByRole('button', { name: 'Select', exact: true }).click();
   for (const arrow of await card(page, 'Not carried', 'Arrow').all()) await arrow.click();
-  await expect(page.getByText('3 selected')).toBeVisible();
+  await expect(page.getByText('3 cards selected')).toBeVisible();
   await card(page, 'Not carried', 'Arrow').first().dragTo(column(page, 'Backpack'));
 
   await expect(card(page, 'Backpack', 'Arrow ×3')).toBeVisible();

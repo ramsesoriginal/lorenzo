@@ -60,6 +60,7 @@ import ItemForm from '../../components/ItemForm/ItemForm.astro';
     import { saveDescription } from '../../lib/information';
     import { createCatalogItem } from '../../lib/items';
     import { isCampaignGm, isTenantMember, viewerId } from '../../lib/me';
+    import { DEFAULT_GM_WORDS } from '../../lib/gmTitle';
     import { saveSlug } from '../../lib/slugs';
     import { getTenant } from '../../lib/tenants';
 
@@ -188,6 +189,7 @@ import ItemForm from '../../components/ItemForm/ItemForm.astro';
           viewerIsGm,
           showIntro: !viewerIsGm && !viewerIsMember,
           renderer,
+          gmWords: DEFAULT_GM_WORDS,
           renderInstantiate: (item, onDone) => renderInstantiateItem({ tenantId, item, onDone }),
           onView: (item) => detail.view(item),
           onPrefetch: (item) => detail.prefetch(item),

@@ -370,7 +370,9 @@ export function renderItemDetail(options: ItemDetailOptions): RenderedItemDetail
   // Which actions this item has: the panel and the card's menu say the same.
   function applyActions(item: ShownItem) {
     const stacked = Boolean(item.quantity && item.quantity > 1);
+    const noteWriter = options.myCharacters().some((c) => c.entity_id === item.owner_entity_id);
 
+    addNote.hidden = !(options.viewerIsGm || noteWriter);
     actionsRegion.hidden = !board;
     closePanels();
 
@@ -525,13 +527,32 @@ export function renderItemDetail(options: ItemDetailOptions): RenderedItemDetail
         { label: 'Open', icon: 'kind-item', run: () => openItem(item, card) },
       ];
 
-      for (const action of [move, give, setDown, split, actions[4]?.button, unpack, giveContents]) {
-        if (!action || action.hidden || action.disabled) continue;
+      const add = (action: HTMLButtonElement | undefined, icon: string, danger = false): void => {
+        if (!action || action.hidden || action.disabled) return;
 
         entries.push({
           label: action.textContent?.trim() ?? '',
+          icon,
+          ...(danger ? { danger } : {}),
           run: () => open(action),
         });
+      };
+
+      add(move, 'move');
+      add(give, 'give');
+      add(setDown, 'down');
+      add(addNote, 'edit');
+      add(giveContents, 'give');
+      add(split, 'split');
+      add(actions[4]?.button, 'merge-items');
+      add(unpack, 'unpack');
+
+      // A game master's: only where the panel has them for this item.
+      if (!gm.hidden) {
+        entries.push({ separator: true });
+        add(reassign, 'reassign');
+        add(unassignButton, 'unassign');
+        add(remove, 'delete', true);
       }
 
       openMenu(button, entries, {

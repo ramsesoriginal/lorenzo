@@ -24,6 +24,8 @@ export type AddItemOptions = {
   onAdded(created: ItemInstance): Promise<void>;
   // Something was taken back: the board is out of date.
   onUndone(): Promise<void>;
+  // Cancel was pressed: the dialog the card sits in can go.
+  onCancel?(): void;
 };
 
 export type RenderedAddItem = {
@@ -47,15 +49,15 @@ export function renderAddItem(options: AddItemOptions): RenderedAddItem {
   const hint = required<HTMLElement>(root, '[data-hint]');
   const find = required<HTMLElement>(root, '[data-find]');
   const confirm = required<HTMLFormElement>(root, '[data-confirm]');
-  const picked = required<HTMLElement>(root, '[data-picked]');
-  const change = required<HTMLButtonElement>(root, '[data-change]');
+  const offBlock = required<HTMLElement>(root, '[data-off-block]');
+  const sourceList = required<HTMLInputElement>(root, '[data-source-list]');
+  const sourceFree = required<HTMLInputElement>(root, '[data-source-free]');
   const callIt = required<HTMLInputElement>(root, '[data-call-it]');
   const add = required<HTMLButtonElement>(root, '[data-add]');
   const status = required<HTMLElement>(root, '[data-status]');
   const statusText = required<HTMLElement>(root, '[data-status-text]');
   const undo = required<HTMLButtonElement>(root, '[data-undo]');
   const notListed = required<HTMLElement>(root, '[data-not-listed]');
-  const openUnsorted = required<HTMLButtonElement>(root, '[data-not-listed-open]');
   const matchedLater = required<HTMLElement>(root, '[data-matched-later]');
   const noUnsorted = required<HTMLElement>(root, '[data-no-unsorted]');
   const gmTitle = required<HTMLElement>(root, '[data-gm-title]');
@@ -65,7 +67,6 @@ export function renderAddItem(options: AddItemOptions): RenderedAddItem {
   const unsortedWeight = required<HTMLInputElement>(root, '[data-unsorted-weight]');
   const unsortedValue = required<HTMLInputElement>(root, '[data-unsorted-value]');
   const unsortedAdd = required<HTMLButtonElement>(root, '[data-unsorted-add]');
-  const unsortedBack = required<HTMLButtonElement>(root, '[data-unsorted-back]');
 
   let holder: AddItemHolder | null = null;
   let item: CatalogItem | null = null;
@@ -110,12 +111,11 @@ export function renderAddItem(options: AddItemOptions): RenderedAddItem {
   function setBusy(value: boolean) {
     busy = value;
     add.disabled = value;
-    change.disabled = value;
+    sourceList.disabled = value;
+    sourceFree.disabled = value;
     callIt.disabled = value;
     undo.disabled = value;
-    openUnsorted.disabled = value;
     unsortedAdd.disabled = value;
-    unsortedBack.disabled = value;
   }
 
   // Found once and kept; a failed lookup is tried again next time instead of being remembered.
@@ -134,8 +134,11 @@ export function renderAddItem(options: AddItemOptions): RenderedAddItem {
   // Looking for something to pick, with the way out beside it when the library has one.
   function showFind() {
     unsortedForm.hidden = true;
-    confirm.hidden = true;
+    confirm.hidden = false;
     find.hidden = false;
+    sourceList.checked = true;
+    matchedLater.hidden = true;
+    add.disabled = item === null;
     notListed.hidden = typeof unsortedId !== 'string';
   }
 
@@ -159,12 +162,9 @@ export function renderAddItem(options: AddItemOptions): RenderedAddItem {
 
     onPick(chosen) {
       item = chosen;
-      picked.textContent = chosen.title;
+      search.value = chosen.title;
       callIt.placeholder = chosen.title;
-      add.textContent = `Add to ${holder?.name ?? 'them'}`;
-      find.hidden = true;
-      notListed.hidden = true;
-      confirm.hidden = false;
+      add.disabled = false;
       say('');
       callIt.focus();
     },
@@ -173,15 +173,23 @@ export function renderAddItem(options: AddItemOptions): RenderedAddItem {
   });
   const search = catalog.input;
 
-  change.addEventListener(
-    'click',
+  // Typing again after a pick is looking for another.
+  search.addEventListener(
+    'input',
     () => {
-      reset();
-      say('');
-      search.focus();
+      if (item && search.value !== item.title) {
+        item = null;
+        add.disabled = true;
+        callIt.placeholder = '';
+      }
     },
     { signal },
   );
+
+  // Cancel: the dialog the card sits in goes away.
+  for (const button of root.querySelectorAll<HTMLButtonElement>('[data-cancel]')) {
+    button.addEventListener('click', () => options.onCancel?.(), { signal });
+  }
 
   confirm.addEventListener(
     'submit',
@@ -223,15 +231,15 @@ export function renderAddItem(options: AddItemOptions): RenderedAddItem {
     { signal },
   );
 
-  openUnsorted.addEventListener(
-    'click',
+  // Not in the list: the form for what the catalog doesn't know; From the list: back to finding.
+  sourceFree.addEventListener(
+    'change',
     () => {
       const typed = search.value.trim();
 
       catalog.close();
-      find.hidden = true;
-      notListed.hidden = true;
-      unsortedAdd.textContent = `Add to ${holder?.name ?? 'them'}`;
+      confirm.hidden = true;
+      matchedLater.hidden = false;
       unsortedForm.hidden = false;
       say('');
 
@@ -242,8 +250,8 @@ export function renderAddItem(options: AddItemOptions): RenderedAddItem {
     { signal },
   );
 
-  unsortedBack.addEventListener(
-    'click',
+  sourceList.addEventListener(
+    'change',
     () => {
       showFind();
       say('');
@@ -336,6 +344,7 @@ export function renderAddItem(options: AddItemOptions): RenderedAddItem {
     notListed.hidden = true;
     noUnsorted.hidden = true;
     unsortedForm.hidden = true;
+    offBlock.hidden = true;
   }
 
   async function show(next: AddItemHolder | null) {
@@ -373,12 +382,15 @@ export function renderAddItem(options: AddItemOptions): RenderedAddItem {
     gmTitle.textContent = words.title;
 
     if (standing === 'off') {
+      offBlock.hidden = false;
       off.hidden = false;
       off.textContent = `Your ${words.title} has switched off adding items for ${next.name}.`;
       return;
     }
 
     hint.textContent = `Pick something from the catalog and it goes into ${next.name}'s inventory, in Not carried.`;
+    add.textContent = `Add to Not carried`;
+    unsortedAdd.textContent = `Add to Not carried`;
     form.hidden = false;
 
     // What the library has for what the catalog doesn't (ADR 0238), once it's known.

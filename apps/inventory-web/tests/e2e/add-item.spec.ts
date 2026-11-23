@@ -47,8 +47,8 @@ test('a player finds an item in the public catalog and adds it, not carried', as
   await card(page).getByRole('option').getByRole('button', { name: 'Shortsword' }).click();
   // Picking only chooses: nothing is made until it's confirmed.
   expect(await world.carried(world.pia)).toEqual([]);
-  await expect(card(page).getByText('Shortsword', { exact: true })).toBeVisible();
-  await card(page).getByRole('button', { name: 'Add to Ashfang' }).click();
+  await expect(search(page)).toHaveValue('Shortsword');
+  await card(page).getByRole('button', { name: 'Add to Not carried' }).click();
 
   await expect(card(page).getByText("Added Shortsword to Ashfang's Not carried.")).toBeVisible();
   await expect(
@@ -62,8 +62,8 @@ test('lets her name it', async ({ world, as }) => {
   const page = await boardOf(as, world, world.pia);
 
   await pick(page, 'Shortsword');
-  await card(page).getByLabel('Call it (optional)').fill("Aldric's blade");
-  await card(page).getByRole('button', { name: 'Add to Ashfang' }).click();
+  await card(page).getByLabel('A name of your own, if you like').fill("Aldric's blade");
+  await card(page).getByRole('button', { name: 'Add to Not carried' }).click();
 
   await expect(
     column(page, 'Not carried').getByRole('button', { name: "Aldric's blade" }),
@@ -76,7 +76,7 @@ test('takes it back with Undo', async ({ world, as }) => {
   const page = await boardOf(as, world, world.pia);
 
   await pick(page, 'Shortsword');
-  await card(page).getByRole('button', { name: 'Add to Ashfang' }).click();
+  await card(page).getByRole('button', { name: 'Add to Not carried' }).click();
   await expect(card(page).getByText("Added Shortsword to Ashfang's Not carried.")).toBeVisible();
 
   await card(page).getByRole('button', { name: 'Undo' }).click();
@@ -95,10 +95,10 @@ test('can pick another before adding, and searches by name', async ({ world, as 
   const page = await boardOf(as, world, world.pia);
 
   await pick(page, 'Shortsword');
-  await card(page).getByRole('button', { name: 'Pick another' }).click();
+  // Looking again after a pick is typing again.
   await search(page).fill('rop');
   await card(page).getByRole('option').getByRole('button', { name: 'Rope' }).click();
-  await card(page).getByRole('button', { name: 'Add to Ashfang' }).click();
+  await card(page).getByRole('button', { name: 'Add to Not carried' }).click();
 
   await expect(column(page, 'Not carried').getByRole('button', { name: 'Rope' })).toBeVisible();
   expect(await world.carried(world.pia)).toEqual(['(none): Rope']);
@@ -150,7 +150,7 @@ test('a GM can still switch it on for one player, whatever the campaign says', a
   const page = await boardOf(as, world, world.pia);
 
   await pick(page, 'Shortsword');
-  await card(page).getByRole('button', { name: 'Add to Ashfang' }).click();
+  await card(page).getByRole('button', { name: 'Add to Not carried' }).click();
 
   await expect(
     column(page, 'Not carried').getByRole('button', { name: 'Shortsword' }),
@@ -178,7 +178,7 @@ test('a GM adds to any being, and sees the whole catalog, not only the public on
   await openAdd(page);
 
   await pick(page, 'Vault key');
-  await card(page).getByRole('button', { name: 'Add to Brisk' }).click();
+  await card(page).getByRole('button', { name: 'Add to Not carried' }).click();
 
   await expect(
     column(page, 'Not carried').getByRole('button', { name: 'Vault key' }),
@@ -195,8 +195,7 @@ async function seedUnsorted(world: World): Promise<string> {
   return id;
 }
 
-const notListed = (page: Page) =>
-  card(page).getByRole('button', { name: 'Not in the list? Add it as an unsorted item' });
+const notListed = (page: Page) => card(page).getByLabel('Not in the list');
 
 /** The notes on `title`, as its owner reads them: title to text. */
 async function notesOn(world: World, player: Player, title: string) {
@@ -232,14 +231,14 @@ test('a player adds what the catalog does not know as an unsorted item, with not
   // Typed in the search, and nothing matches.
   await search(page).fill('Hydra Zahn');
   await expect(card(page).getByText('No item matches “Hydra Zahn”.')).toBeVisible();
-  await notListed(page).click();
+  await notListed(page).check();
 
   // The name is what was typed.
-  await expect(card(page).getByLabel('Name')).toHaveValue('Hydra Zahn');
+  await expect(card(page).getByLabel('Name', { exact: true })).toHaveValue('Hydra Zahn');
   await card(page).getByLabel('Description (optional)').fill('from the cave under the temple');
   await card(page).getByLabel('Weight in pounds (optional)').fill('0,5');
   await card(page).getByLabel('Value (optional)').fill('?');
-  await card(page).getByRole('button', { name: 'Add to Ashfang' }).click();
+  await card(page).getByRole('button', { name: 'Add to Not carried' }).click();
 
   await expect(
     card(page).getByText("Added Hydra Zahn to Ashfang's Not carried as an unsorted item."),
@@ -259,9 +258,9 @@ test('takes an unsorted item back with Undo', async ({ world, as }) => {
   await seedUnsorted(world);
   const page = await boardOf(as, world, world.pia);
 
-  await notListed(page).click();
-  await card(page).getByLabel('Name').fill('Fishing rod');
-  await card(page).getByRole('button', { name: 'Add to Ashfang' }).click();
+  await notListed(page).check();
+  await card(page).getByLabel('Name', { exact: true }).fill('Fishing rod');
+  await card(page).getByRole('button', { name: 'Add to Not carried' }).click();
   await expect(card(page).getByText(/^Added Fishing rod/)).toBeVisible();
 
   await card(page).getByRole('button', { name: 'Undo' }).click();
@@ -277,19 +276,19 @@ test('asks for a name, and for a weight that is a number, and makes nothing othe
   await seedUnsorted(world);
   const page = await boardOf(as, world, world.pia);
 
-  await notListed(page).click();
-  await card(page).getByLabel('Name').fill('   ');
-  await card(page).getByRole('button', { name: 'Add to Ashfang' }).click();
+  await notListed(page).check();
+  await card(page).getByLabel('Name', { exact: true }).fill('   ');
+  await card(page).getByRole('button', { name: 'Add to Not carried' }).click();
   await expect(card(page).getByText('Give it a name.')).toBeVisible();
 
-  await card(page).getByLabel('Name').fill('Anvil');
+  await card(page).getByLabel('Name', { exact: true }).fill('Anvil');
   await card(page).getByLabel('Weight in pounds (optional)').fill('heavy');
-  await card(page).getByRole('button', { name: 'Add to Ashfang' }).click();
+  await card(page).getByRole('button', { name: 'Add to Not carried' }).click();
   await expect(card(page).getByText('Weight is a number of pounds, such as 0.5.')).toBeVisible();
   expect(await world.carried(world.pia)).toEqual([]);
 
   // Back to the catalog search, with the option still there.
-  await card(page).getByRole('button', { name: 'Back' }).click();
+  await card(page).getByLabel('From the list').check();
   await expect(search(page)).toBeVisible();
   await expect(notListed(page)).toBeVisible();
 });

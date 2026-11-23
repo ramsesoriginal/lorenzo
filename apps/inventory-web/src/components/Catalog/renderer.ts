@@ -30,6 +30,8 @@ export type CatalogOptions = {
   viewerIsGm: boolean;
   showIntro: boolean;
   renderer: Renderer;
+  // What the campaigns call their game master, for the pill on what only they see (ADR 0294).
+  gmWords: { title: string };
 
   renderInstantiate(item: CatalogItem, onDone: () => void): RenderedPanel;
   onView(item: CatalogItem): void;
@@ -62,6 +64,9 @@ export function renderCatalog(options: CatalogOptions): RenderedCatalog {
 
   intro.hidden = !options.showIntro;
 
+  // The names of the catalog's items, for what each is made from.
+  const titles = new Map<string, string>();
+
   // What shows is the text search's result, narrowed by the ticked prototypes.
   let searchedItems: CatalogItem[] = [];
 
@@ -79,16 +84,38 @@ export function renderCatalog(options: CatalogOptions): RenderedCatalog {
     const row = cloneTemplate<HTMLLIElement>(rowTemplate);
     const title = required<HTMLElement>(row, '[data-title]');
     const publicChip = required<HTMLElement>(row, '[data-public]');
+    const gmOnly = required<HTMLElement>(row, '[data-gm-only]');
+    const kind = required<HTMLElement>(row, '[data-kind]');
     const view = required<HTMLButtonElement>(row, '[data-view]');
     const menu = required<HTMLButtonElement>(row, '[data-menu]');
     const panel = required<HTMLElement>(row, '[data-panel]');
 
     title.textContent = item.title;
     publicChip.hidden = !options.viewerIsGm || !item.in_public_catalog;
+    gmOnly.hidden = !options.viewerIsGm || item.in_public_catalog;
+    required<HTMLElement>(gmOnly, '[data-gm-only-label]').textContent =
+      `${options.gmWords.title} only`;
+    // What it is made from, by name: the line under its title.
+    kind.textContent = item.prototype_ids
+      .map((id) => titles.get(id))
+      .filter((name): name is string => Boolean(name))
+      .join(', ');
+    kind.hidden = kind.textContent === '';
     menu.setAttribute('aria-describedby', '');
     menu.removeAttribute('aria-describedby');
 
-    view.addEventListener('click', () => options.onView(item), { signal });
+    view.addEventListener(
+      'click',
+      () => {
+        for (const other of list.querySelectorAll('.catalog-row--open')) {
+          other.classList.remove('catalog-row--open');
+        }
+
+        row.classList.add('catalog-row--open');
+        options.onView(item);
+      },
+      { signal },
+    );
     onIntent(view, () => options.onPrefetch(item), signal);
 
     async function remove() {
@@ -266,6 +293,10 @@ export function renderCatalog(options: CatalogOptions): RenderedCatalog {
     signal,
     // Always the whole catalog, never just a q= result, so it can feed the filter tree.
     onCatalog(items) {
+      titles.clear();
+
+      for (const found of items) titles.set(found.entity_id, found.title);
+
       prototypeFilter.updateCatalog(items);
     },
     onResult(items) {

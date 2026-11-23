@@ -2,37 +2,59 @@
 import Combobox from '../Combobox/Combobox.astro';
 ---
 
-<section
-  class="card card-body stack-tight board-add"
-  aria-labelledby="add-item-heading"
-  data-add-item
-  hidden
->
+<section class="stack-tight add-item" aria-labelledby="add-item-heading" data-add-item hidden>
   <h3 id="add-item-heading">Add an item</h3>
 
-  <p class="status-text" data-off hidden></p>
+  <div class="stack-tight" data-off-block hidden>
+    <p class="status-text" data-off></p>
+    <div class="dialog-actions">
+      <button type="button" class="btn btn-secondary" data-cancel>
+        Close
+      </button>
+    </div>
+  </div>
 
   <div class="stack-tight" data-add-form hidden>
     <p class="field-note" data-hint></p>
 
-    <div class="field" data-find>
-      <span class="field-label" id="add-item-find-label">
-        Find an item
-      </span>
-      <Combobox placeholder="Search the catalog…" labelledby="add-item-find-label" />
-    </div>
-
-    <div class="stack-tight" data-not-listed hidden>
-      <button type="button" class="btn btn-secondary" data-not-listed-open>
-        Not in the list? Add it as an unsorted item
-      </button>
-      <p class="field-note" data-matched-later></p>
-    </div>
+    <fieldset class="add-source" data-source>
+      <legend class="field-note">Where does it come from</legend>
+      <label class="row-tight">
+        <input type="radio" name="add-source" value="list" checked data-source-list />
+        From the list
+      </label>
+      <label class="row-tight" data-not-listed hidden>
+        <input type="radio" name="add-source" value="free" data-source-free />
+        Not in the list
+      </label>
+    </fieldset>
+    <p class="field-note" data-matched-later hidden></p>
 
     <p class="field-note" data-no-unsorted hidden>
       This library can't take unsorted items yet. Ask your <span data-gm-title></span> to run
       <code>lorenzo seed --layer core</code>.
     </p>
+
+    <form class="stack-tight" data-confirm>
+      <div class="field" data-find>
+        <span class="field-label" id="add-item-find-label" aria-hidden="true">
+          Item
+        </span>
+        <Combobox placeholder="Search the catalog…" label="Find an item" />
+      </div>
+      <label class="field">
+        <span class="field-label">A name of your own, if you like</span>
+        <input class="text-input" type="text" data-call-it autocomplete="off" />
+      </label>
+      <div class="dialog-actions">
+        <button type="button" class="btn btn-secondary" data-cancel>
+          Cancel
+        </button>
+        <button type="submit" class="btn btn-primary" data-add disabled>
+          Add
+        </button>
+      </div>
+    </form>
 
     <form class="stack-tight" data-unsorted-form hidden>
       <label class="field">
@@ -59,29 +81,11 @@ import Combobox from '../Combobox/Combobox.astro';
           <input class="text-input" type="text" data-unsorted-value autocomplete="off" />
         </label>
       </div>
-      <div class="field-row">
-        <button type="submit" data-unsorted-add>
-          Add
+      <div class="dialog-actions">
+        <button type="button" class="btn btn-secondary" data-cancel>
+          Cancel
         </button>
-        <button type="button" class="btn btn-secondary" data-unsorted-back>
-          Back
-        </button>
-      </div>
-    </form>
-
-    <form class="stack-tight" data-confirm hidden>
-      <div class="field-row">
-        <span class="chip" data-picked></span>
-        <button type="button" class="btn btn-secondary" data-change>
-          Pick another
-        </button>
-      </div>
-      <label class="field">
-        <span class="field-label">Call it (optional)</span>
-        <input class="text-input" type="text" data-call-it autocomplete="off" />
-      </label>
-      <div class="field-row">
-        <button type="submit" data-add>
+        <button type="submit" class="btn btn-primary" data-unsorted-add>
           Add
         </button>
       </div>

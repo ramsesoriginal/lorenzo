@@ -13,34 +13,35 @@ import ItemDetail from '../ItemDetail/ItemDetail.astro';
   </p>
 
   <div class="board-body">
-    <div class="with-sidebar full-width catalog-main">
-      <div class="stack">
-        <div class="catalog-toolbar">
+    <div class="catalog-main stack">
+      <div class="catalog-toolbar row">
+        <label class="search-field">
+          <svg class="icon" aria-hidden="true">
+            <use href={`${BRANDING_CSS_URL}/icons.svg#icon-search`}></use>
+          </svg>
           <input
             type="search"
             class="text-input"
             data-search
-            placeholder="Search the item catalog…"
+            placeholder="Search the catalog"
             aria-label="Search the item catalog"
           />
-        </div>
-        <div class="stack">
-          <strong>Filter:</strong>
+        </label>
+        <details class="catalog-filter">
+          <summary class="btn btn-secondary">Filter by prototype</summary>
           <ul class="tree stagger" aria-label="Filter by prototype" data-filter></ul>
-        </div>
+        </details>
       </div>
-      <div class="stack">
-        <p data-empty hidden>
-          No items match.
-        </p>
-        <p class="error-text" data-error hidden></p>
-        <ul
-          class="list stagger vertical-window vertical-mask"
-          aria-label="Catalog items"
-          data-list
-          hidden
-        ></ul>
-      </div>
+      <p data-empty hidden>
+        No items match.
+      </p>
+      <p class="error-text" data-error hidden></p>
+      <ul
+        class="list stagger vertical-window vertical-mask catalog-list"
+        aria-label="Catalog items"
+        data-list
+        hidden
+      ></ul>
     </div>
     <ItemDetail />
   </div>
@@ -73,14 +74,20 @@ import ItemDetail from '../ItemDetail/ItemDetail.astro';
 
   <template data-row-template>
     <li class="catalog-row">
-      <div class="row catalog-row-head">
+      <div class="catalog-row-head">
         <button type="button" class="catalog-title" data-view>
           <strong data-title></strong>
+          <span class="caption" data-kind></span>
         </button>
         <span class="pill pill-success" data-public hidden>
           Public
         </span>
-        <span class="grow"></span>
+        <span class="pill" data-gm-only hidden>
+          <svg class="icon" aria-hidden="true">
+            <use href={`${BRANDING_CSS_URL}/icons.svg#icon-private`}></use>
+          </svg>
+          <span data-gm-only-label></span>
+        </span>
         <button
           type="button"
           class="item-card-menu"

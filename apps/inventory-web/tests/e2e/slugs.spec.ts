@@ -6,7 +6,12 @@ import { DESCRIPTIONS } from './support/scenes.ts';
 import type { World } from './support/world.ts';
 
 const row = (list: Locator, name: string) =>
-  list.getByRole('listitem').filter({ has: list.page().getByText(name, { exact: true }) });
+  list.getByRole('listitem').filter({
+    has: list
+      .page()
+      .locator('[data-title]')
+      .filter({ hasText: new RegExp(`^${name}$`) }),
+  });
 const catalogList = (page: Page) =>
   page.getByRole('region', { name: 'Catalog' }).getByRole('list', { name: 'Catalog items' });
 const slugRegion = (page: Page) => page.getByRole('region', { name: 'Slug' });

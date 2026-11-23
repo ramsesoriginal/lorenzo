@@ -13,7 +13,12 @@ async function manageItems(as: (who: World['gm']) => Promise<Page>, world: World
 
 /** The row of a list whose own title is exactly `name`, not merely containing it. */
 const row = (list: Locator, name: string) =>
-  list.getByRole('listitem').filter({ has: list.page().getByText(name, { exact: true }) });
+  list.getByRole('listitem').filter({
+    has: list
+      .page()
+      .locator('[data-title]')
+      .filter({ hasText: new RegExp(`^${name}$`) }),
+  });
 
 const catalogList = (page: Page) =>
   page.getByRole('region', { name: 'Catalog' }).getByRole('list', { name: 'Catalog items' });

@@ -20,6 +20,7 @@
   "merging.spec.ts": 12,
   "notes.spec.ts": 37,
   "notifications.spec.ts": 5,
+  "select-bar.spec.ts": 20,
   "setting-down.spec.ts": 20,
   "slugs.spec.ts": 27,
   "stat-values.spec.ts": 12,

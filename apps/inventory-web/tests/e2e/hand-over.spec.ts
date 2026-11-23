@@ -86,7 +86,7 @@ test('hands a whole selection over', async ({ world, as }) => {
   await page.getByRole('button', { name: 'Select', exact: true }).click();
   await card(page, 'Backpack', 'Ornate Spellbook').click();
   await card(page, 'Backpack', 'Arrow ×3').click();
-  await page.getByRole('button', { name: 'Give selected to…' }).click();
+  await page.getByRole('button', { name: 'Give…' }).click();
   await page.getByLabel('Hand them over').check();
   await giveTo(page, 'Brisk');
   await expect(page.getByText('Gave 2 item(s) to Brisk.')).toBeVisible();

@@ -299,8 +299,8 @@ test('gives several selected items at once', async ({ world, as }) => {
   await card(page, 'Backpack', 'Ornate Spellbook').click();
   await card(page, 'Backpack', 'Arrow ×3').click();
   await expect(card(page, 'Backpack', 'Arrow ×3')).toHaveAttribute('aria-pressed', 'true');
-  await expect(page.getByText('2 selected')).toBeVisible();
-  await page.getByRole('button', { name: 'Give selected to…' }).click();
+  await expect(page.getByText('2 cards selected')).toBeVisible();
+  await page.getByRole('button', { name: 'Give…' }).click();
   await pickBeing(page, 'Brisk');
   await expect(page.getByText('Gave 2 item(s) to Brisk.')).toBeVisible();
   await expect

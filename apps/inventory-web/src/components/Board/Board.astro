@@ -50,13 +50,26 @@ import ItemDetail from '../ItemDetail/ItemDetail.astro';
     </div>
   </div>
 
-  <div class="selection-toolbar" data-selection-toolbar hidden>
-    <span data-selection-count></span>
-    <button type="button" class="btn btn-secondary" data-selection-give>
-      Give selected to&hellip;
+  <div
+    class="selection-toolbar"
+    role="toolbar"
+    aria-label="Selected cards"
+    data-selection-toolbar
+    hidden
+  >
+    <strong data-selection-count></strong>
+    <span class="grow"></span>
+    <button type="button" class="btn btn-secondary" data-selection-move>
+      Move to&hellip;
     </button>
-    <button type="button" class="btn btn-quiet" data-selection-clear>
-      Clear
+    <button type="button" class="btn btn-secondary" data-selection-give>
+      Give&hellip;
+    </button>
+    <button type="button" class="btn btn-secondary" data-selection-merge>
+      Merge
+    </button>
+    <button type="button" class="btn btn-secondary" data-selection-clear>
+      Done
     </button>
   </div>
   <div data-selection-panel></div>
@@ -74,11 +87,6 @@ import ItemDetail from '../ItemDetail/ItemDetail.astro';
 
   <dialog aria-labelledby="add-item-heading" data-add-dialog>
     <AddItem />
-    <div class="dialog-actions">
-      <button type="button" class="btn btn-secondary" data-add-close>
-        Close
-      </button>
-    </div>
   </dialog>
 
   <dialog aria-labelledby="make-heading" data-make-dialog>
@@ -120,6 +128,7 @@ import ItemDetail from '../ItemDetail/ItemDetail.astro';
   <template data-card-template>
     <li class="item-card">
       <button type="button" class="item-card-main" data-open>
+        <span class="item-card-check" aria-hidden="true"></span>
         <span class="item-card-title">
           <span class="badge" hidden data-container>
             <svg class="icon" aria-hidden="true">

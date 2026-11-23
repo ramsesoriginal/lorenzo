@@ -96,10 +96,14 @@ export function renderBoard(options: BoardOptions): RenderedBoard {
     toolbar: required<HTMLElement>(root, '[data-selection-toolbar]'),
     count: required<HTMLElement>(root, '[data-selection-count]'),
     giveButton: required<HTMLButtonElement>(root, '[data-selection-give]'),
+    moveButton: required<HTMLButtonElement>(root, '[data-selection-move]'),
+    mergeButton: required<HTMLButtonElement>(root, '[data-selection-merge]'),
+    viewerIsGm: options.viewerIsGm,
     givePanel: required<HTMLElement>(root, '[data-selection-panel]'),
     clearButton: required<HTMLButtonElement>(root, '[data-selection-clear]'),
     onError: showError,
     onGiven: () => reloadCurrentView?.(),
+    onChanged: () => reloadCurrentView?.(),
   });
 
   const drops = createDropZones({
@@ -121,6 +125,7 @@ export function renderBoard(options: BoardOptions): RenderedBoard {
     tenantId,
     standing: options.addItemStanding,
     gmWords: options.addItemGmWords,
+    onCancel: () => closeDialog(addDialog),
     async onAdded(created) {
       await reloadCurrentView?.();
       reveal(created.entity_id);
@@ -413,11 +418,6 @@ export function renderBoard(options: BoardOptions): RenderedBoard {
   });
   syncAdd();
   addOpen.addEventListener('click', () => openDialog(addDialog), { signal });
-  required<HTMLButtonElement>(addDialog, '[data-add-close]').addEventListener(
-    'click',
-    () => closeDialog(addDialog),
-    { signal },
-  );
 
   // Make from catalog (a game master's): an item of the catalog becomes one that exists, for whose board
   // this is unless another is picked.
