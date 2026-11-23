@@ -52,7 +52,7 @@ const browsers = base.extend<Browsers>({
       const page = await context.newPage();
       await page.goto('/');
       await page.getByRole('button', { name: 'Log in' }).click();
-      await expect(page.getByText('Signed in as')).toBeVisible();
+      await expect(page.getByRole('button', { name: 'Account menu' })).toBeVisible();
       return page;
     });
     await Promise.all(contexts.map((context) => context.close()));

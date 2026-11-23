@@ -91,7 +91,7 @@ export const STORAGE_KEYS: StorageEntry[] = [
       'apps/calendars/src/lib/lastTenant.ts',
       'apps/inventory-web/src/lib/lastTenant.ts',
       'apps/inventory-web/src/lib/lastHolder.ts',
-      'apps/inventory-web/src/components/SiteHead/SiteHead.astro',
+      'apps/inventory-web/src/layouts/Base.astro',
     ],
   },
   {

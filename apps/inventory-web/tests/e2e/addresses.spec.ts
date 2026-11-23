@@ -8,7 +8,7 @@ const column = (page: Page, name: string) => page.getByRole('region', { name });
 const card = (page: Page, in_: string, name: string) =>
   column(page, in_).getByRole('button', { name, exact: true });
 const itemsLink = (page: Page) =>
-  page.getByRole('navigation', { name: 'Subpages' }).getByRole('link', { name: 'Items' });
+  page.getByRole('navigation', { name: 'Pages' }).getByRole('link', { name: 'Catalog' });
 const lastTenant = (page: Page) =>
   page.evaluate(() => window.localStorage.getItem('lorenzo:lastTenant'));
 

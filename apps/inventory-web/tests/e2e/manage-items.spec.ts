@@ -35,8 +35,8 @@ test('a player gets the public catalog, to look items up, and nothing to change'
   const page = await as(world.pia);
   await page.goto(`/board/?tenant=${world.tenantId}`);
   await page
-    .getByRole('navigation', { name: 'Subpages' })
-    .getByRole('link', { name: 'Items' })
+    .getByRole('navigation', { name: 'Pages' })
+    .getByRole('link', { name: 'Catalog' })
     .click();
 
   await expect(page).toHaveTitle('Catalog — Lorenzo');

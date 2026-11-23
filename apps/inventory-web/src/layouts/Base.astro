@@ -1,10 +1,10 @@
 ---
+import AppPage from '@lorenzo/app-shell/AppPage.astro';
 import BeingPicker from '../components/BeingPicker/BeingPicker.astro';
 import CheckboxField from '../components/CheckboxField/CheckboxField.astro';
 import LinkPreview from '../components/LinkPreview/LinkPreview.astro';
-import SiteFooter from '../components/SiteFooter/SiteFooter.astro';
-import SiteHead from '../components/SiteHead/SiteHead.astro';
-import SiteHeader from '../components/SiteHeader/SiteHeader.astro';
+import { BRANDING_CSS_URL } from '../lib/config';
+import appStyles from '../styles/app.css?url';
 
 interface Props {
   title?: string;
@@ -13,22 +13,76 @@ interface Props {
 const { title = 'Lorenzo — Inventory' } = Astro.props;
 ---
 
-<!doctype html>
-<html lang="en">
-  <SiteHead title={title} />
-  <body>
-    <SiteHeader />
-    <main>
-      <div class="wrap">
-        <slot />
-      </div>
-    </main>
+<AppPage
+  title={title}
+  product="Inventory"
+  icon="kind-item"
+  brandingUrl={BRANDING_CSS_URL}
+  themeKey="lorenzo:inventory:theme"
+  shell="web"
+  template="list-detail"
+  nav={[
+    { label: 'Libraries', href: '/', icon: 'library' },
+    { label: 'Board', href: '/board/', needsLibrary: true, icon: 'kind-being' },
+    {
+      label: 'Catalog',
+      href: '/items/',
+      needsLibrary: true,
+      icon: 'kind-item',
+      also: ['/item/', '/fact/'],
+    },
+    {
+      label: 'Unsorted',
+      href: '/unsorted/',
+      needsLibrary: true,
+      requires: 'gm',
+      icon: 'select-item',
+    },
+  ]}
+  path="apps/inventory-web"
+>
+  <!-- Remembers the last tenant in the URL, and puts it back into a subpage's URL that has none -
+       before any page script reads ?tenant=, so those keep reading only the URL. Inline and
+       synchronous for that reason, so it can't import lib/lastTenant.ts: its KEY is that file's
+       LAST_TENANT_KEY, keep the two in step. Only an id is remembered here: a slug is, as its id,
+       once the shell's start has looked it up (ADR 0135); ID is lib/addresses.ts's UUID. -->
+  <script is:inline slot="head">
+    (function () {
+      var KEY = 'lorenzo:lastTenant';
+      var ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      var url = new URL(window.location.href);
+      var tenant = url.searchParams.get('tenant');
+      try {
+        if (tenant) {
+          if (ID.test(tenant)) localStorage.setItem(KEY, tenant);
+        } else if (url.pathname !== '/' && url.pathname.indexOf('/auth/') !== 0) {
+          var stored = localStorage.getItem(KEY);
+          if (stored) {
+            url.searchParams.set('tenant', stored);
+            history.replaceState(history.state, '', url);
+          }
+        }
+      } catch (e) {
+        // Storage unavailable (private browsing, disabled) - nothing was remembered.
+      }
+    })();
+  </script>
+  <link slot="head" rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link slot="head" rel="icon" href="/favicon.ico" sizes="any" />
+  <link slot="head" rel="apple-touch-icon" href="/apple-touch-icon.png" />
+  <link slot="head" rel="stylesheet" href={appStyles} />
+  <slot />
+  <!-- What the panels that find a being and give something copy, as any page may open one. -->
+  <BeingPicker />
+  <CheckboxField />
+  <LinkPreview />
+</AppPage>
+<script>
+  import { bindLegalLinksFromApi } from '@lorenzo/app-shell/legal';
+  import { API_BASE_URL } from '../lib/config';
+  import { startShell } from '../lib/shell';
 
-    <!-- What the panels that find a being and give something copy, as any page may open one. -->
-    <BeingPicker />
-    <CheckboxField />
-    <LinkPreview />
-
-    <SiteFooter />
-  </body>
-</html>
+  // The legal notice, the privacy policy and the support link, when the deployment has them (ADR 0439).
+  void bindLegalLinksFromApi(API_BASE_URL);
+  void startShell();
+</script>
