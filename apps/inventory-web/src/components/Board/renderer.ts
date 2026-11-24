@@ -67,7 +67,6 @@ export function renderBoard(options: BoardOptions): RenderedBoard {
   const error = required<HTMLElement>(root, '[data-error]');
   const columns = required<HTMLElement>(root, '[data-columns]');
   const search = required<HTMLInputElement>(root, '[data-search]');
-  const body = required<HTMLElement>(root, '.board-body');
   const carried = required<HTMLElement>(root, '[data-carried]');
   const carriedText = required<HTMLElement>(root, '[data-carried-text]');
   const carriedBar = required<HTMLElement>(root, '[data-carried-bar]');
@@ -500,31 +499,6 @@ export function renderBoard(options: BoardOptions): RenderedBoard {
     },
     { signal },
   );
-
-  // The board is as tall as the room the screen has left, so a long column scrolls inside itself and
-  // not the page (IN9): measured from where the columns start down to the status bar.
-  function fit() {
-    const top = body.getBoundingClientRect().top + window.scrollY;
-    const bottom = document.querySelector('.shell-bottom')?.getBoundingClientRect().height ?? 0;
-    const room = Math.max(240, window.innerHeight - top - bottom - 40);
-
-    root.style.setProperty('--board-room', `${Math.floor(room)}px`);
-  }
-
-  fit();
-  window.addEventListener('resize', fit, { signal });
-
-  const refit = new ResizeObserver(fit);
-
-  for (const part of root.querySelectorAll(
-    '.board-bar, [data-selection-toolbar], [data-selection-panel]',
-  )) {
-    refit.observe(part);
-  }
-
-  // What sits above the board outside it, and below it.
-  for (const part of document.querySelectorAll('.board-head, .shell-bottom')) refit.observe(part);
-  signal.addEventListener('abort', () => refit.disconnect());
 
   return {
     state,
