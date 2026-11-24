@@ -16,7 +16,12 @@ const card = (page: Page, in_: string, name: string) =>
 
 /** The row of a list whose own title is exactly `name`. */
 const row = (list: Locator, name: string) =>
-  list.getByRole('listitem').filter({ has: list.page().getByText(name, { exact: true }) });
+  list.getByRole('listitem').filter({
+    has: list
+      .page()
+      .locator('[data-title]')
+      .filter({ hasText: new RegExp(`^${name}$`) }),
+  });
 
 test('sets a thing down from its dialog, and undoes it', async ({ world, as }) => {
   await packed(world, world.pia);

@@ -1,5 +1,6 @@
 // Slugs wherever an address takes an id (ADR 0135).
 import type { Page } from '@playwright/test';
+import { boardTitle, openFinder, switchTo } from './support/board.ts';
 import { expect, test } from './support/fixtures.ts';
 import { catalog, packed } from './support/scenes.ts';
 import { person } from './support/world.ts';
@@ -8,7 +9,7 @@ const column = (page: Page, name: string) => page.getByRole('region', { name });
 const card = (page: Page, in_: string, name: string) =>
   column(page, in_).getByRole('button', { name, exact: true });
 const itemsLink = (page: Page) =>
-  page.getByRole('navigation', { name: 'Subpages' }).getByRole('link', { name: 'Items' });
+  page.getByRole('navigation', { name: 'Pages' }).getByRole('link', { name: 'Catalog' });
 const lastTenant = (page: Page) =>
   page.evaluate(() => window.localStorage.getItem('lorenzo:lastTenant'));
 
@@ -22,9 +23,8 @@ test("opens a board by the library's slug and the character's, and keeps them", 
   const address = `/board/?tenant=${world.tenantSlug}&character=ashfang`;
   await page.goto(address);
 
-  await expect(page.getByRole('heading', { name: world.tenantName })).toBeVisible();
   await expect(card(page, 'Backpack', 'Ornate Spellbook')).toBeVisible();
-  await expect(page.getByRole('link', { name: 'Ashfang' })).toHaveAttribute('aria-pressed', 'true');
+  await expect(boardTitle(page)).toHaveText('Ashfang');
   await expect(page).toHaveURL(address);
   // The header carries the library along as the address names it, and remembers its id.
   await expect(itemsLink(page)).toHaveAttribute('href', `/items/?tenant=${world.tenantSlug}`);
@@ -42,9 +42,9 @@ test("opens a group's board by its slug, and picking another writes its id", asy
   const page = await as(world.pia);
   await page.goto(`/board/?tenant=${world.tenantId}&group=the-company`);
 
-  await expect(page.getByText('Viewing what The Company holds.')).toBeVisible();
+  await expect(boardTitle(page)).toHaveText('The Company');
   await expect(page).toHaveURL(`/board/?tenant=${world.tenantId}&group=the-company`);
-  await page.getByRole('link', { name: 'Ashfang' }).click();
+  await switchTo(page, 'Ashfang');
   await expect(page).toHaveURL(
     `/board/?tenant=${world.tenantId}&character=${world.pia.character.entity_id}`,
   );
@@ -66,7 +66,7 @@ test("links an item's dialog to its page by the slugs it has", async ({ world, a
   await world.slug(spellbook, 'ornate-spellbook');
   const page = await as(world.pia);
   await page.goto(`/board/?tenant=${world.tenantId}`);
-  const link = page.getByRole('link', { name: 'View standalone page' });
+  const link = page.getByRole('link', { name: 'Open the page' });
 
   await card(page, 'Backpack', 'Ornate Spellbook').click();
   await expect(link).toHaveAttribute(
@@ -106,15 +106,17 @@ test('a GM browses a being by its slug', async ({ world, as }) => {
   await world.slug(world.oskar.character.entity_id, 'brisk');
   const page = await as(world.gm);
   await page.goto(`/board/?tenant=${world.tenantId}`);
-  await page.getByRole('tab', { name: 'Browse a being' }).click();
+  await openFinder(page);
   const box = page.getByLabel("Being's id or slug");
   const view = page.getByRole('button', { name: 'View', exact: true });
 
   await box.fill('brisk');
   await view.click();
-  await expect(page.getByText("Viewing Brisk's inventory.")).toBeVisible();
+  await expect(boardTitle(page)).toHaveText('Brisk');
   await expect(column(page, 'Equipped')).toBeVisible();
 
+  // Opening a being closes the finder; asking for one that isn't there says so.
+  await openFinder(page);
   await box.fill('nobody');
   await view.click();
   await expect(page.getByText('Nothing here has the slug “nobody”.')).toBeVisible();

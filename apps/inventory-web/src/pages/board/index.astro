@@ -1,9 +1,9 @@
 ---
 import Base from '../../layouts/Base.astro';
 import Board from '../../components/Board/Board.astro';
+import InstantiateItem from '../../components/InstantiateItem/InstantiateItem.astro';
 import HolderPicker from '../../components/HolderPicker/HolderPicker.astro';
-import ItemDetail from '../../components/ItemDetail/ItemDetail.astro';
-import UndoBanner from '../../components/UndoBanner/UndoBanner.astro';
+import { BRANDING_CSS_URL } from '../../lib/config';
 ---
 
 <Base title="Board — Lorenzo">
@@ -12,17 +12,24 @@ import UndoBanner from '../../components/UndoBanner/UndoBanner.astro';
   </p>
 
   <div id="page" hidden>
-    <h1 class="display" id="tenant-name"></h1>
-
-    <div class="stack">
-      <HolderPicker />
-      <UndoBanner />
-    </div>
+    <header class="board-head">
+      <h1 class="display">
+        <button type="button" class="board-switcher" aria-haspopup="menu" data-switcher>
+          <span data-board-title>Inventory</span>
+          <svg class="icon" aria-hidden="true">
+            <use href={`${BRANDING_CSS_URL}/icons.svg#icon-down`}></use>
+          </svg>
+        </button>
+      </h1>
+      <p class="caption" data-board-sub></p>
+    </header>
 
     <Board />
   </div>
 
-  <ItemDetail />
+  <HolderPicker />
+
+  <InstantiateItem />
 
   <script>
     import { errorMessage } from '../../lib/errorMessage';
@@ -45,7 +52,6 @@ import UndoBanner from '../../components/UndoBanner/UndoBanner.astro';
 
     const status = required<HTMLElement>(document, '#status');
     const page = required<HTMLElement>(document, '#page');
-    const tenantName = required<HTMLElement>(document, '#tenant-name');
 
     // By id or by slug (ADR 0135).
     const addressed = await addressedTenant(
@@ -68,7 +74,6 @@ import UndoBanner from '../../components/UndoBanner/UndoBanner.astro';
         // and offers the Undo, which needs to know the viewer's characters. Each reaches the
         // others only through these callbacks, when something happens.
         const undo = renderUndoBanner({
-          root: required(document, '[data-undo-banner]'),
           tenantId,
           mayUndoGiveTo: (recipientId) => viewerIsGm || picker.isMine(recipientId),
           onApplied: () => board.reload(),
@@ -84,6 +89,7 @@ import UndoBanner from '../../components/UndoBanner/UndoBanner.astro';
             addItemStanding({ viewerIsGm, holderId, seats: await seatsIn(tenantId) }),
           addItemGmWords: (holderId) => gmWordsOfBeing(tenantId, holderId),
           onOpenItem: (item, card) => detail.open(item, card),
+          onOpenMenu: (item, card, button) => detail.menu(item, card, button),
           onPrefetchItem: (item) => detail.prefetch(item),
         });
 
@@ -94,13 +100,17 @@ import UndoBanner from '../../components/UndoBanner/UndoBanner.astro';
           viewerIsGm,
           renderer: descriptionRenderer(tenantId),
           myCharacters: () => picker.myCharacters(),
+          weightUnit: () => board.weightUnit(),
           board: { state: board.state, undo, onChanged: () => board.reload() },
         });
 
         const picker = renderHolderPicker({
-          root: required(document, '[data-picker]'),
+          root: document.body,
           tenantId,
           viewerIsGm,
+          switcher: required<HTMLButtonElement>(document, '[data-switcher]'),
+          title: required<HTMLElement>(document, '[data-board-title]'),
+          subtitle: required<HTMLElement>(document, '[data-board-sub]'),
           onViewHolder: (entityId, viewing, name) => void board.load(entityId, viewing, name),
           onViewUnowned: (viewing) => void board.loadUnowned(viewing),
           onPrefetch: (entityId) => board.prefetch(entityId),
@@ -108,7 +118,6 @@ import UndoBanner from '../../components/UndoBanner/UndoBanner.astro';
         });
 
         say(status, '');
-        tenantName.textContent = tenant.name;
         page.hidden = false;
 
         await picker.load();

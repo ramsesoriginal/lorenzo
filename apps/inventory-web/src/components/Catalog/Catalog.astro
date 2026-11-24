@@ -1,42 +1,49 @@
 ---
 import { BRANDING_CSS_URL } from '../../lib/config';
+import ItemDetail from '../ItemDetail/ItemDetail.astro';
 ---
 
 <section class="section-lg" aria-labelledby="catalog-heading" data-catalog>
-  <h2 id="catalog-heading">Catalog</h2>
+  <h2 id="catalog-heading" class="visually-hidden">
+    Catalog
+  </h2>
 
   <p class="field-note" data-intro hidden>
     Everything your GMs have put in the public catalog.
   </p>
 
-  <div class="with-sidebar full-width">
-    <div class="stack">
-      <div class="catalog-toolbar">
-        <input
-          type="search"
-          class="text-input"
-          data-search
-          placeholder="Search the item catalog…"
-          aria-label="Search the item catalog"
-        />
+  <div class="board-body">
+    <div class="catalog-main stack">
+      <div class="catalog-toolbar row">
+        <label class="search-field">
+          <svg class="icon" aria-hidden="true">
+            <use href={`${BRANDING_CSS_URL}/icons.svg#icon-search`}></use>
+          </svg>
+          <input
+            type="search"
+            class="text-input"
+            data-search
+            placeholder="Search the catalog"
+            aria-label="Search the item catalog"
+          />
+        </label>
+        <details class="catalog-filter">
+          <summary class="btn btn-secondary">Filter by prototype</summary>
+          <ul class="tree stagger" aria-label="Filter by prototype" data-filter></ul>
+        </details>
       </div>
-      <div class="stack">
-        <strong>Filter:</strong>
-        <ul class="tree stagger" aria-label="Filter by prototype" data-filter></ul>
-      </div>
-    </div>
-    <div class="stack">
       <p data-empty hidden>
         No items match.
       </p>
       <p class="error-text" data-error hidden></p>
       <ul
-        class="list stagger vertical-window vertical-mask"
+        class="list stagger vertical-window vertical-mask catalog-list"
         aria-label="Catalog items"
         data-list
         hidden
       ></ul>
     </div>
+    <ItemDetail />
   </div>
 
   <template data-filter-branch-template>
@@ -66,32 +73,35 @@ import { BRANDING_CSS_URL } from '../../lib/config';
   </template>
 
   <template data-row-template>
-    <li>
-      <div class="row grow sticky-top">
-        <span data-name class="row">
+    <li class="catalog-row">
+      <div class="catalog-row-head">
+        <button type="button" class="catalog-title" data-view>
           <strong data-title></strong>
-          <span class="pill pill-success" data-public hidden>
-            Public
-          </span>
+          <span class="caption" data-kind></span>
+        </button>
+        <span class="pill pill-success" data-public hidden>
+          Public
         </span>
-
-        <div data-panel class="grow"></div>
-        <div class="row">
-          <button type="button" class="btn-secondary" data-view>
-            View
-          </button>
-
-          <button type="button" data-edit>
-            Edit
-          </button>
-          <button type="button" data-instantiate>
-            Create instance
-          </button>
-          <button type="button" class="btn-danger" data-delete>
-            Delete
-          </button>
-        </div>
+        <span class="caption catalog-made" data-made hidden></span>
+        <span class="pill" data-gm-only hidden>
+          <svg class="icon" aria-hidden="true">
+            <use href={`${BRANDING_CSS_URL}/icons.svg#icon-private`}></use>
+          </svg>
+          <span data-gm-only-label></span>
+        </span>
+        <button
+          type="button"
+          class="item-card-menu"
+          aria-label="Actions"
+          aria-haspopup="menu"
+          data-menu
+        >
+          <svg class="icon" aria-hidden="true">
+            <use href={`${BRANDING_CSS_URL}/icons.svg#icon-more`}></use>
+          </svg>
+        </button>
       </div>
+      <div data-panel class="catalog-row-panel"></div>
     </li>
   </template>
 

@@ -3,7 +3,9 @@ import Combobox from '../Combobox/Combobox.astro';
 ---
 
 <section id="unsorted" class="section-lg" aria-labelledby="unsorted-heading" data-unsorted-view>
-  <h2 id="unsorted-heading">Unsorted items</h2>
+  <h2 id="unsorted-heading" class="visually-hidden">
+    Unsorted items
+  </h2>
   <p class="field-note" data-intro>
     What players wrote down that the catalog did not know, grouped by name. Give a group to a
     catalog item and every item keeps the player's own name and notes; its holders are told.
@@ -25,24 +27,24 @@ import Combobox from '../Combobox/Combobox.astro';
         <ul class="list" data-instances></ul>
 
         <div class="field">
-          <span class="field-label">Looks like</span>
+          <span class="field-label">It looks like</span>
           <div class="row" data-suggestions></div>
         </div>
 
         <div class="field">
-          <span class="field-label">Search the catalog</span>
+          <span class="field-label">Or search the catalog</span>
           <Combobox placeholder="Search items…" label="Search the catalog" />
         </div>
 
         <div class="row" data-chosen hidden>
           <span data-chosen-text></span>
           <button type="button" class="btn-primary" data-assign>
-            Assign
+            Give the ticked
           </button>
         </div>
 
         <form class="field" data-create>
-          <span class="field-label">Or make it a new catalog item</span>
+          <span class="field-label">Or make it a new item</span>
           <div class="row">
             <input
               type="text"
@@ -55,14 +57,14 @@ import Combobox from '../Combobox/Combobox.astro';
               In the public catalog
             </label>
             <button type="submit" class="btn-secondary">
-              Create and assign
+              Make a new catalog item
             </button>
           </div>
         </form>
 
         <div class="row">
           <button type="button" class="btn-secondary" data-keep>
-            Keep as it is
+            Keep for now
           </button>
         </div>
         <p role="status" data-progress hidden></p>

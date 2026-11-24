@@ -80,7 +80,7 @@ export async function renderUnsorted({ root, tenantId, unsortedId }: UnsortedOpt
       count.textContent = plural(instances.length, 'item', 'items');
       const picked = ticked().length;
 
-      assign.textContent = chosen ? `Assign ${picked} to ${chosen.title}` : 'Assign';
+      assign.textContent = chosen ? `Give the ticked to ${chosen.title}` : 'Give the ticked';
       assign.disabled = picked === 0;
     }
 
@@ -120,6 +120,13 @@ export async function renderUnsorted({ root, tenantId, unsortedId }: UnsortedOpt
     }
 
     async function open() {
+      // One group is open at a time, in the panel beside the list.
+      for (const other of item.parentElement?.querySelectorAll<HTMLButtonElement>(
+        '[data-toggle][aria-expanded="true"]',
+      ) ?? []) {
+        if (other !== toggle) other.click();
+      }
+
       opened = true;
       body.hidden = false;
       toggle.setAttribute('aria-expanded', 'true');

@@ -1,4 +1,5 @@
 ---
+import { BRANDING_CSS_URL } from '../../lib/config';
 import AncestryTree from '../AncestryTree/AncestryTree.astro';
 import DescriptionEdit from '../DescriptionEdit/DescriptionEdit.astro';
 import Information from '../Information/Information.astro';
@@ -12,7 +13,13 @@ import UsedBy from '../UsedBy/UsedBy.astro';
 ---
 
 <div data-item-page hidden>
-  <div class="with-sidebar">
+  <a class="back-link" href="/" data-back>
+    <svg class="icon" aria-hidden="true">
+      <use href={`${BRANDING_CSS_URL}/icons.svg#icon-back`}></use>
+    </svg>
+    <span data-back-text>Back</span>
+  </a>
+  <div class="with-sidebar item-page-card">
     <div class="stack">
       <div class="stack" data-ancestry hidden>
         <h2>Ancestry</h2>

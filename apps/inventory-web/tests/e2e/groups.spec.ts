@@ -1,5 +1,6 @@
 // Groups own things, and moving something isn't giving it away (ADR 0124).
 import type { Page } from '@playwright/test';
+import { boardTitle, openSwitcher } from './support/board.ts';
 import { expect, test } from './support/fixtures.ts';
 import { catalog, packed } from './support/scenes.ts';
 import type { Person, Player, World } from './support/world.ts';
@@ -21,15 +22,13 @@ test("a member opens the group's board from the list", async ({ world, as }) => 
   await world.instance(items.arrow, { ownerId: company, container: chest });
 
   const page = await boardOf(as, world, world.pia);
-  // Among her characters, marked as a group.
-  const entry = page
-    .getByRole('list', { name: 'Your characters and groups' })
-    .getByRole('listitem')
-    .filter({ hasText: 'The Company' });
-  await expect(entry).toContainText('Group');
-  await entry.getByRole('link', { name: 'The Company' }).click();
+  // Among her boards, under her groups.
+  await expect(boardTitle(page)).toHaveText('Ashfang');
+  await openSwitcher(page);
+  await expect(page.getByText('My groups')).toBeVisible();
+  await page.getByRole('menuitemradio', { name: 'The Company', exact: true }).click();
 
-  await expect(page.getByText('Viewing what The Company holds.')).toBeVisible();
+  await expect(boardTitle(page)).toHaveText('The Company');
   // A group carries nothing (ADR 0124): what it owns in no container is Not carried.
   await expect(column(page, 'Equipped')).toHaveCount(0);
   await expect(card(page, 'Not carried', 'Backpack')).toBeVisible();
@@ -38,7 +37,7 @@ test("a member opens the group's board from the list", async ({ world, as }) => 
 
   // Back without naming it, the board opens the one she had open (ADR 0134).
   await page.goto(`/board/?tenant=${world.tenantId}`);
-  await expect(page.getByText('Viewing what The Company holds.')).toBeVisible();
+  await expect(boardTitle(page)).toHaveText('The Company');
   await expect(page).toHaveURL(`/board/?tenant=${world.tenantId}&group=${company}`);
 });
 

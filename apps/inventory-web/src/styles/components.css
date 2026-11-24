@@ -4,11 +4,6 @@
     background-color 150ms ease;
 }
 
-.board-column--drop-target {
-  border-color: var(--action);
-  background: color-mix(in srgb, var(--action) 10%, var(--fill-soft));
-}
-
 /* Something of theirs in someone else's keeping (ADR 0131, 0134): shown, not moved. */
 .board-column--read-only {
   border-style: dashed;
@@ -87,9 +82,35 @@
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  margin-top: var(--space-2);
-  font-size: 13px;
-  color: var(--text-secondary);
+  margin-block: var(--space-3);
+  padding: var(--space-3);
+  border: 1px solid color-mix(in srgb, var(--action) 35%, var(--border-subtle));
+  border-radius: var(--radius-card);
+  background: color-mix(in srgb, var(--action) 10%, var(--surface-default));
+  color: var(--text-primary);
+}
+.selection-toolbar[hidden] {
+  display: none;
+}
+/* A card in select mode shows a box to tick (IN4's bulk bar). */
+.item-card-check {
+  display: none;
+}
+.is-selecting .item-card-check {
+  display: inline-block;
+  flex: none;
+  inline-size: 16px;
+  block-size: 16px;
+  margin-inline-end: var(--space-2);
+  border: 1.5px solid var(--text-secondary);
+  border-radius: 4px;
+  background: var(--surface-default);
+  vertical-align: middle;
+}
+.is-selecting .item-card--selected .item-card-check {
+  border-color: var(--action);
+  background: var(--action);
+  box-shadow: inset 0 0 0 2px var(--surface-default);
 }
 
 .merge-candidates {
@@ -159,4 +180,691 @@
   color: var(--text-secondary);
   font-size: 14px;
   line-height: 1.6;
+}
+
+/* ======== The board as the design draws it (IN1, IN7 to IN9, IN11) ======== */
+
+/* The head: the board's name is the switcher, with what the board is under it. */
+.board-head {
+  margin-block-end: var(--space-3);
+}
+.board-head h1 {
+  margin: 0;
+}
+.board-head p {
+  margin: 0;
+  color: var(--text-secondary);
+}
+.board-switcher {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 0;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.board-switcher .icon {
+  width: 20px;
+  height: 20px;
+  color: var(--text-secondary);
+}
+
+/* The bar: search, Add an item, Select, and the weight carried at the right. */
+.board-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  margin-block-end: var(--space-4);
+}
+.board-bar .grow {
+  flex: 1;
+}
+.search-field {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex: 1 1 16rem;
+  max-width: 28rem;
+}
+.search-field .icon {
+  position: absolute;
+  inset-inline-start: var(--space-3);
+  color: var(--text-secondary);
+  pointer-events: none;
+}
+.search-field .text-input {
+  width: 100%;
+  max-width: none;
+  padding-inline-start: calc(var(--space-3) * 2 + 16px);
+}
+.carried {
+  display: grid;
+  gap: var(--space-1);
+  min-width: 14rem;
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+.carried-line {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+.stat-bar {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--border-subtle);
+  overflow: hidden;
+}
+.stat-bar i {
+  display: block;
+  height: 100%;
+  background: var(--text-secondary);
+}
+
+/* The columns fill the page and are as tall as the tallest, no taller than the screen; one with more
+   cards than fit scrolls inside itself (IN9). */
+.board-columns {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(15rem, 1fr);
+  gap: var(--space-3);
+  align-items: stretch;
+  overflow-x: auto;
+  padding-block-end: var(--space-2);
+}
+.board-column {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+  max-height: calc(100dvh - 16rem);
+  padding: var(--space-3);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-card);
+  background: var(--surface-muted);
+}
+.board-column > .list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+.column-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+}
+.column-head h3 {
+  margin: 0;
+  font-size: 16px;
+}
+.column-count {
+  color: var(--text-secondary);
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+}
+.column-line {
+  margin: 0;
+  color: var(--text-secondary);
+}
+.read-only-mark {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+.read-only-mark .icon {
+  width: 14px;
+  height: 14px;
+}
+
+/* A card: its name and quantity, then its weight and who it belongs to. */
+.item-card-main {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.item-card-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-1);
+  font-weight: 500;
+}
+.item-card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-2);
+  color: var(--text-secondary);
+}
+
+/* On a phone the board is one column at a time, with their names to switch between (IN2). */
+.column-tabs {
+  display: none;
+}
+@media (max-width: 720px) {
+  .column-tabs {
+    display: flex;
+    gap: var(--space-1);
+    overflow-x: auto;
+    margin-block-end: var(--space-2);
+    border-bottom: 1px solid var(--border-subtle);
+  }
+  .column-tabs[hidden] {
+    display: none;
+  }
+  .column-tab {
+    flex: none;
+    min-height: var(--target-min);
+    padding-inline: var(--space-3);
+    border: none;
+    border-bottom: 2px solid transparent;
+    background: none;
+    color: var(--text-secondary);
+    font: inherit;
+    cursor: pointer;
+  }
+  .column-tab[aria-selected="true"] {
+    border-bottom-color: var(--action);
+    color: var(--text-primary);
+    font-weight: 600;
+  }
+  .board-columns {
+    display: block;
+  }
+  .board-columns > .board-column:not(.is-active) {
+    display: none;
+  }
+  .board-column {
+    max-height: none;
+  }
+  .carried {
+    flex-basis: 100%;
+  }
+  .search-field {
+    max-width: none;
+  }
+}
+
+/* In the add dialog the suggestions push down what is under them rather than covering it. */
+[data-add-dialog] .combobox-suggestions {
+  position: static;
+  margin-block-start: var(--space-1);
+}
+
+/* A card: its name and weight, and its "…" menu at the end of the row (IN4). */
+.item-card {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+.item-card-main {
+  flex: 1;
+  min-width: 0;
+  justify-items: start;
+  justify-content: start;
+  align-content: center;
+  inline-size: 100%;
+  background: none;
+  border: 0;
+  padding: 0;
+  text-align: start;
+  color: inherit;
+  font: inherit;
+  cursor: inherit;
+}
+.item-card-menu {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  inline-size: 28px;
+  block-size: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-control);
+  background: none;
+  color: var(--text-secondary);
+}
+.item-card-menu:hover {
+  background: var(--surface-muted);
+  color: var(--text-primary);
+}
+.is-selecting .item-card-menu {
+  display: none;
+}
+/* The card whose item is open in the panel. */
+.list > .item-card--open {
+  border-color: var(--action);
+  background: color-mix(in srgb, var(--action) 10%, var(--surface-default));
+}
+
+/* The item beside the board (IN3): a panel on a wide screen, a side sheet on a tablet. */
+.board-body {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-4);
+}
+.board-body > .board-columns {
+  flex: 1;
+  min-width: 0;
+}
+dialog.item-panel {
+  padding: var(--space-4);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-card);
+  background: var(--surface-default);
+  color: var(--text-primary);
+  overflow-y: auto;
+}
+/* Beside the board: in the row, as tall as the columns can be. */
+dialog.item-panel:not(:modal) {
+  position: static;
+  flex: none;
+  inline-size: 22rem;
+  max-block-size: calc(100dvh - 17rem);
+  margin: 0;
+}
+/* A sheet: up from the bottom edge, over the board, with a Close at its foot. */
+dialog.item-panel:modal {
+  position: fixed;
+  inset: auto 0 0 0;
+  margin: 0;
+  inline-size: 100%;
+  max-inline-size: none;
+  block-size: auto;
+  max-block-size: 88dvh;
+  border-radius: var(--radius-surface) var(--radius-surface) 0 0;
+}
+.item-panel-close-bottom {
+  display: none;
+  order: 9;
+}
+dialog.item-panel:modal .item-panel-close-bottom {
+  display: inline-flex;
+  justify-content: center;
+}
+.item-panel-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+.item-panel-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+.item-panel-name {
+  margin: 0;
+  font-size: 1.1rem;
+}
+.item-panel-close {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  inline-size: 28px;
+  block-size: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-control);
+  background: none;
+  color: var(--text-secondary);
+}
+.item-panel-close:hover {
+  background: var(--surface-muted);
+  color: var(--text-primary);
+}
+@media (min-width: 1100px) {
+  .board-body .board-columns {
+    grid-auto-columns: minmax(13rem, 1fr);
+  }
+}
+
+/* The panel reads in the order the design gives: what it is, what to do with it, then its details. */
+.item-detail-content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+.item-detail-content [data-view],
+.item-detail-content [data-item-view] {
+  display: contents;
+}
+.item-detail-content [data-descriptions] {
+  order: 2;
+}
+.item-detail-content [data-actions] {
+  order: 3;
+}
+.item-detail-content [data-action-panel] {
+  order: 4;
+}
+.item-detail-content [data-groups],
+.item-detail-content [data-tags],
+.item-detail-content [data-pictures] {
+  order: 5;
+}
+.item-detail-content [data-ancestry] {
+  order: 6;
+}
+.item-detail-content > section {
+  order: 7;
+}
+.item-detail-content [data-view-link] {
+  order: 8;
+  align-self: flex-start;
+}
+
+/* A drag (IN12): the column under the card is lit, and a dashed ghost sits where the card would go. */
+.item-card--dragging {
+  opacity: 0.45;
+}
+.board-column--drop-target {
+  border-color: var(--action);
+  background: color-mix(in srgb, var(--action) 8%, var(--surface-muted));
+  box-shadow: 0 0 0 2px var(--action);
+}
+.board-column--refuse {
+  border-color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 8%, var(--surface-muted));
+  box-shadow: 0 0 0 2px var(--danger);
+}
+.list > .item-card--ghost {
+  display: grid;
+  gap: 2px;
+  border: 2px dashed var(--action);
+  background: color-mix(in srgb, var(--action) 8%, var(--surface-default));
+  color: var(--text-secondary);
+}
+.list > .item-card--ghost-refused {
+  border-color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 8%, var(--surface-default));
+}
+.list > .item-card--ghost-joins {
+  border-style: solid;
+}
+/* Equipped and Not carried: a thinner gold ring with its soft glow (IN10). */
+.board-column.glow-canonical::before {
+  inset: -1px;
+}
+.board-column.glow-canonical::after {
+  inset: 1px;
+}
+
+/* The catalog: its list, and the item beside it (IN3, IN5). */
+.list > .catalog-row {
+  display: block;
+  /* The list is a column with a height of its own: a row with a form open must not be squeezed. */
+  flex: none;
+  padding-block-end: 0;
+}
+.catalog-row-head {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: var(--space-2);
+}
+.catalog-row-head .grow {
+  flex: 1;
+}
+.catalog-title {
+  background: none;
+  border: 0;
+  padding: 0;
+  text-align: start;
+  color: inherit;
+  cursor: pointer;
+}
+.catalog-title strong {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.catalog-row-panel:empty {
+  display: none;
+}
+.board-body > .catalog-main {
+  flex: 1;
+  min-width: 0;
+}
+.catalog-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-block-end: var(--space-3);
+}
+
+/* The add dialog (IN4): a source to choose, then the form for it. */
+[data-add-dialog] {
+  inline-size: min(30rem, 92vw);
+}
+.add-source {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.add-source legend {
+  padding: 0;
+  margin-block-end: var(--space-2);
+}
+
+/* The catalog (IN3, IN5): rows across the page, the item beside them. */
+.catalog-toolbar {
+  align-items: flex-start;
+  gap: var(--space-3);
+  max-width: none;
+}
+.catalog-toolbar .search-field {
+  max-width: 28rem;
+  flex: 1;
+}
+.catalog-filter > summary {
+  list-style: none;
+  cursor: pointer;
+}
+.catalog-filter[open] {
+  flex-basis: 100%;
+}
+.catalog-list {
+  gap: 0;
+}
+.list > .catalog-row {
+  display: block;
+  flex: none;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid var(--border-subtle);
+  border-radius: 0;
+  background: transparent;
+}
+.catalog-row-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+}
+.catalog-row-head .catalog-title {
+  flex: 1;
+  display: grid;
+  gap: 2px;
+}
+.catalog-row-panel {
+  padding: 0 var(--space-3) var(--space-3);
+}
+.list > .catalog-row:hover,
+.list > .catalog-row--open {
+  background: color-mix(in srgb, var(--action) 8%, var(--surface-default));
+}
+.is-selecting .item-card-main {
+  grid-template-columns: auto 1fr;
+  column-gap: var(--space-2);
+  align-items: center;
+}
+.is-selecting .item-card-main .item-card-check {
+  grid-row: 1 / span 2;
+  margin-inline-end: 0;
+}
+.catalog-row-head .catalog-title {
+  justify-content: start;
+  justify-items: start;
+  text-align: start;
+  background: none;
+  border: 0;
+  padding: 0;
+  color: inherit;
+}
+
+/* The game master's tools sit under the item's own actions, and the stats read as plain rows. */
+.item-detail-content .item-panel-gm {
+  order: 4;
+  padding-block-start: var(--space-3);
+  border-block-start: 1px solid var(--border-subtle);
+}
+.item-panel-gm .btn-danger {
+  background: transparent;
+  color: var(--danger);
+  border: 1px solid var(--danger);
+}
+.item-detail-content [data-groups] h3 {
+  font-size: var(--fs-meta, 13px);
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+.item-detail-content .key-values {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  column-gap: var(--space-4);
+}
+.item-detail-content .key-values dd {
+  text-align: end;
+}
+.catalog-made {
+  min-inline-size: 4.5rem;
+  text-align: end;
+  color: var(--text-secondary);
+}
+.item-detail-content .item-panel-made {
+  order: 5;
+}
+/* A note says who can read it as a pill, as drawn. */
+[data-notes] [data-describe] {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px var(--space-2);
+  border: 1px solid var(--border-strong, var(--border-subtle));
+  border-radius: 999px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+/* A catalog item written in place (IN5). */
+.item-editor-fields {
+  display: grid;
+  gap: var(--space-2);
+}
+.item-editor-field {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+.item-editor-field .text-input {
+  inline-size: 7rem;
+  text-align: end;
+}
+.item-editor-tags {
+  flex-wrap: wrap;
+}
+.chip-choice {
+  cursor: pointer;
+}
+.chip-choice[aria-pressed="true"] {
+  background: color-mix(in srgb, var(--action) 14%, var(--surface-default));
+  border-color: var(--action);
+}
+.item-editor-structure {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border: 1px dashed var(--border-subtle);
+  border-radius: var(--radius-card);
+}
+
+/* Unsorted (IN6): the groups in a list, the open one in a panel beside it. */
+[data-unsorted-view] [data-groups] {
+  position: relative;
+  gap: 0;
+  padding-inline-end: 26rem;
+  min-block-size: 24rem;
+}
+[data-unsorted-view] [data-groups] > li {
+  display: block;
+  padding: var(--space-2) var(--space-3);
+  border: 0;
+  border-bottom: 1px solid var(--border-subtle);
+  border-radius: 0;
+  background: transparent;
+}
+[data-unsorted-view] [data-body]:not([hidden]) {
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline-end: 0;
+  inline-size: 24rem;
+  padding: var(--space-4);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-card);
+  background: var(--surface-default);
+}
+@media (max-width: 960px) {
+  [data-unsorted-view] [data-groups] {
+    padding-inline-end: 0;
+  }
+  [data-unsorted-view] [data-body]:not([hidden]) {
+    position: static;
+    inline-size: auto;
+  }
+}
+
+/* An item's page: a card, with the way back above it (IN3). */
+.back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin-block-end: var(--space-3);
+  font-size: 13px;
+}
+.item-page-card {
+  padding: var(--space-4);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-card);
+  background: var(--surface-default);
+}
+
+/* Unpack asks in a dialog (dialog-unpack): what it will make, and that the pack goes. */
+dialog.unpack-dialog {
+  inline-size: min(30rem, 92vw);
+  padding: var(--space-4);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-surface);
+  background: var(--surface-default);
+  color: var(--text-primary);
+}
+dialog.unpack-dialog .dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-block-start: var(--space-3);
+}
+
+/* An empty board: the mascot's place, smaller than a whole page's. */
+[data-empty] .page-state-art {
+  width: 140px;
 }
