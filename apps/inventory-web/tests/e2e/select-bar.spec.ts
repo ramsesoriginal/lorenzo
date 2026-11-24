@@ -20,6 +20,18 @@ test('moves the selected cards into a container, and is done', async ({ world, a
   await world.instance(items.book, { owner: world.pia, container: pouch });
   const page = await boardOf(as, world);
 
+  await expect(page.getByRole('region', { name: 'Belt Pouch' })).toBeVisible();
+  // Marks on the columns go if the board is drawn again; the board is not fetched again either.
+  await page.evaluate(() => {
+    for (const el of document.querySelectorAll('[data-column]'))
+      el.setAttribute('data-probe', 'kept');
+  });
+  const boardReads: string[] = [];
+
+  page.on('request', (request) => {
+    if (request.url().includes('/controlled-by/')) boardReads.push(request.url());
+  });
+
   await page.getByRole('button', { name: 'Select', exact: true }).click();
   await expect(bar(page)).toBeHidden();
   await card(page, 'Backpack', 'Ornate Spellbook').click();
@@ -35,6 +47,14 @@ test('moves the selected cards into a container, and is done', async ({ world, a
   await expect(card(page, 'Belt Pouch', 'Arrow ×3')).toBeVisible({ timeout: 15_000 });
   await expect(card(page, 'Belt Pouch', 'Ornate Spellbook')).toBeVisible();
   await expect(bar(page)).toBeHidden();
+  await expect(
+    page.getByRole('region', { name: 'Backpack' }).locator('[data-column-count]'),
+  ).toHaveText('0');
+  await expect(
+    page.getByRole('region', { name: 'Belt Pouch' }).locator('[data-column-count]'),
+  ).toHaveText('3');
+  await expect(page.locator('[data-column]:not([data-probe])')).toHaveCount(0);
+  expect(boardReads).toEqual([]);
 });
 
 test('merges stacks of one item, and only those', async ({ world, as }) => {

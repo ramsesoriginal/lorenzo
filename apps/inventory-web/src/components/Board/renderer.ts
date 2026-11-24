@@ -107,6 +107,7 @@ export function renderBoard(options: BoardOptions): RenderedBoard {
     onError: showError,
     onGiven: () => reloadCurrentView?.(),
     onChanged: () => reloadCurrentView?.(),
+    onMoved: (ids, target) => drops.place(ids, target),
   });
 
   const drops = createDropZones({
