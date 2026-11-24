@@ -22,7 +22,7 @@ import { textHome } from '../../lib/textSources';
 import type { CharacterSummary, ItemBase, ItemInstance } from '../../lib/types';
 import { looksLikeAPack } from '../../lib/unpack';
 import { renderAncestryTree } from '../AncestryTree/renderer';
-import type { BoardState } from '../Board/state';
+import type { BoardPatch, BoardState } from '../Board/state';
 import { renderItemView } from '../ItemView/renderer';
 import { renderNotes } from '../Notes/renderer';
 import type { RenderedUndoBanner } from '../UndoBanner/renderer';
@@ -45,6 +45,8 @@ export type ItemDetailBoard = {
   undo: RenderedUndoBanner;
   // The board is out of date: something was given, split, merged or moved.
   onChanged(): void;
+  // The same, said in place on the cards; false when it can't be (then onChanged).
+  onPatched?(changes: BoardPatch): boolean;
 };
 
 export type ItemDetailOptions = {
@@ -246,6 +248,11 @@ export function renderItemDetail(options: ItemDetailOptions): RenderedItemDetail
         closePanels();
         close();
         board.onChanged();
+      },
+      patched(changes) {
+        closePanels();
+        close();
+        if (!board.onPatched?.(changes)) board.onChanged();
       },
     };
 
