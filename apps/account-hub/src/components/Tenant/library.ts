@@ -219,7 +219,7 @@ function renderCampaign(
   }
 
   // The same gate as the roster's controls above; matches
-  // upload_campaign_picture's own gate too (ADR 0085).
+  // upload_campaign_picture's own gate too (ADR 0087).
   if (canManage) {
     const picture = cloneComponent(root, '[data-picture-upload-template]');
     const invitePlayer = cloneComponent(root, '[data-invite-player-template]');
@@ -316,7 +316,7 @@ export function fillLibrary(
   const { onChanged } = hooks;
   const admin = isTenantAdmin(tenant);
 
-  // Same gate upload_tenant_picture itself enforces (ADR 0056/0085) -
+  // Same gate upload_tenant_picture itself enforces (ADR 0056/0087) -
   // ORGA+, day-to-day tenant administration.
   if (admin) {
     const picture = cloneComponent(root, '[data-picture-upload-template]');
