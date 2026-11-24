@@ -35,8 +35,8 @@ description = "Nothing to format of its own - tokens.css is authored in apps/bra
 run = "echo 'packages/brand has nothing to format of its own - see apps/brand.'"
 
 [tasks.test]
-description = "No automated tests yet"
-run = "echo 'packages/brand has no automated tests yet.'"
+description = "No unit tests - the browser checks are test-e2e"
+run = "echo 'packages/brand has no unit tests - the browser checks are mise run //packages/brand:test-e2e.'"
 
 # Browser checks of the web interface parts that apps/brand holds (tests/e2e): Playwright against
 # the static previews there. Not part of `test`; CI runs it in its own `e2e (brand)` job.
