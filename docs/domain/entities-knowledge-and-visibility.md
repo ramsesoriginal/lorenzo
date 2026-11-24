@@ -12,6 +12,8 @@ In the product an entity is an **entry**, and what it is (an item, a being, a pl
 
 The same entity can carry different stats/state depending on which game system is looking at it — a character might have D&D stats in one campaign and Warhammer Wrath & Glory stats in another, if the same underlying repository gets used across systems (see [repositories](repositories.md)).
 
+A library can hold the vocabulary of several game systems side by side, each with its own stats, and a campaign names the one it plays ([RFC 0052](../rfcs/0052-game-systems-in-one-library.md)). A template says how an entry is read as a sheet: which stats and notes, in what order, optionally for one kind and for the entries under one ancestor. A feature is an entry that something can have, such as a spell, a feat or a playbook move; rules say which an entry is granted and what it may choose ([RFC 0054](../rfcs/0054-features-grants-and-choices.md)). A stat can also hold dice ([RFC 0056](../rfcs/0056-dice-values.md)). [Modelling a game system](../guides/modelling-a-game-system.md) says how to set one up.
+
 ## Text is always split by audience
 
 Information — lore, notes and descriptions — is split by audience, not stored as one blob:
