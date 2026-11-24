@@ -1,4 +1,9 @@
-import { failedEntityIds, findMergeCandidates, summarizeBulkResults } from '../../lib/boardLogic';
+import {
+  failedEntityIds,
+  findMergeCandidates,
+  mergedAway,
+  summarizeBulkResults,
+} from '../../lib/boardLogic';
 import { errorMessage } from '../../lib/errorMessage';
 import { bulkAssignItemInstances, bulkMoveItemInstances, mergeItemInstance } from '../../lib/items';
 import { bulkMoveAnywayQuestion } from '../../lib/moveAnyway';
@@ -36,6 +41,8 @@ export type SelectionOptions = {
   onGiven(): void;
   // Something was moved or merged: the board is out of date.
   onChanged(): void;
+  // These were moved into the target: the board puts their cards there. False when it can't.
+  onMoved(ids: string[], target: string): boolean;
 };
 
 const GIVE_LABEL = 'Give…';
@@ -267,7 +274,12 @@ export function createSelection(options: SelectionOptions): Selection {
           givePanel.replaceChildren();
           options.moveButton.textContent = MOVE_LABEL;
           setMode(false);
-          options.onChanged();
+
+          // What stacked into something identical has to be shown anew; the rest only moved.
+          const failedIds = failedEntityIds(results);
+          const moved = selected.filter((id) => !failedIds.has(id));
+
+          if (mergedAway(results) || !options.onMoved(moved, target)) options.onChanged();
         } catch (error) {
           status.hidden = false;
           status.textContent = errorMessage(error);
