@@ -37,6 +37,8 @@ export type DropZoneOptions = {
   undo: RenderedUndoBanner;
   onError(message: string): void;
   reload(): void;
+  // What was moved is now in the target: the columns say so in place. False when that can't be told.
+  settle(moved: string[], target: string | null): boolean;
   // The library's weight unit and what a container can carry, for what a drag says (IN12).
   weights(): { unit: string | null; limitOf(containerId: string): number | null };
 };
@@ -328,9 +330,14 @@ export function createDropZones(options: DropZoneOptions): DropZones {
           if (splitting || merged) {
             undo.forget();
             options.reload();
-          } else if (idsToMove.some((id) => state.containers.has(id))) {
-            // A container moved: its own column, and those inside it, now say where it is
-            // (ADR 0134). The Undo stays.
+          } else if (
+            !options.settle(
+              idsToMove.filter((id) => !failedIds.has(id)),
+              target,
+            )
+          ) {
+            // Where something is can't be told from what the board shows: it is drawn anew. The
+            // Undo stays.
             options.reload();
           }
         })

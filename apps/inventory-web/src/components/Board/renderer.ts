@@ -80,6 +80,8 @@ export function renderBoard(options: BoardOptions): RenderedBoard {
   const state = createBoardState();
 
   let reloadCurrentView: (() => Promise<void>) | null = null;
+  // Said when something moved, once the columns exist to say it.
+  let settleColumns: ((moved: string[], target: string | null) => boolean) | null = null;
 
   function showError(message: string) {
     error.hidden = false;
@@ -116,6 +118,16 @@ export function renderBoard(options: BoardOptions): RenderedBoard {
     undo: options.undo,
     onError: showError,
     reload: () => reloadCurrentView?.(),
+    settle: (moved, target) => {
+      const settled = settleColumns?.(moved, target) ?? false;
+
+      if (settled) {
+        drawTabCounts();
+        drawCarried();
+      }
+
+      return settled;
+    },
     weights: () => ({ unit, limitOf: (id) => limits.get(id) ?? null }),
   });
 
@@ -141,9 +153,13 @@ export function renderBoard(options: BoardOptions): RenderedBoard {
   // The being or group whose board this is, who a thing made here is made for.
   let holderId: string | null = null;
   const limits = new Map<string, number>();
+  // Which board is on the page, so that fetching it again changes it in place.
+  let shownView: string | null = null;
+  // What the being can carry, once read (null: no limit).
+  let carryLimit: number | null | undefined;
   let unitLoading: Promise<{ unit: string | null; capacity: string }> | undefined;
 
-  const { renderColumn, refreshNotes, forgetColumns } = createColumns({
+  const { renderColumn, reconcile, refreshNotes, settle, forgetColumns } = createColumns({
     weights: () => ({ unit, limitOf: (id) => limits.get(id) ?? null, holderName }),
     root,
     state,
@@ -155,6 +171,8 @@ export function renderBoard(options: BoardOptions): RenderedBoard {
     onPrefetchItem: options.onPrefetchItem,
     signal,
   });
+
+  settleColumns = settle;
 
   // A couple of fake columns and cards shaped like the real thing, without the heading,
   // while the board loads.
@@ -185,32 +203,73 @@ export function renderBoard(options: BoardOptions): RenderedBoard {
   // Both boards render alike: a being's or a group's (what it controls, ADR 0131) and the
   // board of unowned things (ADR 0077). Only the latter can be empty - every other board has
   // Not carried to drop onto.
-  async function show(fetchBoard: () => Promise<Board>, emptyMessage: string | null) {
-    state.items.clear();
-    state.containers.clear();
-    state.occupied.clear();
-    state.readOnly.clear();
+  async function show(
+    fetchBoard: () => Promise<Board>,
+    emptyMessage: string | null,
+    refresh = false,
+  ) {
+    // The same board again, with columns on the page: it is changed to match, not drawn anew.
+    const inPlace = refresh && columns.querySelector('[data-column]:not(:has(.skeleton))') !== null;
+
     selection.clear();
-    forgetColumns();
-    empty.hidden = true;
-    empty.replaceChildren();
     error.hidden = true;
-    carried.hidden = true;
-    renderSkeleton();
+
+    if (!inPlace) {
+      state.items.clear();
+      state.containers.clear();
+      state.occupied.clear();
+      state.readOnly.clear();
+      forgetColumns();
+      empty.hidden = true;
+      empty.replaceChildren();
+      carried.hidden = true;
+      renderSkeleton();
+    }
 
     try {
       const shown = await fetchBoard();
 
       state.unsortedId = await unsortedLookup;
       state.current = shown;
+
+      const nothing =
+        (emptyMessage !== null || !shown.holderIsBeing) &&
+        !shown.columns.some((c) => c.items.length > 0);
+
+      if (inPlace && !nothing) {
+        const previous = new Map(state.items);
+        const sections = [...columns.querySelectorAll<HTMLElement>('[data-column]')];
+        const active = Math.max(
+          0,
+          sections.findIndex((section) => section.classList.contains('is-active')),
+        );
+
+        state.items.clear();
+        state.containers.clear();
+        state.occupied.clear();
+        state.readOnly.clear();
+        reconcile(columns, shown.columns, previous);
+        drawTabs(active);
+        void loadWeights(shown);
+        return;
+      }
+
+      if (inPlace) {
+        state.items.clear();
+        state.containers.clear();
+        state.occupied.clear();
+        state.readOnly.clear();
+        forgetColumns();
+        empty.hidden = true;
+        empty.replaceChildren();
+        carried.hidden = true;
+      }
+
       columns.replaceChildren();
       columns.removeAttribute('aria-busy');
 
       // A group's board, or what nobody owns, with nothing on it says so; a being's keeps its columns.
-      if (
-        (emptyMessage !== null || !shown.holderIsBeing) &&
-        !shown.columns.some((c) => c.items.length > 0)
-      ) {
+      if (nothing) {
         const mayAdd = !addOpen.hidden;
 
         empty.hidden = false;
@@ -235,6 +294,12 @@ export function renderBoard(options: BoardOptions): RenderedBoard {
       drawTabs();
       void loadWeights(shown);
     } catch (cause) {
+      // The page as it was stays: a failed refresh is said, and nothing is lost from view.
+      if (inPlace) {
+        showError(errorMessage(cause));
+        return;
+      }
+
       columns.replaceChildren();
       columns.removeAttribute('aria-busy');
       error.hidden = false;
@@ -334,6 +399,19 @@ export function renderBoard(options: BoardOptions): RenderedBoard {
 
     if (state.current !== shown) return;
 
+    carryLimit = own;
+    drawCarried();
+  }
+
+  // What the being carries against what it can: said again when something moves.
+  function drawCarried() {
+    const shown = state.current;
+
+    if (!shown || !shown.holderIsBeing || shown.holderId === null || carryLimit === undefined) {
+      return;
+    }
+
+    const own = carryLimit;
     const weight = carriedWeight(shown);
 
     carried.hidden = false;
@@ -345,6 +423,18 @@ export function renderBoard(options: BoardOptions): RenderedBoard {
 
     if (fill)
       fill.style.width = `${Math.max(0, Math.min(100, Math.round((weight / (own || 1)) * 100)))}%`;
+  }
+
+  // The phone's row of column names carries each one's count.
+  function drawTabCounts() {
+    const sections = [...columns.querySelectorAll<HTMLElement>('[data-column]')];
+
+    sections.forEach((section, index) => {
+      const badge = tabs.children[index]?.querySelector('.caption');
+
+      if (badge)
+        badge.textContent = section.querySelector('[data-column-count]')?.textContent ?? '';
+    });
   }
 
   // The library's `unsorted` item, looked up once: it marks the placeholders (ADR 0238). Not
@@ -386,22 +476,33 @@ export function renderBoard(options: BoardOptions): RenderedBoard {
 
     prefetched.delete(entityId);
 
-    await show(async () => {
-      const shown = controlledBoard(
-        await (request ?? getControlledItemInstances(tenantId, entityId)),
-        entityId,
-      );
+    const same = !fresh && shownView === entityId;
 
-      state.ownerId = shown.holderIsBeing ? shown.holderId : null;
+    shownView = entityId;
 
-      return shown;
-    }, null);
+    await show(
+      async () => {
+        const shown = controlledBoard(
+          await (request ?? getControlledItemInstances(tenantId, entityId)),
+          entityId,
+        );
+
+        state.ownerId = shown.holderIsBeing ? shown.holderId : null;
+
+        return shown;
+      },
+      null,
+      same,
+    );
 
     if (fresh && state.ownerId) void addItem.show({ id: state.ownerId, name });
   }
 
-  async function loadUnowned(viewingText: string): Promise<void> {
-    reloadCurrentView = () => loadUnowned(viewingText);
+  async function loadUnowned(viewingText: string, fresh = true): Promise<void> {
+    reloadCurrentView = () => loadUnowned(viewingText, false);
+    const same = !fresh && shownView === 'unowned';
+
+    shownView = 'unowned';
     state.ownerId = null;
     holderId = null;
     void addItem.show(null);
@@ -410,6 +511,7 @@ export function renderBoard(options: BoardOptions): RenderedBoard {
     await show(
       async () => unownedBoard(await getUnownedItemInstances(tenantId)),
       "There's nothing unowned right now.",
+      same,
     );
   }
 

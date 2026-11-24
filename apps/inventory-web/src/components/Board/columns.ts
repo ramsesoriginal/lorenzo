@@ -5,7 +5,7 @@ import { fromTemplate, requiredIn } from '../../lib/template';
 import type { ItemInstance } from '../../lib/types';
 import { isUnsorted } from '../../lib/unsorted';
 import type { DropZones } from './dragDrop';
-import { ensurePlaceholder } from './placeholder';
+import { ensurePlaceholder, removePlaceholder } from './placeholder';
 import type { Selection } from './selection';
 import type { BoardState } from './state';
 
@@ -32,6 +32,10 @@ export type ColumnsOptions = {
     holderName: string | null;
   };
 };
+
+function capitalized(text: string): string {
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
 
 export function matchesSearch(item: ItemInstance, query: string): boolean {
   return !query || item.title.toLowerCase().includes(query);
@@ -122,7 +126,10 @@ export function createColumns(options: ColumnsOptions) {
   }
 
   // The columns drawn, to say their weights again when the limits arrive.
-  const noted = new Map<HTMLElement, { column: BoardColumn; field: HTMLElement }>();
+  const noted = new Map<
+    HTMLElement,
+    { column: BoardColumn; field: HTMLElement; count: HTMLElement }
+  >();
 
   function drawNote(column: BoardColumn, field: HTMLElement) {
     const { unit, limitOf, holderName } = options.weights();
@@ -136,6 +143,75 @@ export function createColumns(options: ColumnsOptions) {
 
   function refreshNotes() {
     for (const { column, field } of noted.values()) drawNote(column, field);
+  }
+
+  // Things were moved: each is now in `target` (null: in none). The columns say it by changing their
+  // words, not by being drawn again: what they hold, and where their own container now is ("In
+  // Backpack", "Not carried"). False when somewhere can't be told from what is on the board (a
+  // container held by someone whose things aren't shown), and then the board is drawn anew.
+  function settle(moved: string[], target: string | null): boolean {
+    for (const id of moved) {
+      const item = state.items.get(id);
+
+      if (item) item.container_entity_id = target;
+    }
+
+    for (const { column } of noted.values()) {
+      column.items = [...state.items.values()].filter(
+        (item) => (item.container_entity_id ?? 'loose') === column.key,
+      );
+
+      const container = column.fixed || !column.droppable ? undefined : state.items.get(column.key);
+
+      if (!container) continue;
+
+      // Up through what holds it, nearest first, to the one whose board this is, or to nothing.
+      const surroundings: string[] = [];
+      let at = container.container_entity_id;
+      let carried = false;
+
+      while (at) {
+        if (at === state.ownerId) {
+          carried = true;
+          break;
+        }
+
+        const holder = state.items.get(at);
+
+        if (!holder || surroundings.length > 32) return false;
+        surroundings.push(holder.title);
+        at = holder.container_entity_id;
+      }
+
+      column.carried = carried;
+      column.note =
+        surroundings.length > 0
+          ? capitalized(surroundings.map((name) => `in ${name}`).join(', '))
+          : carried
+            ? null
+            : 'Not carried';
+    }
+
+    for (const { column, field, count } of noted.values()) {
+      count.textContent = String(column.items.length);
+      drawNote(column, field);
+    }
+
+    return true;
+  }
+
+  // What "Move to…" and "Give what's inside…" offer: a column a card can be dropped into.
+  function remember(column: BoardColumn) {
+    if (column.droppable && column.dropTarget !== null) {
+      // "Move to…" offers it under the column's own title: Equipped, not the being's name.
+      state.containers.set(column.dropTarget, {
+        id: column.dropTarget,
+        name: column.title,
+        quantity: null,
+      });
+
+      if (column.items.length > 0) state.occupied.add(column.dropTarget);
+    }
   }
 
   // Equipped and Not carried, the two every board has, glow; a read-only column takes no
@@ -152,16 +228,7 @@ export function createColumns(options: ColumnsOptions) {
     section.classList.toggle('glow-canonical', column.fixed);
     section.classList.toggle('board-column--read-only', !column.droppable);
 
-    if (column.droppable && column.dropTarget !== null) {
-      // "Move to…" offers it under the column's own title: Equipped, not the being's name.
-      state.containers.set(column.dropTarget, {
-        id: column.dropTarget,
-        name: column.title,
-        quantity: null,
-      });
-
-      if (column.items.length > 0) state.occupied.add(column.dropTarget);
-    }
+    remember(column);
 
     // Named by its heading, so each column is a region a reader can find.
     nameField.id = `column-${column.key}`;
@@ -173,7 +240,7 @@ export function createColumns(options: ColumnsOptions) {
     section.dataset.columnKey = column.key;
 
     // Its weight, how much room is left, and where it is: "12 of 12 lb · full · Imani has these".
-    noted.set(section, { column, field: noteField });
+    noted.set(section, { column, field: noteField, count: countField });
     drawNote(column, noteField);
 
     // Holding more than it lists (ADR 0130): it says so, rather than that it's empty.
@@ -205,5 +272,110 @@ export function createColumns(options: ColumnsOptions) {
     return section;
   }
 
-  return { renderColumn, refreshNotes, forgetColumns: () => noted.clear() };
+  const sameItem = (a: ItemInstance | undefined, b: ItemInstance) =>
+    a !== undefined && JSON.stringify(a) === JSON.stringify(b);
+
+  // A column already on the page says what the board now says: its words, and its cards, of which
+  // the ones that are as they were stay as they are. False when it can't (it turned read-only, or
+  // the other way about), and then it is drawn anew.
+  function update(section: HTMLElement, column: BoardColumn, previous: Map<string, ItemInstance>) {
+    if (section.classList.contains('board-column--read-only') === column.droppable) return false;
+
+    const nameField = required<HTMLElement>(section, '[data-name]');
+    const noteField = required<HTMLElement>(section, '[data-note]');
+    const countField = required<HTMLElement>(section, '[data-column-count]');
+    const list = required<HTMLUListElement>(section, '[data-items]');
+
+    section.classList.toggle('glow-canonical', column.fixed);
+    remember(column);
+    nameField.textContent = column.title;
+    countField.textContent = String(column.items.length);
+    required<HTMLElement>(section, '[data-read-only]').hidden = column.droppable || column.fixed;
+    noted.set(section, { column, field: noteField, count: countField });
+    drawNote(column, noteField);
+    list.dataset.empty = column.contentsHidden ? 'Contents not shown.' : column.empty;
+
+    const have = new Map<string, HTMLElement>();
+
+    for (const card of list.querySelectorAll<HTMLElement>(':scope > li[data-entity-id]')) {
+      have.set(card.dataset.entityId ?? '', card);
+    }
+
+    removePlaceholder(list);
+
+    column.items.forEach((item, index) => {
+      state.items.set(item.entity_id, item);
+      if (!column.droppable) state.readOnly.add(item.entity_id);
+
+      let card = have.get(item.entity_id);
+
+      if (card && !sameItem(previous.get(item.entity_id), item)) {
+        card.remove();
+        card = undefined;
+      }
+
+      card ??= renderCard(item, !column.droppable);
+      have.delete(item.entity_id);
+
+      if (list.children[index] !== card) list.insertBefore(card, list.children[index] ?? null);
+    });
+
+    // What is no longer in it.
+    for (const card of have.values()) card.remove();
+    ensurePlaceholder(list);
+
+    section.querySelector(':scope > p.column-empty')?.remove();
+
+    if (column.contentsHidden) {
+      const hidden = document.createElement('p');
+
+      hidden.className = 'column-empty';
+      hidden.textContent = 'Other contents not shown.';
+      section.append(hidden);
+    }
+
+    return true;
+  }
+
+  // The board is fetched again and the page changed to match, without drawing it anew: columns and
+  // cards that are as they were are the same elements, so nothing flashes, scrolls or loses focus.
+  function reconcile(
+    parent: HTMLElement,
+    shown: BoardColumn[],
+    previous: Map<string, ItemInstance>,
+  ) {
+    const existing = new Map<string, HTMLElement>();
+
+    for (const section of parent.querySelectorAll<HTMLElement>(':scope > [data-column]')) {
+      existing.set(section.dataset.columnKey ?? '', section);
+    }
+
+    const sections = shown.map((column) => {
+      const section = existing.get(column.key);
+
+      existing.delete(column.key);
+
+      if (section && update(section, column, previous)) return section;
+
+      if (section) {
+        noted.delete(section);
+        section.remove();
+      }
+
+      return renderColumn(column);
+    });
+
+    for (const gone of existing.values()) {
+      noted.delete(gone);
+      gone.remove();
+    }
+
+    sections.forEach((section, index) => {
+      if (parent.children[index] !== section) {
+        parent.insertBefore(section, parent.children[index] ?? null);
+      }
+    });
+  }
+
+  return { renderColumn, reconcile, refreshNotes, settle, forgetColumns: () => noted.clear() };
 }
