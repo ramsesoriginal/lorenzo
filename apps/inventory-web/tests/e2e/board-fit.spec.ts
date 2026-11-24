@@ -93,3 +93,38 @@ test('a move runs a view transition for the card moved, not for every card or th
   expect(groups.filter((n) => n.includes('(root)'))).toEqual([]);
   expect(new Set(groups).size).toBeLessThanOrEqual(1);
 });
+
+test('moving a container changes the words of the columns, and draws nothing again', async ({
+  world,
+  as,
+}) => {
+  await packed(world, world.pia);
+  const page = await as(world.pia);
+
+  await page.goto(`/board/?tenant=${world.tenantId}`);
+
+  const pouch = page.getByRole('region', { name: 'Belt Pouch' });
+  const backpack = page.getByRole('region', { name: 'Backpack' });
+
+  await expect(pouch).toBeVisible();
+  await expect(pouch.locator('[data-note]')).not.toContainText('Backpack');
+
+  // Mark what is on the page now: if the board is drawn again, the marks go.
+  await page.evaluate(() => {
+    for (const column of document.querySelectorAll('[data-column]')) {
+      column.setAttribute('data-probe', 'kept');
+    }
+  });
+
+  await page.getByRole('button', { name: 'Belt Pouch', exact: true }).first().click();
+  await page.getByRole('button', { name: 'Move to…' }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Backpack' }).click();
+
+  await expect(backpack.getByRole('button', { name: 'Belt Pouch', exact: true })).toBeVisible();
+  await expect(pouch.locator('[data-note]')).toContainText('In Backpack');
+  await expect(backpack.locator('[data-column-count]')).toHaveText('3');
+
+  await expect(page.locator('[data-column][data-probe="kept"]')).toHaveCount(
+    await page.locator('[data-column]').count(),
+  );
+});

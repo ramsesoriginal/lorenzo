@@ -57,6 +57,30 @@ test('a player finds an item in the public catalog and adds it, not carried', as
   expect(await world.carried(world.pia)).toEqual(['(none): Shortsword']);
 });
 
+test('adds the card and says the count, without drawing the board again', async ({ world, as }) => {
+  await world.item('Shortsword', { public: true });
+  const page = await boardOf(as, world, world.pia);
+
+  await expect(column(page, 'Not carried')).toBeVisible();
+  // Marks on what is on the page now go if it is drawn again.
+  await page.evaluate(() => {
+    for (const el of document.querySelectorAll('[data-column], .item-card')) {
+      el.setAttribute('data-probe', 'kept');
+    }
+  });
+  const before = await page.locator('[data-column]').count();
+
+  await pick(page, 'Shortsword');
+  await card(page).getByRole('button', { name: 'Add to Not carried' }).click();
+
+  await expect(
+    column(page, 'Not carried').getByRole('button', { name: 'Shortsword', exact: true }),
+  ).toBeVisible();
+  await expect(column(page, 'Not carried').locator('[data-column-count]')).toHaveText('1');
+  await expect(page.locator('[data-column][data-probe="kept"]')).toHaveCount(before);
+  await expect(page.locator('.item-card:not([data-probe])')).toHaveCount(1);
+});
+
 test('lets her name it', async ({ world, as }) => {
   await world.item('Shortsword', { public: true });
   const page = await boardOf(as, world, world.pia);
