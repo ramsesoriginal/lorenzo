@@ -10,10 +10,8 @@ uv = "0.13.9"
 # Python itself is deliberately not listed here - it's controlled by uv
 # (see apps/api/.python-version), not mise. mise still provides uv itself.
 
-# Future toolchains, added here once those apps actually start:
-# ruby = "3.4"
-# kotlin = "2.1"
-# dotnet = "9"
+# A toolchain only one app needs is pinned in that app's own mise.toml
+# (apps/inventory-mobile pins java there), not here.
 
 # `//...:x` (Bazel-style "everything under here") also matches this file's
 # own `//:x` task, since the root project is part of "everything" - so it
