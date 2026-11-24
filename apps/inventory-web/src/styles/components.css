@@ -281,7 +281,7 @@
   flex-direction: column;
   gap: var(--space-2);
   min-width: 0;
-  max-height: calc(100dvh - 16rem);
+  max-height: var(--board-room, calc(100dvh - 16rem));
   padding: var(--space-3);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-card);
@@ -466,7 +466,7 @@ dialog.item-panel:not(:modal) {
   position: static;
   flex: none;
   inline-size: 22rem;
-  max-block-size: calc(100dvh - 17rem);
+  max-block-size: var(--board-room, calc(100dvh - 17rem));
   margin: 0;
 }
 /* A sheet: up from the bottom edge, over the board, with a Close at its foot. */
@@ -867,4 +867,11 @@ dialog.unpack-dialog .dialog-actions {
 /* An empty board: the mascot's place, smaller than a whole page's. */
 [data-empty] .page-state-art {
   width: 140px;
+}
+
+/* A view transition moves what is named (a card, the open item); the page itself does not fade. */
+::view-transition-group(root),
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
 }

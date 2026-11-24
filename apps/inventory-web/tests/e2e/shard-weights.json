@@ -3,6 +3,7 @@
   "add-item.spec.ts": 49,
   "addresses.spec.ts": 28,
   "binding.spec.ts": 22,
+  "board-fit.spec.ts": 30,
   "board.spec.ts": 106,
   "capacity.spec.ts": 13,
   "catalog-edit.spec.ts": 40,
