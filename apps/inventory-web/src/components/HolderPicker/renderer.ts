@@ -1,10 +1,13 @@
+import { closeDialog, fadeOnDismiss, openDialog, openMenu } from '@lorenzo/app-shell';
 import { beingNamed, unknownSlug } from '../../lib/addresses';
 import { searchBeingsAndGroups } from '../../lib/beingPicker';
 import { listMyCharacters } from '../../lib/characters';
+import { BRANDING_CSS_URL } from '../../lib/config';
 import { errorMessage } from '../../lib/errorMessage';
+import { DEFAULT_GM_WORDS, gmWordsOfBeing } from '../../lib/gmTitle';
 import { groupsOf } from '../../lib/groups';
 import { defaultHolder, getLastHolder, type Holder, rememberHolder } from '../../lib/lastHolder';
-import { cloneTemplate, requiredIn } from '../../lib/template';
+import { requiredIn } from '../../lib/template';
 import type { BeingRef, CharacterSummary } from '../../lib/types';
 import { renderCombobox } from '../Combobox/renderer';
 
@@ -12,12 +15,19 @@ export type HolderPickerOptions = {
   root: HTMLElement;
   tenantId: string;
   viewerIsGm: boolean;
+  // The board's name, which is the switcher (IN7): its button opens the menu, and its words say whose
+  // board this is.
+  switcher: HTMLButtonElement;
+  title: HTMLElement;
+  subtitle: HTMLElement;
   // `viewing` says whose board it is, or null for the viewer's own character.
   onViewHolder(entityId: string, viewing: string | null, name: string): void;
   onViewUnowned(viewing: string): void;
   // A link was hovered or focused: its board is likely next.
   onPrefetch(entityId: string): void;
   onError(message: string): void;
+  // Nothing to show: the viewer has no character in this library.
+  onNone?(): void;
 };
 
 export type RenderedHolderPicker = {
@@ -30,11 +40,9 @@ export type RenderedHolderPicker = {
   destroy(): void;
 };
 
-type PickerTab = 'characters' | 'browse' | 'unowned';
-
-const TABS: PickerTab[] = ['characters', 'browse', 'unowned'];
-
 const required = requiredIn('Holder picker');
+
+type Entry = { holder: Holder; name: string; open: (address: boolean) => void };
 
 export function renderHolderPicker(options: HolderPickerOptions): RenderedHolderPicker {
   const { root, tenantId } = options;
@@ -44,48 +52,35 @@ export function renderHolderPicker(options: HolderPickerOptions): RenderedHolder
   // The address as it was when the page opened; later, the board puts its own into the URL.
   const params = new URLSearchParams(window.location.search);
 
-  const tablist = required<HTMLElement>(root, '[data-tablist]');
-  const loading = required<HTMLElement>(root, '[data-loading]');
-  const empty = required<HTMLElement>(root, '[data-empty]');
-  const error = required<HTMLElement>(root, '[data-error]');
-  const strip = required<HTMLUListElement>(root, '[data-holders]');
-  const holderTemplate = required<HTMLTemplateElement>(root, '[data-holder-template]');
+  const dialog = required<HTMLDialogElement>(root, '[data-find-dialog]');
   const browseRawId = required<HTMLInputElement>(root, '[data-browse-raw-id]');
   const browseRawIdButton = required<HTMLButtonElement>(root, '[data-browse-raw-id-button]');
 
-  const tabs = Object.fromEntries(
-    TABS.map((tab) => [tab, required<HTMLButtonElement>(root, `[data-tab="${tab}"]`)]),
-  ) as Record<PickerTab, HTMLButtonElement>;
-  const panels = Object.fromEntries(
-    TABS.map((tab) => [tab, required<HTMLElement>(root, `[data-panel="${tab}"]`)]),
-  ) as Record<PickerTab, HTMLElement>;
-
   let characters: CharacterSummary[] = [];
   const holderIds = new Set<string>();
+  // Every character and group of the viewer's, and how to open its board.
+  const entries: Entry[] = [];
+  // What the board shows now: one of the entries, a being a GM found, or the unowned things.
+  let shown: { key: string } | null = null;
+  // What the campaign calls its game master, for the menu's heading (ADR 0294).
+  let gmTitle = DEFAULT_GM_WORDS.title;
 
-  // Every character and group in the list, and how to open its board.
-  const holders: { holder: Holder; open: (address: boolean) => void }[] = [];
+  fadeOnDismiss(dialog);
+  required<HTMLButtonElement>(dialog, '[data-find-close]').addEventListener(
+    'click',
+    () => closeDialog(dialog),
+    { signal },
+  );
 
-  // Three ways to pick whose inventory the board shows, as tabs rather than three stacked
-  // sections. A player only has their characters, so for them there's no tab bar at all.
-  if (options.viewerIsGm) {
-    tablist.hidden = false;
-    tabs.browse.hidden = false;
-    tabs.unowned.hidden = false;
-  }
-
-  function selectTab(selected: PickerTab) {
-    for (const tab of TABS) {
-      tabs[tab].setAttribute('aria-selected', String(tab === selected));
-      panels[tab].hidden = tab !== selected;
-    }
-  }
-
-  // Marks `link` as the board shown, among every character and group in the list.
-  function pressOnly(link: HTMLAnchorElement | null) {
-    for (const el of strip.querySelectorAll('a')) {
-      el.setAttribute('aria-pressed', String(el === link));
-    }
+  // The board's name and what it is: "Character · what they control".
+  function say(name: string, what: string, key: string) {
+    shown = { key };
+    void gmWordsOfBeing(tenantId, key.split(':')[1] ?? null).then((words) => {
+      gmTitle = words.title;
+    });
+    options.title.textContent = name;
+    options.subtitle.textContent = what;
+    document.title = `${name} — Lorenzo Inventory`;
   }
 
   // Puts `holder` into the URL as ?character= or ?group=, by id.
@@ -98,32 +93,32 @@ export function renderHolderPicker(options: HolderPickerOptions): RenderedHolder
   }
 
   // `address` is false when the URL already names it, perhaps by slug (ADR 0135).
-  function selectCharacter(character: CharacterSummary, link: HTMLAnchorElement, address = true) {
+  function selectCharacter(character: CharacterSummary, address = true) {
     const holder: Holder = { kind: 'character', id: character.entity_id };
 
-    pressOnly(link);
     rememberHolder(tenantId, holder);
 
     if (address) addressHolder(holder);
 
+    say(character.name, 'Character · what they control', `character:${character.entity_id}`);
     options.onViewHolder(character.entity_id, null, character.name);
   }
 
   // A group one of your characters belongs to, and what it owns (ADR 0124).
-  function selectGroup(group: BeingRef, link: HTMLAnchorElement, address = true) {
+  function selectGroup(group: BeingRef, address = true) {
     const holder: Holder = { kind: 'group', id: group.entity_id };
 
-    pressOnly(link);
     rememberHolder(tenantId, holder);
 
     if (address) addressHolder(holder);
 
+    say(group.name, 'Group · what it holds', `group:${group.entity_id}`);
     options.onViewHolder(group.entity_id, `Viewing what ${group.name} holds.`, group.name);
   }
 
   function openHolder(wanted: Holder | null, address = true) {
     const entry = wanted
-      ? holders.find((e) => e.holder.kind === wanted.kind && e.holder.id === wanted.id)
+      ? entries.find((e) => e.holder.kind === wanted.kind && e.holder.id === wanted.id)
       : undefined;
 
     entry?.open(address);
@@ -134,7 +129,7 @@ export function renderHolderPicker(options: HolderPickerOptions): RenderedHolder
   function openDefaultHolder() {
     openHolder(
       defaultHolder(
-        holders.map((e) => e.holder),
+        entries.map((e) => e.holder),
         getLastHolder(tenantId),
       ),
     );
@@ -154,48 +149,16 @@ export function renderHolderPicker(options: HolderPickerOptions): RenderedHolder
     return named ? { kind: character ? 'character' : 'group', id: named.entity_id } : null;
   }
 
-  // Adds a link to a board (?character= or ?group=) to the list, a group marked as one.
-  function addHolder(
-    holder: { entity_id: string; name: string },
-    param: 'character' | 'group',
-    select: (link: HTMLAnchorElement, address: boolean) => void,
-  ) {
-    const item = cloneTemplate<HTMLLIElement>(holderTemplate, 'li');
-    const link = required<HTMLAnchorElement>(item, '[data-name]');
-    const groupBadge = required<HTMLElement>(item, '[data-group]');
-
-    const url = new URL(window.location.href);
-
-    url.searchParams.set(param, holder.entity_id);
-    url.searchParams.delete(param === 'character' ? 'group' : 'character');
-    link.href = url.href;
-    link.textContent = holder.name;
-    link.setAttribute('aria-pressed', String(holder.entity_id === params.get(param)));
-    link.addEventListener(
-      'click',
-      (event) => {
-        event.preventDefault();
-        select(link, true);
-      },
-      { signal },
-    );
-    link.addEventListener('mouseenter', () => options.onPrefetch(holder.entity_id), { signal });
-    link.addEventListener('focus', () => options.onPrefetch(holder.entity_id), { signal });
-    groupBadge.hidden = param !== 'group';
-
-    strip.append(item);
-    holders.push({
-      holder: { kind: param, id: holder.entity_id },
-      open: (address) => select(link, address),
-    });
-  }
-
   async function loadGroups(mine: CharacterSummary[]) {
     const groups = await groupsOf(tenantId, mine).catch(() => []);
 
     for (const group of groups) {
       holderIds.add(group.entity_id);
-      addHolder(group, 'group', (link, address) => selectGroup(group, link, address));
+      entries.push({
+        holder: { kind: 'group', id: group.entity_id },
+        name: group.name,
+        open: (address) => selectGroup(group, address),
+      });
     }
   }
 
@@ -210,17 +173,22 @@ export function renderHolderPicker(options: HolderPickerOptions): RenderedHolder
 
       for (const character of characters) holderIds.add(character.entity_id);
 
-      loading.hidden = true;
-
       if (characters.length === 0) {
-        empty.hidden = false;
+        // A GM with no character of their own still opens any being's or the unowned things.
+        options.title.textContent = 'Inventory';
+        options.subtitle.textContent = options.viewerIsGm
+          ? 'Choose whose inventory to look at.'
+          : "You don't have a character in this library yet.";
+        options.onNone?.();
         return;
       }
 
       for (const character of characters) {
-        addHolder(character, 'character', (link, address) =>
-          selectCharacter(character, link, address),
-        );
+        entries.push({
+          holder: { kind: 'character', id: character.entity_id },
+          name: character.name,
+          open: (address) => selectCharacter(character, address),
+        });
       }
 
       await loadGroups(characters);
@@ -235,9 +203,7 @@ export function renderHolderPicker(options: HolderPickerOptions): RenderedHolder
         openHolder(named, false);
       }
     } catch (cause) {
-      loading.hidden = true;
-      error.hidden = false;
-      error.textContent = errorMessage(cause);
+      options.onError(errorMessage(cause));
     }
   }
 
@@ -245,32 +211,61 @@ export function renderHolderPicker(options: HolderPickerOptions): RenderedHolder
   // search, or by an id or slug typed in. None of the viewer's own characters is the one
   // shown then.
   function browseBeing(being: BeingRef) {
-    pressOnly(null);
+    closeDialog(dialog);
+    say(being.name, 'Being · what they control', `being:${being.entity_id}`);
     options.onViewHolder(being.entity_id, `Viewing ${being.name}'s inventory.`, being.name);
   }
 
-  tabs.characters.addEventListener(
+  function showUnowned() {
+    say('Unowned things', 'What nobody owns', 'unowned');
+    options.onViewUnowned('Viewing unowned items.');
+  }
+
+  // The board's name is a button: its menu lists your characters and groups and, for a GM, a way to
+  // any being and to what nobody owns. With nothing to choose it still shows (IN7).
+  options.switcher.addEventListener(
     'click',
     () => {
-      selectTab('characters');
+      const mine = (kind: Holder['kind']) =>
+        entries
+          .filter((entry) => entry.holder.kind === kind)
+          .map((entry) => ({
+            label: entry.name,
+            icon: kind === 'group' ? 'kind-group' : 'kind-being',
+            checked: shown?.key === `${kind}:${entry.holder.id}`,
+            run: () => entry.open(true),
+          }));
+      const characterItems = mine('character');
+      const groupItems = mine('group');
 
-      // Back from browsing, with none of yours shown: open the one you had (ADR 0134).
-      if (!strip.querySelector('a[aria-pressed="true"]')) openDefaultHolder();
+      options.onPrefetch(characters[0]?.entity_id ?? '');
+      openMenu(
+        options.switcher,
+        [
+          ...(characterItems.length > 0 ? [{ heading: 'My characters' }, ...characterItems] : []),
+          ...(groupItems.length > 0 ? [{ heading: 'My groups' }, ...groupItems] : []),
+          ...(options.viewerIsGm
+            ? [
+                { heading: gmTitle },
+                {
+                  label: 'Find any being…',
+                  icon: 'search',
+                  run: () => {
+                    openDialog(dialog);
+                    root.querySelector<HTMLInputElement>('#browse-search')?.focus();
+                  },
+                },
+                { label: 'Unowned things', icon: 'kind-item', run: showUnowned },
+              ]
+            : []),
+        ],
+        { label: 'Whose inventory', sprite: `${BRANDING_CSS_URL}/icons.svg` },
+      );
     },
     { signal },
   );
-  tabs.browse.addEventListener('click', () => selectTab('browse'), { signal });
-  tabs.unowned.addEventListener(
-    'click',
-    () => {
-      selectTab('unowned');
-      pressOnly(null);
-      options.onViewUnowned('Viewing unowned items.');
-    },
-    { signal },
-  );
 
-  const browse = renderCombobox<BeingRef>(panels.browse, {
+  const browse = renderCombobox<BeingRef>(dialog, {
     search: (query) => searchBeingsAndGroups(tenantId, query),
     onPick(being) {
       browse.input.value = being.name;

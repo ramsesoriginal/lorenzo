@@ -3,7 +3,6 @@ import Base from '../../layouts/Base.astro';
 import Catalog from '../../components/Catalog/Catalog.astro';
 import Instances from '../../components/Instances/Instances.astro';
 import InstantiateItem from '../../components/InstantiateItem/InstantiateItem.astro';
-import ItemDetail from '../../components/ItemDetail/ItemDetail.astro';
 import ItemForm from '../../components/ItemForm/ItemForm.astro';
 ---
 
@@ -13,28 +12,46 @@ import ItemForm from '../../components/ItemForm/ItemForm.astro';
   </p>
 
   <div id="page" hidden>
-    <h1 class="display" id="tenant-name"></h1>
+    <header class="catalog-head">
+      <div>
+        <h1 class="display">Catalog</h1>
+        <p class="caption" id="tenant-name"></p>
+      </div>
+      <button type="button" class="btn btn-primary" id="new-item-open" hidden>
+        New item
+      </button>
+    </header>
 
     <Catalog />
 
     <Instances />
+  </div>
 
-    <section id="new-item" class="section-lg" aria-labelledby="new-item-heading" hidden>
+  <dialog id="new-item" aria-labelledby="new-item-heading">
+    <div class="stack">
       <h2 id="new-item-heading">New item</h2>
       <div id="create-item-mount"></div>
-    </section>
-  </div>
+      <div class="dialog-actions">
+        <button type="button" class="btn btn-secondary" id="new-item-close">
+          Close
+        </button>
+      </div>
+    </div>
+  </dialog>
 
   <!-- Inert templates used by the client-side renderers. -->
   <ItemForm />
   <InstantiateItem />
-  <ItemDetail />
 
   <script>
+    import { closeDialog, fadeOnDismiss, openDialog } from '@lorenzo/app-shell';
     import { errorMessage } from '../../lib/errorMessage';
     import { say } from '../../lib/statusLine';
     import { requiredIn } from '../../lib/template';
     import { renderCatalog } from '../../components/Catalog/renderer';
+    import { renderCatalogEditor } from '../../components/CatalogEditor/renderer';
+    import type { ShownItem } from '../../components/ItemDetail/renderer';
+    import type { CatalogItem } from '../../lib/types';
     import { renderInstances } from '../../components/Instances/renderer';
     import { renderInstantiateItem } from '../../components/InstantiateItem/renderer';
     import { renderItemDetail } from '../../components/ItemDetail/renderer';
@@ -46,6 +63,7 @@ import ItemForm from '../../components/ItemForm/ItemForm.astro';
     import { saveDescription } from '../../lib/information';
     import { createCatalogItem } from '../../lib/items';
     import { isCampaignGm, isTenantMember, viewerId } from '../../lib/me';
+    import { DEFAULT_GM_WORDS } from '../../lib/gmTitle';
     import { saveSlug } from '../../lib/slugs';
     import { getTenant } from '../../lib/tenants';
 
@@ -55,6 +73,14 @@ import ItemForm from '../../components/ItemForm/ItemForm.astro';
     const page = required<HTMLElement>(document, '#page');
     const tenantName = required<HTMLElement>(document, '#tenant-name');
     const createItemMount = required<HTMLElement>(document, '#create-item-mount');
+    const newItem = required<HTMLDialogElement>(document, '#new-item');
+    const newItemOpen = required<HTMLButtonElement>(document, '#new-item-open');
+
+    fadeOnDismiss(newItem);
+    newItemOpen.addEventListener('click', () => openDialog(newItem));
+    required<HTMLButtonElement>(document, '#new-item-close').addEventListener('click', () =>
+      closeDialog(newItem),
+    );
 
     // By id or by slug (ADR 0135).
     const addressed = await addressedTenant(
@@ -112,6 +138,7 @@ import ItemForm from '../../components/ItemForm/ItemForm.astro';
 
           rendered.destroy();
           createForm = null;
+          closeDialog(newItem);
 
           await catalog.reload();
           mountCreateItemForm();
@@ -141,7 +168,7 @@ import ItemForm from '../../components/ItemForm/ItemForm.astro';
           isTenantMember(tenantId),
         ]);
 
-        tenantName.textContent = tenant.name;
+        tenantName.textContent = `What can be made in ${tenant.name}.`;
         document.title = viewerIsGm ? 'Manage items — Lorenzo' : 'Catalog — Lorenzo';
 
         const catalogRoot = required<HTMLElement>(document, '[data-catalog]');
@@ -156,6 +183,17 @@ import ItemForm from '../../components/ItemForm/ItemForm.astro';
           viewerIsGm,
           renderer,
           myCharacters: () => [],
+          ...(viewerIsGm
+            ? {
+                editor: (host: HTMLElement, item: ShownItem) =>
+                  renderCatalogEditor({
+                    host,
+                    tenantId,
+                    item: item as CatalogItem,
+                    onChanged: () => void catalog.reload(),
+                  }),
+              }
+            : {}),
         });
 
         catalog = renderCatalog({
@@ -165,6 +203,7 @@ import ItemForm from '../../components/ItemForm/ItemForm.astro';
           viewerIsGm,
           showIntro: !viewerIsGm && !viewerIsMember,
           renderer,
+          gmWords: DEFAULT_GM_WORDS,
           renderInstantiate: (item, onDone) => renderInstantiateItem({ tenantId, item, onDone }),
           onView: (item) => detail.view(item),
           onPrefetch: (item) => detail.prefetch(item),
@@ -174,11 +213,11 @@ import ItemForm from '../../components/ItemForm/ItemForm.astro';
           root: instancesRoot,
           tenantId,
           viewerIsGm,
-          onView: (instance) => detail.view(instance),
+          onView: (instance) => detail.view(instance, 'sheet'),
           onPrefetch: (instance) => detail.prefetch(instance),
         });
 
-        required<HTMLElement>(document, '#new-item').hidden = !viewerIsGm;
+        newItemOpen.hidden = !viewerIsGm;
 
         if (viewerIsGm) {
           mountCreateItemForm();

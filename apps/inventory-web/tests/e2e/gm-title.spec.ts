@@ -2,6 +2,7 @@
 // it, and the library's own pages keep saying "GM".
 import type { Page } from '@playwright/test';
 import { ok } from './support/api.ts';
+import { openAdd } from './support/board.ts';
 import { expect, test } from './support/fixtures.ts';
 import { packed } from './support/scenes.ts';
 import type { World } from './support/world.ts';
@@ -34,6 +35,7 @@ test("the add-an-item card says the campaign's title for its game master", async
 
   const page = await as(world.pia);
   await page.goto(`/board/?tenant=${world.tenantId}&character=${world.pia.character.entity_id}`);
+  await openAdd(page);
 
   await expect(
     card(page).getByText('Your Storyteller has switched off adding items for Ashfang.'),
@@ -47,6 +49,7 @@ test('the unsorted hints say it too', async ({ world, as }) => {
 
   const page = await as(world.pia);
   await page.goto(`/board/?tenant=${world.tenantId}&character=${world.pia.character.entity_id}`);
+  await openAdd(page);
 
   await expect(card(page).getByText(/Ask your Narrator to run/)).toBeVisible();
 });

@@ -1,6 +1,7 @@
 // Things bound to their owner, and a GM taking them off anyway (ADR 0129).
 import type { Page } from '@playwright/test';
 import { ok } from './support/api.ts';
+import { browseBeing } from './support/board.ts';
 import { expect, test } from './support/fixtures.ts';
 import { packed } from './support/scenes.ts';
 import type { Person, World } from './support/world.ts';
@@ -13,9 +14,7 @@ async function ashfangsBoard(as: (who: Person) => Promise<Page>, world: World, w
   }
   // A GM browses to her character.
   await page.goto(`/board/?tenant=${world.tenantId}`);
-  await page.getByRole('tab', { name: 'Browse a being' }).click();
-  await page.getByLabel('Search beings').filter({ visible: true }).fill('Ashfang');
-  await page.getByRole('option').getByRole('button', { name: 'Ashfang' }).click();
+  await browseBeing(page, 'Ashfang');
   return page;
 }
 

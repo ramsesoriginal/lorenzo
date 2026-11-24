@@ -8,10 +8,9 @@ import {
   splitItemInstance,
   unsetOwner,
 } from '../../lib/items';
-import { requiredIn } from '../../lib/template';
+import { currentShell } from '../../lib/shell';
 
 export type UndoBannerOptions = {
-  root: HTMLElement;
   tenantId: string;
   // After a give, taking it back is a give too (ADR 0124): only whoever controls the new
   // owner may.
@@ -29,18 +28,11 @@ export type RenderedUndoBanner = {
   destroy(): void;
 };
 
-const required = requiredIn('Undo banner');
-
 export function renderUndoBanner(options: UndoBannerOptions): RenderedUndoBanner {
-  const { root } = options;
   const controller = new AbortController();
-  const { signal } = controller;
-
-  const message = required<HTMLElement>(root, '[data-message]');
-  const undoButton = required<HTMLButtonElement>(root, '[data-undo]');
 
   // One slot, as in apps/loot-bot (ADR 0068): each new undoable action replaces whatever was
-  // pending. The state machine is in lib/boardLogic.ts.
+  // pending. The state machine is in lib/boardLogic.ts; the shell's toast (IN4) is what shows it.
   const undo = createUndoController(options.tenantId, {
     setOwner,
     unsetOwner,
@@ -49,36 +41,35 @@ export function renderUndoBanner(options: UndoBannerOptions): RenderedUndoBanner
     splitItemInstance,
     mergeItemInstance,
   });
-
-  function record(payload: UndoPayload, description: string) {
-    message.textContent = description;
-    root.hidden = false;
-    undo.record(payload, () => {
-      root.hidden = true;
-    });
-  }
+  let toast: { dismiss(): void } | null = null;
 
   function forget() {
     undo.clear();
-    root.hidden = true;
+    toast?.dismiss();
+    toast = null;
   }
 
-  undoButton.addEventListener(
-    'click',
-    async () => {
-      if (!undo.getPending()) return;
+  async function apply() {
+    if (!undo.getPending()) return;
 
-      root.hidden = true;
+    toast = null;
 
-      try {
-        await undo.apply();
-        options.onApplied();
-      } catch (error) {
-        options.onError(errorMessage(error));
-      }
-    },
-    { signal },
-  );
+    try {
+      await undo.apply();
+      options.onApplied();
+    } catch (error) {
+      options.onError(errorMessage(error));
+    }
+  }
+
+  function record(payload: UndoPayload, description: string) {
+    toast?.dismiss();
+    undo.record(payload, () => {
+      toast?.dismiss();
+      toast = null;
+    });
+    toast = currentShell()?.undoable({ title: description, undo: () => void apply() }) ?? null;
+  }
 
   return {
     record,
@@ -95,6 +86,7 @@ export function renderUndoBanner(options: UndoBannerOptions): RenderedUndoBanner
 
     destroy() {
       controller.abort();
+      toast?.dismiss();
     },
   };
 }

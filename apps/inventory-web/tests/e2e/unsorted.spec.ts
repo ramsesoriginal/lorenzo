@@ -105,7 +105,7 @@ test('gives a whole group to the catalog item it looks like, names and holders k
   ).toBeVisible();
   await expect(group(page, 'Torches').getByRole('button', { name: 'Anvil' })).toHaveCount(0);
   await group(page, 'Torches').getByRole('button', { name: 'Torch', exact: true }).click();
-  await group(page, 'Torches').getByRole('button', { name: 'Assign 2 to Torch' }).click();
+  await group(page, 'Torches').getByRole('button', { name: 'Give the ticked to Torch' }).click();
 
   await expect(page.getByText('2 items sorted as Torch.')).toBeVisible();
   await expect(page.getByText('Nothing is unsorted.')).toBeVisible();
@@ -143,7 +143,7 @@ test('sorts only the ones that are ticked', async ({ world, as }) => {
   await group(page, 'Rope').getByRole('button', { name: 'Sort' }).click();
   await group(page, 'Rope').getByRole('checkbox', { name: 'Brisk' }).uncheck();
   await group(page, 'Rope').getByRole('button', { name: 'Rope', exact: true }).first().click();
-  await group(page, 'Rope').getByRole('button', { name: 'Assign 1 to Rope' }).click();
+  await group(page, 'Rope').getByRole('button', { name: 'Give the ticked to Rope' }).click();
 
   await expect(page.getByText('1 item sorted as Rope.')).toBeVisible();
   expect(await made(world, rope)).toEqual(['Rope']);
@@ -162,7 +162,7 @@ test('makes a catalog item of a group, its description from the player note', as
   await group(page, 'Hydra Zahn').getByRole('button', { name: 'Sort' }).click();
   await expect(page.getByText('Note: from the cave under the temple')).toBeVisible();
   await group(page, 'Hydra Zahn').getByLabel('Name of the new item').fill('Hydra Tooth');
-  await group(page, 'Hydra Zahn').getByRole('button', { name: 'Create and assign' }).click();
+  await group(page, 'Hydra Zahn').getByRole('button', { name: 'Make a new catalog item' }).click();
 
   await expect(page.getByText('1 item sorted as Hydra Tooth.')).toBeVisible();
   const items = await ok(
@@ -182,7 +182,7 @@ test('keeps a group as it is, until the page is loaded again', async ({ world, a
   const page = await unsortedPage(as, world);
 
   await group(page, 'Mystery').getByRole('button', { name: 'Sort' }).click();
-  await group(page, 'Mystery').getByRole('button', { name: 'Keep as it is' }).click();
+  await group(page, 'Mystery').getByRole('button', { name: 'Keep for now' }).click();
   await expect(group(page, 'Mystery')).toHaveCount(0);
   expect(await made(world, unsorted)).toEqual(['Mystery']);
 

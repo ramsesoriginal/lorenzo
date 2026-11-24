@@ -43,6 +43,8 @@ export function renderItemPage(options: ItemPageOptions): RenderedItemPage {
   const notesSection = required<HTMLElement>(root, '[data-notes-section]');
   const gmSections = required<HTMLElement>(root, '[data-gm]');
   const copyLink = required<HTMLButtonElement>(root, '[data-copy-link]');
+  const back = required<HTMLAnchorElement>(root, '[data-back]');
+  const backText = required<HTMLElement>(root, '[data-back-text]');
 
   // What is shown, and whether it's an instance, which says which endpoint reads it again.
   let shown: ItemBase | null = null;
@@ -201,6 +203,24 @@ export function renderItemPage(options: ItemPageOptions): RenderedItemPage {
       }
 
       void mentionedIn.load(entityId);
+
+      // The way back: to the board of whoever holds it, or to the catalog (the library as the address named it).
+      const library = new URLSearchParams(window.location.search).get('tenant') ?? tenantId;
+      const holder = 'owner_entity_id' in found.item ? found.item.owner_entity_id : null;
+
+      if (holder) {
+        back.href = `/board/?tenant=${encodeURIComponent(library)}&character=${holder}`;
+        backText.textContent = 'Back to the board';
+        getEntityDetail(tenantId, holder).then(
+          (entity) => {
+            backText.textContent = `Back to ${entity.name}'s board`;
+          },
+          () => {},
+        );
+      } else {
+        back.href = `/items/?tenant=${encodeURIComponent(library)}`;
+        backText.textContent = 'Back to the catalog';
+      }
 
       // GMs write here (ADR 0108, 0112, 0113); a player writes notes on what their character
       // owns. The API still decides.

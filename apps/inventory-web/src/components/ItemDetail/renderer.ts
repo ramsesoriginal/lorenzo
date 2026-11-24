@@ -1,8 +1,21 @@
+import {
+  closeDialog,
+  fadeOnDismiss,
+  type MenuItem,
+  openDialog,
+  openMenu,
+} from '@lorenzo/app-shell';
 import { blobUrl } from '../../lib/api';
+import { ownerMark } from '../../lib/boardColumns';
+import { weightOf, withUnit } from '../../lib/boardWeights';
+import { BRANDING_CSS_URL } from '../../lib/config';
 import type { Renderer } from '../../lib/descriptions';
 import { itemPageHref } from '../../lib/entityLinks';
+import { errorMessage } from '../../lib/errorMessage';
+import { gmWordsOfBeing } from '../../lib/gmTitle';
 import { getEntityDetail } from '../../lib/items';
 import { withReflow } from '../../lib/reflow';
+import { currentShell } from '../../lib/shell';
 import { createStaleCache, RECENT_MS } from '../../lib/staleCache';
 import { requiredIn } from '../../lib/template';
 import { textHome } from '../../lib/textSources';
@@ -14,8 +27,9 @@ import { renderItemView } from '../ItemView/renderer';
 import { renderNotes } from '../Notes/renderer';
 import type { RenderedUndoBanner } from '../UndoBanner/renderer';
 import { giveContentsPanel, givePanel } from './give';
+import { reassignPanel, removeInstance, unassign } from './gm';
 import { mergePanel } from './merge';
-import { movePanel } from './move';
+import { moveItem, movePanel } from './move';
 import type { ActionContext } from './panels';
 import { splitPanel } from './split';
 import { unpackPanel } from './unpack';
@@ -44,13 +58,22 @@ export type ItemDetailOptions = {
   myCharacters(): CharacterSummary[];
   // Without a board the dialog only shows the item.
   board?: ItemDetailBoard;
+  // A catalog item, for a game master, is written in place: this fills the place (IN5).
+  editor?(host: HTMLElement, item: ShownItem): { dirty(): boolean; destroy(): void };
+  // The weight unit of the library, for the line under the title.
+  weightUnit?(): string | null;
 };
 
 export type RenderedItemDetail = {
   // A board card, with the board's actions; needs `board`.
-  open(item: ItemInstance, card: HTMLElement): void;
+  open(item: ItemInstance, card: HTMLElement, as?: 'panel' | 'sheet' | 'page'): void;
   // Just the item.
-  view(item: ShownItem): void;
+  // `as`: a sheet over the page, or beside it where the page has room for a panel (the default).
+  view(item: ShownItem, as?: 'panel' | 'sheet'): void;
+  // A board card's "…" menu: what can be done with it, each opening the panel on that.
+  menu(item: ItemInstance, card: HTMLElement, button: HTMLElement): void;
+  // The panel is open on this item.
+  isOpen(): boolean;
   // Fetches what showing the item needs, ahead of `open` or `view`.
   prefetch(item: ShownItem): void;
   destroy(): void;
@@ -90,17 +113,69 @@ export function renderItemDetail(options: ItemDetailOptions): RenderedItemDetail
     renderer: options.renderer,
     rowHeading: 'h4',
   });
+  const sub = required<HTMLElement>(root, '[data-sub]');
+  const editorHost = required<HTMLElement>(root, '[data-editor]');
+  const viewHost = required<HTMLElement>(root, '[data-view]');
+  let editor: { dirty(): boolean; destroy(): void } | null = null;
+
+  // Leaving what is written in place, with something not saved, is refused in words.
+  const mayLeave = () =>
+    !editor?.dirty() ||
+    window.confirm('You have changes that are not saved. Leave without saving them?');
+  const dropEditor = () => {
+    editor?.destroy();
+    editor = null;
+    editorHost.hidden = true;
+    viewHost.hidden = false;
+  };
+  const madeFrom = required<HTMLElement>(root, '[data-made-from]');
+  const madeChips = required<HTMLElement>(root, '[data-made-chips]');
+  let madeRequest = 0;
+  const notesRoot = required<HTMLElement>(root, '[data-notes]');
+  const setDown = required<HTMLButtonElement>(root, '[data-set-down]');
+  const gm = required<HTMLElement>(root, '[data-gm]');
+  const gmHeading = required<HTMLElement>(root, '[data-gm-heading]');
+  const reassign = required<HTMLButtonElement>(root, '[data-reassign]');
+  const unassignButton = required<HTMLButtonElement>(root, '[data-unassign]');
+  const remove = required<HTMLButtonElement>(root, '[data-delete]');
+  const addNote = required<HTMLButtonElement>(root, '[data-add-note]');
   const viewLink = required<HTMLAnchorElement>(root, '[data-view-link]');
+  const editPage = required<HTMLAnchorElement>(root, '[data-edit-page]');
   const actionsRegion = required<HTMLElement>(root, '[data-actions]');
   const actionPanel = required<HTMLElement>(root, '[data-action-panel]');
 
   let current: ItemInstance | null = null;
   let openCard: HTMLElement | null = null;
 
+  // A panel beside the board on a wide screen, a side sheet on a tablet, the page on a phone (IN3).
+  const wide = window.matchMedia('(min-width: 1100px)');
+  const tablet = window.matchMedia('(min-width: 721px)');
+  const modeNow = () => (wide.matches ? 'panel' : tablet.matches ? 'sheet' : 'page');
+
+  const markOpen = (card: HTMLElement | null) => {
+    for (const other of document.querySelectorAll('.item-card--open')) {
+      other.classList.remove('item-card--open');
+    }
+
+    card?.classList.add('item-card--open');
+  };
+
   function close() {
+    if (!mayLeave()) return;
+
+    dropEditor();
+
     const card = openCard;
 
     openCard = null;
+    markOpen(null);
+
+    if (!root.matches(':modal')) {
+      root.close();
+
+      return;
+    }
+
     withReflow(() => {
       root.close();
       root.style.viewTransitionName = '';
@@ -142,6 +217,7 @@ export function renderItemDetail(options: ItemDetailOptions): RenderedItemDetail
       label: 'Unpack…',
       panel: unpackPanel,
     },
+    { button: reassign, label: 'Reassign…', panel: reassignPanel },
   ];
 
   const [give, giveContents, move, split, , unpack] = actions.map((action) => action.button);
@@ -168,10 +244,55 @@ export function renderItemDetail(options: ItemDetailOptions): RenderedItemDetail
       },
     };
 
+    setDown.addEventListener(
+      'click',
+      () => {
+        const item = current;
+
+        if (!item) return;
+
+        moveItem(context, item, null).catch((error) =>
+          currentShell()?.toast({
+            kind: 'error',
+            title: `Couldn’t set down ${item.title}`,
+            text: errorMessage(error),
+          }),
+        );
+      },
+      { signal },
+    );
+
+    const failed = (title: string) => (error: unknown) =>
+      currentShell()?.toast({ kind: 'error', title, text: errorMessage(error) });
+
+    unassignButton.addEventListener(
+      'click',
+      () => {
+        if (current) unassign(context, current).catch(failed(`Couldn’t unassign ${current.title}`));
+      },
+      { signal },
+    );
+    remove.addEventListener(
+      'click',
+      () => {
+        if (current) {
+          removeInstance(context, current).catch(failed(`Couldn’t delete ${current.title}`));
+        }
+      },
+      { signal },
+    );
+
     for (const action of actions) {
       action.button.addEventListener(
         'click',
         () => {
+          // Unpacking asks in a dialog of its own: what it will make, and that the pack goes.
+          if (action.button === unpack && current) {
+            openUnpackDialog(context, current);
+
+            return;
+          }
+
           const wasOpen = action.button.textContent === 'Cancel';
 
           closePanels();
@@ -186,6 +307,61 @@ export function renderItemDetail(options: ItemDetailOptions): RenderedItemDetail
     }
   }
 
+  function openUnpackDialog(context: ActionContext, item: ItemInstance) {
+    const dialog = document.createElement('dialog');
+    const cancel = document.createElement('button');
+    const row = document.createElement('div');
+    const heading = document.createElement('h3');
+    const finish = () => {
+      closeDialog(dialog);
+      setTimeout(() => dialog.remove(), 600);
+      context.finish();
+    };
+
+    dialog.className = 'unpack-dialog';
+    dialog.setAttribute('aria-labelledby', 'unpack-dialog-title');
+    heading.id = 'unpack-dialog-title';
+    heading.textContent = `Unpack ${item.title}?`;
+    cancel.type = 'button';
+    cancel.className = 'btn btn-secondary';
+    cancel.textContent = 'Cancel';
+    cancel.addEventListener('click', () => {
+      closeDialog(dialog);
+      setTimeout(() => dialog.remove(), 600);
+    });
+    row.className = 'dialog-actions';
+    row.append(cancel);
+
+    const body = unpackPanel({ ...context, finish }, item);
+
+    // Cancel and Unpack sit together at the foot, as drawn.
+    const submit = body.querySelector<HTMLButtonElement>('[data-submit]');
+
+    if (submit) {
+      submit.className = 'btn btn-primary';
+      row.append(submit);
+    }
+
+    dialog.append(heading, body, row);
+    document.body.append(dialog);
+    fadeOnDismiss(dialog);
+    openDialog(dialog);
+  }
+
+  // The same note form the Notes section has, one tap from the actions.
+  addNote.addEventListener(
+    'click',
+    () => {
+      const add = notesRoot.querySelector<HTMLButtonElement>('[data-add]');
+
+      if (!add || add.hidden) return;
+
+      add.click();
+      add.scrollIntoView({ block: 'nearest' });
+    },
+    { signal },
+  );
+
   // A catalog item's slug isn't in its listing: the link goes by what was looked up before, or
   // by the id, until it's looked up.
   const slugs = createStaleCache<string | null>((entityId) =>
@@ -199,6 +375,7 @@ export function renderItemDetail(options: ItemDetailOptions): RenderedItemDetail
     const known = 'slug' in item ? item.slug : slugs.peek(item.entity_id);
 
     viewLink.href = hrefFor(known);
+    editPage.href = viewLink.href;
 
     if ('slug' in item) return;
 
@@ -206,7 +383,10 @@ export function renderItemDetail(options: ItemDetailOptions): RenderedItemDetail
 
     slugs.refresh(item.entity_id, RECENT_MS).then(
       (slug) => {
-        if (request === slugRequest && slug !== known) viewLink.href = hrefFor(slug);
+        if (request === slugRequest && slug !== known) {
+          viewLink.href = hrefFor(slug);
+          editPage.href = viewLink.href;
+        }
       },
       () => {},
     );
@@ -225,6 +405,15 @@ export function renderItemDetail(options: ItemDetailOptions): RenderedItemDetail
 
     itemView.show(item);
 
+    // A game master writes a catalog item in place; everyone else reads it.
+    dropEditor();
+
+    if (options.editor && !isInstance(item)) {
+      viewHost.hidden = true;
+      editorHost.hidden = false;
+      editor = options.editor(editorHost, item);
+    }
+
     // Its notes (ADR 0113), written by a GM or by a player whose character owns it.
     const reader = options.myCharacters().find((c) => c.entity_id === item.owner_entity_id) ?? null;
 
@@ -237,6 +426,67 @@ export function renderItemDetail(options: ItemDetailOptions): RenderedItemDetail
     // Bound to its owner (ADR 0129).
     bound.hidden = !item.bound;
 
+    sub.textContent = subtitle(item);
+
+    // What it is made from, by name: the items it comes from (the shell's chips, as drawn).
+    const request = ++madeRequest;
+
+    madeFrom.hidden = true;
+    getEntityDetail(tenantId, item.entity_id).then(
+      (entity) => {
+        if (request !== madeRequest || entity.prototypes.length === 0) return;
+
+        madeChips.replaceChildren(
+          ...entity.prototypes.map((prototype) => {
+            const chip = document.createElement('li');
+
+            chip.className = 'chip';
+            chip.textContent = prototype.name;
+
+            return chip;
+          }),
+        );
+        madeFrom.hidden = false;
+      },
+      () => {},
+    );
+    addNote.hidden = !(options.viewerIsGm || reader !== null);
+    applyActions(item);
+  }
+
+  // What the line under the title says: how many, its weight, where it is, and whose.
+  function subtitle(item: ShownItem): string {
+    const parts: string[] = [];
+    const stacked = Boolean(item.quantity && item.quantity > 1);
+
+    if (isInstance(item)) parts.push(stacked ? `${item.quantity} together` : 'One');
+
+    const each = weightOf(item);
+
+    if (each !== null) parts.push(withUnit(each, options.weightUnit?.() ?? null));
+
+    if (board && isInstance(item)) {
+      const holder = (item as ItemInstance).container_entity_id;
+      const where = holder ? board.state.items.get(holder)?.title : null;
+
+      if (where) parts.push(where);
+
+      const mark = board.state.current
+        ? ownerMark(item as ItemInstance, board.state.current)
+        : null;
+
+      if (mark) parts.push(mark);
+    }
+
+    return parts.join(' · ');
+  }
+
+  // Which actions this item has: the panel and the card's menu say the same.
+  function applyActions(item: ShownItem) {
+    const stacked = Boolean(item.quantity && item.quantity > 1);
+    const noteWriter = options.myCharacters().some((c) => c.entity_id === item.owner_entity_id);
+
+    addNote.hidden = !(options.viewerIsGm || noteWriter);
     actionsRegion.hidden = !board;
     closePanels();
 
@@ -253,6 +503,19 @@ export function renderItemDetail(options: ItemDetailOptions): RenderedItemDetail
     // A read-only column's cards aren't moved from this board (ADR 0131).
     move.hidden = board.state.readOnly.has(item.entity_id);
 
+    // A game master's tools, for an instance on a board (ADR 0294 for what they are called).
+    gm.hidden = !options.viewerIsGm || !isInstance(item);
+    unassignButton.hidden = !item.owner_entity_id;
+
+    if (!gm.hidden) {
+      void gmWordsOfBeing(options.tenantId, item.owner_entity_id ?? null).then((words) => {
+        gmHeading.textContent = words.title;
+      });
+    }
+
+    // Anything in a container can be set down, what's equipped too (ADR 0132).
+    setDown.hidden = move.hidden || !('container_entity_id' in item && item.container_entity_id);
+
     // A pack is unpacked for its owner, one at a time, from a column you can act in (ADR 0189).
     // Whether it really is one is the API's dry run to say.
     unpack.hidden = !isInstance(item) || !looksLikeAPack(item.descriptions) || move.hidden;
@@ -264,7 +527,9 @@ export function renderItemDetail(options: ItemDetailOptions): RenderedItemDetail
         : '';
   }
 
-  required<HTMLElement>(root, '[data-close]').addEventListener('click', close, { signal });
+  for (const button of root.querySelectorAll('[data-close]')) {
+    button.addEventListener('click', close, { signal });
+  }
 
   // Escape fires 'cancel' first: intercepting it gives Escape the animated close too.
   root.addEventListener(
@@ -272,6 +537,15 @@ export function renderItemDetail(options: ItemDetailOptions): RenderedItemDetail
     (event) => {
       event.preventDefault();
       close();
+    },
+    { signal },
+  );
+
+  // A panel isn't modal, so Escape reaches it as a key, not as 'cancel'.
+  root.addEventListener(
+    'keydown',
+    (event) => {
+      if (event.key === 'Escape' && !root.matches(':modal')) close();
     },
     { signal },
   );
@@ -285,37 +559,127 @@ export function renderItemDetail(options: ItemDetailOptions): RenderedItemDetail
     { signal },
   );
 
-  return {
-    // The dialog borrows the card's view-transition-name while open and gives it back on
-    // close: two elements sharing one name, one at a time, is what makes the browser morph
-    // between them instead of cross-fading.
-    open(item, card) {
-      if (!board) throw new Error('Item detail was made without a board.');
+  function openItem(item: ItemInstance, card: HTMLElement, as?: 'panel' | 'sheet' | 'page') {
+    if (!board) throw new Error('Item detail was made without a board.');
 
-      current = item;
-      openCard = card;
+    const mode = as ?? modeNow();
 
+    // On a phone an item is its page.
+    if (mode === 'page') {
+      linkTo(item);
+      window.location.assign(viewLink.href);
+
+      return;
+    }
+
+    current = item;
+    openCard = card;
+    markOpen(card);
+
+    if (mode === 'panel') {
+      populate(item);
+
+      if (!root.open) root.show();
+      else if (root.matches(':modal')) {
+        root.close();
+        root.show();
+      }
+    } else {
+      // The sheet borrows the card's view-transition-name while open and gives it back on
+      // close: two elements sharing one name, one at a time, is what makes the browser morph
+      // between them instead of cross-fading.
       withReflow(() => {
         card.style.viewTransitionName = '';
         root.style.viewTransitionName = `item-${item.entity_id}`;
         populate(item);
         root.showModal();
       });
+    }
 
-      void ancestryTree.load(ancestryRoot(item));
-    },
+    void ancestryTree.load(ancestryRoot(item));
+  }
 
-    view(item) {
+  return {
+    open: openItem,
+
+    view(item, as) {
+      if (!mayLeave()) return;
+
       current = null;
       openCard = null;
+      markOpen(null);
 
-      withReflow(() => {
+      const mode = as ?? (modeNow() === 'panel' ? 'panel' : 'sheet');
+
+      if (mode === 'panel') {
         populate(item);
-        root.showModal();
-      });
+
+        if (root.open && root.matches(':modal')) root.close();
+
+        if (!root.open) root.show();
+      } else {
+        withReflow(() => {
+          populate(item);
+
+          if (root.open) root.close();
+
+          root.showModal();
+        });
+      }
 
       void ancestryTree.load(ancestryRoot(item));
     },
+
+    // The card's "…" menu: Open, then whatever this item can have done to it. Each opens the panel (a
+    // sheet on a phone) with that action's form ready.
+    menu(item, card, button) {
+      if (!board) return;
+
+      applyActions(item);
+
+      const open = (act?: HTMLButtonElement) => {
+        openItem(item, card, modeNow() === 'page' ? 'sheet' : undefined);
+        act?.click();
+      };
+      const entries: MenuItem[] = [
+        { label: 'Open', icon: 'kind-item', run: () => openItem(item, card) },
+      ];
+
+      const add = (action: HTMLButtonElement | undefined, icon: string, danger = false): void => {
+        if (!action || action.hidden || action.disabled) return;
+
+        entries.push({
+          label: action.textContent?.trim() ?? '',
+          icon,
+          ...(danger ? { danger } : {}),
+          run: () => open(action),
+        });
+      };
+
+      add(move, 'move');
+      add(give, 'give');
+      add(setDown, 'down');
+      add(addNote, 'edit');
+      add(giveContents, 'give');
+      add(split, 'split');
+      add(actions[4]?.button, 'merge-items');
+      add(unpack, 'unpack');
+
+      // A game master's: only where the panel has them for this item.
+      if (!gm.hidden) {
+        entries.push({ separator: true });
+        add(reassign, 'reassign');
+        add(unassignButton, 'unassign');
+        add(remove, 'delete', true);
+      }
+
+      openMenu(button, entries, {
+        label: `Actions for ${item.title}`,
+        sprite: `${BRANDING_CSS_URL}/icons.svg`,
+      });
+    },
+
+    isOpen: () => root.open,
 
     prefetch(item) {
       const rootId = ancestryRoot(item);

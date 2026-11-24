@@ -114,13 +114,18 @@ export function openMenu(
     root.append(head);
   }
 
+  // A sheet is a dialog, so its items sit in a menu of their own: a menuitem needs a menu parent.
+  const list = sheet ? document.createElement('div') : root;
+
+  if (sheet) list.setAttribute('role', 'menu');
+
   for (const item of items) {
     if ('separator' in item) {
       const rule = document.createElement('div');
 
       rule.className = 'menu-sep';
       rule.setAttribute('role', 'separator');
-      root.append(rule);
+      list.append(rule);
       continue;
     }
     if ('heading' in item) {
@@ -128,7 +133,7 @@ export function openMenu(
 
       heading.className = 'menu-label';
       heading.textContent = item.heading;
-      root.append(heading);
+      list.append(heading);
       continue;
     }
 
@@ -164,8 +169,10 @@ export function openMenu(
       if (item.run) setTimeout(item.run, 0);
     });
     entries.push(entry);
-    root.append(entry);
+    list.append(entry);
   }
+
+  if (sheet) root.append(list);
 
   let closed = false;
 
