@@ -56,7 +56,6 @@ export function createColumns(options: ColumnsOptions) {
 
     card.draggable = !readOnly;
     card.dataset.entityId = item.entity_id;
-    card.style.viewTransitionName = `item-${item.entity_id}`;
     card.hidden = !matchesSearch(item, options.query());
 
     if (selection.active()) main.setAttribute('aria-pressed', 'false');

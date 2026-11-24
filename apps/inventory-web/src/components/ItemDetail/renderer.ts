@@ -176,14 +176,19 @@ export function renderItemDetail(options: ItemDetailOptions): RenderedItemDetail
       return;
     }
 
-    withReflow(() => {
-      root.close();
-      root.style.viewTransitionName = '';
+    withReflow(
+      () => {
+        root.close();
 
-      if (card?.dataset.entityId) {
-        card.style.viewTransitionName = `item-${card.dataset.entityId}`;
-      }
-    });
+        if (card?.dataset.entityId) card.style.viewTransitionName = `item-${card.dataset.entityId}`;
+      },
+      {
+        names: [[root, `item-${current?.entity_id ?? ''}`]],
+        after: () => {
+          if (card) card.style.viewTransitionName = '';
+        },
+      },
+    );
   }
 
   const actions = [

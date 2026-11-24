@@ -54,6 +54,10 @@ export function createDropZones(options: DropZoneOptions): DropZones {
   const cardFor = (entityId: string) =>
     columns.querySelector<HTMLLIElement>(`.item-card[data-entity-id="${entityId}"]`);
 
+  // The cards a move animates: each is named for the length of the transition, and nothing else is.
+  const named = (cards: HTMLElement[]): [HTMLElement, string][] =>
+    cards.map((card) => [card, `item-${card.dataset.entityId ?? ''}`]);
+
   // What is being dragged: one card, or the selection it belongs to.
   let dragged: string[] = [];
   let ghost: HTMLElement | null = null;
@@ -233,11 +237,14 @@ export function createDropZones(options: DropZoneOptions): DropZones {
       const splitting = question !== null;
       const isStack = (id: string) => (state.items.get(id)?.quantity ?? 1) > 1;
 
-      withReflow(() => {
-        removePlaceholder(list);
-        for (const c of cardsToMove) list.append(c);
-        ensurePlaceholder(sourceList);
-      });
+      withReflow(
+        () => {
+          removePlaceholder(list);
+          for (const c of cardsToMove) list.append(c);
+          ensurePlaceholder(sourceList);
+        },
+        { names: named(cardsToMove) },
+      );
 
       // The bulk endpoints are never all-or-nothing (ADR 0044/0065): each answers per entry,
       // so a partial failure moves back only the cards that failed. The single move has no
@@ -292,15 +299,18 @@ export function createDropZones(options: DropZoneOptions): DropZones {
         .then(({ failedIds, merged }) => {
           if (isBulk) {
             if (failedIds.size > 0) {
-              withReflow(() => {
-                removePlaceholder(sourceList);
+              withReflow(
+                () => {
+                  removePlaceholder(sourceList);
 
-                for (const c of cardsToMove) {
-                  if (failedIds.has(c.dataset.entityId ?? '')) sourceList.append(c);
-                }
+                  for (const c of cardsToMove) {
+                    if (failedIds.has(c.dataset.entityId ?? '')) sourceList.append(c);
+                  }
 
-                ensurePlaceholder(list);
-              });
+                  ensurePlaceholder(list);
+                },
+                { names: named(cardsToMove) },
+              );
               options.onError(`${failedIds.size} of ${idsToMove.length} couldn't be moved.`);
             }
 
@@ -325,11 +335,14 @@ export function createDropZones(options: DropZoneOptions): DropZones {
           }
         })
         .catch((error) => {
-          withReflow(() => {
-            removePlaceholder(sourceList);
-            for (const c of cardsToMove) sourceList.append(c);
-            ensurePlaceholder(list);
-          });
+          withReflow(
+            () => {
+              removePlaceholder(sourceList);
+              for (const c of cardsToMove) sourceList.append(c);
+              ensurePlaceholder(list);
+            },
+            { names: named(cardsToMove) },
+          );
           options.onError(errorMessage(error));
         });
     });
