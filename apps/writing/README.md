@@ -27,18 +27,21 @@ from repository copies and releases. Review notes use explicit Save; they are no
 
 ## The interface
 
-Writing is on the web shell ([ADR 0494](../../docs/adr/0494-writing-moves-into-the-web-shell.md)),
-which is being built as a stack of pull requests. Built so far: the shelf (Start writing opens an
-untitled Scene at once, a menu for Chapter, Book, Carrier and Character biography, Continue,
-filter and search, and the Editions shared with you to review); a work's page at `/write/` and
-`/read/` (the old `?entry=` addresses redirect; `?review=` is never changed) with a page head, a
-drawer of side views, the save state and word count in the status bar, and a leave dialog; the
-page as blocks (a grip and menu on each part, Alt with the arrow keys, a plus between parts,
-selecting parts, Split here, Make a Chapter or a Scene); the Layout menu (Source, Split, Live,
-the last from `@lorenzo/lorenzoscript-semilive-editor`); paste from Word and find and replace; the
-outline of the work beside its pages. Not built yet, each tracked in an issue: restructuring by
-gesture and undo, the side views reshaped, Read and the reviewer's view in the new frame, and
-the small editor helpers still open.
+Writing is on the web shell ([ADR 0494](../../docs/adr/0494-writing-moves-into-the-web-shell.md)).
+It has four pages: `/` is the shelf (Start writing opens an untitled Scene at once, a menu for
+Chapter, Book, Carrier and Character biography, Continue, filter and search with when each work
+was edited ([ADR 0519](../../docs/adr/0519-the-shelf-shows-when-a-work-was-edited.md)), and the
+Editions shared with you to review), and `/write/`, `/read/` and `/review/` are a work's page
+(the old `?entry=` addresses redirect; `?review=` is never changed; `/review/` serves the same
+page as the others). A work's page has a page head, a drawer of side views, the save state and
+word count in the status bar, and a leave dialog. The page is blocks (a grip and menu on each
+part, Alt with the arrow keys, a plus between parts, selecting parts, Split here, Make a Chapter
+or a Scene, move to another Chapter from the menu, [ADR 0520](../../docs/adr/0520-move-a-block-to-another-chapter.md)),
+with the Layout menu (Source, Split, Live, the last from `@lorenzo/lorenzoscript-semilive-editor`),
+paste from Word and find and replace, and the outline of the work beside its pages, where parts
+and Chapters can be dragged. Undo is offered for splits, extractions and joins. Export, composition
+updates and the repository comparison are dialogs. What each part still lacks is tracked in issues;
+the state of each slice is in the ADR.
 
 ## Moving writing
 
@@ -143,7 +146,8 @@ Generated navigation, code, math, notes and structural titles contribute no word
   Set `E2E_BROWSER_CHANNEL=msedge` to use installed Edge locally.
 
 The app is in the web shell ([ADR 0494](../../docs/adr/0494-writing-moves-into-the-web-shell.md)), and uses the shared brand, app shell, API client, LorenzoScript editor and Information
-bundle editor. No app-specific CSS. `PUBLIC_API_BASE_URL`, `PUBLIC_AUTHGEAR_ENDPOINT`,
+bundle editor. The one app stylesheet, `src/styles/app.css`, arranges a work's page and uses
+brand tokens only (checked by `src/styles.test.ts`). `PUBLIC_API_BASE_URL`, `PUBLIC_AUTHGEAR_ENDPOINT`,
 `PUBLIC_AUTHGEAR_CLIENT_ID` and optional `PUBLIC_BRANDING_CSS_URL` configure the build.
 
 Unsent drafts (including image Files) live in IndexedDB, separately by API/account/library/
@@ -154,7 +158,7 @@ autosave and require an explicit choice. This is not offline browsing or live co
 Server revisions contain prior content, never old sharing grants; deleting Information deletes
 its history. This screen does not offer that destructive action.
 
-The app is a single page, `/`, driven by `?tenant=` and `?entry=` (plus `/auth/redirect/` for sign-in).
+The pages are `/`, `/write/`, `/read/` and `/review/`, driven by `?tenant=` and `?entry=` (or `?review=`), plus `/auth/redirect/` for sign-in.
 
 Deployed at <https://lorenzo-writing.pages.dev/> on Cloudflare Pages; [the setup guide](../../docs/operations/writing-setup.md) records the procedure. `.env.example` lists the build variables.
 
@@ -190,14 +194,21 @@ payloads and copied composition ([ADR 0398](../../docs/adr/0398-copied-manuscrip
 [ADR 0435](../../docs/adr/0435-nested-chapter-text-updates.md), and
 [ADR 0436](../../docs/adr/0436-parent-chapter-text-updates.md)).
 
-## Exporting saved writing
+## Exporting and importing writing
 
 **Export** opens a preview of saved writing from the editor, assembled reading or Edition review.
 It leaves unsent editor changes alone. **Download LorenzoScript** saves a ZIP containing exact
 UTF-8 text, original picture bytes and a `lorenzo-writing/1` manifest. The manifest retains stable
 entry/payload IDs, reading order, repeated Carrier coverage, shared tellings, source locales and
 numbering/contents settings. It describes the selected authorized composition, not a library backup;
-there is no import/restore operation. Notes, history and unrelated world references are omitted.
+there is no restore operation for it. Notes, history and unrelated world references are omitted.
+
+**Download Markdown** ([ADR 0521](../../docs/adr/0521-markdown-in-and-out.md)) and **Download Word**
+([ADR 0522](../../docs/adr/0522-word-out.md)) make one `.md` or `.docx` file in the browser from the
+same saved preview, in the same order and numbering as the printable export. Markdown holds each
+text as its LorenzoScript source and each picture as an inline `data:` image; Word is made from the
+syntax tree with real headings, lists, tables, footnotes and pictures. Links to library entries stay
+as plain words in Word, and a generated contents list is not exported in either.
 
 **Print / Save as PDF** opens the browser print dialog. Choose Save as PDF and turn off browser
 headers and footers for a clean manuscript. The printable document uses LorenzoScript headings,
@@ -205,8 +216,15 @@ tables, local footnotes, pictures, Chapter numbering and contents, with self-hos
 Repeated passages have distinct local link targets. Pagination follows the browser's paper settings;
 advanced publishing and other formats remain deferred.
 
-Both outputs recheck access and the preview's version. If saved writing changes, refresh the preview.
+The four outputs recheck access and the preview's version. If saved writing changes, refresh the preview.
 Review exports remain limited to the granted Edition. Exports over 5,000 distinct entries, 20,000
 reading occurrences or 50 MiB of text/pictures ask for a smaller section rather than truncating it.
 See [ADR 0478](../../docs/adr/0478-manuscript-export-snapshots.md) and
 [the source archive format](../../docs/reference/writing-source-archive.md).
+
+The shelf's **Start something else** menu imports documents: **Import Markdown or Word files** and
+**Import a folder of Markdown or Word files** read `.md`, `.markdown`, `.txt` and `.docx` in the
+browser ([ADR 0521](../../docs/adr/0521-markdown-in-and-out.md), [ADR 0523](../../docs/adr/0523-word-in.md)).
+One file becomes a Chapter; several become a new Book with a Chapter for each file, in name order.
+`[[links]]` are kept as written and counted for the link review; other files are named as left
+out, and Word pictures are not imported.
