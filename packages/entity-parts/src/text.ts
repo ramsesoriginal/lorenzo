@@ -12,3 +12,12 @@ export type Renderer = (
   texts: string[],
   homes?: readonly (string | undefined)[],
 ) => Promise<Rendered[]>;
+
+/** The renderer for texts that all belong to `home`. */
+export const at =
+  (renderer: Renderer, home: string | undefined): Renderer =>
+  (texts) =>
+    renderer(
+      texts,
+      texts.map(() => home),
+    );

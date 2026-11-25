@@ -9,7 +9,7 @@ import { kindLabel } from '../../lib/beingList';
 import { BRANDING_CSS_URL } from '../../lib/config';
 import type { Renderer } from '../../lib/descriptions';
 import { getEntityDetail } from '../../lib/entities';
-import { renderTagEditor } from '../../lib/entityParts';
+import { renderDescriptionEdit, renderSlugEditor, renderTagEditor } from '../../lib/entityParts';
 import { errorMessage } from '../../lib/errorMessage';
 import { DEFAULT_GM_WORDS, gmWordsOfBeing } from '../../lib/gmTitle';
 import { gmCampaignsIn, isTenantMember, listCampaigns, myBeingIds, viewerId } from '../../lib/me';
@@ -27,14 +27,12 @@ import { renderBeingRelationships } from '../BeingRelationships/renderer';
 import { renderBeingView } from '../BeingView/renderer';
 import { renderDatasheet } from '../Datasheet/renderer';
 import { renderDeleteBeing } from '../DeleteBeing/renderer';
-import { renderDescriptionEdit } from '../DescriptionEdit/renderer';
 import { renderHandOver } from '../HandOver/renderer';
 import { renderInventorySummary } from '../InventorySummary/renderer';
 import { renderNameEdit } from '../NameEdit/renderer';
 import { renderPeople } from '../People/renderer';
 import { renderPictureEdit } from '../PictureEdit/renderer';
 import { renderSheetControls } from '../SheetControls/renderer';
-import { renderSlugEditor } from '../SlugEditor/renderer';
 import { renderStatBand } from '../StatBand/renderer';
 
 export type BeingPageOptions = {

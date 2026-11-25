@@ -1,5 +1,5 @@
 ---
-import DescriptionEditor from '@lorenzo/entity-parts/DescriptionEditor.astro';
+import DescriptionEditor from './DescriptionEditor.astro';
 ---
 
 <template data-info-form-template>
@@ -16,7 +16,7 @@ import DescriptionEditor from '@lorenzo/entity-parts/DescriptionEditor.astro';
         <input class="text-input" type="text" data-type />
       </label>
       <DescriptionEditor />
-      <div data-extra></div>
+      <div data-extra hidden></div>
       <div data-visibility>
         <label class="field-row">
           <input type="checkbox" data-public />

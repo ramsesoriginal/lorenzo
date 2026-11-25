@@ -1,16 +1,15 @@
-import { type BundleReceipt, renderBundleEditor } from '@lorenzo/information-editor';
-
 // The fields a piece of information is written with (ADR 0112): its title, type, who can read
 // it, and its LorenzoScript text in the editor (ADR 0106), with notes on links readers won't be
 // able to follow, in a form of its own with Save, Cancel and a line saying what happened.
 
-import { renderDescriptionEditor } from '@lorenzo/entity-parts';
-import { blobUrl, LorenzoApiError } from '../../lib/api';
-import type { Renderer } from '../../lib/descriptions';
-import { errorMessage } from '../../lib/errorMessage';
-import type { Information, InformationDraft } from '../../lib/information';
-import { say } from '../../lib/statusLine';
-import { cloneTemplate, requiredIn } from '../../lib/template';
+import { LorenzoApiError } from '@lorenzo/api-client';
+import { type BundleReceipt, renderBundleEditor } from '@lorenzo/information-editor';
+import { renderDescriptionEditor } from './DescriptionEditor';
+import type { Information, InformationDraft } from './information';
+import { errorMessage } from './internal/errorMessage';
+import { say } from './internal/statusLine';
+import { cloneTemplate, requiredIn } from './internal/template';
+import type { Renderer } from './text';
 
 export type InfoFormOptions = {
   initial: InformationDraft;
@@ -25,8 +24,15 @@ export type InfoFormOptions = {
   visibilityLabel?: string;
   // Said under the checkbox, such as who can read it otherwise.
   visibilityNote?: string;
+  // More fields under the text, such as a note's audience (ADR 0271).
+  extra?: HTMLElement;
   onSubmit: (draft: InformationDraft) => Promise<void>;
   onClose: () => void;
+};
+
+export type InfoFormDeps = {
+  // How a protected picture is read, with the app's token.
+  blobUrl(url: string): Promise<string>;
 };
 
 const STALE =
@@ -44,7 +50,11 @@ export function saveError(error: unknown): string {
 }
 
 // `templates` is whatever contains <InfoForm />.
-export function renderInfoForm(templates: ParentNode, options: InfoFormOptions): HTMLFormElement {
+export function renderInfoForm(
+  deps: InfoFormDeps,
+  templates: ParentNode,
+  options: InfoFormOptions,
+): HTMLFormElement {
   const { initial } = options;
   const template = required<HTMLTemplateElement>(templates, '[data-info-form-template]');
   const form = cloneTemplate<HTMLFormElement>(template, 'form');
@@ -57,6 +67,10 @@ export function renderInfoForm(templates: ParentNode, options: InfoFormOptions):
   required<HTMLElement>(form, '[data-title-label]').textContent = options.titleLabel ?? 'Title';
   required<HTMLElement>(form, '[data-type-field]').hidden = !options.showType;
   required<HTMLElement>(form, '[data-visibility]').hidden = !options.showVisibility;
+  const extra = required<HTMLElement>(form, '[data-extra]');
+
+  extra.hidden = !options.extra;
+  if (options.extra) extra.append(options.extra);
   required<HTMLElement>(form, '[data-visibility-label]').textContent =
     options.visibilityLabel ?? 'Players can read this';
 
@@ -79,7 +93,7 @@ export function renderInfoForm(templates: ParentNode, options: InfoFormOptions):
     initial: options.information?.payloads,
     content: initial.content,
     textLabel: options.textLabel ?? 'Text',
-    loadFile: (payload) => blobUrl(payload.url),
+    loadFile: (payload) => deps.blobUrl(payload.url),
     createTextEditor: (host, label, content) => {
       const mount = prototype.cloneNode(true) as HTMLElement;
       host.append(mount);

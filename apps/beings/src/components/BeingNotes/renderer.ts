@@ -1,12 +1,15 @@
 import { renderAudienceControl, renderInformationPayloads } from '@lorenzo/information-editor';
 import { blobUrl, client } from '../../lib/api';
+
 // Notes on a being (ADR 0271), the way inventory-web has them on items (ADR 0113) but with the four
 // audiences (GM only, Everyone, Some characters, Player note) and an order the writer sets (ADR
 // 0237). Anyone who can see a note reads it; whoever may write, adds, edits, reorders and deletes.
 // The API remains the gate for every write.
 
+import { saveError } from '@lorenzo/entity-parts';
 import { listBeings } from '../../lib/beingList';
 import { at, type Renderer, showDescriptions } from '../../lib/descriptions';
+import { renderInfoForm } from '../../lib/entityParts';
 import { errorMessage } from '../../lib/errorMessage';
 import type { GmWords } from '../../lib/gmTitle';
 import {
@@ -37,7 +40,6 @@ import {
 import { say } from '../../lib/statusLine';
 import { cloneTemplate, requiredIn } from '../../lib/template';
 import { type AudienceFieldOptions, renderAudienceField } from '../AudienceField/renderer';
-import { renderInfoForm, saveError } from '../InfoForm/renderer';
 
 export type BeingNotesOptions = {
   tenantId: string;

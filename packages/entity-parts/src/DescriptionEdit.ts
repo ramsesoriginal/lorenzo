@@ -1,15 +1,22 @@
+// The description of an entry, written in an InfoForm under the button that opens it (ADR 0272).
+// Its information's title is the entry's shown name too (ADR 0019), so the form keeps it.
+import type { LorenzoClient } from '@lorenzo/api-client';
 import { renderAudienceControl } from '@lorenzo/information-editor';
-import { client } from '../../lib/api';
-// The description of an item with its display title, the item's shown name (ADR 0019, 0112),
-// written in an InfoForm under the button that opens it.
+import { type InfoFormDeps, renderInfoForm } from './InfoForm';
+import { descriptionDraft, type informationApi } from './information';
+import { errorMessage } from './internal/errorMessage';
+import { requiredIn } from './internal/template';
+import { at, type Renderer } from './text';
 
-import { at, type Renderer } from '../../lib/descriptions';
-import { errorMessage } from '../../lib/errorMessage';
-import { descriptionDraft, getDescription, saveDescription } from '../../lib/information';
-import { requiredIn } from '../../lib/template';
-import { hasOwnText } from '../../lib/textSources';
-import type { ItemBase } from '../../lib/types';
-import { renderInfoForm } from '../InfoForm/renderer';
+/** What the description is of: its id, the name it is shown by, and whether it has a text of its own. */
+export type DescribedEntry = { entityId: string; name: string; hasDescription: boolean };
+
+export type DescriptionEditDeps = InfoFormDeps & {
+  client: LorenzoClient;
+  information: ReturnType<typeof informationApi>;
+  // The label of the form's title: "Display title", "Heading".
+  titleLabel: string;
+};
 
 export type DescriptionEditOptions = {
   root: HTMLElement;
@@ -20,32 +27,36 @@ export type DescriptionEditOptions = {
 };
 
 export type RenderedDescriptionEdit = {
-  // The item the description is of, as it is now.
-  show(item: ItemBase): void;
+  // The entry the description is of, as it is now.
+  show(entry: DescribedEntry): void;
   // Only those who may write it are offered the button.
   allow(canWrite: boolean): void;
 };
 
 const required = requiredIn('Description edit');
 
-export function renderDescriptionEdit(options: DescriptionEditOptions): RenderedDescriptionEdit {
+export function renderDescriptionEdit(
+  deps: DescriptionEditDeps,
+  options: DescriptionEditOptions,
+): RenderedDescriptionEdit {
   const { root, tenantId } = options;
+  const { client, information } = deps;
   const edit = required<HTMLButtonElement>(root, '[data-edit]');
   const mount = required<HTMLElement>(root, '[data-mount]');
 
-  let item: ItemBase | null = null;
+  let being: DescribedEntry | null = null;
 
   let canWrite = false;
   let audience: HTMLDetailsElement | null = null;
   function showAudience() {
     audience?.remove();
     audience = null;
-    if (!item || !hasOwnText(item.descriptions)) return;
+    if (!being?.hasDescription) return;
     audience = renderAudienceControl({
       client,
       tenantId,
       informationId: async () =>
-        item ? ((await getDescription(tenantId, item.entity_id))?.id ?? null) : null,
+        being ? ((await information.getDescription(tenantId, being.entityId))?.id ?? null) : null,
       onSaved: options.onSaved,
     });
     audience.hidden = !canWrite;
@@ -53,29 +64,29 @@ export function renderDescriptionEdit(options: DescriptionEditOptions): Rendered
   }
 
   edit.addEventListener('click', async () => {
-    if (!item) return;
+    if (!being) return;
 
-    const { entity_id: entityId, title } = item;
+    const { entityId, name: title } = being;
 
     edit.disabled = true;
 
     try {
-      const info = await getDescription(tenantId, entityId);
+      const info = await information.getDescription(tenantId, entityId);
       let saved = false;
 
       edit.hidden = true;
       if (audience) audience.hidden = true;
       mount.replaceChildren(
-        renderInfoForm(root, {
+        renderInfoForm(deps, root, {
           initial: descriptionDraft(info, title),
           information: info ?? undefined,
           renderer: at(options.renderer, entityId),
-          titleLabel: 'Display title',
+          titleLabel: deps.titleLabel,
           textLabel: 'Description',
           showVisibility: info === null,
 
           onSubmit: async (draft) => {
-            await saveDescription(tenantId, entityId, info, draft, title);
+            await information.saveDescription(tenantId, entityId, info, draft, title);
             saved = true;
           },
 
@@ -97,11 +108,9 @@ export function renderDescriptionEdit(options: DescriptionEditOptions): Rendered
 
   return {
     show(shown) {
-      item = shown;
+      being = shown;
       showAudience();
-      edit.textContent = hasOwnText(shown.descriptions)
-        ? 'Edit description'
-        : 'Write a description';
+      edit.textContent = shown.hasDescription ? 'Edit description' : 'Write a description';
     },
 
     allow(allowed) {

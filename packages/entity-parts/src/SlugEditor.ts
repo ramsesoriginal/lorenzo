@@ -1,11 +1,11 @@
-// A being page's link name editor (ADR 0113, 0272): the field, holding the entity's slug or a
-// suggestion, and Save.
-
-import { getEntityDetail } from '../../lib/entities';
-import { errorMessage } from '../../lib/errorMessage';
-import { type SlugKind, saveSlug, suggestSlug } from '../../lib/slugs';
-import { say } from '../../lib/statusLine';
-import { requiredIn } from '../../lib/template';
+// A page's slug editor for GMs (ADR 0113): the field, holding the entity's slug or a suggestion,
+// and Save. What the app calls a slug ("slug", "link name") is in its words.
+import type { LorenzoClient } from '@lorenzo/api-client';
+import { getEntityDetail } from '@lorenzo/stat-values';
+import { errorMessage } from './internal/errorMessage';
+import { say } from './internal/statusLine';
+import { requiredIn } from './internal/template';
+import type { SlugKind, slugsApi } from './slugs';
 
 export type SlugEditorOptions = {
   // Whatever contains <SlugEditor />.
@@ -22,7 +22,18 @@ export type RenderedSlugEditor = {
 
 const required = requiredIn('Slug editor');
 
-export function renderSlugEditor(options: SlugEditorOptions): RenderedSlugEditor {
+export type SlugEditorDeps = {
+  client: LorenzoClient;
+  slugs: ReturnType<typeof slugsApi>;
+  // "slug" or "link name".
+  noun: string;
+};
+
+export function renderSlugEditor(
+  deps: SlugEditorDeps,
+  options: SlugEditorOptions,
+): RenderedSlugEditor {
+  const { client, slugs, noun } = deps;
   const { root, tenantId } = options;
   const message = required<HTMLElement>(root, '[data-message]');
   const form = required<HTMLFormElement>(root, '[data-form]');
@@ -43,7 +54,7 @@ export function renderSlugEditor(options: SlugEditorOptions): RenderedSlugEditor
     say(status, 'Saving…');
 
     try {
-      await saveSlug(tenantId, entityId, current, input.value);
+      await slugs.saveSlug(tenantId, entityId, current, input.value);
       current = input.value.trim() || null;
       say(status, current ? 'Saved.' : 'Cleared.');
       options.onSaved(current);
@@ -59,13 +70,13 @@ export function renderSlugEditor(options: SlugEditorOptions): RenderedSlugEditor
       entityId = null;
       form.hidden = true;
       say(status, '');
-      say(message, 'Loading the link name…');
+      say(message, `Loading the ${noun}…`);
 
       try {
-        current = (await getEntityDetail(tenantId, id)).slug;
-        input.value = current ?? (await suggestSlug(tenantId, title, kind));
+        current = (await getEntityDetail(client, tenantId, id)).slug;
+        input.value = current ?? (await slugs.suggestSlug(tenantId, title, kind));
       } catch (error) {
-        say(message, `Couldn't load the link name: ${errorMessage(error)}`);
+        say(message, `Couldn't load the ${noun}: ${errorMessage(error)}`);
         return;
       }
 

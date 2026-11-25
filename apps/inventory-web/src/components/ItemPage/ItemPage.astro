@@ -1,12 +1,12 @@
 ---
 import { BRANDING_CSS_URL } from '../../lib/config';
 import AncestryTree from '../AncestryTree/AncestryTree.astro';
-import DescriptionEdit from '../DescriptionEdit/DescriptionEdit.astro';
+import DescriptionEdit from '@lorenzo/entity-parts/DescriptionEdit.astro';
 import Information from '../Information/Information.astro';
 import ItemView from '../ItemView/ItemView.astro';
 import MentionedIn from '../MentionedIn/MentionedIn.astro';
 import Notes from '../Notes/Notes.astro';
-import SlugEditor from '../SlugEditor/SlugEditor.astro';
+import SlugEditor from '@lorenzo/entity-parts/SlugEditor.astro';
 import StatEditor from '../StatEditor/StatEditor.astro';
 import TagEditor from '@lorenzo/entity-parts/TagEditor.astro';
 import UsedBy from '../UsedBy/UsedBy.astro';
@@ -53,7 +53,7 @@ import UsedBy from '../UsedBy/UsedBy.astro';
       <div class="stack" data-gm hidden>
         <div role="region" aria-labelledby="item-slug-heading">
           <h2 id="item-slug-heading">Slug</h2>
-          <SlugEditor />
+          <SlugEditor label="Slug" example="slug" />
         </div>
         <div class="section" role="region" aria-labelledby="item-tags-heading">
           <h2 id="item-tags-heading">Tags</h2>
