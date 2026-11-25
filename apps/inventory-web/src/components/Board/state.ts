@@ -1,6 +1,19 @@
 import type { Board } from '../../lib/boardColumns';
 import type { EntitySummary, ItemInstance } from '../../lib/types';
 
+// What changed on a card or two, as the server confirmed it: the board says it where it is, without
+// being fetched or drawn again. Anything it can't place (a card that isn't on it) makes it say no.
+export type BoardPatch = {
+  // Names of beings, for the owner marks of what was given to them.
+  owners?: [id: string, name: string][];
+  // Cards that stay where they are, with some of what they say changed.
+  updated?: { id: string; patch: Partial<ItemInstance> }[];
+  // New cards, each right after one that is on the board.
+  added?: { after: string; item: ItemInstance }[];
+  // Cards that are gone (merged into another).
+  removed?: string[];
+};
+
 // What the board shows right now, shared by its parts and read by the item dialog.
 export type BoardState = {
   // entity_id -> its instance, for every card rendered.
