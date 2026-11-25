@@ -453,6 +453,27 @@ html[data-density="dense"] .shell-app {
   flex: 1;
 }
 
+/* A page that is exactly the window tall (a board, say): it marks the box that takes the room with
+   data-fit-window, and every box from the app down to it is a flex column that may shrink, so what
+   is inside scrolls and the page does not. A phone scrolls the page as it always did. */
+@media (min-width: 721px) {
+  body:has([data-fit-window]) .shell-container,
+  body:has([data-fit-window]) .shell-app--page {
+    height: 100dvh;
+    min-height: 0;
+  }
+
+  body:has([data-fit-window]) .shell-app--page > main,
+  body:has([data-fit-window]) .shell-app--page > main > .stack,
+  body:has([data-fit-window]) [data-page],
+  [data-fit-window] {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+  }
+}
+
 .shell-header {
   position: relative;
   z-index: 20;
