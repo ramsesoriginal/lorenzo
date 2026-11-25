@@ -26,6 +26,9 @@ export type DropZones = {
   // A card is picked up and put down: what is dragged is dimmed, and the columns say where it would land.
   start(card: HTMLElement, entityId: string): void;
   end(): void;
+  // Cards were moved by some other means (the select bar): they are put into the target's column,
+  // and the columns say so. False when that can't be done from what is on the page.
+  place(ids: string[], target: string): boolean;
 };
 
 export type DropZoneOptions = {
@@ -151,7 +154,12 @@ export function createDropZones(options: DropZoneOptions): DropZones {
     if (live) live.textContent = `${title}: ${words.textContent}`;
   }
 
+  // The list of each column a card can be put into, by its container.
+  const lists = new Map<string | null, HTMLUListElement>();
+
   function bind(column: HTMLElement, list: HTMLUListElement, containerEntityId: string | null) {
+    lists.set(containerEntityId, list);
+
     column.addEventListener('dragenter', (event) => {
       event.preventDefault();
       dragDepth.set(column, (dragDepth.get(column) ?? 0) + 1);
@@ -357,6 +365,26 @@ export function createDropZones(options: DropZoneOptions): DropZones {
 
   return {
     bind,
+
+    place(ids, target) {
+      const list = lists.get(target);
+      const cards = ids.map(cardFor).filter((c): c is HTMLLIElement => c !== null);
+
+      if (!list?.isConnected || cards.length === 0 || cards.length < ids.length) return false;
+
+      const sources = new Set(cards.map((card) => card.parentElement as HTMLUListElement));
+
+      withReflow(
+        () => {
+          removePlaceholder(list);
+          for (const card of cards) list.append(card);
+          for (const source of sources) ensurePlaceholder(source);
+        },
+        { names: named(cards) },
+      );
+
+      return options.settle(ids, target);
+    },
 
     start(card, entityId) {
       const isBulk = selection.active() && selection.ids.has(entityId) && selection.ids.size > 1;

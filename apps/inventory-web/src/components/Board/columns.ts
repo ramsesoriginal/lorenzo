@@ -7,7 +7,7 @@ import { isUnsorted } from '../../lib/unsorted';
 import type { DropZones } from './dragDrop';
 import { ensurePlaceholder, removePlaceholder } from './placeholder';
 import type { Selection } from './selection';
-import type { BoardState } from './state';
+import type { BoardPatch, BoardState } from './state';
 
 const required = requiredIn('Board');
 
@@ -377,5 +377,60 @@ export function createColumns(options: ColumnsOptions) {
     });
   }
 
-  return { renderColumn, reconcile, refreshNotes, settle, forgetColumns: () => noted.clear() };
+  const cardOf = (id: string) =>
+    root.querySelector<HTMLLIElement>(`.item-card[data-entity-id="${CSS.escape(id)}"]`);
+
+  // The board says what the server confirmed: its cards changed, added or gone, and its columns
+  // their counts and weights. False when a card it names isn't there, and then it is fetched.
+  function patch(changes: BoardPatch): boolean {
+    for (const [id, name] of changes.owners ?? []) state.current?.owners.set(id, name);
+
+    for (const { id, patch: fields } of changes.updated ?? []) {
+      const item = state.items.get(id);
+      const card = cardOf(id);
+
+      if (!item || !card) return false;
+
+      const changed = { ...item, ...fields };
+
+      state.items.set(id, changed);
+      card.replaceWith(renderCard(changed, state.readOnly.has(id)));
+    }
+
+    for (const { after, item } of changes.added ?? []) {
+      const before = cardOf(after);
+
+      if (!before) return false;
+
+      const readOnly = state.readOnly.has(after);
+
+      if (readOnly) state.readOnly.add(item.entity_id);
+
+      state.items.set(item.entity_id, item);
+      before.after(renderCard(item, readOnly));
+    }
+
+    for (const id of changes.removed ?? []) {
+      const card = cardOf(id);
+      const list = card?.parentElement as HTMLUListElement | null | undefined;
+
+      card?.remove();
+      state.items.delete(id);
+      state.readOnly.delete(id);
+
+      if (list) ensurePlaceholder(list);
+    }
+
+    // Counts and weights follow what is in each column now.
+    return settle([], null);
+  }
+
+  return {
+    renderColumn,
+    reconcile,
+    patch,
+    refreshNotes,
+    settle,
+    forgetColumns: () => noted.clear(),
+  };
 }

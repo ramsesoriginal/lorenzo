@@ -128,3 +128,114 @@ test('moving a container changes the words of the columns, and draws nothing aga
     await page.locator('[data-column]').count(),
   );
 });
+
+// Marks every column on the page and counts reads of the board: if the board is drawn again the
+// marks go, and if it is fetched again a read shows.
+async function watch(page: Page) {
+  await expect(page.getByRole('region', { name: 'Backpack' })).toBeVisible();
+  await page.evaluate(() => {
+    for (const el of document.querySelectorAll('[data-column]')) el.setAttribute('data-probe', '1');
+  });
+
+  const reads: string[] = [];
+
+  page.on('request', (request) => {
+    if (request.url().includes('/controlled-by/')) reads.push(request.url());
+  });
+
+  return async () => {
+    await expect(page.locator('[data-column]:not([data-probe])')).toHaveCount(0);
+    expect(reads).toEqual([]);
+  };
+}
+
+const backpack = (page: Page) => page.getByRole('region', { name: 'Backpack' });
+const cardIn = (page: Page, name: string) =>
+  backpack(page).getByRole('button', { name, exact: true });
+
+async function pickBeing(page: Page, name: string) {
+  await page.getByLabel('Search beings').filter({ visible: true }).fill(name);
+  await page.getByRole('option').getByRole('button', { name }).click();
+}
+
+test('giving a card changes its mark, and neither fetches nor draws the board', async ({
+  world,
+  as,
+}) => {
+  await packed(world, world.pia);
+  const page = await as(world.pia);
+
+  await page.goto(`/board/?tenant=${world.tenantId}`);
+  const unchanged = await watch(page);
+
+  await cardIn(page, 'Ornate Spellbook').click();
+  await page.getByRole('button', { name: 'Give to…' }).click();
+  await pickBeing(page, 'Brisk');
+
+  await expect(cardIn(page, "Ornate Spellbook Brisk's")).toBeVisible();
+  await unchanged();
+});
+
+test('giving part of a stack adds a card and says the rest, with no fetch', async ({
+  world,
+  as,
+}) => {
+  await packed(world, world.pia);
+  const page = await as(world.pia);
+
+  await page.goto(`/board/?tenant=${world.tenantId}`);
+  const unchanged = await watch(page);
+
+  await cardIn(page, 'Arrow ×3').click();
+  await page.getByRole('button', { name: 'Give to…' }).click();
+  await page.getByLabel('How many? (of 3, blank for all)').fill('1');
+  await pickBeing(page, 'Brisk');
+
+  await expect(cardIn(page, 'Arrow ×2')).toBeVisible();
+  await expect(cardIn(page, "Arrow Brisk's")).toBeVisible();
+  await expect(backpack(page).locator('[data-column-count]')).toHaveText('3');
+  await unchanged();
+});
+
+test('merging a stack into another joins them, with no fetch', async ({ world, as }) => {
+  const { items, backpack: bag } = await packed(world, world.pia);
+
+  await world.instance(items.arrow, { owner: world.pia, container: bag });
+
+  const page = await as(world.pia);
+
+  await page.goto(`/board/?tenant=${world.tenantId}`);
+  const unchanged = await watch(page);
+
+  await cardIn(page, 'Arrow').click();
+  await page.getByRole('button', { name: 'Merge into…' }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Arrow ×3' }).click();
+
+  await expect(cardIn(page, 'Arrow ×4')).toBeVisible();
+  await expect(backpack(page).locator('[data-column-count]')).toHaveText('2');
+  await unchanged();
+});
+
+test('giving selected cards from the select bar marks them, with no fetch', async ({
+  world,
+  as,
+}) => {
+  await packed(world, world.pia);
+  const page = await as(world.pia);
+
+  await page.goto(`/board/?tenant=${world.tenantId}`);
+  const unchanged = await watch(page);
+
+  await page.getByRole('button', { name: 'Select', exact: true }).click();
+  await cardIn(page, 'Ornate Spellbook').click();
+  await cardIn(page, 'Arrow ×3').click();
+  await page
+    .getByRole('toolbar', { name: 'Selected cards' })
+    .getByRole('button', { name: 'Give…' })
+    .click();
+  await pickBeing(page, 'Brisk');
+
+  await expect(cardIn(page, "Ornate Spellbook Brisk's")).toBeVisible();
+  await expect(cardIn(page, "Arrow ×3 Brisk's")).toBeVisible();
+  await unchanged();
+});
