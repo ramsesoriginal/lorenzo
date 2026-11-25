@@ -229,6 +229,36 @@ class Batches(unittest.TestCase):
                 affected.load_graph(make_repo(GRAPH + f'\n[nodes."apps/tool"]\nbatch = "x"\n{setting}\n'))
 
 
+class Reads(unittest.TestCase):
+    """A node whose tests read other nodes' files runs when they change, and nothing follows from it."""
+
+    def setUp(self) -> None:
+        self.graph = affected.load_graph(
+            make_repo(GRAPH + '\n[nodes."apps/tool"]\nreads = ["apps/*.css", "packages/ui/*"]\n')
+        )
+
+    def run_for(self, *changed: str) -> affected.Result:
+        return affected.affected(self.graph, list(changed))
+
+    def test_a_change_to_what_it_reads_runs_its_tests(self) -> None:
+        result = self.run_for("apps/web/src/styles/a.css")
+        self.assertIn("apps/tool", result.tests)
+        self.assertIn("apps/web", result.tests)
+        self.assertIn("is read by its tests", result.reasons["apps/tool"])
+
+    def test_it_is_not_a_dependency(self) -> None:
+        graph = affected.load_graph(
+            make_repo(GRAPH + '\n[nodes."apps/tool"]\nreads = ["apps/*.css"]\n[suites.tool-e2e]\nnode = "apps/tool"\n')
+        )
+        result = affected.affected(graph, ["apps/web/src/a.css"])
+        self.assertIn("apps/tool", result.tests)
+        self.assertNotIn("tool-e2e", result.suites)
+
+    def test_something_else_does_not_run_it(self) -> None:
+        self.assertNotIn("apps/tool", self.run_for("apps/web/src/a.ts").tests)
+        self.assertNotIn("apps/tool", self.run_for("docs/a.md").tests)
+
+
 class ThisRepository(unittest.TestCase):
     """The real graph loads, and the behavior ADR 0148 promises holds on it."""
 
@@ -238,14 +268,16 @@ class ThisRepository(unittest.TestCase):
     def test_every_node_is_placed(self) -> None:
         self.assertEqual(set(self.graph.nodes), set(affected.discover_nodes(REPO)))
 
-    def test_a_loot_bot_change_runs_loot_bot_only(self) -> None:
-        self.assertEqual(affected.affected(self.graph, ["apps/loot-bot/src/x.ts"]).tests, {"apps/loot-bot"})
+    def test_a_loot_bot_change_runs_loot_bot_and_the_legal_scans(self) -> None:
+        self.assertEqual(
+            affected.affected(self.graph, ["apps/loot-bot/src/x.ts"]).tests, {"apps/loot-bot", "apps/legal"}
+        )
 
     def test_api_client_reaches_the_apps(self) -> None:
         tests = affected.affected(self.graph, ["packages/api-client/src/index.ts"]).tests
         self.assertEqual(
             tests,
-            {"packages/api-client", "apps/loot-bot", "apps/inventory-web", "apps/account-hub", "apps/bench", "apps/beings", "apps/calendars", "apps/sessions", "apps/maps", "apps/social", "apps/writing", "packages/stat-values", "packages/information-editor", "packages/period-picker"},
+            {"packages/api-client", "apps/loot-bot", "apps/inventory-web", "apps/account-hub", "apps/bench", "apps/beings", "apps/calendars", "apps/sessions", "apps/maps", "apps/social", "apps/writing", "packages/stat-values", "packages/information-editor", "packages/period-picker", "apps/legal"},
         )
 
     def test_an_api_change_does_not_retest_the_typescript_apps(self) -> None:
@@ -255,9 +287,23 @@ class ThisRepository(unittest.TestCase):
         self.assertEqual(result.suites, {"inventory-web-e2e", "cli-e2e", "account-hub-real-api", "beings-e2e", "bench-e2e", "calendars-e2e", "sessions-e2e", "maps-e2e", "social-e2e", "writing-e2e"})
         self.assertTrue(result.openapi_diff)
 
+    def test_a_css_change_in_any_app_runs_the_brands_class_test_and_nothing_downstream(self) -> None:
+        for path in ("apps/inventory-web/src/styles/components.css", "apps/beings/src/styles/layout.css"):
+            result = affected.affected(self.graph, [path])
+            self.assertIn("apps/brand", result.tests, path)
+            self.assertNotIn("packages/brand", result.tests, path)
+            self.assertNotIn("brand-e2e", result.suites, path)
+
+    def test_a_source_change_in_any_app_runs_the_legal_apps_scans(self) -> None:
+        for path in ("apps/maps/src/lib/height.ts", "packages/app-shell/src/x.ts"):
+            self.assertIn("apps/legal", affected.affected(self.graph, [path]).tests, path)
+        # what no browser loads is not scanned
+        for path in ("apps/api/src/lorenzo_api/main.py", "apps/inventory-mobile/app/src/Main.kt"):
+            self.assertNotIn("apps/legal", affected.affected(self.graph, [path]).tests, path)
+
     def test_a_hub_change_runs_the_hubs_real_api_suite(self) -> None:
         result = affected.affected(self.graph, ["apps/account-hub/src/lib/shelf.ts"])
-        self.assertEqual(result.tests, {"apps/account-hub"})
+        self.assertEqual(result.tests, {"apps/account-hub", "apps/legal"})
         self.assertEqual(result.suites, {"account-hub-real-api"})
 
     def test_documentation_runs_nothing(self) -> None:

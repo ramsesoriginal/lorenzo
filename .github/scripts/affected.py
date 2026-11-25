@@ -49,6 +49,7 @@ class Node:
     postgres: bool = False
     shards: int = 1
     batch: str = ""
+    reads: list[str] = field(default_factory=list)
     check_schema: bool = False
     depends_on: set[str] = field(default_factory=set)
     generated_from: set[str] = field(default_factory=set)
@@ -141,6 +142,7 @@ def load_graph(root: Path) -> Graph:
         node.shards = int(table.get("shards", 1))
         if node.shards < 1:
             raise GraphError(f"{where}: `shards` must be at least 1")
+        node.reads = sorted(_as_set(table, "reads", where))
         node.batch = str(table.get("batch", ""))
         if node.batch and (node.postgres or node.shards > 1):
             raise GraphError(f"{where}: `batch` is for small legs, not one that needs Postgres or is sharded")
@@ -243,6 +245,22 @@ def affected(graph: Graph, changed: list[str], everything: bool = False, why: st
                 reasons[dependent] = f"depends on {current}"
                 queue.append(dependent)
 
+    suites = {
+        suite.name
+        for suite in graph.suites.values()
+        if suite.node in tests or suite.depends_on & tests
+    }
+
+    # A node whose tests read other nodes' files (a test that walks every app's stylesheets) runs when
+    # one of those changes. It is not a dependency: nothing downstream of it runs for that, nor its
+    # suites, since what it uses did not change.
+    if not everything:
+        for path in changed:
+            for node in graph.nodes.values():
+                if node.name not in tests and any(fnmatch.fnmatch(path, pattern) for pattern in node.reads):
+                    tests.add(node.name)
+                    reasons[node.name] = f"{path} is read by its tests"
+
     drift: set[str] = set()
     for node in graph.nodes.values():
         if not node.check_schema:
@@ -250,11 +268,6 @@ def affected(graph: Graph, changed: list[str], everything: bool = False, why: st
         if node.name in tests or node.generated_from & tests:
             drift.add(node.name)
 
-    suites = {
-        suite.name
-        for suite in graph.suites.values()
-        if suite.node in tests or suite.depends_on & tests
-    }
     return Result(
         tests=tests,
         drift=drift,

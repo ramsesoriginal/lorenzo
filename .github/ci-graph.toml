@@ -20,6 +20,12 @@
 #                  under a minute: each runner costs 10-15 s to set up, and a push to main ran 33 jobs with
 #                  16 at a time at most, so the slow legs waited behind small ones for a runner (ADR
 #                  0148, addendum of 2026-10-14). Not for a node that needs Postgres or is sharded.
+#   reads          paths (fnmatch, where `*` also crosses `/`) of other nodes that its tests read: a
+#                  change to one runs this node's tests. Not a dependency: nothing downstream of the
+#                  node runs for it, and neither do its suites. For a test that walks every app (the
+#                  brand's class names, the legal app's list of browser storage): without it the test
+#                  is red on main after a merge and green on the pull request that caused it (ADR 0148,
+#                  addendum of 2026-11-24).
 
 [global]
 # A change to any of these runs every node.
@@ -86,6 +92,8 @@ postgres = true
 
 [nodes."apps/brand"]
 batch = "packages"
+# tests/class-clash.test.mjs reads the stylesheets of every app.
+reads = ["apps/*.css"]
 # Plain CSS, fonts and icons: nothing to read.
 
 [nodes."packages/brand"]
@@ -211,6 +219,14 @@ depends_on = ["apps/api"]
 
 [nodes."apps/legal"]
 batch = "web-2"
+# Its tests scan every app and package for browser storage, outside links and the legal links
+# (tests/storage-keys.test.ts, third-party.test.ts, wiring.test.ts). What a browser loads: by file
+# type, so the API's Python and the native apps' Kotlin and Swift do not run it.
+reads = [
+  "apps/*.ts", "apps/*.tsx", "apps/*.js", "apps/*.mjs", "apps/*.astro", "apps/*.css", "apps/*.html",
+  "packages/*.ts", "packages/*.tsx", "packages/*.js", "packages/*.mjs", "packages/*.astro", "packages/*.css", "packages/*.html",
+  "apps/*/package.json",
+]
 
 [nodes."apps/social"]
 batch = "web-2"
