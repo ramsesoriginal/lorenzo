@@ -26,7 +26,10 @@ mise run //apps/sessions:build
 mise run //apps/sessions:test-e2e   # real API on a disposable database, fake Authgear
 ```
 
-No private bodies are persisted in browser storage. Appearance preference alone is remembered.
+No private bodies are persisted in browser storage. What this browser keeps: the person's saved
+Session views (`lorenzo:sessions:views`, [ADR 0441](../../docs/adr/0441-sessions-moves-into-the-web-shell.md)),
+the appearance preference, and, in the tab's `sessionStorage`, the page to return to after sign-in
+and the identity reads (`/me`, `/tenants`, `/app-links`; [ADR 0325](../../docs/adr/0325-one-read-cache-and-what-it-may-hold.md)).
 
 ## Hosting
 
@@ -62,7 +65,7 @@ restrictions. Ordinary order rulings and each being's support remain independent
 
 ## Page frame
 
-The header, skip link, welcome, footer and theme toggle come from [`@lorenzo/app-shell`](../../packages/app-shell/README.md) over the shared brand ([ADR 0322](../../docs/adr/0322-calendars-and-sessions-share-a-header-and-the-brand-base.md)); `src/layouts/Base.astro` only names the product, its page links and its welcome text. At phone width the header shows the spark alone.
+Sessions is on the web shell ([ADR 0441](../../docs/adr/0441-sessions-moves-into-the-web-shell.md)): the header, palette, apps sheet, status bar and the account menu with Appearance come from [`@lorenzo/app-shell`](../../packages/app-shell/README.md) over the shared brand. `src/layouts/Base.astro` sets `shell="web"` and the `list-detail` template and names the product, its tabs (Sessions, Scenes and Lived order, the last two for a library) and its welcome text.
 
 ## What a save draws again
 
