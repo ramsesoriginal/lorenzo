@@ -7,7 +7,10 @@ on:
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  # A newer push to a pull request makes the run of the older one pointless. A push to main does not:
+  # each merge is a commit whose result is wanted, and 3 of the last 30 runs on main were cancelled by
+  # the next merge, which left them with no result at all (ADR 0148, addendum of 2026-11-24).
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 # mise itself is pinned, not "latest". Left floating, the action picks the newest release older than
 # minimum_release_age, finds the restored cache holds an older mise, and runs `mise self-update`, which
