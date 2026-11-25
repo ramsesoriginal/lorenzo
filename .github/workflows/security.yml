@@ -1,11 +1,14 @@
 name: Security
 
 on:
+  # Not on a push to main: CodeQL of every language (four jobs, 24 job-minutes, one of them a 14-minute
+  # macOS job for Swift, of the twenty places a push has) ran on every merge, for the code the pull
+  # request had just had analysed. The default branch is analysed weekly, and on demand (ADR 0148,
+  # addendum of 2026-11-24).
   pull_request:
-  push:
-    branches: [main]
   schedule:
     - cron: '17 3 * * 1' # weekly, Monday
+  workflow_dispatch:
 
 concurrency:
   group: security-${{ github.workflow }}-${{ github.ref }}
