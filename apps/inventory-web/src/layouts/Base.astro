@@ -8,9 +8,11 @@ import appStyles from '../styles/app.css?url';
 
 interface Props {
   title?: string;
+  // The shell's page template: the board uses the whole width (D21), the others keep the list's.
+  template?: 'list-detail' | 'board';
 }
 
-const { title = 'Lorenzo — Inventory' } = Astro.props;
+const { title = 'Lorenzo — Inventory', template = 'list-detail' } = Astro.props;
 ---
 
 <AppPage
@@ -20,7 +22,7 @@ const { title = 'Lorenzo — Inventory' } = Astro.props;
   brandingUrl={BRANDING_CSS_URL}
   themeKey="lorenzo:inventory:theme"
   shell="web"
-  template="list-detail"
+  template={template}
   nav={[
     { label: 'Board', href: '/board/', needsLibrary: true, icon: 'kind-being' },
     {

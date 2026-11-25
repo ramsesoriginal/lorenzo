@@ -6,7 +6,7 @@ import HolderPicker from '../../components/HolderPicker/HolderPicker.astro';
 import { BRANDING_CSS_URL } from '../../lib/config';
 ---
 
-<Base title="Board — Lorenzo">
+<Base title="Board — Lorenzo" template="board">
   <p id="status">
     Loading&hellip; <span class="spinner" role="status" aria-label="Loading"></span>
   </p>
@@ -101,7 +101,12 @@ import { BRANDING_CSS_URL } from '../../lib/config';
           renderer: descriptionRenderer(tenantId),
           myCharacters: () => picker.myCharacters(),
           weightUnit: () => board.weightUnit(),
-          board: { state: board.state, undo, onChanged: () => board.reload() },
+          board: {
+            state: board.state,
+            undo,
+            onChanged: () => board.reload(),
+            onPatched: (changes) => board.patch(changes),
+          },
         });
 
         const picker = renderHolderPicker({

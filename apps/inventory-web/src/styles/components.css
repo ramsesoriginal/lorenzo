@@ -281,7 +281,6 @@
   flex-direction: column;
   gap: var(--space-2);
   min-width: 0;
-  max-height: calc(100dvh - 16rem);
   padding: var(--space-3);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-card);
@@ -466,7 +465,7 @@ dialog.item-panel:not(:modal) {
   position: static;
   flex: none;
   inline-size: 22rem;
-  max-block-size: calc(100dvh - 17rem);
+  max-block-size: 100%;
   margin: 0;
 }
 /* A sheet: up from the bottom edge, over the board, with a Close at its foot. */
@@ -784,6 +783,24 @@ dialog.item-panel:modal .item-panel-close-bottom {
 .item-editor-tags {
   flex-wrap: wrap;
 }
+.item-editor-stat {
+  display: grid;
+  gap: 2px;
+}
+.item-editor-stat .item-editor-clear {
+  justify-self: start;
+}
+.item-editor-add {
+  max-inline-size: 14rem;
+}
+/* What a tag is on by, from what it is made from: shown, not its own. */
+.chip--inherited {
+  border-style: dashed;
+  color: var(--text-tertiary);
+}
+.item-detail-inherited {
+  margin-block: var(--space-3) var(--space-2);
+}
 .chip-choice {
   cursor: pointer;
 }
@@ -867,4 +884,41 @@ dialog.unpack-dialog .dialog-actions {
 /* An empty board: the mascot's place, smaller than a whole page's. */
 [data-empty] .page-state-art {
   width: 140px;
+}
+
+/* A view transition moves what is named (a card, the open item); the page itself does not fade. */
+::view-transition-group(root),
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+}
+
+/* The board page is exactly the window tall (IN9), by layout alone: every box from the app down to
+   the columns is a flex column that may shrink (min-height 0), so the columns take what the head,
+   bar and status bar leave and a long column scrolls inside itself. A phone scrolls the page. */
+@media (min-width: 721px) {
+  body:has([data-board]) .shell-container,
+  body:has([data-board]) .shell-app--page {
+    height: 100dvh;
+    min-height: 0;
+  }
+  body:has([data-board]) .shell-app--page > main,
+  body:has([data-board]) .shell-app--page > main > .stack,
+  body:has([data-board]) [data-page],
+  body:has([data-board]) #page:not([hidden]),
+  body:has([data-board]) [data-board] {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+  }
+  body:has([data-board]) .board-body {
+    flex: 1;
+    min-height: 0;
+    align-items: stretch;
+  }
+  body:has([data-board]) .board-columns {
+    min-height: 0;
+    grid-auto-rows: minmax(0, 1fr);
+  }
 }

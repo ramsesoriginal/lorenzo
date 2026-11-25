@@ -26,6 +26,9 @@ export type DropZones = {
   // A card is picked up and put down: what is dragged is dimmed, and the columns say where it would land.
   start(card: HTMLElement, entityId: string): void;
   end(): void;
+  // Cards were moved by some other means (the select bar): they are put into the target's column,
+  // and the columns say so. False when that can't be done from what is on the page.
+  place(ids: string[], target: string): boolean;
 };
 
 export type DropZoneOptions = {
@@ -37,6 +40,8 @@ export type DropZoneOptions = {
   undo: RenderedUndoBanner;
   onError(message: string): void;
   reload(): void;
+  // What was moved is now in the target: the columns say so in place. False when that can't be told.
+  settle(moved: string[], target: string | null): boolean;
   // The library's weight unit and what a container can carry, for what a drag says (IN12).
   weights(): { unit: string | null; limitOf(containerId: string): number | null };
 };
@@ -53,6 +58,10 @@ export function createDropZones(options: DropZoneOptions): DropZones {
 
   const cardFor = (entityId: string) =>
     columns.querySelector<HTMLLIElement>(`.item-card[data-entity-id="${entityId}"]`);
+
+  // The cards a move animates: each is named for the length of the transition, and nothing else is.
+  const named = (cards: HTMLElement[]): [HTMLElement, string][] =>
+    cards.map((card) => [card, `item-${card.dataset.entityId ?? ''}`]);
 
   // What is being dragged: one card, or the selection it belongs to.
   let dragged: string[] = [];
@@ -145,7 +154,12 @@ export function createDropZones(options: DropZoneOptions): DropZones {
     if (live) live.textContent = `${title}: ${words.textContent}`;
   }
 
+  // The list of each column a card can be put into, by its container.
+  const lists = new Map<string | null, HTMLUListElement>();
+
   function bind(column: HTMLElement, list: HTMLUListElement, containerEntityId: string | null) {
+    lists.set(containerEntityId, list);
+
     column.addEventListener('dragenter', (event) => {
       event.preventDefault();
       dragDepth.set(column, (dragDepth.get(column) ?? 0) + 1);
@@ -233,11 +247,14 @@ export function createDropZones(options: DropZoneOptions): DropZones {
       const splitting = question !== null;
       const isStack = (id: string) => (state.items.get(id)?.quantity ?? 1) > 1;
 
-      withReflow(() => {
-        removePlaceholder(list);
-        for (const c of cardsToMove) list.append(c);
-        ensurePlaceholder(sourceList);
-      });
+      withReflow(
+        () => {
+          removePlaceholder(list);
+          for (const c of cardsToMove) list.append(c);
+          ensurePlaceholder(sourceList);
+        },
+        { names: named(cardsToMove) },
+      );
 
       // The bulk endpoints are never all-or-nothing (ADR 0044/0065): each answers per entry,
       // so a partial failure moves back only the cards that failed. The single move has no
@@ -292,15 +309,18 @@ export function createDropZones(options: DropZoneOptions): DropZones {
         .then(({ failedIds, merged }) => {
           if (isBulk) {
             if (failedIds.size > 0) {
-              withReflow(() => {
-                removePlaceholder(sourceList);
+              withReflow(
+                () => {
+                  removePlaceholder(sourceList);
 
-                for (const c of cardsToMove) {
-                  if (failedIds.has(c.dataset.entityId ?? '')) sourceList.append(c);
-                }
+                  for (const c of cardsToMove) {
+                    if (failedIds.has(c.dataset.entityId ?? '')) sourceList.append(c);
+                  }
 
-                ensurePlaceholder(list);
-              });
+                  ensurePlaceholder(list);
+                },
+                { names: named(cardsToMove) },
+              );
               options.onError(`${failedIds.size} of ${idsToMove.length} couldn't be moved.`);
             }
 
@@ -318,18 +338,26 @@ export function createDropZones(options: DropZoneOptions): DropZones {
           if (splitting || merged) {
             undo.forget();
             options.reload();
-          } else if (idsToMove.some((id) => state.containers.has(id))) {
-            // A container moved: its own column, and those inside it, now say where it is
-            // (ADR 0134). The Undo stays.
+          } else if (
+            !options.settle(
+              idsToMove.filter((id) => !failedIds.has(id)),
+              target,
+            )
+          ) {
+            // Where something is can't be told from what the board shows: it is drawn anew. The
+            // Undo stays.
             options.reload();
           }
         })
         .catch((error) => {
-          withReflow(() => {
-            removePlaceholder(sourceList);
-            for (const c of cardsToMove) sourceList.append(c);
-            ensurePlaceholder(list);
-          });
+          withReflow(
+            () => {
+              removePlaceholder(sourceList);
+              for (const c of cardsToMove) sourceList.append(c);
+              ensurePlaceholder(list);
+            },
+            { names: named(cardsToMove) },
+          );
           options.onError(errorMessage(error));
         });
     });
@@ -337,6 +365,26 @@ export function createDropZones(options: DropZoneOptions): DropZones {
 
   return {
     bind,
+
+    place(ids, target) {
+      const list = lists.get(target);
+      const cards = ids.map(cardFor).filter((c): c is HTMLLIElement => c !== null);
+
+      if (!list?.isConnected || cards.length === 0 || cards.length < ids.length) return false;
+
+      const sources = new Set(cards.map((card) => card.parentElement as HTMLUListElement));
+
+      withReflow(
+        () => {
+          removePlaceholder(list);
+          for (const card of cards) list.append(card);
+          for (const source of sources) ensurePlaceholder(source);
+        },
+        { names: named(cards) },
+      );
+
+      return options.settle(ids, target);
+    },
 
     start(card, entityId) {
       const isBulk = selection.active() && selection.ids.has(entityId) && selection.ids.size > 1;

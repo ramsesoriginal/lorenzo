@@ -22,7 +22,7 @@ import { textHome } from '../../lib/textSources';
 import type { CharacterSummary, ItemBase, ItemInstance } from '../../lib/types';
 import { looksLikeAPack } from '../../lib/unpack';
 import { renderAncestryTree } from '../AncestryTree/renderer';
-import type { BoardState } from '../Board/state';
+import type { BoardPatch, BoardState } from '../Board/state';
 import { renderItemView } from '../ItemView/renderer';
 import { renderNotes } from '../Notes/renderer';
 import type { RenderedUndoBanner } from '../UndoBanner/renderer';
@@ -45,6 +45,8 @@ export type ItemDetailBoard = {
   undo: RenderedUndoBanner;
   // The board is out of date: something was given, split, merged or moved.
   onChanged(): void;
+  // The same, said in place on the cards; false when it can't be (then onChanged).
+  onPatched?(changes: BoardPatch): boolean;
 };
 
 export type ItemDetailOptions = {
@@ -116,6 +118,7 @@ export function renderItemDetail(options: ItemDetailOptions): RenderedItemDetail
   const sub = required<HTMLElement>(root, '[data-sub]');
   const editorHost = required<HTMLElement>(root, '[data-editor]');
   const viewHost = required<HTMLElement>(root, '[data-view]');
+  const inheritedHeading = required<HTMLElement>(root, '[data-inherited-heading]');
   let editor: { dirty(): boolean; destroy(): void } | null = null;
 
   // Leaving what is written in place, with something not saved, is refused in words.
@@ -127,6 +130,7 @@ export function renderItemDetail(options: ItemDetailOptions): RenderedItemDetail
     editor = null;
     editorHost.hidden = true;
     viewHost.hidden = false;
+    inheritedHeading.hidden = true;
   };
   const madeFrom = required<HTMLElement>(root, '[data-made-from]');
   const madeChips = required<HTMLElement>(root, '[data-made-chips]');
@@ -176,14 +180,19 @@ export function renderItemDetail(options: ItemDetailOptions): RenderedItemDetail
       return;
     }
 
-    withReflow(() => {
-      root.close();
-      root.style.viewTransitionName = '';
+    withReflow(
+      () => {
+        root.close();
 
-      if (card?.dataset.entityId) {
-        card.style.viewTransitionName = `item-${card.dataset.entityId}`;
-      }
-    });
+        if (card?.dataset.entityId) card.style.viewTransitionName = `item-${card.dataset.entityId}`;
+      },
+      {
+        names: [[root, `item-${current?.entity_id ?? ''}`]],
+        after: () => {
+          if (card) card.style.viewTransitionName = '';
+        },
+      },
+    );
   }
 
   const actions = [
@@ -241,6 +250,11 @@ export function renderItemDetail(options: ItemDetailOptions): RenderedItemDetail
         closePanels();
         close();
         board.onChanged();
+      },
+      patched(changes) {
+        closePanels();
+        close();
+        if (!board.onPatched?.(changes)) board.onChanged();
       },
     };
 
@@ -403,15 +417,23 @@ export function renderItemDetail(options: ItemDetailOptions): RenderedItemDetail
     quantity.hidden = !stacked;
     quantity.textContent = stacked ? `×${item.quantity}` : '';
 
-    itemView.show(item);
-
-    // A game master writes a catalog item in place; everyone else reads it.
+    // A game master writes a catalog item in place, and beside it reads what it inherits; everyone
+    // else reads it all.
     dropEditor();
 
     if (options.editor && !isInstance(item)) {
       viewHost.hidden = true;
       editorHost.hidden = false;
       editor = options.editor(editorHost, item);
+      itemView.show(item, {
+        inheritedOnly: true,
+        onShown: (any) => {
+          viewHost.hidden = !any;
+          inheritedHeading.hidden = !any;
+        },
+      });
+    } else {
+      itemView.show(item);
     }
 
     // Its notes (ADR 0113), written by a GM or by a player whose character owns it.
