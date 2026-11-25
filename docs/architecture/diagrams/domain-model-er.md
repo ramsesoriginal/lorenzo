@@ -1,10 +1,10 @@
 # ER diagram: domain model
 
-A snapshot of the stored API tables, checked against [`models/`](../../../apps/api/src/lorenzo_api/models) on 2026-11-09. The diagrams are grouped to keep the entry/component core, stat vocabulary, information, calendars, Events and Facts, Sessions and Scenes, Writing, Locations and Maps, Clocks, Relationships and Social Webs, accounts and repository machinery readable. A table referenced from another group appears there by name only; its columns are defined in its own group.
+The stored API tables, drawn from the SQLAlchemy models in [`models/`](../../../apps/api/src/lorenzo_api/models) and the table list in [`copyable_tables.py`](../../../apps/api/src/lorenzo_api/copyable_tables.py). Every stored table appears in exactly one group below, with its columns and its foreign keys; a table added to the models belongs here too. The diagrams are grouped to keep the entry/component core, stat vocabulary, computed stats, game systems and templates, features and grants, information, calendars, Events and Facts, Sessions and Scenes, Writing, Locations and Maps, Clocks, Relationships and Social Webs, accounts and repository machinery readable. A table referenced from another group appears there by name only; its columns are defined in its own group.
 
-Columns show primary and foreign keys and nullable values. Routine `created_at`/`updated_at` and `created_by`/`updated_by` columns and their attribution edges are omitted; timestamps and attribution differ by table, so consult the model and [ADR 0029](../../adr/0029-attribution-created-by-updated-by.md) for their exact shape. Views (`v_item`, `v_item_instance`, `v_character`, `v_effective_stat`) are reads over these tables, not stored tables.
+Columns show primary and foreign keys and nullable values. Routine `created_at`/`updated_at` and `created_by`/`updated_by` columns and their attribution edges are omitted, as are the `actor_id` and `author_id` attribution columns of history and note rows (`entity_stat_change`, the `manuscript_*` recovery tables, `writing_review_note`); timestamps and attribution differ by table, so consult the model and [ADR 0029](../../adr/0029-attribution-created-by-updated-by.md) for their exact shape. Views (`v_item`, `v_item_instance`, `v_character`, `v_effective_stat`) are reads over these tables, not stored tables.
 
-Relationship lines are foreign-key references: dotted lines do not claim a cascade or ownership rule. A same-tenant composite foreign key is drawn once by its non-tenant column; every tenant table still carries `tenant_id` and enforced RLS. Unique constraints, checks, trigger rules and delete actions are defined in the migrations and the [ADR index](../../adr/README.md), not reproduced here.
+Relationship lines are foreign-key references: dotted lines do not claim a cascade or ownership rule. A same-tenant composite foreign key is drawn once by its non-tenant columns (`entity_id, stat_definition_id` for the formula tables); every tenant table still carries `tenant_id` and enforced RLS. Unique constraints, checks, trigger rules and delete actions are defined in the migrations and the [ADR index](../../adr/README.md), not reproduced here.
 
 ## Entries, inheritance, containment and ownership
 
@@ -20,7 +20,7 @@ erDiagram
     ENTITY ||..o{ ENTITY_SLUG : "entity_id"
     ENTITY ||..o{ ENTITY_STAT_GROUP : "entity_id"
     STAT_GROUP ||..o{ ENTITY_STAT_GROUP : "stat_group_id"
-    CHARACTER ||..o{ GROUP_MEMBER : "character_entity_id"
+    BEING ||..o{ GROUP_MEMBER : "character_entity_id"
     ENTITY ||..o{ GROUP_MEMBER : "group_entity_id"
     ENTITY ||..o{ ITEM : "entity_id"
     ENTITY ||..o{ ITEM_INSTANCE : "entity_id"
@@ -71,10 +71,12 @@ erDiagram
         uuid entity_id PK,FK
         uuid tenant_id FK
         boolean in_public_catalog
+        boolean starts_inactive
     }
     ITEM_INSTANCE {
         uuid entity_id PK,FK
         uuid tenant_id FK
+        boolean active
     }
     OWNERSHIP {
         uuid owned_entity_id PK,FK
@@ -83,72 +85,19 @@ erDiagram
     }
 ```
 
-## Stat vocabulary and formulas
+## Stat vocabulary and values
 
 ```mermaid
 erDiagram
-    ENTITY ||..o{ COMPUTED_STAT : "entity_id"
-    STAT_DEFINITION ||..o{ COMPUTED_STAT : "stat_definition_id"
-    STAT_DEFINITION ||..o{ COMPUTED_STAT_COMPARISON : "left_stat_definition_id"
-    STAT_DEFINITION |o..o{ COMPUTED_STAT_COMPARISON : "right_stat_definition_id"
-    STAT_DEFINITION ||..o{ COMPUTED_STAT_CONTENTS : "source_stat_definition_id"
-    STAT_DEFINITION ||..o{ COMPUTED_STAT_LINEAR : "source_stat_definition_id"
-    COMPUTED_STAT_SUM ||..o{ COMPUTED_STAT_SUM_TERM : "entity_id"
-    STAT_DEFINITION ||..o{ COMPUTED_STAT_SUM_TERM : "source_stat_definition_id"
-    COMPUTED_STAT_SUM ||..o{ COMPUTED_STAT_SUM_TERM : "stat_definition_id"
     ENTITY ||..o{ ENTITY_STAT : "entity_id"
     STAT_DEFINITION ||..o{ ENTITY_STAT : "stat_definition_id"
+    ENTITY ||..o{ ENTITY_STAT_CHANGE : "entity_id"
+    STAT_DEFINITION ||..o{ ENTITY_STAT_CHANGE : "stat_definition_id"
     STAT_DEFINITION |o..o{ STAT_DEFINITION : "max_hint_id"
     STAT_DEFINITION |o..o{ STAT_DEFINITION : "min_hint_id"
     STAT_DEFINITION |o..o{ STAT_DEFINITION : "resolved_hint_id"
     STAT_GROUP ||..o{ STAT_DEFINITION : "stat_group_id"
     STAT_DEFINITION ||..o{ STAT_DEFINITION_ENUM_VALUE : "stat_definition_id"
-    COMPUTED_STAT {
-        uuid entity_id PK,FK
-        uuid stat_definition_id PK,FK
-        uuid tenant_id FK
-    }
-    COMPUTED_STAT_COMPARISON {
-        uuid entity_id PK
-        uuid stat_definition_id PK
-        uuid tenant_id FK
-        uuid left_stat_definition_id FK
-        string comparator
-        uuid right_stat_definition_id FK "nullable"
-        string right_constant "nullable"
-        string true_value "nullable"
-        string false_value "nullable"
-    }
-    COMPUTED_STAT_CONTENTS {
-        uuid entity_id PK
-        uuid stat_definition_id PK
-        uuid tenant_id FK
-        uuid source_stat_definition_id FK
-    }
-    COMPUTED_STAT_LINEAR {
-        uuid entity_id PK
-        uuid stat_definition_id PK
-        uuid tenant_id FK
-        uuid source_stat_definition_id FK
-        string multiplier
-        string offset
-        string round_mode
-    }
-    COMPUTED_STAT_SUM {
-        uuid entity_id PK
-        uuid stat_definition_id PK
-        uuid tenant_id FK
-        string offset
-        string round_mode
-    }
-    COMPUTED_STAT_SUM_TERM {
-        uuid entity_id PK,FK
-        uuid stat_definition_id PK,FK
-        uuid source_stat_definition_id PK,FK
-        uuid tenant_id FK
-        string coefficient
-        int position
-    }
     ENTITY_STAT {
         uuid entity_id PK,FK
         uuid stat_definition_id PK,FK
@@ -157,12 +106,25 @@ erDiagram
         string value_text "nullable"
         float value_float "nullable"
         boolean value_bool "nullable"
+        int dice_count "nullable"
+        int dice_sides "nullable"
+        string dice_drop_mode "nullable"
+        int dice_drop_count "nullable"
+    }
+    ENTITY_STAT_CHANGE {
+        uuid id PK
+        uuid tenant_id FK
+        uuid entity_id FK
+        uuid stat_definition_id FK
+        json old_value "nullable"
+        json new_value "nullable"
     }
     STAT_DEFINITION {
         uuid id PK
         uuid tenant_id FK
         uuid stat_group_id FK
         string name
+        string role "nullable"
         string value_type
         string unit "nullable"
         boolean adjustable_in_play
@@ -186,8 +148,324 @@ erDiagram
         uuid id PK
         uuid tenant_id FK
         string name
+        string role "nullable"
         int priority
+        uuid system_id FK "nullable"
         boolean mandatory
+        int position
+    }
+```
+
+## Computed stats
+
+A computed stat is one `computed_stat` row per entry and stat definition plus one row in the table of its formula. Each formula table is keyed by the same two columns, drawn once as `entity_id, stat_definition_id`.
+
+```mermaid
+erDiagram
+    ENTITY ||..o{ COMPUTED_STAT : "entity_id"
+    STAT_DEFINITION ||..o{ COMPUTED_STAT : "stat_definition_id"
+    COMPUTED_STAT ||..o| COMPUTED_STAT_COMPARISON : "entity_id, stat_definition_id"
+    STAT_DEFINITION ||..o{ COMPUTED_STAT_COMPARISON : "left_stat_definition_id"
+    STAT_DEFINITION |o..o{ COMPUTED_STAT_COMPARISON : "right_stat_definition_id"
+    COMPUTED_STAT ||..o| COMPUTED_STAT_CONTENTS : "entity_id, stat_definition_id"
+    STAT_DEFINITION |o..o{ COMPUTED_STAT_CONTENTS : "source_stat_definition_id"
+    STAT_DEFINITION |o..o{ COMPUTED_STAT_CONTENTS : "where_stat_definition_id"
+    COMPUTED_STAT ||..o| COMPUTED_STAT_DICE : "entity_id, stat_definition_id"
+    STAT_DEFINITION |o..o{ COMPUTED_STAT_DICE : "count_stat_definition_id"
+    STAT_DEFINITION |o..o{ COMPUTED_STAT_DICE : "sides_stat_definition_id"
+    COMPUTED_STAT ||..o| COMPUTED_STAT_DICE_VALUE : "entity_id, stat_definition_id"
+    STAT_DEFINITION ||..o{ COMPUTED_STAT_DICE_VALUE : "source_stat_definition_id"
+    COMPUTED_STAT ||..o| COMPUTED_STAT_EXTREMUM : "entity_id, stat_definition_id"
+    COMPUTED_STAT_EXTREMUM ||..o{ COMPUTED_STAT_EXTREMUM_INPUT : "entity_id, stat_definition_id"
+    STAT_DEFINITION |o..o{ COMPUTED_STAT_EXTREMUM_INPUT : "source_stat_definition_id"
+    COMPUTED_STAT ||..o| COMPUTED_STAT_LINEAR : "entity_id, stat_definition_id"
+    STAT_DEFINITION ||..o{ COMPUTED_STAT_LINEAR : "source_stat_definition_id"
+    COMPUTED_STAT ||..o| COMPUTED_STAT_PRODUCT : "entity_id, stat_definition_id"
+    COMPUTED_STAT_PRODUCT ||..o{ COMPUTED_STAT_PRODUCT_FACTOR : "entity_id, stat_definition_id"
+    STAT_DEFINITION ||..o{ COMPUTED_STAT_PRODUCT_FACTOR : "source_stat_definition_id"
+    COMPUTED_STAT ||..o| COMPUTED_STAT_RATIO : "entity_id, stat_definition_id"
+    STAT_DEFINITION ||..o{ COMPUTED_STAT_RATIO : "numerator_stat_definition_id"
+    STAT_DEFINITION |o..o{ COMPUTED_STAT_RATIO : "denominator_stat_definition_id"
+    COMPUTED_STAT ||..o| COMPUTED_STAT_SELECT : "entity_id, stat_definition_id"
+    STAT_DEFINITION ||..o{ COMPUTED_STAT_SELECT : "source_stat_definition_id"
+    STAT_DEFINITION |o..o{ COMPUTED_STAT_SELECT : "otherwise_stat_definition_id"
+    COMPUTED_STAT_SELECT ||..o{ COMPUTED_STAT_SELECT_STEP : "entity_id, stat_definition_id"
+    STAT_DEFINITION |o..o{ COMPUTED_STAT_SELECT_STEP : "result_stat_definition_id"
+    COMPUTED_STAT ||..o| COMPUTED_STAT_SUM : "entity_id, stat_definition_id"
+    COMPUTED_STAT_SUM ||..o{ COMPUTED_STAT_SUM_TERM : "entity_id, stat_definition_id"
+    STAT_DEFINITION ||..o{ COMPUTED_STAT_SUM_TERM : "source_stat_definition_id"
+    COMPUTED_STAT {
+        uuid entity_id PK,FK
+        uuid stat_definition_id PK,FK
+        uuid tenant_id FK
+    }
+    COMPUTED_STAT_COMPARISON {
+        uuid entity_id PK,FK
+        uuid stat_definition_id PK,FK
+        uuid tenant_id FK
+        uuid left_stat_definition_id FK
+        string comparator
+        uuid right_stat_definition_id FK "nullable"
+        string right_constant "nullable"
+        string true_value "nullable"
+        string false_value "nullable"
+    }
+    COMPUTED_STAT_CONTENTS {
+        uuid entity_id PK,FK
+        uuid stat_definition_id PK,FK
+        uuid tenant_id FK
+        uuid source_stat_definition_id FK "nullable"
+        string aggregate
+        boolean only_active
+        string only_kind "nullable"
+        uuid where_stat_definition_id FK "nullable"
+        string if_none "nullable"
+    }
+    COMPUTED_STAT_DICE {
+        uuid entity_id PK,FK
+        uuid stat_definition_id PK,FK
+        uuid tenant_id FK
+        uuid count_stat_definition_id FK "nullable"
+        int count_constant "nullable"
+        uuid sides_stat_definition_id FK "nullable"
+        int sides_constant "nullable"
+    }
+    COMPUTED_STAT_DICE_VALUE {
+        uuid entity_id PK,FK
+        uuid stat_definition_id PK,FK
+        uuid tenant_id FK
+        uuid source_stat_definition_id FK
+        string read_as
+        string round_mode
+    }
+    COMPUTED_STAT_EXTREMUM {
+        uuid entity_id PK,FK
+        uuid stat_definition_id PK,FK
+        uuid tenant_id FK
+        string pick
+        string round_mode
+    }
+    COMPUTED_STAT_EXTREMUM_INPUT {
+        uuid entity_id PK,FK
+        uuid stat_definition_id PK,FK
+        int position PK
+        uuid tenant_id FK
+        uuid source_stat_definition_id FK "nullable"
+        string constant "nullable"
+    }
+    COMPUTED_STAT_LINEAR {
+        uuid entity_id PK,FK
+        uuid stat_definition_id PK,FK
+        uuid tenant_id FK
+        uuid source_stat_definition_id FK
+        string multiplier
+        string offset
+        string round_mode
+    }
+    COMPUTED_STAT_PRODUCT {
+        uuid entity_id PK,FK
+        uuid stat_definition_id PK,FK
+        uuid tenant_id FK
+        string multiplier
+        string offset
+        string round_mode
+    }
+    COMPUTED_STAT_PRODUCT_FACTOR {
+        uuid entity_id PK,FK
+        uuid stat_definition_id PK,FK
+        int position PK
+        uuid tenant_id FK
+        uuid source_stat_definition_id FK
+    }
+    COMPUTED_STAT_RATIO {
+        uuid entity_id PK,FK
+        uuid stat_definition_id PK,FK
+        uuid tenant_id FK
+        uuid numerator_stat_definition_id FK
+        uuid denominator_stat_definition_id FK "nullable"
+        string denominator_constant "nullable"
+        string multiplier
+        string offset
+        string round_mode
+    }
+    COMPUTED_STAT_SELECT {
+        uuid entity_id PK,FK
+        uuid stat_definition_id PK,FK
+        uuid tenant_id FK
+        uuid source_stat_definition_id FK
+        string mode
+        string otherwise_number "nullable"
+        string otherwise_text "nullable"
+        boolean otherwise_bool "nullable"
+        uuid otherwise_stat_definition_id FK "nullable"
+    }
+    COMPUTED_STAT_SELECT_STEP {
+        uuid entity_id PK,FK
+        uuid stat_definition_id PK,FK
+        int position PK
+        uuid tenant_id FK
+        string threshold "nullable"
+        string match_value "nullable"
+        string result_number "nullable"
+        string result_text "nullable"
+        boolean result_bool "nullable"
+        uuid result_stat_definition_id FK "nullable"
+    }
+    COMPUTED_STAT_SUM {
+        uuid entity_id PK,FK
+        uuid stat_definition_id PK,FK
+        uuid tenant_id FK
+        string offset
+        string round_mode
+    }
+    COMPUTED_STAT_SUM_TERM {
+        uuid entity_id PK,FK
+        uuid stat_definition_id PK,FK
+        uuid source_stat_definition_id PK,FK
+        uuid tenant_id FK
+        string coefficient
+        int position
+    }
+```
+
+## Game systems and templates
+
+```mermaid
+erDiagram
+    SYSTEM |o..o{ CAMPAIGN : "system_id"
+    ENTITY |o..o{ SYSTEM : "root_entry_id"
+    SYSTEM |o..o{ STAT_GROUP : "system_id"
+    SYSTEM |o..o{ TEMPLATE : "system_id"
+    ENTITY |o..o{ TEMPLATE : "required_ancestor_entry_id"
+    TEMPLATE ||..o{ TEMPLATE_SLOT : "template_id"
+    STAT_GROUP |o..o{ TEMPLATE_SLOT : "stat_group_id"
+    TEMPLATE_SLOT ||..o{ TEMPLATE_SLOT_EXCLUSION : "slot_id"
+    STAT_DEFINITION ||..o{ TEMPLATE_SLOT_EXCLUSION : "stat_definition_id"
+    TEMPLATE_SLOT ||..o{ TEMPLATE_SLOT_STAT : "slot_id"
+    STAT_DEFINITION ||..o{ TEMPLATE_SLOT_STAT : "stat_definition_id"
+    SYSTEM {
+        uuid id PK
+        uuid tenant_id FK
+        string slug
+        string name
+        uuid root_entry_id FK "nullable"
+    }
+    TEMPLATE {
+        uuid id PK
+        uuid tenant_id FK
+        string name
+        uuid system_id FK "nullable"
+        string required_kind "nullable"
+        uuid required_ancestor_entry_id FK "nullable"
+    }
+    TEMPLATE_SLOT {
+        uuid id PK
+        uuid tenant_id FK
+        uuid template_id FK
+        int position
+        string kind
+        string label "nullable"
+        uuid stat_group_id FK "nullable"
+        string information_type "nullable"
+        string held_order "nullable"
+    }
+    TEMPLATE_SLOT_EXCLUSION {
+        uuid slot_id PK,FK
+        uuid stat_definition_id PK,FK
+        uuid tenant_id FK
+    }
+    TEMPLATE_SLOT_STAT {
+        uuid slot_id PK,FK
+        int position PK
+        uuid tenant_id FK
+        uuid stat_definition_id FK
+        string label "nullable"
+    }
+```
+
+## Features and grants
+
+```mermaid
+erDiagram
+    ENTITY ||..o{ FEATURE : "entity_id"
+    ENTITY ||..o{ FEATURE_INSTANCE : "entity_id"
+    FEATURE ||..o{ FEATURE_PREREQUISITE : "feature_id"
+    STAT_DEFINITION ||..o{ FEATURE_PREREQUISITE : "stat_definition_id"
+    STAT_DEFINITION |o..o{ FEATURE_PREREQUISITE : "right_stat_definition_id"
+    ENTITY ||..o{ GRANT_RULE : "entry_id"
+    ENTITY |o..o{ GRANT_RULE : "option_category_entry_id"
+    STAT_DEFINITION |o..o{ GRANT_RULE : "count_stat_definition_id"
+    GRANT_RULE ||..o{ GRANT_RULE_CONDITION : "rule_id"
+    STAT_DEFINITION ||..o{ GRANT_RULE_CONDITION : "stat_definition_id"
+    STAT_DEFINITION |o..o{ GRANT_RULE_CONDITION : "right_stat_definition_id"
+    GRANT_RULE ||..o{ GRANT_RULE_OPTION : "rule_id"
+    ENTITY ||..o{ GRANT_RULE_OPTION : "option_entry_id"
+    ENTITY ||..o{ GRANT_RECORD : "holder_id"
+    ENTITY ||..o{ GRANT_RECORD : "feature_id"
+    ENTITY |o..o{ GRANT_RECORD : "source_ref_id"
+    GRANT_RULE |o..o{ GRANT_RECORD : "rule_id"
+    FEATURE_INSTANCE |o..o{ GRANT_RECORD : "feature_instance_id"
+    FEATURE {
+        uuid entity_id PK,FK
+        uuid tenant_id FK
+        boolean repeatable
+        boolean starts_inactive
+    }
+    FEATURE_INSTANCE {
+        uuid entity_id PK,FK
+        uuid tenant_id FK
+        boolean active
+    }
+    FEATURE_PREREQUISITE {
+        uuid id PK
+        uuid tenant_id FK
+        uuid feature_id FK
+        int position
+        uuid stat_definition_id FK
+        string comparator
+        string right_constant "nullable"
+        uuid right_stat_definition_id FK "nullable"
+    }
+    GRANT_RECORD {
+        uuid id PK
+        uuid tenant_id FK
+        uuid holder_id FK
+        uuid rule_id FK "nullable"
+        uuid source_ref_id FK "nullable"
+        uuid feature_id FK
+        uuid feature_instance_id FK "nullable"
+        string state
+        string revoked_reason "nullable"
+    }
+    GRANT_RULE {
+        uuid id PK
+        uuid tenant_id FK
+        uuid entry_id FK
+        string label "nullable"
+        int position
+        string mode
+        int min_count
+        int max_count "nullable"
+        uuid count_stat_definition_id FK "nullable"
+        uuid option_category_entry_id FK "nullable"
+        string lasts
+        boolean changeable
+    }
+    GRANT_RULE_CONDITION {
+        uuid id PK
+        uuid tenant_id FK
+        uuid rule_id FK
+        int position
+        string subject
+        uuid stat_definition_id FK
+        string comparator
+        string right_constant "nullable"
+        uuid right_stat_definition_id FK "nullable"
+    }
+    GRANT_RULE_OPTION {
+        uuid rule_id PK,FK
+        uuid option_entry_id PK,FK
+        uuid tenant_id FK
         int position
     }
 ```
@@ -265,6 +543,7 @@ erDiagram
         uuid tenant_id FK
         bytes data
         string file_type
+        bytes sha256
     }
 ```
 
@@ -316,6 +595,7 @@ erDiagram
         array locales
         string user_color "nullable"
         array last_seen_roles
+        datetime gravatar_checked_at "nullable"
     }
     AUDIT_LOG {
         uuid id PK
@@ -338,6 +618,7 @@ erDiagram
         string gm_title "nullable"
         string gm_title_plural "nullable"
         uuid entity_id FK
+        uuid system_id FK "nullable"
     }
     CAMPAIGN_GM {
         uuid tenant_id PK,FK
@@ -442,8 +723,12 @@ erDiagram
         string delist_reason "nullable"
         datetime deprecated_at "nullable"
         string deprecated_message "nullable"
+        array released_over
+        boolean released_public
+        boolean hides_entries
         uuid current_release_id FK "nullable"
         boolean npcs_shared_with_gms
+        boolean controllers_award_features
         int export_revision
         uuid being_stat_group_id FK "nullable"
         uuid weapon_stat_group_id FK "nullable"
@@ -475,6 +760,8 @@ erDiagram
     ENTITY |o..o{ REPOSITORY_COPY_LINK_ENTITY : "entity_id"
     STAT_DEFINITION |o..o{ REPOSITORY_COPY_LINK_STAT_DEFINITION : "stat_definition_id"
     STAT_GROUP |o..o{ REPOSITORY_COPY_LINK_STAT_GROUP : "stat_group_id"
+    SYSTEM |o..o{ REPOSITORY_COPY_LINK_SYSTEM : "system_id"
+    TEMPLATE |o..o{ REPOSITORY_COPY_LINK_TEMPLATE : "template_id"
     PROFILE_PICTURE |o..o{ REPOSITORY_PROFILE : "cover_picture_id"
     REPOSITORY_RELEASE |o..o{ RELEASE_FANOUT : "release_id"
     REPOSITORY_RELEASE ||..o{ REPOSITORY_RELEASE_DOCUMENT : "release_id"
@@ -482,16 +769,18 @@ erDiagram
     TENANT ||..o{ REPOSITORY_SUBSCRIPTION : "repository_tenant_id"
     TENANT ||..o{ REPOSITORY_SUBSCRIPTION : "subscriber_tenant_id"
     REPOSITORY_COPY {
-        uuid tenant_id
+        uuid tenant_id PK,FK
         uuid repository_tenant_id PK
         string repository_name
         datetime copied_at
         uuid copied_by FK "nullable"
         datetime synced_at
         uuid synced_release_id "nullable"
+        string inclusion
+        json carries
     }
     REPOSITORY_COPY_LINK_ATTACHMENT {
-        uuid tenant_id
+        uuid tenant_id PK,FK
         uuid source_tenant_id PK
         uuid child_source_id PK
         uuid parent_source_id PK
@@ -503,6 +792,8 @@ erDiagram
         uuid source_tenant_id
         uuid entity_id FK "nullable"
         json snapshot
+        json manuscript_baseline "nullable"
+        boolean hidden
         datetime copied_at
     }
     REPOSITORY_COPY_LINK_STAT_DEFINITION {
@@ -523,22 +814,45 @@ erDiagram
         json snapshot
         datetime copied_at
     }
+    REPOSITORY_COPY_LINK_SYSTEM {
+        uuid tenant_id PK,FK
+        uuid source_id PK
+        uuid source_tenant_id
+        uuid system_id FK "nullable"
+        string mode
+        json snapshot
+        datetime copied_at
+    }
+    REPOSITORY_COPY_LINK_TEMPLATE {
+        uuid tenant_id PK,FK
+        uuid source_id PK
+        uuid source_tenant_id
+        uuid template_id FK "nullable"
+        json snapshot
+        datetime copied_at
+    }
     REPOSITORY_PROFILE {
         uuid tenant_id PK,FK
         string visibility
         string preview
+        boolean listed
         string summary
         string licence_label "nullable"
         string licence_url "nullable"
         json credits
         array tags
         string system "nullable"
+        array systems
         array languages
         uuid cover_picture_id FK "nullable"
         string release_label "nullable"
         datetime released_at "nullable"
         int entry_count "nullable"
         int stat_definition_count "nullable"
+        boolean may_be_included "nullable"
+        boolean may_be_shown "nullable"
+        boolean may_be_hidden "nullable"
+        json release_sources "nullable"
     }
     REPOSITORY_RELEASE {
         uuid id PK
@@ -875,6 +1189,7 @@ erDiagram
     PAYLOAD |o..o{ CARRIER_COVERAGE : "before_payload_id"
     ENTITY ||..o{ MANUSCRIPT_NUMBERING : "entity_id"
     ENTITY ||..o{ MANUSCRIPT_CONTENTS : "entity_id"
+    ENTITY ||..o{ MANUSCRIPT_REPOSITORY_UPDATE : "entry_id"
     ENTITY ||..o{ MANUSCRIPT_GOAL : "entry_id"
     APP_USER ||..o{ MANUSCRIPT_GOAL : "author_id"
     ENTITY ||..o{ MANUSCRIPT_REDIRECT : "source_id"
@@ -967,6 +1282,12 @@ erDiagram
         uuid destination_id FK "nullable"
         uuid payload_id FK "nullable"
         uuid child_id FK "nullable"
+    }
+    MANUSCRIPT_REPOSITORY_UPDATE {
+        uuid id PK
+        uuid tenant_id FK
+        uuid entry_id FK
+        json checkpoint
     }
     MANUSCRIPT_REVISION {
         uuid id PK
@@ -1208,13 +1529,17 @@ erDiagram
 
 - **Tenant isolation:** tenant data has `tenant_id` and `FORCE ROW LEVEL SECURITY`, read through a restricted app role (ADR 0002, 0021). Tenant-to-tenant foreign keys include `tenant_id` (ADR 0117). `repository_subscription` is the deliberate cross-tenant grant table, with policies on both ends.
 - **Inheritance:** `entity_prototype.position` orders parents and breaks equal-distance, equal-priority stat ties (ADR 0266). Cycles are refused by database triggers.
+- **Stat values and roles:** an `entity_stat` holds one own value in the column of its stat's type, or, for a dice value, `dice_count`, `dice_sides`, `dice_drop_mode` and `dice_drop_count` instead (ADR 0462). `entity_stat_change` is a bounded, private history of own-value steps for a being's sheet and is never copied or released (ADR 0525). `stat_definition.role` and `stat_group.role` are closed words the API reads a stat or group by, at most one holder per library (ADR 0449).
+- **Computed stats:** one `computed_stat` row per entry and definition says the stat is computed, and exactly one formula table holds how: comparison, contents, linear, sum, product, ratio, min/max (`computed_stat_extremum`), select, dice and dice value. The `_term`, `_input`, `_factor` and `_step` tables are the ordered parts of their formula. Nothing stores a computed value (ADR 0104, 0444 to 0447, 0463, 0464).
+- **Game systems and templates:** a `system` names a game system in a library, and its slug prefixes the names of its stats; `stat_group.system_id` and `campaign.system_id` are optional (ADR 0448, 0452). A `template` is a sheet as data: a filter (`required_kind`, `required_ancestor_entry_id`) and ordered `template_slot` rows, each a stat group, a stat list, information, held things or tags, with `template_slot_stat` and `template_slot_exclusion` naming stats; a template describes a view and changes no data (ADR 0451). Systems, templates and their slots are content that copies and releases carry, tracked by `repository_copy_link_system` and `repository_copy_link_template` (ADR 0453, 0469).
+- **Features and grants:** `feature` and `feature_instance` are entry kinds: a feature is the prototype, an instance is what one holder has, contained by the holder and inheriting the feature's stats (ADR 0454). A `grant_rule` hangs on a source entry and offers options, either an explicit list (`grant_rule_option`) or the features under `option_category_entry_id`, under `grant_rule_condition` rows; `feature_prerequisite` is what a feature needs of a holder (ADR 0455). A `grant_record` says how a holder came to have a feature: by a rule, or by an award with no rule, and a revoked record keeps the feature and loses its instance (ADR 0456); `tenant.controllers_award_features` lets a holder's controller make an award (ADR 0467). All of these are content that copies and releases carry.
 - **Knowledge and visibility:** public, character, player and group audiences determine which information a caller reads (ADR 0028, 0109); the lines do not imply access. A content reference is keyed by its textual target, not a foreign key to the entity it resolves to (ADR 0110).
 - **Repositories:** a repository is a tenant of kind `repository`, with no campaigns. Copies have local rows, plain source identifiers and snapshots; source identifiers deliberately outlive the source repository. Attachments carry parents a bridge adds to copied entries (ADR 0118 to 0121, 0172).
 - **Releases:** release documents and blobs preserve public content; `tenant.current_release_id` selects the current release, with retention and rollback (ADR 0214, 0288). Private repository reads remain live. Public reads and previews use the current document and the read/preview gates (ADR 0286, 0287, 0293).
 - **Calendars:** a calendar's `definition` is a validated document (ADR 0308). A `calendar_period` row exists only once something is authored against it; browsing a year creates none, and `entry_calendar_period` is the date association of an entry (ADR 0309). An observance stores a rule, never its occurrences (ADR 0310). `calendar_import` is local provenance and retry receipts for a CLI import, not content (ADR 0311).
 - **Events and Facts:** `event_relationship` stores explicit `order` and `causes` assertions between Events with a per-assertion `is_shared`; the order a reader sees is derived from them (ADR 0312, 0315). `event_participant` records who took part and nothing more: `event_learning` is a separate, optional record of what a participant learned (ADR 0313, 0314), and `lived_before` is a being's own lived order, anchored to two of its participations (ADR 0319). `entity_audience` and `entity_knowledge` hold the explicit outer audience of an entry such as an Event or Fact (ADR 0305, 0316). `event_group_creation` is a retry receipt for creating a group from an Event's participants.
 - **Sessions and Scenes:** a Session belongs to one campaign; its GMs, players and the characters players bring are explicit rows. A Scene is reusable and carries its own references (`scene_fact`, `scene_event`, `scene_being`); a `scene_appearance` places one in a Session, with its own preparation `position`, optional played position and sharing flag (ADR 0317, 0318). References and presentations record no learning, participation or lived order. Repository copies and releases carry the reusable rows (calendars, periods, observances, Events, Facts, Scenes and their references, lived-before assertions); the operational rows (`story_session`, `session_*`, `scene_appearance`, `event_presentation`, `calendar_import`, `event_group_creation`, `release_fanout`) are local and never copied (`copyable_tables.py`).
-- **Writing:** `book`, `edition`, `chapter` and `scene_telling` are entry kinds; `manuscript_placement` orders chapters and tellings under a parent in a graph of its own, separate from containment and prototypes, with `before_payload_id` interleaving a placement among the parent's text and picture payloads (ADR 0327, 0341, 0342). `manuscript_revision`, `manuscript_move`, `manuscript_extraction`, `manuscript_scene_extraction`, `manuscript_join` and `manuscript_split` are private recovery history and retry receipts, never repository content (ADR 0378). Review grants and notes are operational: a grant names one user for one Edition and creates no membership (ADR 0328, 0343 to 0347).
+- **Writing:** `book`, `edition`, `chapter` and `scene_telling` are entry kinds; `manuscript_placement` orders chapters and tellings under a parent in a graph of its own, separate from containment and prototypes, with `before_payload_id` interleaving a placement among the parent's text and picture payloads (ADR 0327, 0341, 0342). `manuscript_revision`, `manuscript_move`, `manuscript_extraction`, `manuscript_scene_extraction`, `manuscript_join`, `manuscript_split` and `manuscript_repository_update` are private recovery history and retry receipts, never repository content (ADR 0378, 0438). Review grants and notes are operational: a grant names one user for one Edition and creates no membership (ADR 0328, 0343 to 0347).
 - **Carriers, joins, numbering and goals:** `carrier` is an entry kind and `carrier_coverage` is its ordered list of references, each to one whole entry (`target_entity_id`) or one manuscript payload (`target_payload_id`), never both; `before_payload_id` interleaves a reference among the Carrier's own text, and coverage grants no access and cannot form a cycle, since a Carrier is not a target (ADR 0379). `manuscript_redirect` is left by joining a Chapter into another: it names the destination and the first moved element (`payload_id` or `child_id`, not both); deleting either clears that column and keeps the marker, so the joined source stays joined (ADR 0348, 0374). `manuscript_numbering` and `manuscript_contents` hold the numbering policy and the structural contents settings of an Edition or Chapter as validated JSON, presentation only (ADR 0380, 0381). `manuscript_goal` is one personal word target per library, account, entry and scope (`direct` or `assembled`); it is operational and never copied or released (ADR 0383). The other five tables here are content that copies and releases carry, with remapped identifiers.
 - **Locations, Maps, connections and frames:** `location_part` is a single-parent tree of its own and `entity_location` says an entry is at a Location now; neither is containment and neither feeds a GM's reach (ADR 0330, 0333). A `map_placement` is where an entry is drawn, never where it is; `map_layer` points at an Information of the Map and shows its first picture, at most eight per Map (ADR 0336, 0361). A `connection` is an entry with two ends and no other kind; deleting an end removes the marker and leaves the entry (ADR 0363). `frame` is a designation on an entry, not a kind, and `entity_frame` puts an entry on at most one frame per axis; the axis is part of the key and the axes are a closed list in code (ADR 0369).
 - **Clocks:** a Clock is an entry that is ticking or timeless, and readings, reckonings and relationships may reference only ticking ones (the `ticking` column is part of their keys). A relationship is stored once per unordered pair (`clock_entity_id` sorts before `reference_clock_entity_id`). Rows start private (`is_shared`), derived readings are never stored, and none of these tables says anything about Event order (ADR 0320, 0321).
