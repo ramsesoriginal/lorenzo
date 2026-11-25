@@ -36,7 +36,10 @@ export function mergePanel(ctx: ActionContext, item: ItemInstance): HTMLElement 
           },
           `Merged into ${merged.title}.`,
         );
-        ctx.finish();
+        ctx.patched({
+          updated: [{ id: candidate.entity_id, patch: { quantity: merged.quantity } }],
+          removed: [item.entity_id],
+        });
       } catch (error) {
         panel.fail(errorMessage(error));
         panel.setDisabled(false);
