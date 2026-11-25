@@ -22,7 +22,7 @@ import type { RenderedUndoBanner } from '../UndoBanner/renderer';
 import { createColumns, matchesSearch } from './columns';
 import { createDropZones } from './dragDrop';
 import { createSelection } from './selection';
-import { type BoardState, createBoardState } from './state';
+import { type BoardPatch, type BoardState, createBoardState } from './state';
 
 const required = requiredIn('Board');
 
@@ -52,6 +52,8 @@ export type RenderedBoard = {
   prefetch(entityId: string): void;
   // Shows whatever board is current again, after something changed what's on it.
   reload(): Promise<void>;
+  // Says what the server confirmed on a card or two, in place; false when it can't (then reload).
+  patch(changes: BoardPatch): boolean;
   showError(message: string): void;
   // The library's weight unit, once known.
   weightUnit(): string | null;
@@ -80,7 +82,8 @@ export function renderBoard(options: BoardOptions): RenderedBoard {
   const state = createBoardState();
 
   let reloadCurrentView: (() => Promise<void>) | null = null;
-  // Said when something moved, once the columns exist to say it.
+  // Said when something changed, once the columns exist to say it.
+  let patchColumns: ((changes: BoardPatch) => boolean) | null = null;
   let settleColumns: ((moved: string[], target: string | null) => boolean) | null = null;
 
   function showError(message: string) {
@@ -107,7 +110,20 @@ export function renderBoard(options: BoardOptions): RenderedBoard {
     onError: showError,
     onGiven: () => reloadCurrentView?.(),
     onChanged: () => reloadCurrentView?.(),
+    onMoved: (ids, target) => drops.place(ids, target),
+    onPatched: (changes) => patched(changes),
   });
+
+  function patched(changes: BoardPatch): boolean {
+    const done = patchColumns?.(changes) ?? false;
+
+    if (done) {
+      drawTabCounts();
+      drawCarried();
+    }
+
+    return done;
+  }
 
   const drops = createDropZones({
     tenantId,
@@ -159,7 +175,7 @@ export function renderBoard(options: BoardOptions): RenderedBoard {
   let carryLimit: number | null | undefined;
   let unitLoading: Promise<{ unit: string | null; capacity: string }> | undefined;
 
-  const { renderColumn, reconcile, refreshNotes, settle, forgetColumns } = createColumns({
+  const { renderColumn, reconcile, patch, refreshNotes, settle, forgetColumns } = createColumns({
     weights: () => ({ unit, limitOf: (id) => limits.get(id) ?? null, holderName }),
     root,
     state,
@@ -173,6 +189,7 @@ export function renderBoard(options: BoardOptions): RenderedBoard {
   });
 
   settleColumns = settle;
+  patchColumns = patch;
 
   // A couple of fake columns and cards shaped like the real thing, without the heading,
   // while the board loads.
@@ -407,7 +424,7 @@ export function renderBoard(options: BoardOptions): RenderedBoard {
   function drawCarried() {
     const shown = state.current;
 
-    if (!shown || !shown.holderIsBeing || shown.holderId === null || carryLimit === undefined) {
+    if (!shown?.holderIsBeing || shown.holderId === null || carryLimit === undefined) {
       return;
     }
 
@@ -608,6 +625,7 @@ export function renderBoard(options: BoardOptions): RenderedBoard {
     loadUnowned,
     prefetch,
     reload: async () => reloadCurrentView?.(),
+    patch: patched,
     showError,
     weightUnit: () => unit,
 

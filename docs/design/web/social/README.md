@@ -2,9 +2,9 @@
 
 A fresh design of Lorenzo Social, a new app, from the jobs people do there. The system it is built on is in [the web design](../README.md): the shell, the templates, the states and the decisions D1 to D29. The account hub, Writing, Calendars with Sessions, Maps, Beings and Inventory are decided. This page holds the brief, the questions and the decision log for this app.
 
-Status: the prototype is built and ready for review (decisions SO1 to SO8 are logged here).
+Status: decided with the maintainer on 2026-11-05 (SO1 to SO8 are logged here, [ADR 0424](../../../adr/0424-social-redesign.md)); the app is built, see [`apps/social`](../../../../apps/social/README.md).
 
-The app comes from [RFC 0049](../../../rfcs/0049-lorenzo-social-relationships-and-social-webs.md) and ADRs 0399 to 0408, written in parallel on the open pull request [#1010](https://github.com/ramsesoriginal/lorenzo/pull/1010). Its section "For the interface design" is the brief this page builds on. Where they differ, the RFC wins until it is changed.
+The app comes from [RFC 0049](../../../rfcs/0049-lorenzo-social-relationships-and-social-webs.md) and ADRs 0399 to 0408, written in pull request [#1010](https://github.com/ramsesoriginal/lorenzo/pull/1010), now merged. Its section "For the interface design" is the brief this page builds on. Where they differ, the RFC wins until it is changed.
 
 ## What the app is for
 
@@ -17,7 +17,7 @@ Social says who is connected to whom and how, which groups hold whom, and how mu
 - **Time is optional.** A relationship may start and end at an Event. A reading *as of* an Event says `holds`, `not yet`, `ended` or `unknown`, from the reader's own recorded order.
 - **Nothing is inferred and nothing is added up on the server:** no kinship deduced from a parent, no trust along a chain, no total standing. A chain a relationship is stated to hold *through* is written by an author.
 
-Sources: the RFC and [ADR 0399](../../../adr/0399-relationships-the-kind-and-its-two-ends.md), 0400 to 0408 on its branch, and [identity §18](../../../brand/identity.md#18-information-visualization-grammar), the grammar for edges.
+Sources: the RFC and [ADR 0399](../../../adr/0399-relationships-the-kind-and-its-two-ends.md), 0400 to 0408, and [identity §18](../../../brand/identity.md#18-information-visualization-grammar), the grammar for edges.
 
 **What this design does not draw.** How a graph is laid out (the engines, the Scene) and the contract for painting it belong to a package, `packages/graph-renderer` ([ADR 0407](../../../adr/0407-the-graph-renderer.md)), written like Maps' renderer. This design draws the stand-in that a prototype needs and everything around it: the pages, the lists, the panels, the matrix, the forms and the words. Bench's Relations view is not redesigned here, and its per-type line styles are not adopted.
 
@@ -32,7 +32,7 @@ Sources: the RFC and [ADR 0399](../../../adr/0399-relationships-the-kind-and-its
 | Staff checking a story | Read a web as of an Event, or as one being may read it | the date lens, "as read by" |
 | Anyone | Find a relationship by name, type, end, group or standing | the list |
 
-Roles in play: Author, GM, full-visibility Owner or Organizer (they write relationships in the first slices), the player of a being (reads; writing their own is a later slice), and everyone else (they read what is visible).
+Roles in play: Author, GM, full-visibility Owner or Organizer (they write relationships in the first slices), the player of a being (reads, and writes their own relationships, [ADR 0425](../../../adr/0425-players-write-their-own-relationships.md)), and everyone else (they read what is visible).
 
 ## Words
 
@@ -65,7 +65,7 @@ This app joins the shell, so these change when its place is decided (Question 1)
 - the go-to chord (G then a letter) and its entry in the shortcuts list and the palette;
 - the app's tabs and its Home (D16);
 - the illustration list, which gains `empty-social-types`, `empty-relationships` and `empty-social-web` (added with this brief);
-- `apps/brand` is not changed: two kind icons are chosen below and listed as a follow-up for the atlas.
+- `apps/brand` is not changed by the design: two kind icons are chosen below; they were added to the atlas with the app ([follow-ups.md](../follow-ups.md)).
 
 ## Questions
 
@@ -139,7 +139,7 @@ Both are switches in the web's toolbar, like Maps' layers. While one is on, a li
 
 ### SO5. The icons are R3 and W1
 
-A **Relationship** is two overlapping rings (new). A **Social web**, and the app, is a hub with three nodes (the atlas's `icon-social`). The two new kind icons are listed for the atlas as a follow-up and are not added by this work.
+A **Relationship** is two overlapping rings (new). A **Social web**, and the app, is a hub with three nodes (the atlas's `icon-social`). The two new kind icons were listed for the atlas as a follow-up and are in it now ([follow-ups.md](../follow-ups.md)).
 
 ### SO6. The web page floats its controls over the graph, with a Members control
 

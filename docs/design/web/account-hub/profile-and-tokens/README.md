@@ -2,7 +2,7 @@
 
 A fresh design of the two personal pages of the account hub: **Profile**, and **Access tokens** with **Connect a device**. The system is in [the web design](../../README.md): the shell, the templates, the states and the decisions D1 to D31. The account hub as a whole is decided ([AH1 to AH9](../README.md)); these two pages were drawn there as part of it, and are redesigned here on purpose. This page holds the brief, the questions and the decision log.
 
-Status: the prototype is built and ready for review (decisions PT1 to PT6 are logged here).
+Status: decided with the maintainer on 2026-11-05 (PT1 to PT6, [ADR 0418](../../../../adr/0418-profile-access-tokens-and-connecting-a-device.md)); the hub is in the web shell ([ADR 0428](../../../../adr/0428-the-account-hub-moves-into-the-web-shell.md)).
 
 ## What the pages are for
 

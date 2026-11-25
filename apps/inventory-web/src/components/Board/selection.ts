@@ -1,4 +1,9 @@
-import { failedEntityIds, findMergeCandidates, summarizeBulkResults } from '../../lib/boardLogic';
+import {
+  failedEntityIds,
+  findMergeCandidates,
+  mergedAway,
+  summarizeBulkResults,
+} from '../../lib/boardLogic';
 import { errorMessage } from '../../lib/errorMessage';
 import { bulkAssignItemInstances, bulkMoveItemInstances, mergeItemInstance } from '../../lib/items';
 import { bulkMoveAnywayQuestion } from '../../lib/moveAnyway';
@@ -6,7 +11,7 @@ import { collectMoveTargets } from '../../lib/moveTargets';
 import type { ItemInstance } from '../../lib/types';
 import { renderBeingPicker } from '../BeingPicker/renderer';
 import { renderCheckboxField } from '../CheckboxField/renderer';
-import { type BoardState, containerOf } from './state';
+import { type BoardPatch, type BoardState, containerOf } from './state';
 
 export type Selection = {
   // Whether cards are being picked rather than opened.
@@ -36,6 +41,10 @@ export type SelectionOptions = {
   onGiven(): void;
   // Something was moved or merged: the board is out of date.
   onChanged(): void;
+  // These were moved into the target: the board puts their cards there. False when it can't.
+  onMoved(ids: string[], target: string): boolean;
+  // What the server confirmed on some cards (given, merged): the board says it in place. False when it can't.
+  onPatched(changes: BoardPatch): boolean;
 };
 
 const GIVE_LABEL = 'Give…';
@@ -147,6 +156,9 @@ export function createSelection(options: SelectionOptions): Selection {
           )
         : null;
 
+      // What the server confirmed, for the board to say in place; none when it can't be told.
+      let confirmed: BoardPatch | null = null;
+
       const panel = renderBeingPicker({
         tenantId: options.tenantId,
         async perform(being) {
@@ -165,6 +177,19 @@ export function createSelection(options: SelectionOptions): Selection {
           // some, so it falls through to the reload instead.
           const outcome = summarizeBulkResults(results);
 
+          // Handing it over moves it to the owner's, out of this board's columns: that is fetched.
+          confirmed = moveToOwner
+            ? null
+            : {
+                owners: [[being.entity_id, being.name]],
+                updated: results
+                  .filter((result) => result.status !== 'error')
+                  .map((result) => ({
+                    id: result.entity_id,
+                    patch: { owner_entity_id: being.entity_id },
+                  })),
+              };
+
           if (outcome.allFailed) {
             throw new Error(`Couldn't give any of the ${selected.length} selected item(s).`);
           }
@@ -181,7 +206,8 @@ export function createSelection(options: SelectionOptions): Selection {
           givePanel.replaceChildren();
           giveButton.textContent = GIVE_LABEL;
           setMode(false);
-          options.onGiven();
+
+          if (!confirmed || !options.onPatched(confirmed)) options.onGiven();
         },
         extraFields: handOver ? [handOver.element] : [],
       });
@@ -267,7 +293,12 @@ export function createSelection(options: SelectionOptions): Selection {
           givePanel.replaceChildren();
           options.moveButton.textContent = MOVE_LABEL;
           setMode(false);
-          options.onChanged();
+
+          // What stacked into something identical has to be shown anew; the rest only moved.
+          const failedIds = failedEntityIds(results);
+          const moved = selected.filter((id) => !failedIds.has(id));
+
+          if (mergedAway(results) || !options.onMoved(moved, target)) options.onChanged();
         } catch (error) {
           status.hidden = false;
           status.textContent = errorMessage(error);
@@ -300,12 +331,22 @@ export function createSelection(options: SelectionOptions): Selection {
       options.mergeButton.disabled = true;
 
       try {
+        // Each one joins the first, which says how many the stack is now.
+        let quantity = into.quantity;
+
         for (const other of others) {
-          await mergeItemInstance(options.tenantId, other.entity_id, into.entity_id);
+          quantity = (await mergeItemInstance(options.tenantId, other.entity_id, into.entity_id))
+            .quantity;
         }
 
         setMode(false);
-        options.onChanged();
+
+        const confirmed: BoardPatch = {
+          updated: [{ id: into.entity_id, patch: { quantity } }],
+          removed: others.map((other) => other.entity_id),
+        };
+
+        if (!options.onPatched(confirmed)) options.onChanged();
       } catch (error) {
         options.onError(errorMessage(error));
         updateToolbar();

@@ -2,7 +2,7 @@
 
 A fresh design of the account hub, from the jobs people do there. The system it is built on is in [the web design](../README.md): the shell, the templates, the states and the decisions D1 to D29. This page holds the brief, the questions and the decision log for this app.
 
-Status: the prototype is built and ready for review. Questions 1 to 5 and the first round of open questions are decided (AH1 to AH9).
+Status: decided with the maintainer on 2026-11-04 (AH1 to AH9, [ADR 0417](../../../adr/0417-account-hub-redesign.md)); the hub is in the web shell ([ADR 0428](../../../adr/0428-the-account-hub-moves-into-the-web-shell.md)).
 
 ## What the app is for
 
