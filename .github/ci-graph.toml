@@ -20,6 +20,9 @@
 #                  under a minute: each runner costs 10-15 s to set up, and a push to main ran 33 jobs with
 #                  16 at a time at most, so the slow legs waited behind small ones for a runner (ADR
 #                  0148, addendum of 2026-10-14). Not for a node that needs Postgres or is sharded.
+#   release_lint   false: the pull request release-please keeps open (it bumps versions and writes
+#                  changelogs in every component) leaves this node out of its lint-only run. For a
+#                  node whose lint is slow or needs a runner of its own (Android lint, macOS). Default true.
 #   reads          paths (fnmatch, where `*` also crosses `/`) of other nodes that its tests read: a
 #                  change to one runs this node's tests. Not a dependency: nothing downstream of the
 #                  node runs for it, and neither do its suites. For a test that walks every app (the
@@ -144,6 +147,7 @@ depends_on = ["apps/api"]
 [nodes."apps/inventory-mobile"]
 # Native Kotlin adapter consumes the REST contract; copied fonts and icons follow the brand.
 depends_on = ["apps/brand"]
+release_lint = false
 generated_from = ["apps/api"]
 
 # Its debug APK and unsigned release bundle (`mise run build`), a job beside the node's lint and tests
@@ -168,6 +172,7 @@ batch = "packages"
 
 [nodes."apps/inventory-ios"]
 depends_on = ["apps/brand"]
+release_lint = false
 generated_from = ["apps/api"]
 
 [suites.ios-build]

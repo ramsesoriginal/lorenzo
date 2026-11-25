@@ -42,8 +42,14 @@ jobs:
       - id: find
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_REF: ${{ github.head_ref }}
         run: |
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
+          if [[ "$HEAD_REF" == release-please--* ]]; then
+            # The pull request that release-please keeps open bumps versions and writes changelogs in every
+            # component, so it touched everything, on code that main has just tested: it gets a lint of
+            # every node and nothing else (ADR 0148, addendum of 2026-11-24).
+            python3 .github/scripts/affected.py --root . --release --github-output "$GITHUB_OUTPUT" --summary "$GITHUB_STEP_SUMMARY"
+          elif [ "${{ github.event_name }}" = "pull_request" ]; then
             python3 .github/scripts/affected.py --root . --base "$BASE_SHA" --github-output "$GITHUB_OUTPUT" --summary "$GITHUB_STEP_SUMMARY"
           else
             python3 .github/scripts/affected.py --root . --all --github-output "$GITHUB_OUTPUT" --summary "$GITHUB_STEP_SUMMARY"
@@ -120,6 +126,7 @@ jobs:
           timeout 90 sh -c 'until docker exec postgres pg_isready -h 127.0.0.1 -U lorenzo > /dev/null 2>&1; do sleep 1; done' \
             || { cat "$RUNNER_TEMP/postgres-start.log"; docker logs postgres; exit 1; }
       - name: Test
+        if: ${{ !matrix.lint_only }}
         run: |
           status=0
           for app in $APPS; do

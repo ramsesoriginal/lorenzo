@@ -185,9 +185,9 @@ class Matrices(unittest.TestCase):
         graph = affected.load_graph(root)
         out = affected.matrices(graph, affected.affected(graph, ["apps/api/a.py"]))
         self.assertIn(
-            {"app": "apps/api", "apps": "apps/api", "label": "apps/api 1/2", "shard": "1/2", "postgres": True}, json.loads(out["test_matrix"])
+            {"app": "apps/api", "apps": "apps/api", "label": "apps/api 1/2", "shard": "1/2", "postgres": True, "lint_only": False}, json.loads(out["test_matrix"])
         )
-        self.assertIn({"app": "apps/bot", "apps": "apps/bot", "label": "apps/bot", "shard": "", "postgres": False}, json.loads(affected.matrices(graph, affected.affected(graph, ["apps/bot/a.ts"]))["test_matrix"]))
+        self.assertIn({"app": "apps/bot", "apps": "apps/bot", "label": "apps/bot", "shard": "", "postgres": False, "lint_only": False}, json.loads(affected.matrices(graph, affected.affected(graph, ["apps/bot/a.ts"]))["test_matrix"]))
         self.assertEqual(out["openapi_diff"], "true")
         self.assertEqual(json.loads(out["suites"]), ["web-e2e"])
 
@@ -212,8 +212,8 @@ class Batches(unittest.TestCase):
         self.assertEqual(
             self.legs("packages/ts-client/a.ts"),
             [
-                {"app": "packages/ts-client", "apps": "packages/ts-client", "label": "packages/ts-client", "shard": "", "postgres": False},
-                {"app": "", "apps": "apps/bot apps/web", "label": "batch web", "shard": "", "postgres": False},
+                {"app": "packages/ts-client", "apps": "packages/ts-client", "label": "packages/ts-client", "shard": "", "postgres": False, "lint_only": False},
+                {"app": "", "apps": "apps/bot apps/web", "label": "batch web", "shard": "", "postgres": False, "lint_only": False},
             ],
         )
 
@@ -257,6 +257,27 @@ class Reads(unittest.TestCase):
     def test_something_else_does_not_run_it(self) -> None:
         self.assertNotIn("apps/tool", self.run_for("apps/web/src/a.ts").tests)
         self.assertNotIn("apps/tool", self.run_for("docs/a.md").tests)
+
+
+class Release(unittest.TestCase):
+    """The pull request release-please keeps open: a lint of the nodes, no tests, suites or database."""
+
+    def test_it_lints_every_node_once_and_runs_nothing_else(self) -> None:
+        graph = affected.load_graph(
+            make_repo(GRAPH + '\n[nodes."apps/bot"]\nbatch = "web"\n[nodes."apps/web"]\nbatch = "web"\n')
+        )
+        out =affected.matrices(graph, affected.release_result(graph), lint_only=True)
+        legs = json.loads(out["test_matrix"])
+        self.assertTrue(all(leg["lint_only"] for leg in legs))
+        self.assertEqual([(leg["label"], leg["shard"], leg["postgres"]) for leg in legs if leg["label"].startswith("apps/api")],
+                         [("apps/api", "", False)])  # not twice, and without a database
+        self.assertIn("apps/bot apps/web", [leg["apps"] for leg in legs])
+        self.assertEqual((out["drift_matrix"], out["suites"], out["openapi_diff"]), ("[]", "[]", "false"))
+
+    def test_a_node_can_leave_it_out(self) -> None:
+        graph = affected.load_graph(make_repo(GRAPH + '\n[nodes."apps/tool"]\nrelease_lint = false\n'))
+        self.assertNotIn("apps/tool", affected.release_result(graph).tests)
+        self.assertIn("apps/bot", affected.release_result(graph).tests)
 
 
 class ThisRepository(unittest.TestCase):
@@ -333,6 +354,12 @@ class ThisRepository(unittest.TestCase):
         self.assertEqual(set(in_batches) | {"apps/api", "apps/inventory-mobile", "apps/inventory-ios", "apps/loot-bot"}, set(self.graph.nodes))
         for leg in batched:
             self.assertEqual((leg["shard"], leg["postgres"]), ("", False))
+
+    def test_a_release_pull_request_lints_the_web_and_python_nodes_not_the_native_apps(self) -> None:
+        result = affected.release_result(self.graph)
+        self.assertNotIn("apps/inventory-mobile", result.tests)
+        self.assertNotIn("apps/inventory-ios", result.tests)
+        self.assertEqual(result.tests, {n for n in self.graph.nodes if n not in ("apps/inventory-mobile", "apps/inventory-ios")})
 
     def test_cli_unit_tests_do_not_run_for_an_api_change_but_its_e2e_does(self) -> None:
         result = affected.affected(self.graph, ["apps/api/a.py"])

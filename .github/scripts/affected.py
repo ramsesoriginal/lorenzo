@@ -50,6 +50,7 @@ class Node:
     shards: int = 1
     batch: str = ""
     reads: list[str] = field(default_factory=list)
+    release_lint: bool = True
     check_schema: bool = False
     depends_on: set[str] = field(default_factory=set)
     generated_from: set[str] = field(default_factory=set)
@@ -143,6 +144,7 @@ def load_graph(root: Path) -> Graph:
         if node.shards < 1:
             raise GraphError(f"{where}: `shards` must be at least 1")
         node.reads = sorted(_as_set(table, "reads", where))
+        node.release_lint = bool(table.get("release_lint", True))
         node.batch = str(table.get("batch", ""))
         if node.batch and (node.postgres or node.shards > 1):
             raise GraphError(f"{where}: `batch` is for small legs, not one that needs Postgres or is sharded")
@@ -278,7 +280,19 @@ def affected(graph: Graph, changed: list[str], everything: bool = False, why: st
     )
 
 
-def matrices(graph: Graph, result: Result) -> dict[str, str]:
+def release_result(graph: Graph) -> Result:
+    """What the pull request that release-please keeps open runs: a lint of every node, and nothing
+    else. It only bumps versions and writes changelogs, on the code main has just tested; a node
+    whose lint is slow (`release_lint = false`) is left out."""
+    why = "a release pull request: lint only"
+    tests = {name for name, node in graph.nodes.items() if node.release_lint}
+    return Result(
+        tests=tests, drift=set(), suites=set(), openapi_diff=False,
+        reasons={name: why for name in graph.nodes}, everything=False,
+    )
+
+
+def matrices(graph: Graph, result: Result, lint_only: bool = False) -> dict[str, str]:
     test = []
     batches: dict[str, list[str]] = {}
     for name in sorted(result.tests):
@@ -286,15 +300,24 @@ def matrices(graph: Graph, result: Result) -> dict[str, str]:
         if node.batch:
             batches.setdefault(node.batch, []).append(name)
             continue
-        for index in range(1, node.shards + 1):
-            shard = f"{index}/{node.shards}" if node.shards > 1 else ""
+        # Lint runs once, whatever the shards, and needs no database.
+        for index in range(1, 2 if lint_only else node.shards + 1):
+            shard = f"{index}/{node.shards}" if node.shards > 1 and not lint_only else ""
             test.append(
-                {"app": name, "apps": name, "label": f"{name} {shard}".strip(), "shard": shard, "postgres": node.postgres}
+                {
+                    "app": name, "apps": name, "label": f"{name} {shard}".strip(), "shard": shard,
+                    "postgres": node.postgres and not lint_only, "lint_only": lint_only,
+                }
             )
     # The nodes of a batch (`batch` in .github/ci-graph.toml) run one after the other on one runner: the
     # affected ones only, so a pull request pays for what it changes.
     for batch, names in sorted(batches.items()):
-        test.append({"app": "", "apps": " ".join(names), "label": f"batch {batch}", "shard": "", "postgres": False})
+        test.append(
+            {
+                "app": "", "apps": " ".join(names), "label": f"batch {batch}", "shard": "",
+                "postgres": False, "lint_only": lint_only,
+            }
+        )
     drift = [{"app": n} for n in sorted(result.drift)]
     return {
         "test_matrix": json.dumps(test),
@@ -334,6 +357,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--base", help="base commit of a pull request")
     parser.add_argument("--all", action="store_true", help="everything is affected (push to main)")
     parser.add_argument("--changed", nargs="*", help="changed paths instead of git diff (testing)")
+    parser.add_argument("--release", action="store_true", help="the release-please pull request: lint only")
     parser.add_argument("--github-output")
     parser.add_argument("--summary")
     args = parser.parse_args(argv)
@@ -359,8 +383,8 @@ def main(argv: list[str] | None = None) -> int:
                 changed = diffed
         else:
             everything = True
-    result = affected(graph, changed, everything=everything, why=why)
-    outputs = matrices(graph, result)
+    result = release_result(graph) if args.release else affected(graph, changed, everything=everything, why=why)
+    outputs = matrices(graph, result, lint_only=args.release)
     text = summary(graph, result, changed)
     print(text)
     for key, value in outputs.items():
