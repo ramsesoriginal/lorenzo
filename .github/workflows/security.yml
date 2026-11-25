@@ -26,6 +26,7 @@ jobs:
   # list that assumes something exists.
   discover:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     outputs:
       languages: ${{ steps.find.outputs.languages }}
     steps:
@@ -70,6 +71,7 @@ jobs:
     needs: discover
     if: needs.discover.outputs.languages != '[]'
     runs-on: ${{ matrix.language == 'swift' && 'macos-15' || 'ubuntu-latest' }}
+    timeout-minutes: 30
     env:
       DEVELOPER_DIR: ${{ matrix.language == 'swift' && '/Applications/Xcode_16.4.app/Contents/Developer' || '' }}
     strategy:
@@ -145,6 +147,7 @@ jobs:
   dependency-review:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v7
       - uses: actions/dependency-review-action@v5

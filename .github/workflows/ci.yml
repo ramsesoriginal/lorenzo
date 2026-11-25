@@ -29,6 +29,7 @@ jobs:
   # Nothing here needs mise or a toolchain: the script is standard-library Python, so it is fast.
   discover:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     outputs:
       test_matrix: ${{ steps.find.outputs.test_matrix }}
       drift_matrix: ${{ steps.find.outputs.drift_matrix }}
@@ -58,6 +59,7 @@ jobs:
   # The script's own tests. Always runs, and is cheap: it decides what every other job runs.
   ci-tools:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v7
       - run: python3 -m unittest discover -s .github/scripts -v
@@ -67,6 +69,7 @@ jobs:
     needs: discover
     if: needs.discover.outputs.test_matrix != '[]'
     runs-on: ${{ matrix.app == 'apps/inventory-ios' && 'macos-15' || 'ubuntu-latest' }}
+    timeout-minutes: 30
     env:
       # Keep native compilation and the bundled Swift formatter on the same toolchain.
       DEVELOPER_DIR: ${{ matrix.app == 'apps/inventory-ios' && '/Applications/Xcode_16.4.app/Contents/Developer' || '' }}
@@ -193,6 +196,7 @@ jobs:
     needs: discover
     if: contains(fromJson(needs.discover.outputs.suites), 'mobile-build')
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v7
       - uses: jdx/mise-action@v5
@@ -217,6 +221,7 @@ jobs:
     needs: discover
     if: github.event_name == 'pull_request' && needs.discover.outputs.openapi_diff == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
         with:
@@ -258,6 +263,7 @@ jobs:
     needs: discover
     if: needs.discover.outputs.drift_matrix != '[]'
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     strategy:
       fail-fast: false
       matrix:
@@ -280,6 +286,7 @@ jobs:
     needs: discover
     if: contains(fromJson(needs.discover.outputs.suites), 'inventory-web-e2e')
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     # The spec files are split over four runners, each with its own Postgres and API, by their recorded
     # duration (apps/inventory-web/scripts/e2e-shard.mjs, ADR 0148's addendum of 2026-10-14): Playwright's
     # own --shard splits by the number of tests, and one of three shards took twice what another did.
@@ -355,6 +362,7 @@ jobs:
     needs: discover
     if: contains(fromJson(needs.discover.outputs.suites), 'beings-e2e')
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     strategy:
       fail-fast: false
       matrix:
@@ -415,6 +423,7 @@ jobs:
     needs: discover
     if: contains(fromJson(needs.discover.outputs.suites), 'calendars-e2e')
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     steps:
       # Postgres in the background and a cached headless shell: see the inventory-web job.
       - name: Start Postgres
@@ -471,6 +480,7 @@ jobs:
     needs: discover
     if: contains(fromJson(needs.discover.outputs.suites), 'sessions-e2e')
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     steps:
       # Postgres in the background and a cached headless shell: see the inventory-web job.
       - name: Start Postgres
@@ -527,6 +537,7 @@ jobs:
     needs: discover
     if: contains(fromJson(needs.discover.outputs.suites), 'maps-e2e')
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     # Two runners, each with its own Postgres and API; Playwright's own --shard splits the tests (one runner took 242 s of them).
     strategy:
       fail-fast: false
@@ -590,6 +601,7 @@ jobs:
     needs: discover
     if: contains(fromJson(needs.discover.outputs.suites), 'brand-e2e')
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
       - uses: jdx/mise-action@v5
@@ -626,6 +638,7 @@ jobs:
     needs: discover
     if: contains(fromJson(needs.discover.outputs.suites), 'social-e2e')
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     steps:
       # Postgres in the background and a cached headless shell: see the inventory-web job.
       - name: Start Postgres
@@ -683,6 +696,7 @@ jobs:
     needs: discover
     if: contains(fromJson(needs.discover.outputs.suites), 'writing-e2e')
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     # Three runners, each with its own Postgres and API; Playwright's own --shard splits the tests (69 tests took 628 s on one).
     strategy:
       fail-fast: false
@@ -747,6 +761,7 @@ jobs:
     needs: discover
     if: contains(fromJson(needs.discover.outputs.suites), 'bench-e2e')
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     steps:
       - name: Start Postgres
         run: |
@@ -802,6 +817,7 @@ jobs:
     needs: discover
     if: contains(fromJson(needs.discover.outputs.suites), 'account-hub-real-api')
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     # Three runners, each with its own Postgres and API; Playwright's own --shard splits the tests.
     strategy:
       fail-fast: false
@@ -878,6 +894,7 @@ jobs:
     needs: discover
     if: contains(fromJson(needs.discover.outputs.suites), 'cli-e2e')
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     strategy:
       fail-fast: false
       matrix:
@@ -913,6 +930,7 @@ jobs:
     needs: discover
     if: contains(fromJson(needs.discover.outputs.suites), 'ios-build')
     runs-on: macos-15
+    timeout-minutes: 30
     env:
       DEVELOPER_DIR: /Applications/Xcode_16.4.app/Contents/Developer
     steps:
@@ -933,6 +951,7 @@ jobs:
     needs: [discover, ci-tools, test, openapi-diff, client-drift, e2e, e2e-brand, e2e-beings, e2e-calendars, e2e-sessions, e2e-maps, e2e-social, e2e-writing, e2e-bench, account-hub-real-api, cli-e2e, mobile-build, ios-build]
     if: always()
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - name: Fail if any needed job failed or was cancelled
         env:
