@@ -87,6 +87,15 @@ Filled in as each slice lands.
 | The page head and rail (BN6) | B3 | Built ([#1357](https://github.com/ramsesoriginal/lorenzo/pull/1357)): an avatar, the name, "Character · played by Ana · campaign", the "⋯" menu, and a rail with who plays it, the campaign, Hand over, Where it appears and the Events. Not built: "Seen by", because an entry's audience can only be read for facts and calendar entries, not for beings |
 | The audits | I7, B9 | Beings: built ([#1352](https://github.com/ramsesoriginal/lorenzo/pull/1352)): axe, both themes, 390px and 44px on eight pages and states, run again after the design match. Inventory: built (I7, [#1365](https://github.com/ramsesoriginal/lorenzo/pull/1365)): axe on five pages and states, both themes, desktop and 390px; it found one problem in the shell's phone menu, fixed in app-shell. Not audited: the 44px target size |
 
+## After first use
+
+The first week of using the built Inventory found what the specs had not, all in [`apps/inventory-web`](../../apps/inventory-web), and it is fixed:
+
+- Dragging a card redrew the page: every card and the page itself were view-transition groups. Now only the cards moved are named for the transition ([#1375](https://github.com/ramsesoriginal/lorenzo/pull/1375)).
+- The board did not use the width of a large screen, and a long column grew the page instead of scrolling. The board is a page template of its own, and the page is exactly the window tall by layout alone (a flex chain with `min-height: 0`, no script that measures heights) ([#1375](https://github.com/ramsesoriginal/lorenzo/pull/1375)).
+- Moving, adding, giving and merging fetched and drew the whole board again. A drop now says what it changed from what the board already knows (counts, weights, where a container is), and a fetch of the same board changes the page to match instead of drawing it anew, so nothing flashes, scrolls or loses focus; the select bar's Move to…, Give and Merge and the panel's Give and Merge put the cards in place with no fetch ([#1376](https://github.com/ramsesoriginal/lorenzo/pull/1376), [#1377](https://github.com/ramsesoriginal/lorenzo/pull/1377), [#1378](https://github.com/ramsesoriginal/lorenzo/pull/1378)). A hand over, giving what is inside, and anything that stacked into an identical item still fetch.
+- A catalog item written in place listed every tag as a toggle, showed only weight and price, and hid the texts and pictures from what it is made from. It now lists the tags the item has (an inherited one marked as that), every stat with where it comes from (a value typed over an inherited one is the item's own), and the inherited texts and pictures beside the description ([#1379](https://github.com/ramsesoriginal/lorenzo/pull/1379)).
+
 ## Consequences
 
 - When it is built, Beings and Inventory use the shell, and UI-H (retiring each app's own header, footer and button styles) is left only for Social.
