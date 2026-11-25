@@ -424,7 +424,7 @@ export function renderBoard(options: BoardOptions): RenderedBoard {
   function drawCarried() {
     const shown = state.current;
 
-    if (!shown || !shown.holderIsBeing || shown.holderId === null || carryLimit === undefined) {
+    if (!shown?.holderIsBeing || shown.holderId === null || carryLimit === undefined) {
       return;
     }
 
