@@ -101,7 +101,12 @@ import { BRANDING_CSS_URL } from '../../lib/config';
           renderer: descriptionRenderer(tenantId),
           myCharacters: () => picker.myCharacters(),
           weightUnit: () => board.weightUnit(),
-          board: { state: board.state, undo, onChanged: () => board.reload() },
+          board: {
+            state: board.state,
+            undo,
+            onChanged: () => board.reload(),
+            onPatched: (changes) => board.patch(changes),
+          },
         });
 
         const picker = renderHolderPicker({

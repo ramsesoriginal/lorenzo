@@ -53,7 +53,7 @@ This repository is the monorepo for the whole project: a multi-tenant REST API (
 The shape is one API, several kinds of client, and shared code:
 
 - **The API**, [`apps/api`](apps/api): the source of truth, on Google Cloud Run. It also says where the apps live (`GET /app-links`, [ADR 0273](docs/adr/0273-app-links-registry.md)).
-- **Static web apps** for items, accounts, beings, calendars, sessions, writing and maps, **Bench**, the authoring app, and the legal pages ([ADR 0439](docs/adr/0439-legal-notice-and-privacy-policy.md)): Astro and plain TypeScript, no component framework, all deployed to Cloudflare Pages through its Git integration.
+- **Static web apps** for items, accounts, beings, calendars, sessions, writing, maps and relationships, **Bench**, the authoring app, and the legal pages ([ADR 0439](docs/adr/0439-legal-notice-and-privacy-policy.md)): Astro and plain TypeScript, no component framework, all deployed to Cloudflare Pages through its Git integration.
 - **A Discord bot**, on Google Cloud Run, and **the `lorenzo` command line** for bulk work and scripts.
 - **Mobile apps** for Android and iOS, installed locally.
 - **Shared packages**: the typed API client, the brand CSS, LorenzoScript and its editor, the calendar and map engines, and the other code more than one app uses.
@@ -93,8 +93,10 @@ See [docs/guides/getting-started.md](docs/guides/getting-started.md).
 | Work from Discord (`/inventory`, `/give`, `/drop` and more) | [`apps/loot-bot`](apps/loot-bot) | see its README for the command list |
 | Do bulk work the web apps don't | [`apps/cli`](apps/cli) | `uv tool install "git+https://github.com/ramsesoriginal/lorenzo#subdirectory=apps/cli"` |
 | Carry inventories on a phone | [`apps/inventory-mobile`](apps/inventory-mobile) (Android), [`apps/inventory-ios`](apps/inventory-ios) (iOS) | follow their READMEs, then connect through account hub |
+| Read the legal notice and privacy policy | [`apps/legal`](apps/legal) | `mise run //apps/legal:dev` (a sample profile), port 4330 |
+| See the brand CSS and preview | [`apps/brand`](apps/brand) | no dev server: open `apps/brand/preview/index.html` |
 
-Each app's own README has its command list. With the CLI, `lorenzo apply --starter dnd5e` (or `wrath-and-glory`, or a system of your own as one TOML document) sets a game system up in a library ([walkthrough](apps/cli/README.md#a-walkthrough-a-table-that-plays-dd-5e)); `lorenzo tenant create`, `lorenzo apply --starter` and `lorenzo import mpmb apply` build a repository of standard items from MPMB files, and `lorenzo repo publish` and `lorenzo repo offer` hand it to a table's library (start with its [Before you start](apps/cli/README.md#before-you-start)). `lorenzo import calendar` brings in a calendar ([calendar file guide](docs/guides/calendar-file-format.md)). To bring in a D&D Beyond character's inventory, run [`uvx lorenzo-beyond`](https://github.com/ramsesoriginal/lorenzo-beyond) to write a ledger file, then `lorenzo import inventory` it. How a game master or player uses the apps is in the [guides](docs/guides/README.md).
+Each app's own README has its command list. The CLI's [README](apps/cli/README.md) covers setting up a game system (`lorenzo apply --starter`), repositories, and the importers for MPMB files, [calendars](docs/guides/calendar-file-format.md) and D&D Beyond inventories. How a game master or player uses the apps is in the [guides](docs/guides/README.md).
 
 ## Configuration
 
@@ -111,7 +113,7 @@ Start with [docs/architecture/overview.md](docs/architecture/overview.md) and th
 - [Architecture](docs/architecture/overview.md) — the technical design
 - [ADRs](docs/adr/README.md) — why things are the way they are
 - [RFCs](docs/rfcs/README.md) — bigger proposals and open questions, before they become decisions
-- [Guides](docs/guides/README.md) — task-oriented how-tos, including how to use Calendars and Sessions
+- [Guides](docs/guides/README.md) — task-oriented how-tos, including modelling a game system and using Calendars, Sessions, Maps and Social
 - [v1.0](v1.0.md) — what the finished product is meant to do, and how far each row has got
 - [Packages](packages/README.md) and [Apps](apps/README.md) — what is shared and what is deployed
 - [Operations](docs/operations/README.md) — hosting each app, releasing, GitHub setup, going public
@@ -132,7 +134,7 @@ See [SECURITY.md](SECURITY.md) for supported versions and how to report a vulner
 
 ## Roadmap
 
-Tracked live as [GitHub issues](https://github.com/ramsesoriginal/lorenzo/issues) and [milestones](https://github.com/ramsesoriginal/lorenzo/milestones); [ADR 0070](docs/adr/0070-planning-milestones-issues-and-a-deferred-roadmap.md) says how those relate to the RFC and ADR process. [v1.0.md](v1.0.md) lists, for every part of the system, what is built, what is partial and what is still to do. The API, its auth and REST write surface, the web apps, the bot, the CLI and the mobile apps described above are built and merged to `main`; the open work is mainly repository tooling (the rest of Bench's offline editing and public launch), the remaining clock, branching and historical-state parts of [RFC 0028](docs/rfcs/0028-time-causality-and-calendars.md), and operations, and Writing's joins. [docs/architecture/roadmap-history.md](docs/architecture/roadmap-history.md) has the detailed, ADR-by-ADR history, and the overview's [What's next](docs/architecture/overview.md#whats-next) says what is in flight.
+Tracked live as [GitHub issues](https://github.com/ramsesoriginal/lorenzo/issues) and [milestones](https://github.com/ramsesoriginal/lorenzo/milestones); [ADR 0070](docs/adr/0070-planning-milestones-issues-and-a-deferred-roadmap.md) says how those relate to the RFC and ADR process. [v1.0.md](v1.0.md) lists, for every part of the system, what is built, what is partial and what is still to do. The API, its auth and REST write surface, the web apps, the bot, the CLI and the mobile apps described above are built and merged to `main`; the open work is mainly repository tooling (the rest of Bench's offline editing and public launch), the remaining clock, branching and historical-state parts of [RFC 0028](docs/rfcs/0028-time-causality-and-calendars.md), and operations. [docs/architecture/roadmap-history.md](docs/architecture/roadmap-history.md) has the detailed, ADR-by-ADR history, and the overview's [What's next](docs/architecture/overview.md#whats-next) says what is in flight.
 
 ## License
 
