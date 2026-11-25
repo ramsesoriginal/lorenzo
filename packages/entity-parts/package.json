@@ -10,7 +10,8 @@
     "./DescriptionEditor.astro": "./src/DescriptionEditor.astro",
     "./SlugEditor.astro": "./src/SlugEditor.astro",
     "./InfoForm.astro": "./src/InfoForm.astro",
-    "./DescriptionEdit.astro": "./src/DescriptionEdit.astro"
+    "./DescriptionEdit.astro": "./src/DescriptionEdit.astro",
+    "./LibraryList.astro": "./src/LibraryList.astro"
   },
   "scripts": {
     "lint": "biome check . && tsc --noEmit && prettier --check \"**/*.astro\"",

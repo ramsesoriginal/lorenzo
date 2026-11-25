@@ -8,11 +8,15 @@ import {
   type RenderedDescriptionEdit,
   renderDescriptionEdit,
 } from './DescriptionEdit';
+import { type FactPageDeps, renderFactPage } from './FactPage';
+import { type FactsDeps, renderFactsAbout } from './Facts';
 import { type InfoFormOptions, renderInfoForm } from './InfoForm';
 import { informationApi } from './information';
+import { type LibraryListDeps, renderLibraryList } from './LibraryList';
 import { renderSlugEditor, type SlugEditorOptions } from './SlugEditor';
 import { type SlugWords, slugsApi } from './slugs';
 import { renderTagEditor, type TagEditorOptions } from './TagEditor';
+import type { Renderer } from './text';
 
 export type {
   DescribedEntry,
@@ -32,6 +36,7 @@ export {
   type TextPayload,
   textOf,
 } from './information';
+export type { RenderedLibraryList } from './LibraryList';
 export type { RenderedSlugEditor, SlugEditorOptions } from './SlugEditor';
 export { type SlugKind, type SlugWords, slugCandidates } from './slugs';
 export type { RenderedTagEditor, TagEditorOptions } from './TagEditor';
@@ -46,14 +51,23 @@ export type EntityPartsContext = {
   blobUrl(url: string): Promise<string>;
   // The viewer's languages, for a new piece of information.
   locales(): Promise<string[]>;
+  // Draws texts into a block with the app's own links (ADR 0240).
+  showDescriptions: FactPageDeps['showDescriptions'];
+  // Where a Fact's own page is.
+  factPageHref: FactsDeps['factPageHref'];
+  // Where "Where it appears" for a Fact is, for an app that has such a page.
+  appearsHref?: FactPageDeps['appearsHref'];
+  libraries: LibraryListDeps;
   words: SlugWords & {
     // The label of a description's title: "Display title", "Heading".
     descriptionTitle: string;
+    // "Facts about this item", "Facts about this being".
+    factsHeading: string;
   };
 };
 
 export function createEntityParts(context: EntityPartsContext) {
-  const { client, blobUrl, locales, words } = context;
+  const { client, blobUrl, locales, words, libraries } = context;
   const information = informationApi(client, locales);
   const slugs = slugsApi(client, words);
 
@@ -67,6 +81,27 @@ export function createEntityParts(context: EntityPartsContext) {
       renderSlugEditor({ client, slugs, noun: words.slug }, options),
     renderInfoForm: (templates: ParentNode, options: InfoFormOptions) =>
       renderInfoForm({ blobUrl }, templates, options),
+    renderFactsAbout: (host: HTMLElement, tenantId: string, entryId: string) =>
+      renderFactsAbout(
+        { client, factPageHref: context.factPageHref, heading: words.factsHeading },
+        host,
+        tenantId,
+        entryId,
+      ),
+    renderFactPage: (root: HTMLElement, tenantId: string, id: string, renderer: Renderer) =>
+      renderFactPage(
+        {
+          client,
+          blobUrl,
+          showDescriptions: context.showDescriptions,
+          ...(context.appearsHref ? { appearsHref: context.appearsHref } : {}),
+        },
+        root,
+        tenantId,
+        id,
+        renderer,
+      ),
+    renderLibraryList: (root: HTMLElement) => renderLibraryList(libraries, root),
     renderDescriptionEdit: (options: DescriptionEditOptions): RenderedDescriptionEdit =>
       renderDescriptionEdit(
         { client, information, blobUrl, titleLabel: words.descriptionTitle },

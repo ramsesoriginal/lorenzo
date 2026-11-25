@@ -1,13 +1,28 @@
+import { LorenzoApiError, type LorenzoClient, unwrap } from '@lorenzo/api-client';
 import { renderInformationPayloads } from '@lorenzo/information-editor';
-import { blobUrl, client, LorenzoApiError, unwrap } from '../../lib/api';
-import { type Renderer, showDescriptions } from '../../lib/descriptions';
+import type { Renderer } from './text';
+
+export type FactPageDeps = {
+  client: LorenzoClient;
+  blobUrl(url: string): Promise<string>;
+  // Draws texts into a block with the app's own links.
+  showDescriptions(
+    host: HTMLElement,
+    renderer: Renderer,
+    shown: { text: string; home?: string }[],
+  ): Promise<void>;
+  // Where "Where it appears" for a Fact is, when the app has such a page.
+  appearsHref?(tenantId: string, factId: string): string;
+};
 
 export async function renderFactPage(
+  deps: FactPageDeps,
   root: HTMLElement,
   tenantId: string,
   id: string,
   renderer: Renderer,
 ): Promise<void> {
+  const { client, blobUrl, showDescriptions } = deps;
   const fact = await unwrap(
     await client.GET('/tenants/{tenant_id}/entities/{entity_id}', {
       params: { path: { tenant_id: tenantId, entity_id: id } },
@@ -22,6 +37,17 @@ export async function renderFactPage(
   const heading = document.createElement('h1');
   heading.textContent = fact.name;
   root.replaceChildren(heading);
+
+  // Where it appears, for an app that has such a page.
+  if (deps.appearsHref) {
+    const appears = document.createElement('a');
+
+    appears.href = deps.appearsHref(tenantId, id);
+    appears.textContent = 'Where it appears';
+    appears.dataset.appears = '';
+    root.append(appears);
+  }
+
   if (subjects.length) {
     const about = document.createElement('p');
     about.className = 'caption';

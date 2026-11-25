@@ -1,6 +1,6 @@
 # 0526 - The entity parts package
 
-Status: proposed, asked for by the maintainer after [ADR 0524](0524-beings-and-inventory-move-into-the-web-shell.md) ("The copies stay copies while each app moves; extraction follows"). It moves the page parts that `apps/beings` and `apps/inventory-web` both draw about one entry into `packages/entity-parts`, in three small pull requests.
+Status: accepted and built, in three stacked pull requests (below), asked for by the maintainer after [ADR 0524](0524-beings-and-inventory-move-into-the-web-shell.md) ("The copies stay copies while each app moves; extraction follows"). It moves the page parts that `apps/beings` and `apps/inventory-web` both draw about one entry into `packages/entity-parts`, in three small pull requests.
 
 ## Context
 
