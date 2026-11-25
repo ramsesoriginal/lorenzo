@@ -9,6 +9,7 @@ import { kindLabel } from '../../lib/beingList';
 import { BRANDING_CSS_URL } from '../../lib/config';
 import type { Renderer } from '../../lib/descriptions';
 import { getEntityDetail } from '../../lib/entities';
+import { renderTagEditor } from '../../lib/entityParts';
 import { errorMessage } from '../../lib/errorMessage';
 import { DEFAULT_GM_WORDS, gmWordsOfBeing } from '../../lib/gmTitle';
 import { gmCampaignsIn, isTenantMember, listCampaigns, myBeingIds, viewerId } from '../../lib/me';
@@ -35,7 +36,6 @@ import { renderPictureEdit } from '../PictureEdit/renderer';
 import { renderSheetControls } from '../SheetControls/renderer';
 import { renderSlugEditor } from '../SlugEditor/renderer';
 import { renderStatBand } from '../StatBand/renderer';
-import { renderTagEditor } from '../TagEditor/renderer';
 
 export type BeingPageOptions = {
   // The <BeingPage />.

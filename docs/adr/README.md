@@ -1,4 +1,5 @@
 
+- [0526 - The entity parts package](0526-the-entity-parts-package.md) — the tag, link name and description editors, the form, Facts and the library list that Beings and Inventory both draw, as `packages/entity-parts`, bound to each app by one context; three stacked pull requests.
 - [0525 - A being's recent stat changes](0525-a-beings-recent-stat-changes.md) — ADR 0524 BA: `entity_stat_change` keeps the latest 100 steps of a being's stats (who, when, from, to) and `GET …/stat-changes` reads them, for the History of the sheet.
 - [0524 - Beings and Inventory move into the web shell](0524-beings-and-inventory-move-into-the-web-shell.md) — UI-F: two stacks of PRs, Beings first, from the designs of ADR 0422 and 0423; accepted, with a stat-change history API, kept Facts pages and a Where-it-appears page.
 - [0523 - Word in](0523-word-in.md) — ADR 0494 C3, the third format: the shelf imports .docx files as Chapters, read from the file's XML (headings, lists, tables, footnotes, links) and told what was left out.

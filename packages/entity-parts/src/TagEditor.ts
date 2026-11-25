@@ -1,14 +1,13 @@
-// Three-state tag editing on the item page (ADR 0103, 0112): each bool stat in the tenant's
+// Three-state tag editing on an entry's page (ADR 0103, 0112): each bool stat in the tenant's
 // `tags` group is inherited, on, or explicitly off.
 
-import { LorenzoApiError } from '../../lib/api';
-import { errorMessage } from '../../lib/errorMessage';
-import { getEntityDetail } from '../../lib/items';
-import { statLabel } from '../../lib/statLabel';
-import { say } from '../../lib/statusLine';
-import { type Definition, STATES, setTag, tagDefinitions, tagState } from '../../lib/tagEditor';
-import { cloneTemplate, requiredIn } from '../../lib/template';
-import type { EntityDetail } from '../../lib/types';
+import { LorenzoApiError, type LorenzoClient } from '@lorenzo/api-client';
+import { type EntityDetail, getEntityDetail } from '@lorenzo/stat-values';
+import { errorMessage } from './internal/errorMessage';
+import { statLabel } from './internal/statLabel';
+import { say } from './internal/statusLine';
+import { cloneTemplate, requiredIn } from './internal/template';
+import { type Definition, STATES, setTag, tagDefinitions, tagState } from './tags';
 
 export type TagEditorOptions = {
   root: HTMLElement;
@@ -24,7 +23,10 @@ export type RenderedTagEditor = {
 const required = requiredIn('Tag editor');
 
 // `root` is whatever contains <TagEditor />.
-export function renderTagEditor(options: TagEditorOptions): RenderedTagEditor {
+export function renderTagEditor(
+  client: LorenzoClient,
+  options: TagEditorOptions,
+): RenderedTagEditor {
   const { root, tenantId } = options;
   const message = required<HTMLElement>(root, '[data-message]');
   const tags = required<HTMLElement>(root, '[data-tags]');
@@ -45,8 +47,8 @@ export function renderTagEditor(options: TagEditorOptions): RenderedTagEditor {
 
       try {
         [definitions, entity] = await Promise.all([
-          tagDefinitions(tenantId),
-          getEntityDetail(tenantId, entityId),
+          tagDefinitions(client, tenantId),
+          getEntityDetail(client, tenantId, entityId),
         ]);
       } catch (error) {
         // Listing definitions needs tenant membership, unlike writing a tag (ADR 0112).
@@ -101,7 +103,7 @@ export function renderTagEditor(options: TagEditorOptions): RenderedTagEditor {
                 say(status, 'Saving…');
 
                 try {
-                  entity = await setTag(tenantId, entityId, definition.id, value);
+                  entity = await setTag(client, tenantId, entityId, definition.id, value);
                   say(status, '');
                   options.onChanged();
                 } catch (error) {

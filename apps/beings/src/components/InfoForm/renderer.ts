@@ -1,15 +1,16 @@
 import { type BundleReceipt, renderBundleEditor } from '@lorenzo/information-editor';
+
 // The fields a piece of information is written with (ADR 0112): its title, type, who can read
 // it, and its LorenzoScript text in the editor (ADR 0106), with notes on links readers won't be
 // able to follow, in a form of its own with Save, Cancel and a line saying what happened.
 
+import { renderDescriptionEditor } from '@lorenzo/entity-parts';
 import { blobUrl, LorenzoApiError } from '../../lib/api';
 import type { Renderer } from '../../lib/descriptions';
 import { errorMessage } from '../../lib/errorMessage';
 import type { Information, InformationDraft } from '../../lib/information';
 import { say } from '../../lib/statusLine';
 import { cloneTemplate, requiredIn } from '../../lib/template';
-import { renderDescriptionEditor } from '../DescriptionEditor/renderer';
 
 export type InfoFormOptions = {
   initial: InformationDraft;
