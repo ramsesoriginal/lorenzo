@@ -312,10 +312,10 @@ class ThisRepository(unittest.TestCase):
     def test_the_postgres_legs(self) -> None:
         self.assertEqual({n for n, v in self.graph.nodes.items() if v.postgres}, {"apps/api", "apps/loot-bot"})
 
-    def test_the_api_suite_is_two_legs_that_each_run_on_parallel_workers(self) -> None:
-        self.assertEqual(self.graph.nodes["apps/api"].shards, 2)
+    def test_the_api_suite_is_four_legs_that_each_run_on_parallel_workers(self) -> None:
+        self.assertEqual(self.graph.nodes["apps/api"].shards, 4)
         matrix = json.loads(affected.matrices(self.graph, affected.affected(self.graph, ["apps/api/a.py"]))["test_matrix"])
-        self.assertEqual([(leg["app"], leg["shard"]) for leg in matrix], [("apps/api", "1/2"), ("apps/api", "2/2")])
+        self.assertEqual([(leg["app"], leg["shard"]) for leg in matrix], [("apps/api", f"{n}/4") for n in range(1, 5)])
 
     def test_a_push_to_main_runs_the_small_nodes_in_a_few_legs(self) -> None:
         everything = affected.affected(self.graph, [], everything=True)
@@ -324,7 +324,7 @@ class ThisRepository(unittest.TestCase):
         alone = sorted(leg["label"] for leg in legs if not leg["label"].startswith("batch "))
         self.assertEqual(
             alone,
-            ["apps/api 1/2", "apps/api 2/2", "apps/inventory-ios", "apps/inventory-mobile", "apps/loot-bot"],
+            ["apps/api 1/4", "apps/api 2/4", "apps/api 3/4", "apps/api 4/4", "apps/inventory-ios", "apps/inventory-mobile", "apps/loot-bot"],
         )
         self.assertEqual(len(batched), 4)
         # every other node is in exactly one batch

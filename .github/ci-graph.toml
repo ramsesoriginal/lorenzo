@@ -45,9 +45,11 @@ openapi_source = "apps/api"
 
 [nodes."apps/api"]
 postgres = true
-# Two legs, each running its half on four parallel workers, each with a database cloned from a migrated
-# template (apps/api/tests/_workers.py, ADR 0148): one leg of 1,635 tests took 116 s, the longest job.
-shards = 2
+# Four legs, each running a quarter of the suite on four parallel workers, each with a database cloned
+# from a migrated template (apps/api/tests/_workers.py, ADR 0148). The quarters are of equal cost by the
+# recorded duration of each test (tests/shard-weights.json, tests/_sharding.py): split by test count, one
+# of two legs took 1,045 s and the other 414 s.
+shards = 4
 
 [nodes."apps/cli"]
 batch = "cli"
