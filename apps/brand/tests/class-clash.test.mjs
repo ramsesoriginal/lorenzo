@@ -1,6 +1,8 @@
 // The web design adds class names to apps/brand (web-classes.json). An app that loads the brand
 // and already defines one of them in its own stylesheet would be restyled without asking. This
 // test fails on that, and on a listed class the brand does not define (so the list cannot rot).
+// An app that places a brand class in a context of its own (a rule under its own dialog or page)
+// says so, with its reason, in `overrides` of web-classes.json: that is not a second definition.
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync, readdirSync, statSync, existsSync } from "node:fs";
@@ -9,7 +11,7 @@ import { fileURLToPath } from "node:url";
 
 const brand = join(dirname(fileURLToPath(import.meta.url)), "..");
 const apps = join(brand, "..");
-const { classes, allowed } = JSON.parse(
+const { classes, allowed, overrides = {} } = JSON.parse(
   readFileSync(join(brand, "web-classes.json"), "utf8"),
 );
 
@@ -63,14 +65,32 @@ test("no other app defines a class the web design added to the brand", () => {
     if (!statSync(dir).isDirectory() || !existsSync(dir)) continue;
     for (const file of walk(dir)) {
       const defined = classesIn(readFileSync(file, "utf8"));
+      const name = file.slice(apps.length + 1).replaceAll("\\", "/");
       for (const c of classes)
-        if (defined.has(c))
-          clashes.push(`${file.slice(apps.length + 1)}: .${c}`);
+        if (defined.has(c) && !(c in (overrides[name] ?? {})))
+          clashes.push(`${name}: .${c}`);
     }
   }
   assert.deepEqual(
     clashes,
     [],
     `defined in another app too:\n${clashes.join("\n")}`,
+  );
+});
+
+test("every override is still in use", () => {
+  const stale = [];
+  for (const [name, entries] of Object.entries(overrides)) {
+    const file = join(apps, name);
+    const defined = existsSync(file)
+      ? classesIn(readFileSync(file, "utf8"))
+      : new Set();
+    for (const c of Object.keys(entries))
+      if (!defined.has(c)) stale.push(`${name}: .${c}`);
+  }
+  assert.deepEqual(
+    stale,
+    [],
+    `overrides nothing uses any more:\n${stale.join("\n")}`,
   );
 });
