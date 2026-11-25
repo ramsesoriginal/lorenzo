@@ -6,7 +6,7 @@ What Lorenzo actually *is*, in plain language — not the technical design (see 
 - [Repositories](repositories.md) — reusable settings, and how campaigns/games/books draw on them.
 - [Entities, knowledge, and visibility](entities-knowledge-and-visibility.md) — items, beings, text, and who's allowed to know/see what.
 - [Kinds](kinds.md) — what an entry is: the kinds there are and which app works on each.
-- [Writing](writing.md) — manuscripts, books, editions, chapters, scene tellings and reviewers.
+- [Writing](writing.md) — manuscripts, books, editions, chapters, scene tellings, reviewers and carriers.
 - [Client views](client-views.md) — why the same underlying data looks completely different depending on which app you're using.
 
 ## The words

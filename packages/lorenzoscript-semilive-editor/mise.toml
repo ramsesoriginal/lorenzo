@@ -1,6 +1,6 @@
 # A pnpm workspace member like packages/lorenzoscript: every task depends on
 # `install`, since CI runs `mise run lint`/`test` here with no separate
-# install step. `build` bundles only the demo (ADR 0106); the package itself
+# install step. `build` bundles only the demo (ADR 0511); the package itself
 # ships its TypeScript source.
 [tasks.install]
 description = "Install dependencies (frozen lockfile)"

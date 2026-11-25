@@ -1,6 +1,6 @@
 import { say } from '../../lib/statusLine';
 import { cloneTemplate, requiredIn } from '../../lib/template';
-import type { BoardState } from '../Board/state';
+import type { BoardPatch, BoardState } from '../Board/state';
 import type { RenderedUndoBanner } from '../UndoBanner/renderer';
 
 // What the dialog's actions need to know about the page they sit on.
@@ -13,6 +13,8 @@ export type ActionContext = {
   root: HTMLElement;
   // Closes the dialog onto the board as it is now.
   finish(): void;
+  // Closes it, and the board says what the server confirmed in place; fetched when it can't.
+  patched(changes: BoardPatch): void;
 };
 
 const required = requiredIn('Action panels');
