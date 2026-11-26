@@ -129,6 +129,7 @@ updates:
       - "/packages/graph-renderer"
       - "/packages/entry-preview"
       - "/packages/repo-ui"
+      - "/packages/entity-parts"
     schedule:
       interval: "weekly"
     commit-message:
