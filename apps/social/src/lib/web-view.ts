@@ -17,6 +17,7 @@ import {
   claim,
   el,
   empty,
+  entryHref,
   errorNotice,
   field,
   icon,
@@ -306,7 +307,10 @@ export async function mountWeb() {
           return;
         }
         const node = model.nodes.find((n) => n.id === selected?.id);
-        selectedBox.append(el('h2', node?.name ?? '', 'group-title'));
+        selectedBox.append(
+          el('h2', node?.name ?? '', 'group-title'),
+          link('Open its page', entryHref(tenant, selected.id)),
+        );
         const around = graph.edges.filter(
           (e) => e.end_a.id === selected?.id || e.end_b.id === selected?.id,
         );

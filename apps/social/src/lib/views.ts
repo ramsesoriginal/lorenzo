@@ -9,6 +9,7 @@ import {
   claim,
   el,
   empty,
+  entryHref,
   errorNotice,
   field,
   icon,
@@ -256,7 +257,16 @@ export async function mountRelationship() {
             ? `Of the type ${entry.prototypes.map((p) => p.name).join(', ')}.`
             : 'It has no type yet.',
         ),
+        el('h2', 'Its ends', 'group-title'),
       );
+      const endsList = el('ul', '', 'list');
+      endsList.setAttribute('aria-label', 'Its ends');
+      for (const end of [relationship.end_a, relationship.end_b]) {
+        const item = el('li');
+        item.append(link(end.name, entryHref(tenant, end.id)));
+        endsList.append(item);
+      }
+      about.body.append(endsList);
       view.append(about.root);
 
       const stats = card();
