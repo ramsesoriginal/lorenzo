@@ -126,6 +126,10 @@ subjects, with LorenzoScript links resolving to it ([ADR 0305](../../docs/adr/03
 [RFC 0044](../../docs/rfcs/0044-facts-audiences-and-information-bundles.md)). The Beings app uses
 the same controls on a being's page ([apps/beings](../beings/README.md)).
 
+The tag editor, the link name field, the description editor, the form a note is written in and the list of
+libraries are the shared parts of [`@lorenzo/entity-parts`](../../packages/entity-parts/README.md)
+([ADR 0526](../../docs/adr/0526-the-entity-parts-package.md)), bound to this app in `src/lib/entityParts.ts`.
+
 ## Commands
 
 Run from this directory, or via `mise run //apps/inventory-web:<task>` from the
