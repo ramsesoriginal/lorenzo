@@ -75,7 +75,7 @@ Filled in as each slice lands.
 | Relationships and a relationship (SO3) | G2 | Built, but for the webs that name a relationship (the API has no read for it yet): the list, New relationship as a dialog, `empty-relationships`, standings with number, bar and word (SO3), delete behind the shell's confirmation |
 | Types and standings | G3 | Built: the page already told how types read, the scales and the refusals; the empty library now shows the `empty-social-types` mascot with the starter set as its one step |
 | One web: the graph, the switch, the panel, Focus (SO2, SO6, SO7) | G4 | Built: the `workspace` page with the drawing full width; a vertical bar of Labels, Focus, Drawing, Date and reader, Members and Notes; a sliding panel that opens on a selection and keeps its tab across redraws; a legend; zoom; Graph and List in the address (`?view=`). Focus is the renderer's existing `dim` on nodes, so the renderer is unchanged. The Matrix is still its own page until G7. The lens line (SO4) and the Members dialog (SO6) are in their first form here and are G5 and G6 |
-| Members and Connect (SO6) | G5 | Not built |
+| Members and Connect (SO6) | G5 | Built: Members is a dialog (by name, a group's members, everyone within one to three steps of the selected entry, and taking out), each write under the web's current version and never doubling a member; Connect makes a relationship from the page with an optional standing refused outside its scale, and adds its ends to the web. The old Members card of the panel is gone; the panel keeps Types |
 | The lenses (SO4) | G6 | Not built |
 | The matrix in the web (SO3, SO8) | G7 | Not built |
 | Problems | G8 | Not built |

@@ -45,3 +45,22 @@ export function formDialog(options: {
     dialog.querySelector<HTMLInputElement>('input')?.focus();
   });
 }
+
+/** A dialog that stays open while its parts act: a title, what it holds, and a Close button. */
+export function panelDialog(title: string, body: HTMLElement[], onClose?: () => void) {
+  const dialog = el('dialog', '', 'dialog');
+  const box = el('div', '', 'stack');
+  box.setAttribute('role', 'group');
+  box.setAttribute('aria-label', title);
+  const close = button('Close', () => closeDialog(dialog), { variant: 'secondary' });
+  box.append(el('h2', title), ...body, actions(close));
+  dialog.addEventListener('close', () => {
+    dialog.remove();
+    onClose?.();
+  });
+  fadeOnDismiss(dialog);
+  dialog.append(box);
+  document.body.append(dialog);
+  openDialog(dialog);
+  return dialog;
+}

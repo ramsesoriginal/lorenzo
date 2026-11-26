@@ -55,6 +55,7 @@ test('a GM makes a web, adds entries and sees them drawn with a sentence a relat
     await page.getByRole('button', { name: 'Add it to the web' }).click();
     await expect(page.getByRole('button', { name: `Take out ${label}` })).toBeVisible();
   }
+  await page.getByRole('button', { name: 'Close', exact: true }).click();
   // The drawing: each entry a button, and the relationship told in words beside it.
   const drawing = page.getByRole('group', { name: 'The court' });
   await expect(drawing.getByRole('button', { name: 'Mara Quill' })).toBeVisible();
@@ -316,4 +317,56 @@ test('Focus dims all but the selected entry and its neighbours, and the view is 
 
   await page.getByRole('group', { name: 'View' }).getByRole('button', { name: 'List' }).click();
   expect(page.url()).toContain('view=list');
+});
+
+test('Members adds a group’s members and everyone within steps, and Connect ties two entries from the page', async ({
+  browser,
+}) => {
+  const w = await world();
+  const mara = await w.person('Mara Quill');
+  const wren = await w.person('Wren Ashdown');
+  const dren = await w.person('Dren Holloway');
+  const far = await w.person('Far Away');
+  await w.group('The Court', mara.id);
+  await w.tie('Mara knows Wren', mara.id, wren.id, true);
+  await w.tie('Wren knows Dren', wren.id, dren.id, true);
+  const made = await webOf(w, 'The court', [mara.id]);
+  const page = await signedIn(browser, w.subject);
+  await page.goto(`/web/?tenant=${w.tenant.id}&id=${made.id}`);
+  const drawing = page.getByRole('group', { name: 'The court' });
+  await expect(drawing.getByRole('button', { name: 'Mara Quill' })).toBeVisible();
+
+  // Everyone within one step of the selected entry.
+  await drawing.getByRole('button', { name: 'Mara Quill' }).focus();
+  await page.keyboard.press('Space');
+  await page.getByRole('button', { name: 'Members' }).click();
+  const dialog = page.getByRole('group', { name: 'Members' });
+  await dialog.getByLabel('Steps').selectOption('1');
+  await dialog.getByRole('button', { name: 'Add everyone near Mara Quill' }).click();
+  await expect(dialog.getByText('Within 1 of Mara Quill: added 1.')).toBeVisible();
+  await expect(dialog.getByRole('button', { name: 'Take out Wren Ashdown' })).toBeVisible();
+  await expect(dialog.getByRole('button', { name: 'Take out Dren Holloway' })).toHaveCount(0);
+
+  // A group's members are added, and one already in the web is not doubled.
+  await dialog.getByLabel('Add the members of a group: search by name').fill('Court');
+  await dialog
+    .getByLabel('Add the members of a group: results')
+    .selectOption({ label: 'The Court' });
+  await dialog.getByRole('button', { name: 'Add its members' }).click();
+  await expect(dialog.getByText('They are all in the web already.')).toBeVisible();
+  await dialog.getByRole('button', { name: 'Close', exact: true }).click();
+
+  // Connect does not offer the same entry twice, and says so in words; it ties two entries without leaving the page.
+  await page.getByRole('button', { name: 'Connect' }).click();
+  const form = page.getByRole('form', { name: 'Connect two entries' });
+  await form.getByLabel('First end: search by name').fill('Dren');
+  await form.getByLabel('First end: results').selectOption({ label: dren.name });
+  await form.getByLabel('Second end: search by name').fill('Dren');
+  await expect(form.getByText('No being or group by that name.')).toBeVisible();
+  await form.getByLabel('Second end: search by name').fill('Far');
+  await form.getByLabel('Second end: results').selectOption({ label: far.name });
+  await form.getByLabel('Name (optional)').fill('Dren owes Far');
+  await form.getByRole('button', { name: 'Make the relationship' }).click();
+  await expect(drawing.getByRole('button', { name: 'Far Away' })).toBeVisible();
+  expect(page.url()).toContain('/web/');
 });

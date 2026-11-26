@@ -20,17 +20,15 @@ import {
   relationshipHref,
   say,
   sectionHead,
-  select,
   statusLine,
   submit,
 } from './dom';
 import { listStats, type StatDef } from './matrix-api';
 import { canManage, libraryName } from './names';
 import { notes } from './notes';
-import { endPicker, typePicker } from './pickers';
+import { relationshipForm } from './relationship-form';
 import { shellOf, start } from './sign-in';
 import {
-  createRelationship,
   deleteRelationship,
   listRelationships,
   readEntry,
@@ -40,7 +38,7 @@ import {
 } from './social-api';
 import { standingMark } from './standing';
 import { readLibrary, readsOf } from './types-api';
-import { audienceWords, defaultName, directionWords, sentence } from './words';
+import { audienceWords, directionWords, sentence } from './words';
 
 const tenantOf = () => new URLSearchParams(location.search).get('tenant');
 
@@ -184,49 +182,15 @@ export async function mountRelationships() {
   }
 }
 
-/** The form that makes a relationship, in a dialog: two ends, how it goes, what it is, who may see it. */
+/** The form that makes a relationship, in a dialog; the new relationship's page opens after. */
 function makeRelationship(tenant: string, manage: boolean) {
-  const first = endPicker(tenant, 'First end', () => second.value());
-  const second = endPicker(tenant, 'Second end', () => first.value());
-  const kind = typePicker(tenant, 'Type of relationship (optional)');
-  const direction = select('How it goes', [
-    ['both', 'Both ways'],
-    ['one', 'From the first end to the second'],
-  ]);
-  const named = field('Name (optional)');
-  const visible = field('Everyone in the library may see it', '', 'checkbox');
+  const form = relationshipForm(tenant, manage);
   return formDialog({
     title: 'Make a relationship',
     submit: 'Make the relationship',
-    fields: [
-      first.label,
-      second.label,
-      direction.label,
-      kind.label,
-      named.label,
-      ...(manage
-        ? [visible.label]
-        : [
-            el(
-              'p',
-              'A relationship you make is for a being of yours and the GMs: it starts restricted and you cannot open it.',
-              'status-text',
-            ),
-          ]),
-    ],
+    fields: form.fields,
     async run() {
-      const a = first.value();
-      const b = second.value();
-      if (!a || !b) throw new Error('Choose both ends first.');
-      const type = kind.value();
-      const made = await createRelationship(tenant, {
-        name: named.input.value.trim() || defaultName(first.name(), second.name(), kind.name()),
-        end_a: a,
-        end_b: b,
-        one_way: direction.input.value === 'one',
-        prototypes: type ? [type] : [],
-        is_public: manage && visible.input.checked,
-      });
+      const made = await form.submit();
       location.assign(relationshipHref(tenant, made.id));
     },
   });

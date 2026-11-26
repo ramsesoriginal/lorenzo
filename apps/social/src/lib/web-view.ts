@@ -8,6 +8,7 @@ import {
   THEMES,
 } from '@lorenzo/graph-renderer';
 import { BRANDING_CSS_URL } from './config';
+import { formDialog } from './dialog';
 import {
   actions,
   audienceBadge,
@@ -31,10 +32,12 @@ import {
 } from './dom';
 import { canManage } from './names';
 import { notes } from './notes';
-import { endPicker, entryPicker, typePicker as findType } from './pickers';
+import { entryPicker, typePicker as findType } from './pickers';
+import { relationshipForm } from './relationship-form';
 import { start } from './sign-in';
 import { readEntry } from './social-api';
 import { type Layout, readGraph, readWeb, saveSettings, saveTypes, writeMembers } from './web-api';
+import { openMembers } from './web-members';
 import { rememberWeb } from './webs-view';
 import { audienceWords, directionWords, sentence, stateWords } from './words';
 
@@ -454,14 +457,14 @@ export async function mountWeb() {
         );
       }
       // The panel: what is selected, how it is drawn, the lenses, the members and the notes.
-      type Tab = 'selected' | 'drawing' | 'lens' | 'members' | 'notes';
+      type Tab = 'selected' | 'drawing' | 'lens' | 'types' | 'notes';
       const panes: [Tab, string, HTMLElement][] = [
         ['selected', 'Selected', selectedBox],
         ['drawing', 'Drawing', controls.root],
         ['lens', 'Date and reader', lensControls()],
         ...(manage
           ? [
-              ['members', 'Members', editor(tenant, id, version, graph, web, draw)] as [
+              ['types', 'Types', editor(tenant, id, version, graph, web, draw)] as [
                 Tab,
                 string,
                 HTMLElement,
@@ -542,7 +545,47 @@ export async function mountWeb() {
         focusChip,
         tabChip('drawing', 'Drawing', 'settings'),
         tabChip('lens', 'Date and reader', 'kind-clock'),
-        ...(manage ? [tabChip('members', 'Members', 'kind-being')] : []),
+        ...(manage ? [tabChip('types', 'Types', 'filter')] : []),
+        ...(manage
+          ? [
+              chip('Members', 'kind-being', () => {
+                void openMembers({
+                  tenant,
+                  id,
+                  selected:
+                    selected?.kind === 'node'
+                      ? {
+                          id: selected.id,
+                          name: model.nodes.find((n) => n.id === selected?.id)?.name ?? '',
+                        }
+                      : null,
+                  changed: draw,
+                });
+              }),
+            ]
+          : []),
+        chip('Connect', 'kind-relationship', () => {
+          const form = relationshipForm(tenant, manage);
+          void formDialog({
+            title: 'Connect two entries',
+            submit: 'Make the relationship',
+            fields: form.fields,
+            async run() {
+              const made = await form.submit();
+              if (manage) {
+                const have = new Set(graph.members.map((m) => m.entry.id));
+                const missing = made.ends.filter((e) => !have.has(e.id));
+                if (missing.length) {
+                  const { version: now } = await readWeb(tenant, id);
+                  await writeMembers(tenant, id, now, {
+                    set: missing.map((e) => ({ entry_id: e.id })),
+                  });
+                }
+              }
+              await draw();
+            },
+          });
+        }),
         tabChip('notes', 'Notes', 'kind-fact'),
       );
 
@@ -615,42 +658,13 @@ function editor(
   tenant: string,
   id: string,
   version: string,
-  graph: Awaited<ReturnType<typeof readGraph>>,
+  _graph: Awaited<ReturnType<typeof readGraph>>,
   web: Awaited<ReturnType<typeof readWeb>>['web'],
   redraw: () => Promise<void>,
 ) {
   const section = el('section', '', 'stack');
-  section.append(sectionHead('What it shows'));
+  section.append(sectionHead('Types shown'));
   const status = statusLine();
-
-  const members = card();
-  members.body.append(el('h2', 'Entries', 'group-title'));
-  const list = el('ul', '', 'list');
-  list.setAttribute('aria-label', 'Entries in this web');
-  for (const m of graph.members) {
-    const row = el('li');
-    row.append(
-      el('span', m.entry.name, 'grow'),
-      button(`Take out ${m.entry.name}`, async () => {
-        await writeMembers(tenant, id, version, { remove: [m.entry.id] });
-        await redraw();
-      }),
-    );
-    list.append(row);
-  }
-  members.body.append(list);
-  const picker = endPicker(tenant, 'Add an entry');
-  members.body.append(
-    picker.label,
-    actions(
-      button('Add it to the web', async () => {
-        const entry = picker.value();
-        if (!entry) throw new Error('Choose an entry first.');
-        await writeMembers(tenant, id, version, { set: [{ entry_id: entry }] });
-        await redraw();
-      }),
-    ),
-  );
 
   const types = card();
   types.body.append(el('h2', 'Types of relationship', 'group-title'));
@@ -695,6 +709,6 @@ function editor(
       }),
     ),
   );
-  section.append(members.root, types.root, status);
+  section.append(types.root, status);
   return section;
 }
