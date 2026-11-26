@@ -24,6 +24,7 @@
     "@lorenzo/api-client": "workspace:*",
     "@lorenzo/app-shell": "workspace:*",
     "@lorenzo/brand": "workspace:*",
+    "@lorenzo/entity-parts": "workspace:*",
     "@lorenzo/entry-preview": "workspace:*",
     "@lorenzo/information-editor": "workspace:*",
     "@lorenzo/inventory-names": "workspace:*",

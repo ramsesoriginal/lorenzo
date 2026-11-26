@@ -1,4 +1,4 @@
-"""`lorenzo plan` and `lorenzo apply` against the real API (ADR 0144)."""
+"""`lorenzo import mpmb plan` and `apply` against the real API (ADR 0144)."""
 
 from __future__ import annotations
 
@@ -21,7 +21,7 @@ from e2e.stack import Stack
 
 
 def seeded_tenant(stack: Stack, token: str, tmp_path: Path) -> str:
-    """A repository of the test's own that holds the seed, as a copy of the seeded one."""
+    """A repository of the test's own that holds the starters, as a copy of the golden one."""
     return copy_of_seeded(stack, token, tmp_path)
 
 

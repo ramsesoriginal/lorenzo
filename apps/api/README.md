@@ -32,7 +32,9 @@ Full read/write REST API, tenant-scoped under `/tenants/{tenant_id}/...` — see
 | --- | --- | --- |
 | Library core | entries, items and item instances, stats and computed stats, information and payloads, pictures, groups, knowledge, bulk entry export | [RFC 0001](../../docs/rfcs/0001-core-domain-data-model.md), [ADR 0262](../../docs/adr/0262-bulk-entity-export.md) |
 | People | libraries (tenants), memberships, users, players, characters, campaigns, the activity log, invite links of every kind | [RFC 0002](../../docs/rfcs/0002-campaign-player-character-model.md), [ADR 0092](../../docs/adr/0092-campaign-invite-links.md), [ADR 0220](../../docs/adr/0220-one-invite-table-with-kinds.md) |
-| Beings | a being's sheet, the stat vocabulary and sheet settings | [RFC 0043](../../docs/rfcs/0043-the-being-sheet.md) |
+| Beings | a being's sheet, the stat vocabulary, sheet settings and a being's recent stat changes | [RFC 0043](../../docs/rfcs/0043-the-being-sheet.md), [ADR 0525](../../docs/adr/0525-a-beings-recent-stat-changes.md) |
+| Game systems | systems, templates, features and what a holder has, grant rules and prerequisites, the grants read and apply, the vocabulary check | [RFC 0052](../../docs/rfcs/0052-game-systems-in-one-library.md), [RFC 0054](../../docs/rfcs/0054-features-grants-and-choices.md), [RFC 0055](../../docs/rfcs/0055-vocabulary-check.md) |
+| Relationships | relationships between entries, their types, social webs | [RFC 0049](../../docs/rfcs/0049-lorenzo-social-relationships-and-social-webs.md) |
 | Repositories | publishing, grants, browsing, copying and updates, releases, public reads, Discover, previews | [RFC 0024](../../docs/rfcs/0024-repositories.md), [RFC 0037](../../docs/rfcs/0037-releases-and-public-snapshots.md), [RFC 0038](../../docs/rfcs/0038-public-repositories-and-discovery.md) |
 | Time | calendars, periods, observances, calendar imports, clocks, Events and their order | [ADR 0308](../../docs/adr/0308-authored-calendars-and-calculation.md) onward |
 | Places | Locations, Maps, connections, distance, frames and axes | [RFC 0048](../../docs/rfcs/0048-locations-maps-connections-and-optional-dates.md) |
@@ -56,7 +58,7 @@ The full domain model from [RFC 0001](../../docs/rfcs/0001-core-domain-data-mode
 
 Every tenant-scoped table has row-level security, and — as of [ADR 0021](../../docs/adr/0021-restricted-app-role-for-rls-enforcement.md) — the app's own DB role is a properly restricted, non-superuser role that RLS actually applies to (a real, previously-live gap, not just a hardening exercise), in production too — the live Neon role rotation is done and confirmed directly against production, not just deployed; see [docs/operations/deployment-setup.md](../../docs/operations/deployment-setup.md).
 
-`campaign_access.can_access_campaign()` implements RFC 0002's campaign-visibility rule directly (a `player` row, a `campaign_gm` row, or tenant-`orga` without an opt-out) — wired into `routers/campaigns.py`'s campaign-scoped routes ([ADR 0034](../../docs/adr/0034-campaign-crud-api.md)/[0035](../../docs/adr/0035-campaign-scoped-gm-visibility.md)).
+`campaign_access.can_access_campaign()` implements RFC 0002's campaign-visibility rule directly (a `player` row, a `campaign_gm` row, or tenant-`orga` without an opt-out) — reached through the `get_campaign_context` dependency (`dependencies.py`) on the campaign-scoped routes of `routers/campaigns.py`, `routers/players.py` and `routers/beings.py`, and called directly by `routers/campaign_invites.py` ([ADR 0034](../../docs/adr/0034-campaign-crud-api.md)/[0035](../../docs/adr/0035-campaign-scoped-gm-visibility.md)).
 
 ## Errors
 

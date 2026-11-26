@@ -26,7 +26,7 @@ from lorenzo_api.config import get_settings
 from lorenzo_api.models import Entity, Membership, MembershipRole, RepositoryCopy
 from lorenzo_api.release_fanout import drain
 
-OPERATORS = ("platform-operator",)
+OPERATORS = ("platform_operator",)
 MESSAGE = "Use Armoury 2 instead"
 
 

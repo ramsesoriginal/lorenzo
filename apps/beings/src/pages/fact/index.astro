@@ -8,7 +8,7 @@ import Base from '../../layouts/Base.astro';
   </p>
   <article class="stack" data-fact-page hidden></article>
   <script>
-    import { renderFactPage } from '../../components/FactPage/renderer';
+    import { renderFactPage } from '../../lib/entityParts';
     import { addressedTenant, isId } from '../../lib/addresses';
     import { client, unwrap } from '../../lib/api';
     import { isAuthenticated } from '../../lib/auth';

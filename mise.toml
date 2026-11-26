@@ -1,7 +1,7 @@
 monorepo_root = true
 
 [monorepo]
-config_roots = ["apps/account-hub", "apps/api", "apps/beings", "apps/calendars", "apps/sessions", "apps/maps", "apps/legal", "apps/social", "apps/writing", "apps/bench", "apps/cli", "apps/inventory-web", "apps/inventory-mobile", "apps/inventory-ios", "apps/loot-bot", "apps/brand", "packages/calendar-engine", "packages/api-client", "packages/brand", "packages/converters", "packages/inventory-names", "packages/lorenzoscript", "packages/lorenzoscript-editor", "packages/lorenzoscript-semilive-editor", "packages/stat-values", "packages/information-editor", "packages/app-shell", "packages/period-picker", "packages/read-cache", "packages/time-filter", "packages/map-engine", "packages/map-renderer", "packages/graph-renderer", "packages/entry-preview", "packages/repo-ui"]
+config_roots = ["apps/account-hub", "apps/api", "apps/beings", "apps/calendars", "apps/sessions", "apps/maps", "apps/legal", "apps/social", "apps/writing", "apps/bench", "apps/cli", "apps/inventory-web", "apps/inventory-mobile", "apps/inventory-ios", "apps/loot-bot", "apps/brand", "packages/calendar-engine", "packages/api-client", "packages/brand", "packages/converters", "packages/inventory-names", "packages/lorenzoscript", "packages/lorenzoscript-editor", "packages/lorenzoscript-semilive-editor", "packages/stat-values", "packages/information-editor", "packages/app-shell", "packages/period-picker", "packages/read-cache", "packages/time-filter", "packages/map-engine", "packages/map-renderer", "packages/graph-renderer", "packages/entry-preview", "packages/repo-ui", "packages/entity-parts"]
 
 [tools]
 node = "26"
@@ -10,10 +10,8 @@ uv = "0.13.9"
 # Python itself is deliberately not listed here - it's controlled by uv
 # (see apps/api/.python-version), not mise. mise still provides uv itself.
 
-# Future toolchains, added here once those apps actually start:
-# ruby = "3.4"
-# kotlin = "2.1"
-# dotnet = "9"
+# A toolchain only one app needs is pinned in that app's own mise.toml
+# (apps/inventory-mobile pins java there), not here.
 
 # `//...:x` (Bazel-style "everything under here") also matches this file's
 # own `//:x` task, since the root project is part of "everything" - so it

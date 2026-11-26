@@ -338,7 +338,7 @@ async def client_with_platform_operator_role(
     combining both concerns doesn't need a third fixture.
     """
     app.dependency_overrides[get_current_user] = _make_fake_current_user(
-        test_user_id, authgear_roles=frozenset({"tenant-creator", "platform-operator"})
+        test_user_id, authgear_roles=frozenset({"tenant-creator", "platform_operator"})
     )
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:

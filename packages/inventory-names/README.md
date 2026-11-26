@@ -15,5 +15,5 @@ TypeScript ([ADR 0242](../../docs/adr/0242-inventory-names-the-spelling-table-sh
 ```ts
 import { alternatives, builtinTable } from '@lorenzo/inventory-names';
 
-alternatives('Seil (Hanf) 50 ft', builtinTable()); // ['seil, ...', 'rope, hempen (50 feet)', 'rope']
+alternatives('Seil, 15 m', builtinTable()); // ['seil', 'rope, hempen (50 feet)', 'rope']
 ```

@@ -1,6 +1,6 @@
 # Web interfaces: follow-ups for `apps/brand` and the apps
 
-What the design needs that does not exist yet. This list is a plan, not a change: nothing here is done by [RFC 0050](../../rfcs/0050-the-web-interface.md) itself, and `apps/brand` is untouched. Each item is a part of slice UI-A (tokens and components) or of the app's own slice. The prototypes carry working versions in [`prototype/proposed-tokens.css`](prototype/proposed-tokens.css) and `prototype/shell.css`.
+What the design needed in `apps/brand` and the apps, as a plan. The parts for `apps/brand` (tokens, components, the icon atlas additions) are built, in slice UI-A of [RFC 0050](../../rfcs/0050-the-web-interface.md); the last section says where each is and how it was checked. Each item below was a part of that slice or of the app's own slice. The prototypes carry the first versions in [`prototype/proposed-tokens.css`](prototype/proposed-tokens.css) and `prototype/shell.css`.
 
 ## Tokens and base
 
@@ -30,11 +30,11 @@ What the design needs that does not exist yet. This list is a plan, not a change
 
 ## Maps
 
-- The Maps follow-ups listed in [maps/README.md](maps/README.md).
+- The findings of the Maps design in [maps/README.md](maps/README.md#findings).
 
 ## Apps
 
-Each app drops its own header, footer, button and field styles when its slice lands (UI-H). No app is changed before its slice.
+Each app drops its own header, footer, button and field styles when its slice lands (UI-H). The account hub, Calendars, Sessions, Maps, Writing, Beings, Inventory and Social draw their pages in the web shell ([ADR 0524](../../adr/0524-beings-and-inventory-move-into-the-web-shell.md) moved the last two, Beings and Inventory); Bench stays its own thing.
 
 ## UI-A: what is in `apps/brand` and how it was checked
 
