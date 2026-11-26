@@ -1,4 +1,4 @@
-import { renderFactsAbout } from '../Facts/renderer';
+import { renderFactsAbout } from '../../lib/entityParts';
 // What a being's page says about it (ADR 0271): its picture, its description as LorenzoScript. Read-only;
 // the editors are separate, and the numbers and tags are the stat band's (RFC 0043).
 

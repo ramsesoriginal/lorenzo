@@ -930,6 +930,12 @@ importers:
       '@lorenzo/api-client':
         specifier: workspace:*
         version: link:../api-client
+      '@lorenzo/information-editor':
+        specifier: workspace:*
+        version: link:../information-editor
+      '@lorenzo/lorenzoscript':
+        specifier: workspace:*
+        version: link:../lorenzoscript
       '@lorenzo/lorenzoscript-editor':
         specifier: workspace:*
         version: link:../lorenzoscript-editor

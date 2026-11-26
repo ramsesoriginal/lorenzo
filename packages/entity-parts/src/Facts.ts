@@ -1,10 +1,23 @@
-import { client, fetchAllPages, unwrap } from '../../lib/api';
-import { factPageHref } from '../../lib/entityLinks';
+import { fetchAllPages, type LorenzoClient, unwrap } from '@lorenzo/api-client';
+
+export type FactsDeps = {
+  client: LorenzoClient;
+  // Where a Fact's own page is.
+  factPageHref(tenantId: string, factId: string): string;
+  // "Facts about this item", "Facts about this being".
+  heading: string;
+};
 
 const generations = new WeakMap<HTMLElement, object>();
 
 /** Empty and hidden facts add no section, count or placeholder to the sheet. */
-export function renderFactsAbout(host: HTMLElement, tenantId: string, entryId: string): void {
+export function renderFactsAbout(
+  deps: FactsDeps,
+  host: HTMLElement,
+  tenantId: string,
+  entryId: string,
+): void {
+  const { client, factPageHref } = deps;
   const generation = {};
   generations.set(host, generation);
   host.dataset.factsAbout = entryId;
@@ -19,7 +32,7 @@ export function renderFactsAbout(host: HTMLElement, tenantId: string, entryId: s
     .then((facts) => {
       if (generations.get(host) !== generation || !facts.length) return;
       const heading = document.createElement('h2');
-      heading.textContent = 'Facts about this item';
+      heading.textContent = deps.heading;
       const list = document.createElement('ul');
       for (const fact of facts) {
         const row = document.createElement('li');
