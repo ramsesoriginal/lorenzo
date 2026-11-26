@@ -1,0 +1,11 @@
+---
+import Base from '../../layouts/Base.astro';
+---
+
+<Base title="Problems — Lorenzo Social">
+  <div id="social-problems" class="stack"></div>
+  <script>
+    import { mountProblems } from '../../lib/problems-view';
+    document.addEventListener('astro:page-load', () => void mountProblems());
+  </script>
+</Base>
