@@ -2,7 +2,7 @@
 -- here because db-schema.ts declares a pgSchema("loot_bot"), but this
 -- schema's *real* creation - with `AUTHORIZATION <loot_bot role>` and its
 -- own grants - happens first, in migrate.ts's own bootstrap step (see
--- bootstrap-sql.ts and ADR 0029). `IF NOT EXISTS` added by hand so this
+-- bootstrap-sql.ts and ADR 0050). `IF NOT EXISTS` added by hand so this
 -- statement is a harmless no-op by the time it runs, rather than a
 -- "schema already exists" error, whichever way this migration ends up
 -- being invoked.

@@ -45,7 +45,7 @@ function getEncryptionKey(): Buffer {
 /**
  * Encrypts `plaintext` with AES-256-GCM, packing `iv‖ciphertext‖authTag`
  * into a single Buffer - the shape db.ts's `bytea` columns expect (ADR
- * 0029). A fresh random 12-byte IV is generated per call; reusing an IV
+ * 0050). A fresh random 12-byte IV is generated per call; reusing an IV
  * under the same key would break GCM's security guarantees, so there is
  * deliberately no way to pass one in.
  */

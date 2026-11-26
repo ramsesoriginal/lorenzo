@@ -65,6 +65,12 @@ shell?.strip({ kind: 'conflict', text: 'Two edits met.', action: { label: 'Revie
 shell?.notifications({ count: 3, href: hubUrl + '/notifications/' }); // the bell exists only when an app supplies this
 ```
 
+`AppPage` also takes `icon` (the app's icon in the web shell's header, an icon of the brand's sprite) and `lang` (`'en'` by default, or `'de'`: it sets `<html lang>` and the labels of the legal links).
+
+### Legal and support links
+
+The legal notice, the privacy policy and the support link ([ADR 0439](../../docs/adr/0439-legal-notice-and-privacy-policy.md)) are drawn by `LegalLinks.astro` (also exported, `layout="list"` for the apps sheet, `"inline"` for the old footer) and stay hidden until the registry names them. `@lorenzo/app-shell/legal` fills them: `bindLegalLinksFromApi(apiBaseUrl)` reads `GET /app-links` and binds the result, `bindLegalLinks(registry)` binds a registry the page already has, and `legalLinks(registry, lang)`, `langOf` and `LEGAL_LABELS` are the pure parts (all five are also exported from the package root). A deployment that has not set the addresses shows no link; an address in `legal` on `AppPage` is shown at once. `legalHolders(lang)` and `rebindLegalLinks()`, on the subpath only, serve a page that draws its own bar.
+
 ### The palette and the keys
 
 `shell.palette({ commands, entries, navigate })` ([ADR 0414](../../docs/adr/0414-the-palette-and-the-keyboard-model.md)) mounts one palette and the keys; without the call there are none, and the palette buttons in the header stay hidden.
@@ -85,7 +91,7 @@ shell?.notifications({ count: 3, href: hubUrl + '/notifications/' }); // the bel
 
 - `shell.toast({ title, text?, kind?, action? })`: a quiet confirmation that leaves after ten seconds; `kind: 'error'` stays until dismissed and takes `action` ("Try again"). `shell.undoable({ title, text?, undo })` is a toast with Undo. Hovering or focusing a toast pauses it; at most three show, above the status bar (above the tab bar on a phone).
 - `shell.confirm({ title, body, confirm, danger?, typeToConfirm? })` resolves true or false. The button says what it does; with `typeToConfirm` it stays off, with the reason beside it, until the name is typed.
-- The account button (initials) opens a menu: Profile, Notifications, Libraries and people, Access tokens and devices (from the hub's address), the theme, Keyboard shortcuts, Sign out. Give `bindShell` an `unsent()` that returns paragraphs about what is only on the device and signing out asks first.
+- The account button (initials) opens a menu: Profile, Notifications, Libraries and people, Access tokens and devices (the four from the hub's address), Appearance… (a dialog for the theme, the density of lists and tables, and motion, kept in this browser), Keyboard shortcuts, Sign out. Give `bindShell` an `unsent()` that returns paragraphs about what is only on the device and signing out asks first.
 - `openMenu(anchor, items, { label, sprite })` is the menu helper (a popover, or a bottom sheet on a phone); `placeMenu` is its pure placement.
 
 ### Templates and states

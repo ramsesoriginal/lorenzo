@@ -1,4 +1,4 @@
-// What /campaigns shows and where (ADR 0179), as plain functions over what
+// What Home shows and where (ADR 0179, first built as a /campaigns page), as plain functions over what
 // `GET /me`, `GET /me/managed` and the people lists return. Dependency-free
 // like format.ts, so a test can hold the sorting and the sentences to what the
 // page promises.
@@ -83,7 +83,7 @@ export interface TableCard {
 
 // `seats` are your own (seatsIn), `rows` what you run (runRows), `campaigns` every campaign of
 // the libraries they are in, by id. A seat whose campaign or library isn't known is left out,
-// as /campaigns leaves it out.
+// as Home leaves it out.
 export function tableCards(input: {
   seats: readonly PlayerContextOut[];
   rows: readonly RunRow[];

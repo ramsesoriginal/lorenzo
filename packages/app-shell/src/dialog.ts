@@ -1,7 +1,7 @@
 // A dialog that fades out when it closes (docs/design/web, ADR 0415). The brand's `dialog` fades in
 // by itself and a native close() is instant; an app that wants the fade out sets `data-closing`,
 // waits for `animationend`, then closes. A reopen in the middle of a fade wins. This is the one
-// place the pattern lives, for the drawer and, later, the palette and the shell's other dialogs.
+// place the pattern lives, for the drawer, the palette and the shell's other dialogs.
 
 /** Open a dialog as a modal, cancelling a fade-out that is under way. */
 export function openDialog(dialog: HTMLDialogElement): void {

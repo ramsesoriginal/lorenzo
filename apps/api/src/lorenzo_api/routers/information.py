@@ -318,9 +318,9 @@ async def _require_knower_entity_exists(
     plain entity_id for the first two, disambiguated only by whether a
     Being row also exists (Knowledge's own docstring) - no stricter check
     than "this is some entity in this tenant" is enforced here, matching
-    that same looseness. Player-knowers are out of scope for this slice
-    (see ADR 0038) - only entity-knowers (character or group) are
-    supported.
+    that same looseness. Player-knowers are told through the player-knowers routes
+    instead (`_require_player_exists`, ADR 0109); this check is for
+    entity-knowers (character or group).
     """
     stmt = select(Entity.id).where(Entity.id == knower_entity_id, Entity.tenant_id == tenant_id)
     if (await session.execute(stmt)).first() is None:

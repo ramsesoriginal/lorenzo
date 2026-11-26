@@ -24,7 +24,7 @@ export async function listNotifications(
   );
 }
 
-// ADR 0085 - a nav badge only needs the pagination envelope's own count,
+// ADR 0087 - a nav badge only needs the pagination envelope's own count,
 // not the items themselves, so size=1 (not PAGE_SIZE) keeps this cheap
 // regardless of inbox size.
 export async function getUnreadCount(options: { force?: boolean } = {}): Promise<number> {

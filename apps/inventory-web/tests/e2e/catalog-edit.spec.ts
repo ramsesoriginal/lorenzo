@@ -107,3 +107,117 @@ test('refuses to leave with something not saved', async ({ world, as }) => {
   expect(asked).toContain('not saved');
   await expect(panel(page).getByRole('heading', { name: 'Lantern' })).toBeVisible();
 });
+
+test('shows only the tags it has, and adds one from the rest', async ({ world, as }) => {
+  const blade = await world.item('Blade', { tags: ['is_magical'] });
+
+  await world.item('Sword', { prototypes: [blade] });
+  const page = await open(as, world, 'Sword');
+  const tags = panel(page).locator('.item-editor-tags');
+
+  // What it has from the blade is shown as that; what it has not is not there to look as if it had.
+  await expect(tags.getByRole('listitem').filter({ hasText: 'Magical' })).toContainText(
+    'from Blade',
+  );
+  await expect(tags.getByRole('listitem').filter({ hasText: 'Cursed' })).toHaveCount(0);
+  await expect(tags.getByRole('listitem')).toHaveCount(1);
+
+  await panel(page).getByLabel('Add a tag').selectOption({ label: 'Cursed' });
+  await expect(tags.getByRole('listitem').filter({ hasText: 'Cursed' })).toBeVisible();
+  await expect(
+    panel(page).getByLabel('Add a tag').getByRole('option', { name: 'Cursed' }),
+  ).toHaveCount(0);
+
+  // Taking away what is its own; what it inherits is turned off here, and stays on the blade.
+  await panel(page).getByRole('button', { name: 'Remove Cursed' }).click();
+  await expect(tags.getByRole('listitem').filter({ hasText: 'Cursed' })).toHaveCount(0);
+  await panel(page).getByRole('button', { name: 'Remove Magical' }).click();
+  await expect(tags.getByRole('listitem')).toHaveCount(0);
+});
+
+test('shows the stats it inherits, and a value typed over one is its own', async ({
+  world,
+  as,
+}) => {
+  const blade = await world.item('Blade', { stats: { weight: 3, price: 40 } });
+  const sword = await world.item('Sword', { prototypes: [blade] });
+  const page = await open(as, world, 'Sword');
+  const weight = panel(page).getByLabel(/^Weight/);
+
+  await expect(weight).toHaveValue('3');
+  await expect(panel(page).getByLabel(/^Price/)).toHaveValue('40');
+  await expect(panel(page).getByText('Inherited from Blade').first()).toBeVisible();
+
+  await weight.fill('5');
+  await weight.blur();
+  await expect(panel(page).getByText('Set on this item')).toBeVisible();
+
+  const stats = async (id: string) =>
+    (
+      await ok(
+        world.gm.api.GET('/tenants/{tenant_id}/entities/{entity_id}', {
+          params: { path: { tenant_id: world.tenantId, entity_id: id } },
+        }),
+      )
+    ).stats.find((stat) => stat.name === 'weight');
+
+  expect((await stats(sword))?.value).toBe(5);
+  expect((await stats(sword))?.own).toBe(true);
+  // The blade keeps its own.
+  expect((await stats(blade))?.value).toBe(3);
+
+  // Clearing it gives it back what it inherits.
+  await panel(page).getByRole('button', { name: 'Clear Weight' }).click();
+  await expect(weight).toHaveValue('3');
+});
+
+test('adds a stat it does not have yet', async ({ world, as }) => {
+  const sword = await world.item('Sword');
+  const page = await open(as, world, 'Sword');
+
+  await expect(panel(page).getByLabel(/^Price/)).toHaveCount(0);
+  await panel(page).getByLabel('Add a stat').selectOption({ label: 'Price' });
+  await panel(page)
+    .getByLabel(/^Price/)
+    .fill('12');
+  await panel(page)
+    .getByLabel(/^Price/)
+    .blur();
+  await expect(panel(page).getByText('Set on this item')).toBeVisible();
+
+  const entity = await ok(
+    world.gm.api.GET('/tenants/{tenant_id}/entities/{entity_id}', {
+      params: { path: { tenant_id: world.tenantId, entity_id: sword } },
+    }),
+  );
+
+  expect(entity.stats.find((stat) => stat.name === 'price')?.value).toBe(12);
+});
+
+test('reads what its ancestors say beside what it says', async ({ world, as }) => {
+  const blade = await world.item('Blade', { description: 'Keen on both edges.' });
+
+  await world.item('Sword', { prototypes: [blade] });
+  await world.item('Plain');
+  const page = await open(as, world, 'Sword');
+
+  await expect(
+    panel(page).getByRole('heading', { name: /Inherited from what it is made from/ }),
+  ).toBeVisible();
+  await expect(panel(page).getByText('Keen on both edges.')).toBeVisible();
+  await expect(panel(page).getByRole('link', { name: 'Blade' }).first()).toBeVisible();
+  // It is not its own text: the field it writes in stays empty.
+  await expect(panel(page).getByLabel('Description saves as you type')).not.toHaveValue(
+    /Keen on both edges/,
+  );
+
+  // With nothing inherited there is nothing to head.
+  await page
+    .getByRole('list', { name: 'Catalog items' })
+    .getByRole('button', { name: 'Plain' })
+    .click();
+  await expect(panel(page).getByRole('heading', { name: 'Plain' })).toBeVisible();
+  await expect(
+    panel(page).getByRole('heading', { name: /Inherited from what it is made from/ }),
+  ).toBeHidden();
+});

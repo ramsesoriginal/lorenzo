@@ -1,4 +1,4 @@
-// Your seat in one campaign, on /campaigns's "Where you play" (ADR 0179): your characters there and
+// Your seat in one campaign, on Home's "Where you play" (ADR 0179): your characters there and
 // the actions that belong to a seat. Moved unchanged from the /characters page it replaces: rename
 // a character, create one, use one of your characters from another campaign of the library
 // (RFC 0014), stop using a linked one (ADR 0170), leave the campaign (RFC 0017 (c)).
