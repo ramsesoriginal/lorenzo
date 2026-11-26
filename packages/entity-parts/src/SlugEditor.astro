@@ -1,0 +1,37 @@
+---
+// `label` is what the app calls it ("Slug", "Link name"); `example` stands for it in the note.
+interface Props {
+  label: string;
+  example: string;
+  // More for the note, such as another name for it.
+  also?: string;
+}
+
+const { label, example, also } = Astro.props;
+---
+
+<div class="stack" data-slug-editor>
+  <p class="status-text" data-message hidden></p>
+  <form class="stack" data-form hidden>
+    <label class="field">
+      <span class="field-label">{label}</span>
+      <input
+        class="text-input"
+        type="text"
+        spellcheck="false"
+        aria-describedby="slug-editor-note"
+        data-slug
+      />
+    </label>
+    <!-- Outside the label, so it describes the field rather than being part of its name. -->
+    <p class="status-text" id="slug-editor-note">
+      How links name it, as in [text]({example}). Empty for none.{also ? ` ${also}` : ''}
+    </p>
+    <div class="row">
+      <button type="submit" data-save>
+        Save {label.toLowerCase()}
+      </button>
+    </div>
+    <p class="status-text" role="status" data-status hidden></p>
+  </form>
+</div>

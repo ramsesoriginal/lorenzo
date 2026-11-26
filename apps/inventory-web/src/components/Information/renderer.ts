@@ -1,10 +1,13 @@
 import { renderAudienceControl, renderInformationPayloads } from '@lorenzo/information-editor';
 import { blobUrl, client } from '../../lib/api';
+
 // An entity's information (ADR 0112): every piece of it, rendered, with adding, editing and
 // deleting (ADR 0101, 0109). The item page's Information section for GMs is the whole list;
 // Notes (ADR 0113) are the same list narrowed to one type, with their own words.
 
+import { saveError } from '@lorenzo/entity-parts';
 import { at, type Renderer, showDescriptions } from '../../lib/descriptions';
+import { renderInfoForm } from '../../lib/entityParts';
 import {
   createInformation,
   deleteInformation,
@@ -17,7 +20,6 @@ import {
 import { createStaleCache, RECENT_MS } from '../../lib/staleCache';
 import { say } from '../../lib/statusLine';
 import { cloneTemplate, requiredIn } from '../../lib/template';
-import { renderInfoForm, saveError } from '../InfoForm/renderer';
 
 // What a list shows and how it writes. The GM's whole Information section unless given.
 export type InformationKind = {
