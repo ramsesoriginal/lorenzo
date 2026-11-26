@@ -1,4 +1,6 @@
 import { LorenzoApiError } from '@lorenzo/api-client';
+import { pageState } from '@lorenzo/app-shell';
+import { BRANDING_CSS_URL } from './config';
 import {
   actions,
   button,
@@ -61,10 +63,7 @@ export async function mountTypes() {
       const view = el('div', '', 'stack view');
       view.append(
         pageHead('Types and standings', {
-          crumbs: [
-            link('Libraries', '/'),
-            link('Relationships', `/relationships/?${new URLSearchParams({ tenant })}`),
-          ],
+          crumbs: [link('Relationships', `/relationships/?${new URLSearchParams({ tenant })}`)],
           lede: name
             ? `The words relationships are told in, in ${name}.`
             : 'The words relationships are told in.',
@@ -145,21 +144,33 @@ export async function mountTypes() {
 
 /** What an empty library is offered: the starter vocabulary, added on purpose. */
 function starterOffer(tenant: string, redraw: () => Promise<void>) {
-  const offer = card();
+  const offer = el('div');
   const status = statusLine();
-  offer.body.append(
-    el('h2', 'Start from a set of types and standings', 'group-title'),
-    el('p', STARTER_NOTE, 'status-text'),
-    actions(
-      button('Add the starter', async () => {
-        const result = await addStarter(tenant, (text) => say(status, text));
-        say(status, `Added ${result.made} types.`);
-        await redraw();
-      }),
-    ),
+  offer.append(
+    pageState(BRANDING_CSS_URL, {
+      art: 'empty-social-types',
+      alt: 'Illustration: empty-social-types. No types yet',
+      level: 2,
+      title: 'Start from a set of types and standings',
+      text: STARTER_NOTE,
+      actions: [
+        {
+          label: 'Add the starter',
+          primary: true,
+          run: () => {
+            void addStarter(tenant, (text) => say(status, text))
+              .then(async (result) => {
+                say(status, `Added ${result.made} types.`);
+                await redraw();
+              })
+              .catch((error) => say(status, message(error), true));
+          },
+        },
+      ],
+    }),
     status,
   );
-  return offer.root;
+  return offer;
 }
 
 function standingsSection(
