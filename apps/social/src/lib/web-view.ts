@@ -18,11 +18,11 @@ import {
   empty,
   errorNotice,
   field,
+  icon,
   link,
   linkButton,
   loading,
   metaLine,
-  pageHead,
   relationshipHref,
   say,
   sectionHead,
@@ -72,6 +72,8 @@ export async function mountWeb() {
   };
   let showOthers = false;
   let first = true;
+  // The tab the panel shows stays open when the web is drawn again.
+  let panelTab: string | null = null;
   const remember = () => {
     const next = new URLSearchParams(location.search);
     for (const [key, value] of [
@@ -105,24 +107,59 @@ export async function mountWeb() {
       const graph = await readGraph(tenant, id, lens);
       const asOfName = lens.asOf ? await entryName(lens.asOf) : null;
       const asSeenByName = lens.asSeenBy ? await entryName(lens.asSeenBy) : null;
-      const view = el('div', '', 'stack view');
-      const meta: Node[] = [metaLine('social', `Laid out as ${web.layout}`)];
+      const view = el('div', '', 'web-workspace');
+      view.dataset.fitWindow = '';
+      view.dataset.panel = 'closed';
+      const stageBox = el('div', '', 'web-stage');
+      const floatHead = el('div', '', 'web-float web-float--head');
+      const floatBar = el('div', '', 'web-float web-float--bar');
+      const floatZoom = el('div', '', 'web-float web-float--zoom');
+      const floatLegend = el('div', '', 'web-float web-float--legend');
+      const panel = el('aside', '', 'web-panel card');
+      panel.setAttribute('aria-label', 'The web’s panel');
+      panel.hidden = true;
+      view.append(stageBox, floatHead, floatBar, floatZoom, floatLegend, panel);
+
+      const counts = `${graph.members.length} ${graph.members.length === 1 ? 'entry' : 'entries'} and ${graph.edges.length} ${graph.edges.length === 1 ? 'relationship' : 'relationships'}, as you may see them.`;
+      const title = card();
+      title.root.classList.add('web-title-card');
+      const crumb = link('Webs', `/webs/?${new URLSearchParams({ tenant })}`);
+      const titleRow = el('div', '', 'row-tight');
+      titleRow.append(crumb);
+      const heading = el('h1', web.name, 'web-title');
+      const metaRow = el('div', '', 'row-tight');
+      metaRow.append(metaLine('social', `Laid out as ${web.layout}`));
       if (web.is_public !== null && web.is_public !== undefined) {
-        meta.push(audienceBadge(audienceWords(web.is_public), web.is_public));
+        metaRow.append(audienceBadge(audienceWords(web.is_public), web.is_public));
       }
-      view.append(
-        pageHead(web.name, {
-          crumbs: [
-            link('Libraries', '/'),
-            link('Webs', `/webs/?${new URLSearchParams({ tenant })}`),
-          ],
-          lede: `${graph.members.length} ${graph.members.length === 1 ? 'entry' : 'entries'} and ${graph.edges.length} ${graph.edges.length === 1 ? 'relationship' : 'relationships'}, as you may see them.${asOfName ? ` As of ${asOfName}.` : ''}${asSeenByName ? ` As read by ${asSeenByName}: what it may read, not what it believes.` : ''}`,
-          meta,
-          actions: [
-            linkButton('Open the matrix', `/matrix/?${new URLSearchParams({ tenant, id })}`),
-          ],
-        }),
-      );
+      title.body.append(titleRow, heading, el('p', counts, 'status-text'), metaRow);
+      floatHead.append(title.root);
+
+      // What a lens has on is said, and cleared, in one line (SO4).
+      const lensLines: string[] = [];
+      if (asOfName) lensLines.push(`Looking as of ${asOfName}`);
+      if (asSeenByName)
+        lensLines.push(`As read by ${asSeenByName}: what it may read, not what it believes`);
+      for (const [text, clear] of [
+        [lensLines[0], () => (lens.asOf = null)],
+        [lensLines[1], () => (lens.asSeenBy = null)],
+      ] as const) {
+        if (!text || (text.startsWith('Looking') ? !asOfName : !asSeenByName)) continue;
+        const line = el('div', '', 'lens-line');
+        line.append(
+          el('span', text),
+          button(
+            'Clear',
+            async () => {
+              clear();
+              remember();
+              await draw();
+            },
+            { variant: 'secondary' },
+          ),
+        );
+        floatHead.append(line);
+      }
 
       const model: GraphModel = {
         nodes: graph.members.map((m) => ({
@@ -150,23 +187,24 @@ export async function mountWeb() {
           .map((m) => [m.entry.id, { x: m.x as number, y: m.y as number }]),
       );
 
-      const stage = card();
       const status = statusLine();
       const tooBig = model.nodes.length > LIMITS.nodes || model.edges.length > LIMITS.edges;
       const hostBox = el('div', '', 'graph-host');
+      const graphPane = el('div', '', 'web-pane web-pane--graph');
+      const listPane = el('div', '', 'web-pane web-pane--list');
       if (tooBig) {
-        stage.body.append(
+        graphPane.append(
           empty(
             `A drawing holds at most ${LIMITS.nodes} entries and ${LIMITS.edges} relationships: choose fewer, or limit the web to some types.`,
           ),
         );
       } else if (model.nodes.length === 0) {
-        stage.body.append(empty('This web shows no entries yet.'));
+        graphPane.append(empty('This web shows no entries yet.'));
       } else {
-        stage.body.append(hostBox);
+        graphPane.append(hostBox);
       }
-      stage.body.append(status);
-      view.append(stage.root);
+      stageBox.append(graphPane, listPane);
+      floatLegend.append(status);
 
       // One sentence a relationship: the primary form for reading without sight, kept in step with
       // the selection in the drawing.
@@ -208,11 +246,72 @@ export async function mountWeb() {
         );
       }
 
+      listPane.append(listing);
+
       // The moved nodes wait for a save.
       const moved = new Map<string, { x: number; y: number }>();
       let current = web.layout as Layout;
       let seed = web.layout_seed;
       let labels = true;
+      let focusOn = false;
+      let selected: { kind: 'node' | 'edge'; id: string } | null = null;
+      const selectedBox = el('div', '', 'stack');
+      const showSelected = () => {
+        selectedBox.replaceChildren();
+        if (!selected) {
+          selectedBox.append(empty('Select an entry or a relationship to read it here.'));
+          return;
+        }
+        if (selected.kind === 'edge') {
+          const e = graph.edges.find((x) => x.id === selected?.id);
+          if (!e) return;
+          const ends = { endA: e.end_a.name, endB: e.end_b.name, oneWay: e.one_way };
+          selectedBox.append(
+            el('h2', e.name, 'group-title'),
+            el('p', `${sentence(ends)}. ${directionWords(ends)}.`, 'status-text'),
+            link('Open the relationship', relationshipHref(tenant, e.id)),
+          );
+          return;
+        }
+        const node = model.nodes.find((n) => n.id === selected?.id);
+        selectedBox.append(el('h2', node?.name ?? '', 'group-title'));
+        const around = graph.edges.filter(
+          (e) => e.end_a.id === selected?.id || e.end_b.id === selected?.id,
+        );
+        const items = el('ul', '', 'list');
+        items.setAttribute('aria-label', 'Its relationships');
+        for (const e of around) {
+          const row = el('li');
+          row.append(link(e.name, relationshipHref(tenant, e.id)));
+          items.append(row);
+        }
+        selectedBox.append(
+          around.length ? items : empty('No relationship in this web ties it to another entry.'),
+        );
+      };
+      const applyFocus = () => {
+        if (!drawing) return;
+        let keep: Set<string> | null = null;
+        if (focusOn && selected) {
+          keep = new Set<string>([selected.id]);
+          for (const e of graph.edges) {
+            if (selected.kind === 'edge' && e.id === selected.id) {
+              keep.add(e.end_a.id);
+              keep.add(e.end_b.id);
+            } else if (
+              selected.kind === 'node' &&
+              (e.end_a.id === selected.id || e.end_b.id === selected.id)
+            ) {
+              keep.add(e.end_a.id);
+              keep.add(e.end_b.id);
+            }
+          }
+        }
+        drawing.setModel({
+          ...model,
+          nodes: model.nodes.map((n) => ({ ...n, dim: keep ? !keep.has(n.id) : false })),
+        });
+      };
       if (!tooBig && model.nodes.length > 0) {
         drawing = createGraphView(hostBox, {
           model,
@@ -221,7 +320,11 @@ export async function mountWeb() {
           themeHint: web.theme_hint ?? null,
           view: { layout: current as LayoutName, seed, positions, labels },
           onSelect: (selection) => {
+            selected = selection;
             mark(selection?.kind === 'edge' ? selection.id : null);
+            showSelected();
+            applyFocus();
+            if (selection) openTab('selected');
             say(
               status,
               selection
@@ -310,8 +413,6 @@ export async function mountWeb() {
         '',
       );
       themes.input.addEventListener('change', () => drawing?.setTheme(themes.input.value || null));
-      const named = field('Show the labels', '', 'checkbox');
-      named.input.checked = labels;
       layout.input.addEventListener('change', () => {
         current = layout.input.value as Layout;
         drawing?.setView({ layout: current as LayoutName });
@@ -320,15 +421,7 @@ export async function mountWeb() {
         seed = Math.max(0, Math.floor(Number(seeded.input.value) || 0));
         drawing?.setView({ seed });
       });
-      named.input.addEventListener('change', () => {
-        labels = named.input.checked;
-        drawing?.setView({ labels });
-      });
-      const zoom = actions(
-        button('Zoom in', () => drawing?.zoomIn()),
-        button('Zoom out', () => drawing?.zoomOut()),
-      );
-      controls.body.append(layout.label, seeded.label, themes.label, named.label, zoom);
+      controls.body.append(layout.label, seeded.label, themes.label);
       if (manage) {
         const state = { version };
         controls.body.append(
@@ -360,11 +453,146 @@ export async function mountWeb() {
           ),
         );
       }
-      view.append(controls.root, lensControls(), listing);
-      view.append(notes(tenant, id));
+      // The panel: what is selected, how it is drawn, the lenses, the members and the notes.
+      type Tab = 'selected' | 'drawing' | 'lens' | 'members' | 'notes';
+      const panes: [Tab, string, HTMLElement][] = [
+        ['selected', 'Selected', selectedBox],
+        ['drawing', 'Drawing', controls.root],
+        ['lens', 'Date and reader', lensControls()],
+        ...(manage
+          ? [
+              ['members', 'Members', editor(tenant, id, version, graph, web, draw)] as [
+                Tab,
+                string,
+                HTMLElement,
+              ],
+            ]
+          : []),
+        ['notes', 'Notes', notes(tenant, id)],
+      ];
+      const panelHead = el('div', '', 'row');
+      const panelTitle = el('h2', '', 'group-title grow');
+      const panelBody = el('div', '', 'stack');
+      const closePanel = button(
+        'Close the panel',
+        () => {
+          panelTab = null;
+          panel.hidden = true;
+          view.dataset.panel = 'closed';
+          for (const chip of bar.querySelectorAll('button[data-tab]')) {
+            chip.setAttribute('aria-pressed', 'false');
+          }
+        },
+        { variant: 'secondary' },
+      );
+      panelHead.append(panelTitle, closePanel);
+      panel.append(panelHead, panelBody);
+      function openTab(tab: Tab) {
+        const found = panes.find(([name]) => name === tab);
+        if (!found) return;
+        panelTab = tab;
+        panelTitle.textContent = found[1];
+        panelBody.replaceChildren(found[2]);
+        panel.hidden = false;
+        view.dataset.panel = 'open';
+        for (const chip of bar.querySelectorAll('button[data-tab]')) {
+          chip.setAttribute('aria-pressed', String(chip.getAttribute('data-tab') === tab));
+        }
+      }
+      showSelected();
 
-      if (manage) view.append(editor(tenant, id, version, graph, web, draw));
+      // The vertical bar of region switches (SO7), each a chip with its word.
+      const bar = floatBar;
+      const chip = (name: string, iconName: string, run: (self: HTMLButtonElement) => void) => {
+        const node = el('button', '', 'btn btn-secondary web-chip');
+        node.type = 'button';
+        node.append(icon(iconName), document.createTextNode(name));
+        node.addEventListener('click', () => run(node));
+        return node;
+      };
+      const toggleChip = (name: string, iconName: string, on: (value: boolean) => void) => {
+        const node = chip(name, iconName, (self) => {
+          const next = self.getAttribute('aria-pressed') !== 'true';
+          self.setAttribute('aria-pressed', String(next));
+          on(next);
+        });
+        node.setAttribute('aria-pressed', 'false');
+        return node;
+      };
+      const labelsChip = toggleChip('Labels', 'eye', (value) => {
+        labels = value;
+        drawing?.setView({ labels });
+      });
+      labelsChip.setAttribute('aria-pressed', 'true');
+      const focusChip = toggleChip('Focus', 'focus-mode', (value) => {
+        focusOn = value;
+        if (value && !selected) {
+          say(status, 'Focus needs a selection: select an entry or a relationship first.');
+        }
+        applyFocus();
+      });
+      const tabChip = (tab: Tab, name: string, iconName: string) => {
+        const node = chip(name, iconName, () => openTab(tab));
+        node.dataset.tab = tab;
+        node.setAttribute('aria-pressed', 'false');
+        return node;
+      };
+      bar.append(
+        labelsChip,
+        focusChip,
+        tabChip('drawing', 'Drawing', 'settings'),
+        tabChip('lens', 'Date and reader', 'kind-clock'),
+        ...(manage ? [tabChip('members', 'Members', 'kind-being')] : []),
+        tabChip('notes', 'Notes', 'kind-fact'),
+      );
+
+      floatZoom.append(
+        button('Zoom in', () => drawing?.zoomIn()),
+        button('Zoom out', () => drawing?.zoomOut()),
+      );
+
+      // The legend says what a line is (identity.md section 18).
+      const legend = el('div', '', 'graph-legend');
+      legend.append(
+        el('span', 'Solid: direct'),
+        el('span', 'Dashed: through others'),
+        el('span', 'Dotted: unknown'),
+      );
+      floatLegend.prepend(legend);
+
+      // Graph, Matrix and List are three views of one web (SO2); the view is in the address.
+      const wanted = new URLSearchParams(location.search).get('view') === 'list' ? 'list' : 'graph';
+      const switcher = el('div', '', 'segmented-control');
+      switcher.setAttribute('role', 'group');
+      switcher.setAttribute('aria-label', 'View');
+      const showView = (name: 'graph' | 'list') => {
+        graphPane.hidden = name !== 'graph';
+        listPane.hidden = name !== 'list';
+        floatZoom.hidden = name !== 'graph';
+        for (const b of switcher.querySelectorAll('button')) {
+          b.setAttribute('aria-pressed', String(b.dataset.view === name));
+        }
+        const next = new URLSearchParams(location.search);
+        if (name === 'list') next.set('view', 'list');
+        else next.delete('view');
+        history.replaceState(null, '', `${location.pathname}?${next}`);
+      };
+      for (const [name, text] of [
+        ['graph', 'Graph'],
+        ['list', 'List'],
+      ] as const) {
+        const b = el('button', text);
+        b.type = 'button';
+        b.dataset.view = name;
+        b.addEventListener('click', () => showView(name));
+        switcher.append(b);
+      }
+      const matrixLink = linkButton('Matrix', `/matrix/?${new URLSearchParams({ tenant, id })}`);
+      floatHead.append(el('div', '', 'row-tight'));
+      floatHead.lastElementChild?.append(switcher, matrixLink);
+      showView(wanted);
       host.replaceChildren(view);
+      if (panelTab) openTab(panelTab as Tab);
     } catch (error) {
       host.replaceChildren(errorNotice(error));
     }

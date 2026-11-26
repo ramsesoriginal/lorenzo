@@ -204,18 +204,154 @@
   }
 }
 
-/* The drawing of a web: it fills a box of a definite height, and fits a phone's width. */
-.graph-host {
-  height: 30rem;
-  min-height: 18rem;
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-control);
+/* A web (SO2, SO6, SO7): the drawing fills the page, its controls float over it as a vertical bar
+   of switches, and a panel slides in beside it. The workspace takes back the page's own padding. */
+.web-workspace {
+  position: relative;
+  flex: 1;
+  min-height: max(32rem, calc(100dvh - 6.5rem));
   overflow: hidden;
 }
 
+.web-stage {
+  position: absolute;
+  inset: 0;
+  overflow: auto;
+}
+
+@media (min-width: 721px) {
+  .web-workspace[data-panel="open"] .web-stage {
+    inset-inline-end: min(26rem, 100%);
+  }
+}
+
+.web-pane {
+  block-size: 100%;
+}
+
+.web-pane[hidden] {
+  display: none;
+}
+
+.web-pane--list {
+  padding: var(--space-5) var(--space-4);
+  padding-block-start: calc(var(--space-7) * 3);
+}
+
+.graph-host {
+  block-size: 100%;
+  min-block-size: 18rem;
+}
+
+.web-float {
+  position: absolute;
+  z-index: 2;
+  /* What floats does not take the clicks on the drawing beside it: only what is on it does. */
+  pointer-events: none;
+}
+
+.web-float > * {
+  pointer-events: auto;
+}
+
+.web-float--head {
+  inset-block-start: var(--space-3);
+  inset-inline-start: var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  inline-size: min(24rem, calc(100% - 2 * var(--space-3)));
+}
+
+.web-title {
+  margin: 0;
+}
+
+.web-float--bar {
+  inset-block-start: var(--space-3);
+  inset-inline-end: var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  align-items: stretch;
+}
+
+.web-workspace[data-panel="open"] .web-float--bar {
+  inset-inline-end: calc(min(26rem, 100%) + var(--space-3));
+}
+
+.web-chip {
+  justify-content: flex-start;
+}
+
+.web-chip[aria-pressed="true"] {
+  background: var(--fill-soft);
+  border-color: var(--action);
+}
+
+.web-float--zoom {
+  inset-block-end: var(--space-3);
+  inset-inline-end: var(--space-3);
+  display: flex;
+  gap: var(--space-2);
+}
+
+.web-workspace[data-panel="open"] .web-float--zoom {
+  inset-inline-end: calc(min(26rem, 100%) + var(--space-3));
+}
+
+.web-float--legend {
+  inset-block-end: var(--space-3);
+  inset-inline-start: var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.web-panel {
+  position: absolute;
+  z-index: 4;
+  inset-block: 0;
+  inset-inline-end: 0;
+  inline-size: min(26rem, 100%);
+  padding: var(--space-3);
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.web-panel[hidden] {
+  display: none;
+}
+
+/* A phone: the drawing is read, the bar is a wrapped row, the panel is the page's foot. */
 @media (max-width: 720px) {
-  .graph-host {
-    height: 24rem;
+  .web-workspace {
+    min-height: max(28rem, calc(100dvh - 12rem));
+  }
+
+  .web-float--head {
+    inline-size: calc(100% - 2 * var(--space-3));
+  }
+
+  .web-float--bar,
+  .web-workspace[data-panel="open"] .web-float--bar {
+    inset-block-start: auto;
+    inset-block-end: calc(var(--space-7) + var(--space-5));
+    inset-inline-start: var(--space-3);
+    inset-inline-end: var(--space-3);
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+
+  .web-float--zoom,
+  .web-workspace[data-panel="open"] .web-float--zoom {
+    inset-inline-end: var(--space-3);
+  }
+
+  .web-float--legend {
+    display: none;
   }
 }
 

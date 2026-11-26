@@ -28,20 +28,19 @@ const {
   shell="web"
   template={template}
   nav={[
-    { label: 'Libraries', href: '/', icon: 'social' },
+    {
+      label: 'Webs',
+      href: '/webs/',
+      needsLibrary: true,
+      icon: 'kind-social-web',
+      also: ['/', '/web/', '/matrix/'],
+    },
     {
       label: 'Relationships',
       href: '/relationships/',
       needsLibrary: true,
       icon: 'kind-relationship',
       also: ['/relationship/'],
-    },
-    {
-      label: 'Webs',
-      href: '/webs/',
-      needsLibrary: true,
-      icon: 'kind-social-web',
-      also: ['/web/', '/matrix/'],
     },
     { label: 'Types and standings', href: '/types/', needsLibrary: true, icon: 'kind-entity' },
   ]}

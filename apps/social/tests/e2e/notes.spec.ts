@@ -74,6 +74,7 @@ test('a GM writes a note on a web, and a player reads the shared one and changes
   await w.tie('Open friendship', a.id, (await w.entry('Wren Ashdown')).id, true);
   const gm = await signedIn(browser, w.subject);
   await gm.goto(`/web/?tenant=${w.tenant.id}&id=${web.id}`);
+  await gm.getByRole('button', { name: 'Notes', exact: true }).click();
   const notes = gm.getByRole('region', { name: 'Notes' });
   await notes.getByRole('button', { name: 'Add note' }).click();
   await notes.getByLabel('Note title').fill('Who sits where');
@@ -88,6 +89,7 @@ test('a GM writes a note on a web, and a player reads the shared one and changes
 
   const player = await signedIn(browser, w.playerSubject);
   await player.goto(`/web/?tenant=${w.tenant.id}&id=${web.id}`);
+  await player.getByRole('button', { name: 'Notes', exact: true }).click();
   const seen = player.getByRole('region', { name: 'Notes' });
   await expect(seen.locator('em', { hasText: 'last' })).toBeVisible();
   await expect(seen.getByRole('button', { name: 'Edit note' })).toHaveCount(0);

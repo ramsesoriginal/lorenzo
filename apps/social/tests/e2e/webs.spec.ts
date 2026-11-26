@@ -45,6 +45,7 @@ test('a GM makes a web, adds entries and sees them drawn with a sentence a relat
   await expect(page.getByRole('heading', { name: 'The court', level: 1 })).toBeVisible();
   await expect(page.getByText('This web shows no entries yet.')).toBeVisible();
 
+  await page.getByRole('button', { name: 'Members' }).click();
   for (const [search, label] of [
     ['Mara', 'Mara Quill'],
     ['Wren', 'Wren Ashdown'],
@@ -58,21 +59,27 @@ test('a GM makes a web, adds entries and sees them drawn with a sentence a relat
   const drawing = page.getByRole('group', { name: 'The court' });
   await expect(drawing.getByRole('button', { name: 'Mara Quill' })).toBeVisible();
   await expect(drawing.getByRole('button', { name: 'Wren Ashdown' })).toBeVisible();
+  // The List view tells each relationship in a sentence.
+  await page.getByRole('group', { name: 'View' }).getByRole('button', { name: 'List' }).click();
   const sentences = page.getByRole('list', { name: 'Relationships in this web' });
   await expect(sentences.getByRole('link', { name: 'Mara is the parent of Wren' })).toBeVisible();
   await expect(
     sentences.getByText('Between Mara Quill and Wren Ashdown, both ways.'),
   ).toBeVisible();
+  await page.getByRole('group', { name: 'View' }).getByRole('button', { name: 'Graph' }).click();
 
-  // Selecting a node says so, and the layout changes without losing the entries.
+  // Selecting a node says so and opens it in the panel, and the layout changes without losing the entries.
   await drawing.getByRole('button', { name: 'Mara Quill' }).focus();
   await page.keyboard.press('Space');
   await expect(page.getByText('Selected Mara Quill.')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Mara Quill', level: 2 })).toBeVisible();
+  await page.getByRole('button', { name: 'Drawing' }).click();
   await page.getByLabel('Layout').selectOption('forceatlas2');
   await expect(drawing.getByRole('button', { name: 'Wren Ashdown' })).toBeVisible();
   await page.getByRole('button', { name: 'Save how it is drawn' }).click();
   await expect(page.getByText('Saved how it is drawn.')).toBeVisible();
   await page.reload();
+  await page.getByRole('button', { name: 'Drawing' }).click();
   await expect(page.getByLabel('Layout')).toHaveValue('forceatlas2');
 });
 
@@ -178,17 +185,19 @@ test('the date lens draws what holds, dots what is not known and lists the rest 
   );
   const made = await webOf(w, 'The court', [a.id, b.id]);
   const page = await signedIn(browser, w.subject);
-  await page.goto(`/web/?tenant=${w.tenant.id}&id=${made.id}&as_of=${before.id}`);
-  await expect(page.getByText('As of The wedding.')).toBeVisible();
+  await page.goto(`/web/?tenant=${w.tenant.id}&id=${made.id}&as_of=${before.id}&view=list`);
+  // A line says what the lens has on.
+  await expect(page.getByText('Looking as of The wedding')).toBeVisible();
   const sentences = page.getByRole('list', { name: 'Relationships in this web' });
   await expect(sentences.getByText('Always friends')).toBeVisible();
   // It has not begun yet: not drawn, and listed only under the switch.
   await expect(sentences.getByText('Rivals once the war began')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Date and reader' }).click();
   await page.getByLabel('Also list those that have not begun or have ended').check();
   await expect(sentences.getByText('Has not begun.')).toBeVisible();
   // The lens is part of the address, and can be removed.
-  await page.getByRole('button', { name: 'Remove the date lens' }).click();
-  await expect(page.getByText('As of The wedding.')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Clear' }).click();
+  await expect(page.getByText('Looking as of The wedding')).toHaveCount(0);
   expect(page.url()).not.toContain('as_of=');
 });
 
@@ -228,6 +237,7 @@ test('a family tree is drawn in rows with right angles when the layered layout a
   await page.goto(`/web/?tenant=${w.tenant.id}&id=${made.id}`);
   const drawing = page.getByRole('group', { name: 'The Quills' });
   await expect(drawing.getByRole('button', { name: 'Tomas Ashdown' })).toBeVisible();
+  await page.getByRole('button', { name: 'Drawing' }).click();
   await page.getByRole('combobox', { name: /^Layout/ }).selectOption('layered');
   await page.getByRole('combobox', { name: /^Theme/ }).selectOption('family');
   const y = async (name: string) =>
@@ -273,4 +283,37 @@ test('Home opens the webs of the library, continues the last web, renames and de
   await expect(
     page.getByRole('list', { name: 'Webs' }).getByRole('link', { name: 'The court' }),
   ).toBeVisible();
+});
+
+test('Focus dims all but the selected entry and its neighbours, and the view is kept in the address', async ({
+  browser,
+}) => {
+  const w = await world();
+  const a = await w.entry('Mara Quill');
+  const b = await w.entry('Wren Ashdown');
+  const c = await w.entry('Dren Holloway');
+  await w.tie('Open friendship', a.id, b.id, true);
+  const made = await webOf(w, 'The court', [a.id, b.id, c.id]);
+  const page = await signedIn(browser, w.subject);
+  await page.goto(`/web/?tenant=${w.tenant.id}&id=${made.id}`);
+  const drawing = page.getByRole('group', { name: 'The court' });
+  await expect(drawing.getByRole('button', { name: 'Dren Holloway' })).toBeVisible();
+
+  // With nothing selected Focus says so, and dims nothing.
+  await page.getByRole('button', { name: 'Focus' }).click();
+  await expect(page.getByText('Focus needs a selection')).toBeVisible();
+  await expect(page.locator('.gr-node.is-dim')).toHaveCount(0);
+
+  await drawing.getByRole('button', { name: 'Mara Quill' }).focus();
+  await page.keyboard.press('Space');
+  await expect(page.locator('.gr-node.is-dim')).toHaveCount(1);
+  await expect(
+    drawing.getByRole('button', { name: 'Dren Holloway' }).locator('.is-dim'),
+  ).not.toHaveCount(0);
+
+  await page.getByRole('button', { name: 'Focus' }).click();
+  await expect(page.locator('.gr-node.is-dim')).toHaveCount(0);
+
+  await page.getByRole('group', { name: 'View' }).getByRole('button', { name: 'List' }).click();
+  expect(page.url()).toContain('view=list');
 });
