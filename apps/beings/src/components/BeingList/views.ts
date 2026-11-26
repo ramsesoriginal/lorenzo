@@ -46,11 +46,11 @@ export function icon(name: string): SVGSVGElement {
 
 /** The round avatar: the initials, and the picture over them once it has loaded. */
 function avatar(being: ListedBeing, size: 'xs' | 'lg'): HTMLElement {
-  const wrap = el('span', `avatar avatar-${size}`);
-  const picture = el('img', 'avatar-picture');
+  const wrap = el('span', `being-avatar being-avatar-${size}`);
+  const picture = el('img', 'being-avatar-picture');
 
   wrap.setAttribute('aria-hidden', 'true');
-  wrap.append(el('span', 'avatar-initials', initials(being.name)));
+  wrap.append(el('span', 'being-avatar-initials', initials(being.name)));
   picture.dataset.listPicture = '';
   picture.hidden = true;
   picture.alt = '';
