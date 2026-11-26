@@ -338,46 +338,73 @@
   display: none;
 }
 
-/* A phone: the drawing is read, the bar is a wrapped row, the panel is the page's foot. */
+/* The legend is the drawing's; the other views do not show it. */
+.web-workspace:not([data-view="graph"]) .web-float--legend {
+  display: none;
+}
+
+/* A phone: the page flows. The head, the view, the bar and the panel follow one another, so nothing
+   floats over what is read, and the drawing is read in full at its own height. */
 @media (max-width: 720px) {
   .web-workspace {
-    min-height: max(28rem, calc(100dvh - 12rem));
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+    min-height: 0;
+    overflow: visible;
+  }
+
+  .web-stage {
+    position: relative;
+    inset: auto;
+    overflow: visible;
+    order: 1;
+  }
+
+  .web-float {
+    position: static;
+    pointer-events: auto;
   }
 
   .web-float--head {
-    inline-size: calc(100% - 2 * var(--space-3));
+    order: 0;
+    inline-size: auto;
   }
 
-  .web-float--bar,
-  .web-workspace[data-panel="open"] .web-float--bar {
-    inset-block-start: auto;
-    inset-block-end: calc(var(--space-7) + var(--space-5));
-    inset-inline-start: var(--space-3);
-    inset-inline-end: var(--space-3);
+  .web-float--bar {
+    order: 2;
     flex-direction: row;
     flex-wrap: wrap;
   }
 
-  .web-float--zoom,
-  .web-workspace[data-panel="open"] .web-float--zoom {
-    inset-inline-end: var(--space-3);
+  .web-float--zoom {
+    order: 3;
   }
 
   .web-float--legend {
+    order: 4;
     display: none;
+  }
+
+  .web-panel {
+    position: static;
+    order: 5;
+    inline-size: auto;
+    overflow: visible;
+  }
+
+  .web-pane {
+    block-size: auto;
   }
 
   .web-pane--list,
   .web-pane--matrix {
-    padding-inline-end: var(--space-4);
-    padding-block-start: 13rem;
-    padding-block-end: 12rem;
+    padding: 0;
   }
-}
 
-/* What is selected in the drawing is marked in the list that says the same in words. */
-.list > li[aria-current="true"] {
-  background: var(--fill-soft);
+  .graph-host {
+    block-size: 24rem;
+  }
 }
 
 /* The matrix: a grid that holds only the cells in view (ADR 0408). Sizes match the constants in

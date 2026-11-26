@@ -524,6 +524,8 @@ export async function mountWeb() {
         panelBody.replaceChildren(found[2]);
         panel.hidden = false;
         view.dataset.panel = 'open';
+        // On a phone the panel follows the bar down the page: bring it into view.
+        if (matchMedia('(max-width: 720px)').matches) panel.scrollIntoView({ block: 'nearest' });
         for (const chip of bar.querySelectorAll('button[data-tab]')) {
           chip.setAttribute('aria-pressed', String(chip.getAttribute('data-tab') === tab));
         }

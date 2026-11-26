@@ -38,6 +38,7 @@ import {
 } from './matrix-api';
 import { canManage } from './names';
 import { typePicker as findType } from './pickers';
+import { shellOf } from './sign-in';
 import { standingMark } from './standing';
 import { readGraph, readWeb } from './web-api';
 
@@ -463,7 +464,7 @@ async function matrix(
             editCell(node, rowMember.id, colMember.id);
           } else if (event.key === 'Delete' || event.key === 'Backspace') {
             event.preventDefault();
-            clearCell(rowMember.id, colMember.id);
+            void clearCell(rowMember.id, colMember.id);
           } else if (event.key.length === 1 && /[-0-9]/.test(event.key)) {
             event.preventDefault();
             editCell(node, rowMember.id, colMember.id, event.key);
@@ -478,12 +479,20 @@ async function matrix(
     saveButton.disabled = edits.size === 0;
   };
 
-  const clearCell = (row: string, col: string) => {
+  const clearCell = async (row: string, col: string) => {
     if (!manage || mode !== 'value') return;
     const k = cellKey(row, col);
     const cell = cells.get(k);
     if (!cell && !edits.has(k)) return;
-    if (!confirmedDelete && !confirm('Clear this standing? The relationship stays.')) return;
+    if (!confirmedDelete) {
+      // Asked once; the shell's confirmation says what stays.
+      const yes = await shellOf()?.confirm({
+        title: 'Clear this standing?',
+        body: 'The relationship stays; only its standing is cleared, as a draft you can undo.',
+        confirm: 'Clear it',
+      });
+      if (!yes) return;
+    }
     confirmedDelete = true;
     undo.push({ key: k, before: edits.get(k) });
     redo.length = 0;

@@ -213,3 +213,31 @@ test('the matrix is a view of the web: marks and a legend, a second click edits,
   await expect(page).toHaveURL(/\/web\/\?.*view=matrix/);
   await expect(page.getByRole('grid', { name: 'Relationship matrix' })).toBeVisible();
 });
+
+test('clearing a standing asks once in the shell and leaves a draft that can be undone', async ({
+  browser,
+}) => {
+  const w = await world();
+  const honor = await standing(w, 'Honor', { min: -10, max: 10 });
+  const mara = await w.entry('Mara Quill');
+  const wren = await w.entry('Wren Ashdown');
+  const bond = await w.tie('Open bond', mara.id, wren.id, true);
+  await ok(
+    w.gm.PUT('/tenants/{tenant_id}/entities/{entity_id}/stats/{stat_definition_id}', {
+      params: { path: { ...w.path, entity_id: bond.id, stat_definition_id: honor.id } },
+      body: { value: 5, acquire_group: true },
+    }),
+  );
+  const court = await courtOf(w, [mara.id, wren.id]);
+  const page = await signedIn(browser, w.subject);
+  await page.goto(`/web/?tenant=${w.tenant.id}&id=${court.id}&view=matrix`);
+  await page.getByRole('combobox', { name: /^Standing/ }).selectOption(honor.id);
+  const grid = page.getByRole('grid', { name: 'Relationship matrix' });
+  await grid.getByRole('gridcell', { name: /^Mara Quill to Wren Ashdown, 5/ }).focus();
+  await page.keyboard.press('Delete');
+  await expect(page.getByRole('dialog').getByText('Clear this standing?')).toBeVisible();
+  await page.getByRole('button', { name: 'Clear it' }).click();
+  await expect(
+    grid.getByRole('gridcell', { name: /^Mara Quill to Wren Ashdown, cleared, not saved/ }),
+  ).toBeVisible();
+});
