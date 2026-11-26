@@ -119,6 +119,10 @@ Free-tier constraints worth knowing going in: no custom domain (issuer/JWKS live
 3. **Get a real access token for that account**: from `apps/api/`, `AUTHGEAR_DEV_CLIENT_ID=<client id> AUTHGEAR_DEV_CLIENT_SECRET=<client secret> mise run dev-token -- --issuer <production issuer>`, using the OIDC client registered in step 2 of the section above (needs `http://127.0.0.1:8765/callback` as an Authorized Redirect URI on that client). Opens a browser, logs in, prints the token.
 4. **Call `POST /tenants`** with that token — either the deployed API's own Swagger UI at `<base url>/docs` (Authorize, then try out `POST /tenants`), or `curl -X POST <base url>/tenants -H "Authorization: Bearer <token>" -H "Content-Type: application/json" -d '{"name": "..."}'`. The response's `id` is the tenant's UUID.
 
+### Granting the `platform-operator` role (ADR 0057)
+
+Every `/admin/*` route, such as taking a repository off Discover ([public-launch](public-launch.md#5-dealing-with-an-abusive-repository)), is gated by a second platform-level Authgear role ([ADR 0057](../adr/0057-platform-operations.md)). It is set up like `tenant-creator` above: **Configuration → Roles**, create a role named `platform-operator`, then assign it to the accounts of the operators. The Portal rewrites its key to `platform_operator`, so `Settings.platform_operator_role_key` defaults to `platform_operator`; only override `PLATFORM_OPERATOR_ROLE_KEY` if you deliberately pick a different key. A personal access token never carries the role: an operator signs in.
+
 ## Build watch paths
 
 Every Cloudflare Pages project below limits its rebuilds with **Build watch paths** (Settings → Builds & deployments), so a push that touches nothing the site is built from does not rebuild it. A project watches, written from the repository root:
