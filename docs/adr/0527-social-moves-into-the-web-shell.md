@@ -1,6 +1,6 @@
 # 0527 - Social moves into the web shell
 
-Status: proposed, 2026-11-26, after the maintainer chose the scope (below). Slice UI-G of [RFC 0050](../rfcs/0050-the-web-interface.md) ([issue #1018](https://github.com/ramsesoriginal/lorenzo/issues/1018)). The design is [docs/design/web/social](../design/web/social/README.md) (SO1 to SO8, decided in [ADR 0424](0424-social-redesign.md)). This ADR says how the app is moved to it, in what order, and where it differs from the design on purpose. It follows [ADR 0440](0440-calendars-moves-into-the-web-shell.md), [0441](0441-sessions-moves-into-the-web-shell.md), [0465](0465-maps-moves-into-the-web-shell.md), [0494](0494-writing-moves-into-the-web-shell.md) and [0524](0524-beings-and-inventory-move-into-the-web-shell.md).
+Status: accepted, 2026-11-26, after the maintainer chose the scope (below). Slice UI-G of [RFC 0050](../rfcs/0050-the-web-interface.md) ([issue #1018](https://github.com/ramsesoriginal/lorenzo/issues/1018)). The design is [docs/design/web/social](../design/web/social/README.md) (SO1 to SO8, decided in [ADR 0424](0424-social-redesign.md)). This ADR says how the app is moved to it, in what order, and where it differs from the design on purpose. It follows [ADR 0440](0440-calendars-moves-into-the-web-shell.md), [0441](0441-sessions-moves-into-the-web-shell.md), [0465](0465-maps-moves-into-the-web-shell.md), [0494](0494-writing-moves-into-the-web-shell.md) and [0524](0524-beings-and-inventory-move-into-the-web-shell.md).
 
 ## Context
 
@@ -46,8 +46,8 @@ What the design has that it does not:
 
 | PR | What it does | Needs |
 | --- | --- | --- |
-| G0 | **The frame.** `AppPage shell="web"`, the tabs, the palette entries, the legal links kept; Home is Webs and the Libraries page goes; the pages sit inside it unchanged. This ADR is accepted here and the tracking issue and milestone are made | nothing |
-| G1 | **Webs.** Home as Continue, then the list of webs; a new web (`empty-social-web`); rename and delete with Undo; the shell's states | G0 |
+| G0 | **The frame.** `AppPage shell="web"`, the tabs with their icons, the status bar, the legal links kept; the pages sit inside it unchanged (Libraries stays Home until G1). This ADR is accepted here and the tracking issue and milestone are made | nothing |
+| G1 | **Webs.** Home as Continue, then the list of webs, and the Libraries page goes (the shell's library switcher replaces it); a new web (`empty-social-web`); rename and delete with Undo; the shell's states | G0 |
 | G2 | **Relationships.** The list (a sentence for each, the search and the filters it has), the form as a dialog, and a relationship's page (SO3's standing marks, who may read it, the webs that name it, delete with Undo) with its notes (`empty-relationships`) | G0 |
 | G3 | **Types and standings.** The tree with how each type reads, the scales, the starter set (`empty-social-types`), the refusals for a scale existing values would break | G0 |
 | G4 | **One web, the graph.** The `workspace` page with the Graph, Matrix and List switch, the floating controls (the vertical bar, the legend, zoom and layout), the sliding panel for an entry or a relationship, and the selection that carries across views; Focus | G1, G2 |
@@ -70,7 +70,7 @@ Filled in as each slice lands.
 
 | Part | Slice | State |
 | --- | --- | --- |
-| The frame, the tabs (SO1) | G0 | Not built |
+| The frame, the tabs (SO1) | G0 | Built: the shell's header with the tabs and their icons (Libraries, Relationships, Webs, Types and standings; Problems comes with G8), the status bar and the apps sheet; the pages are unchanged inside it. The shell's status bar is a labelled region, so the pages pass axe's landmark rule without the check being turned off |
 | Webs as Home (SO1) | G1 | Not built |
 | Relationships and a relationship (SO3) | G2 | Not built |
 | Types and standings | G3 | Not built |

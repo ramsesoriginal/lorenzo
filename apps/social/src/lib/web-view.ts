@@ -403,7 +403,7 @@ export async function mountWeb() {
       const themes = select(
         'Theme',
         [
-          ['', 'The web2019s own'],
+          ['', 'The web\u2019s own'],
           ...Object.keys(THEMES).map((t): [string, string] => [
             t,
             t === 'family' ? 'Family tree' : 'Default',
