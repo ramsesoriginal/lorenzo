@@ -13,7 +13,7 @@ git clone git@github.com:ramsesoriginal/lorenzo.git
 cd lorenzo
 mise install
 
-docker compose -f infra/docker-compose.yml up -d   # Postgres for apps/api
+docker compose -f infra/docker-compose.yml up -d --wait   # Postgres for apps/api, ready when this returns
 uv run --directory apps/api alembic upgrade head   # schema and restricted app role
 mise run //apps/api:dev                              # autoreload
 ```

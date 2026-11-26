@@ -1,6 +1,6 @@
 import { renderInformationPayloads } from '@lorenzo/information-editor';
+import { renderFactsAbout } from '../../lib/entityParts';
 import { listInformation } from '../../lib/information';
-import { renderFactsAbout } from '../Facts/renderer';
 // One rendering of an item for the dialog and the item page (ADR 0112): its stat groups, tags,
 // pictures, and descriptions, its own and those it inherits from its prototypes (ADR 0111).
 
@@ -12,6 +12,7 @@ import { fromTemplate, requiredIn } from '../../lib/template';
 import {
   HIDDEN_SOURCE_LABEL,
   isFromHiddenEntry,
+  isOwnText,
   type TextOrigin,
   textHome,
   textSources,
@@ -29,9 +30,17 @@ const GROUPS = [
 
 export type ItemViewOptions = { tenantId: string; renderer: Renderer };
 
+export type ShowOptions = {
+  // Only what the item inherits: the texts and pictures that come from its ancestors. For where
+  // what is its own is written in place, beside it.
+  inheritedOnly?: boolean;
+  // Said once the texts and pictures are drawn: whether there was anything to show.
+  onShown?(any: boolean): void;
+};
+
 export type RenderedItemView = {
   // Shows `item`, replacing what was shown. Descriptions render as LorenzoScript.
-  show(item: ItemBase): void;
+  show(item: ItemBase, options?: ShowOptions): void;
 };
 
 const required = requiredIn('Item view');
@@ -79,18 +88,24 @@ export function renderItemView(root: HTMLElement, options: ItemViewOptions): Ren
   let turn = 0;
   let facts: HTMLElement | null = null;
   return {
-    show(item) {
+    show(item, shown = {}) {
+      const { inheritedOnly = false } = shown;
       const mine = ++turn;
       facts?.remove();
-      facts = document.createElement('section');
-      root.append(facts);
-      renderFactsAbout(facts, options.tenantId, item.entity_id);
+      facts = null;
+
+      if (!inheritedOnly) {
+        facts = document.createElement('section');
+        root.append(facts);
+        renderFactsAbout(facts, options.tenantId, item.entity_id);
+      }
+
       descriptions.replaceChildren();
       pictures.replaceChildren();
       pictures.hidden = true;
       groups.replaceChildren(
         ...GROUPS.flatMap(([heading, key]) => {
-          const set = item[key].filter((stat) => stat.value !== null);
+          const set = inheritedOnly ? [] : item[key].filter((stat) => stat.value !== null);
 
           if (set.length === 0) return [];
 
@@ -113,7 +128,7 @@ export function renderItemView(root: HTMLElement, options: ItemViewOptions): Ren
         }),
       );
 
-      const on = item.tags.filter((tag) => tag.value === true);
+      const on = inheritedOnly ? [] : item.tags.filter((tag) => tag.value === true);
 
       tags.hidden = on.length === 0;
       tags.replaceChildren(
@@ -130,11 +145,13 @@ export function renderItemView(root: HTMLElement, options: ItemViewOptions): Ren
         showDescriptions(
           descriptions,
           options.renderer,
-          item.descriptions.map((description) => ({
-            text: description.content,
-            label: labelOf(description),
-            home: textHome(description, item.entity_id),
-          })),
+          item.descriptions
+            .filter((description) => !inheritedOnly || !isOwnText(description))
+            .map((description) => ({
+              text: description.content,
+              label: labelOf(description),
+              home: textHome(description, item.entity_id),
+            })),
         );
       // The item read retains its flat text/picture contract. Read each visible source's
       // description bundles for their shared order, including image-only descriptions. What a
@@ -160,6 +177,8 @@ export function renderItemView(root: HTMLElement, options: ItemViewOptions): Ren
           );
           descriptions.replaceChildren();
           for (const { source, infos } of found) {
+            if (inheritedOnly && source.kind === 'own') continue;
+
             if (source.kind === 'hidden') {
               for (const description of item.descriptions.filter(isFromHiddenEntry)) {
                 const mount = document.createElement('div');
@@ -185,7 +204,7 @@ export function renderItemView(root: HTMLElement, options: ItemViewOptions): Ren
             }
           }
           const remainingPictures = item.pictures.filter(
-            (picture) => !bundledUrls.has(picture.url),
+            (picture) => !bundledUrls.has(picture.url) && (!inheritedOnly || !isOwnText(picture)),
           );
           pictures.hidden = remainingPictures.length === 0;
           pictures.replaceChildren(
@@ -222,6 +241,11 @@ export function renderItemView(root: HTMLElement, options: ItemViewOptions): Ren
               return figure;
             }),
           );
+        })
+        .then(() => {
+          if (mine === turn) {
+            shown.onShown?.(descriptions.childElementCount > 0 || !pictures.hidden);
+          }
         })
         .catch(() => {
           if (mine === turn) void fallback();

@@ -1,7 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 import { API_URL, AUTHGEAR_URL, SITE_URL } from './tests/e2e/support/env.ts';
 
-// End-to-end tests (ADR 0311): the built site, the real apps/api on a fresh database, and a
+// End-to-end tests (ADR 0114, 0408): the built site, the real apps/api on a fresh database, and a
 // fake Authgear, all started here. Servers already running are an error, not reused: a stale one
 // serves an old build and fails tests that have nothing wrong. E2E_REUSE_SERVERS=1 opts into
 // reusing them, which speeds up a second run.

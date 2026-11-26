@@ -51,7 +51,7 @@ jobs:
       - run: mise run test
         working-directory: apps/loot-bot
         env:
-          # Same split as ci.yml's own loot-bot matrix entry - see ADR 0029.
+          # Same split as ci.yml's own loot-bot matrix entry - see ADR 0050.
           DATABASE_URL: postgresql+asyncpg://lorenzo_app:lorenzo_app@localhost:5432/lorenzo
           MIGRATIONS_DATABASE_URL: postgresql+asyncpg://lorenzo:lorenzo@localhost:5432/lorenzo
           LOOT_BOT_DATABASE_URL: postgres://loot_bot:loot_bot@localhost:5432/lorenzo
@@ -99,7 +99,7 @@ jobs:
         with:
           # Context is the repo root, not apps/loot-bot - this app is a pnpm
           # workspace member sharing the root lockfile (Dockerfile's own
-          # comment/ADR 0003/0029), unlike apps/api's standalone build.
+          # comment/ADR 0003/0050), unlike apps/api's standalone build.
           context: .
           file: apps/loot-bot/Dockerfile
           push: true

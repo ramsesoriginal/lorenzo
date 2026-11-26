@@ -15,10 +15,12 @@ An **entry** is one thing in a library or repository; its **kind** says what it 
 | Connection | A road, portal or stair joining two entries ([ADR 0363](../adr/0363-connections-the-kind-and-its-two-ends.md)) | [Maps](../../apps/maps/README.md) |
 | Relationship | A tie between two entries: parent of, ally of, a standing with a group ([ADR 0399](../adr/0399-relationships-the-kind-and-its-two-ends.md)) | [Lorenzo Social](../guides/social.md); a being's page and Bench show them read only |
 | Social web | A saved view of relationships: the entries it shows, a layout, hand placements ([ADR 0406](../adr/0406-the-social-web.md)) | [Lorenzo Social](../guides/social.md) |
+| Feature | Something an entry can have: a spell, a feat, a boon, a playbook move ([ADR 0454](../adr/0454-features-two-kinds-and-what-a-holder-has.md)) | [Command line](../../apps/cli/README.md#features-and-grants) |
+| Feature instance | What a holder has of a feature, with its own state such as uses spent; made by awarding the feature, never directly ([ADR 0454](../adr/0454-features-two-kinds-and-what-a-holder-has.md)) | [Command line](../../apps/cli/README.md#features-and-grants) |
 | Scene | A reusable piece of a story ([ADR 0317](../adr/0317-sessions-scenes-and-collaborative-planning.md)) | [Sessions](../../apps/sessions/README.md) |
 | Session | One sitting of a campaign ([ADR 0317](../adr/0317-sessions-scenes-and-collaborative-planning.md)) | [Sessions](../../apps/sessions/README.md) |
-| Book, Edition, Chapter, Scene telling | The parts of a manuscript, see [Writing](writing.md) | [Writing](../../apps/writing/README.md) |
+| Book, Edition, Chapter, Scene telling, Carrier | The parts of a manuscript, see [Writing](writing.md) | [Writing](../../apps/writing/README.md) |
 
 Some kinds exist only as a part of another: a calendar period (a day, month or year of a calendar, [ADR 0309](../adr/0309-calendar-periods-events-and-date-associations.md)), a recurring observance ([ADR 0310](../adr/0310-recurring-calendar-observances.md)) and a Scene appearance (a Scene inside one Session).
 
-A Location or a Map can be another kind as well, such as a Location that is also a being ([ADR 0331](../adr/0331-a-location-may-be-any-kind.md)); a Connection, a Relationship and a Social web are each always their own kind.
+A Location or a Map can be another kind as well, such as a Location that is also a being ([ADR 0331](../adr/0331-a-location-may-be-any-kind.md)); a Connection, a Relationship, a Social web, a Feature, a Feature instance and the manuscript kinds are each always their own kind.

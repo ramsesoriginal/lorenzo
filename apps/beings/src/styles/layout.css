@@ -60,8 +60,7 @@
   height: 16px;
 }
 
-/* A being's avatar: the initials in a circle, with the picture over them once it has loaded. Not
-   `.avatar`: that is the brand's, the account button (apps/brand/tests/class-clash.test.mjs). */
+/* An avatar: the initials in a circle, with the picture over them once it has loaded. */
 .being-avatar {
   position: relative;
   display: inline-flex;

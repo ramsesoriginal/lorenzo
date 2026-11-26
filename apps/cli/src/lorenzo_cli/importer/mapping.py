@@ -5,8 +5,8 @@ attribute is a row and not a code change. Everything is validated when it is loa
 map fails before anything is read from a tenant or written to one.
 
 A row may say which half of an item it writes, `part = "neutral"` or `"system"` (ADR 0182), where
-no layer of the seed already does: a stat's part is its definition's layer, a category's its
-node's, so a row can't say what the seed contradicts.
+the starters (ADR 0504) do not already decide: a stat's part is its group's system's, a category's
+the system document's, so a row can't say what the starters contradict.
 """
 
 from __future__ import annotations
@@ -42,9 +42,10 @@ PLAIN_TRANSFORMS = frozenset(
         "classify", "name_and_price", "pack_contents", "aliases",
     }
 )  # fmt: skip
-# Transforms whose output is text, which no layer of the seed says whose it is: their rule may.
+# Transforms whose output is text, which the starters don't say whose it is: their rule may.
 TEXT_TRANSFORMS = frozenset({"description", "information", "aliases", "pack_contents"})
-# Transforms that write the stat their `stat` names: one the seed doesn't know may be given a part.
+# Transforms that write the stat their `stat` names: one the starters don't know may be given a
+# part.
 STAT_TRANSFORMS = frozenset(
     {
         "int", "float", "text", "bool", "denomination_sum", "regex_extract", "keyword_flag",
@@ -86,7 +87,7 @@ class Row(BaseModel):
     axis: Literal["form", "proficiency", "tier", "property", "material"] | None = None
     slug: str | None = None
     name: str | None = None
-    # Whose the row's parents are, for parents the seed doesn't know (ADR 0182).
+    # Whose the row's parents are, for parents the starters don't know (ADR 0182).
     part: Part | None = None
 
     @model_validator(mode="after")
@@ -113,7 +114,7 @@ class Rule(BaseModel):
     model_config = ConfigDict(extra="allow")
 
     transform: str
-    # Whose what the rule writes is, where no layer of the seed says (ADR 0182).
+    # Whose what the rule writes is, where the starters don't say (ADR 0182).
     part: Part | None = None
 
     @model_validator(mode="after")
@@ -156,7 +157,7 @@ class NameRule(BaseModel):
     words: list[str] = Field(default_factory=list)
     group: str = ""
     parents: list[str]
-    # Whose the rule's parents are, for parents the seed doesn't know (ADR 0182).
+    # Whose the rule's parents are, for parents the starters don't know (ADR 0182).
     part: Part | None = None
 
     @model_validator(mode="after")
@@ -197,7 +198,7 @@ class Mapping(BaseModel):
 
     def minted_slugs(self) -> set[str]:
         """The categories a row can make (`create-under`): the importer manages them like the
-        seed's."""
+        starters'."""
         return {
             row.slug
             for sections in self.classify.values()
@@ -350,7 +351,7 @@ def _system_label(system: dict[str, Any]) -> str:
 
 
 def _check_parts(mapping: Mapping) -> None:
-    """A `part` only goes where no layer of the seed says whose the output is (ADR 0182)."""
+    """A `part` only goes where the starters don't say whose the output is (ADR 0182)."""
     from lorenzo_cli.importer.vocabulary import load
 
     seed = load()

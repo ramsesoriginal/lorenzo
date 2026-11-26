@@ -61,7 +61,7 @@ def sheet(
         err.print(note, highlight=False)
     if output is not None:
         err.print(
-            f"Written to {output}. Check it, then: lorenzo inventory import {output} --dry-run"
+            f"Written to {output}. Check it, then: lorenzo import inventory {output} --dry-run"
         )
 
 

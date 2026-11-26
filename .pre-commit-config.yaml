@@ -281,8 +281,8 @@ repos:
         files: ^packages/api-client/.*\.ts$
         pass_filenames: false
 
-# Further language-specific hooks get added here alongside the next app
-# that needs them - see docs/guides/adding-an-app.md.
+# Further language-specific hooks get added here alongside the app that needs
+# them - see docs/guides/adding-an-app.md.
 
   - repo: local
     hooks:

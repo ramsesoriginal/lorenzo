@@ -289,7 +289,7 @@ async def test_a_visitor_reads_nothing_of_a_protected_repository(
         # No signed-in user with no library reads it as an operator either: ADR 0057 has no
         # God-mode read.
         operator = await make_actor(
-            raw_client, fake_jwks_server, "operator", roles=("platform-operator",)
+            raw_client, fake_jwks_server, "operator", roles=("platform_operator",)
         )
         w.actors.append(operator)
         assert set(await _closed(operator, _alone(w.a))) == {404}

@@ -50,17 +50,17 @@ def stack() -> Iterator[Stack]:
 
 @pytest.fixture(scope="session")
 def shared_repository(stack: Stack) -> SharedRepository:
-    """The golden repository (helpers.golden_repository): every seed layer, published. Here for the
-    tests that only read it or plan against it, so each doesn't pay for its own seed (about 130
-    requests). Built when the first test of the session asks, so a CI shard without one never
-    makes it.
+    """The golden repository (helpers.golden_repository): the neutral and dnd5e starters,
+    published. Here for the tests that only read it or plan against it, so each doesn't pay
+    for applying the starters itself. Built when the first test of the session asks, so a CI
+    shard without one never makes it.
 
     The rules for a test that uses it:
-    - Never write to it: no apply, seed, unseed, publish, rename, delete, copy or grant, not
+    - Never write to it: no apply, starter, publish, rename, delete, copy or grant, not
       even a command that is expected to refuse (the grants that a copy of it
       needs are the one write it takes). A write left behind changes every other test.
     - Never assert on what is tenant-wide and another test could change, such as counts of
-      every item; the seed's own entities and "nothing is imported yet" are fair to assert.
+      every item; the starters' own entities and "nothing is imported yet" are fair to assert.
     - Keep files a command writes (review queue, proposed map) in the test's own `tmp_path`.
     - Use its token (`.token`), not the shared "creator": that subject already holds dozens
       of tenants, and `helpers.tenant_id` pages through all of them."""

@@ -72,8 +72,8 @@ class ItemDraft:
     # Entries of their own to write on the item (other names, special rules...), by type.
     information: list[InfoDraft] = field(default_factory=list)
     # ADR 0182. The namespaces of the neutral item and of the system's prototype, and the label the
-    # prototype's name carries; the seed decides the part of its own stats and categories, so these
-    # are only what the map's rows said for the rest.
+    # prototype's name carries; the starters decide the part of their own stats and categories, so
+    # these are only what the map's rows said for the rest.
     neutral_namespace: str = ""
     system_namespace: str = ""
     system_label: str = DEFAULT_SYSTEM_LABEL
