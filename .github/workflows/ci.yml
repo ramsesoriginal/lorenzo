@@ -58,7 +58,7 @@ jobs:
         if: github.event_name == 'pull_request'
         run: git fetch --no-tags --depth=1 origin "${{ github.event.pull_request.base.sha }}"
       # A push to main: the commit CI last passed on, or nothing (everything runs then, as it does when
-      # that commit cannot be fetched).
+      # that commit cannot be fetched, and while the last nightly run is red).
       - name: Find the last green commit on main
         id: green
         if: github.event_name == 'push'
@@ -69,7 +69,7 @@ jobs:
           if [ -n "$sha" ] && git fetch --no-tags --depth=1 origin "$sha"; then
             echo "base=$sha" >> "$GITHUB_OUTPUT"
           else
-            echo "No green commit to compare with: everything runs."
+            echo "No green commit to compare with, or the last nightly run is red: everything runs."
           fi
       - id: find
         env:

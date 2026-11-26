@@ -35,5 +35,34 @@ class Pick(unittest.TestCase):
         self.assertIsNone(last_green.pick([run("a", "failure")], "c"))
 
 
+def full(conclusion: str, created: str, event: str = "schedule", branch: str = "main") -> dict:
+    return {"conclusion": conclusion, "created_at": created, "event": event, "head_branch": branch}
+
+
+class FullRunRed(unittest.TestCase):
+    def test_a_red_nightly_is_red(self) -> None:
+        self.assertTrue(last_green.full_run_red([full("failure", "2026-11-26T01:41")]))
+
+    def test_the_newest_finished_one_decides(self) -> None:
+        runs = [full("failure", "2026-11-25T01:41"), full("success", "2026-11-26T01:41")]
+        self.assertFalse(last_green.full_run_red(runs))
+        self.assertTrue(last_green.full_run_red([*runs, full("failure", "2026-11-27T01:41")]))
+
+    def test_a_green_manual_run_ends_it(self) -> None:
+        runs = [full("failure", "2026-11-26T01:41"), full("success", "2026-11-26T09:00", "workflow_dispatch")]
+        self.assertFalse(last_green.full_run_red(runs))
+
+    def test_a_cancelled_or_unfinished_run_says_nothing(self) -> None:
+        runs = [full("success", "2026-11-25T01:41"), full("cancelled", "2026-11-26T01:41"), full(None, "2026-11-27T01:41")]  # type: ignore[arg-type]
+        self.assertFalse(last_green.full_run_red(runs))
+
+    def test_no_run_yet_is_not_red(self) -> None:
+        self.assertFalse(last_green.full_run_red([]))
+
+    def test_a_run_of_another_branch_or_event_is_ignored(self) -> None:
+        runs = [full("failure", "2026-11-26T01:41", branch="feat/x"), full("failure", "2026-11-26T02:00", "push")]
+        self.assertFalse(last_green.full_run_red(runs))
+
+
 if __name__ == "__main__":
     unittest.main()
