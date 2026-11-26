@@ -4,6 +4,7 @@
 
 import { listMyCharacters } from '../../lib/characters';
 import type { Renderer } from '../../lib/descriptions';
+import { renderTagEditor } from '../../lib/entityParts';
 import type { FoundItem } from '../../lib/itemLookup';
 import { getCatalogItem, getEntityDetail, getItemInstance } from '../../lib/items';
 import { isCampaignGm } from '../../lib/me';
@@ -17,7 +18,6 @@ import { renderMentionedIn } from '../MentionedIn/renderer';
 import { type Reader, renderNotes } from '../Notes/renderer';
 import { renderSlugEditor } from '../SlugEditor/renderer';
 import { renderStatEditor } from '../StatEditor/renderer';
-import { renderTagEditor } from '../TagEditor/renderer';
 import { renderUsedBy } from '../UsedBy/renderer';
 
 export type ItemPageOptions = {

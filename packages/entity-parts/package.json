@@ -1,0 +1,32 @@
+{
+  "name": "@lorenzo/entity-parts",
+  "private": true,
+  "type": "module",
+  "version": "1.0.0",
+  "description": "The parts of an entry's page that Beings and Inventory both draw: the tag editor, the description editor, and what they share. Bound to an app by createEntityParts (ADR 0526).",
+  "exports": {
+    ".": "./src/index.ts",
+    "./TagEditor.astro": "./src/TagEditor.astro",
+    "./DescriptionEditor.astro": "./src/DescriptionEditor.astro"
+  },
+  "scripts": {
+    "lint": "biome check . && tsc --noEmit && prettier --check \"**/*.astro\"",
+    "format": "biome check --write . && prettier --write \"**/*.astro\"",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@lorenzo/api-client": "workspace:*",
+    "@lorenzo/lorenzoscript-editor": "workspace:*",
+    "@lorenzo/stat-values": "workspace:*"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.6.7",
+    "@types/node": "^26.6.6",
+    "astro": "^7.4.12",
+    "jsdom": "^30.1.3",
+    "prettier": "^3.10.1",
+    "prettier-plugin-astro": "^1.1.2",
+    "typescript": "^6.0.3",
+    "vitest": "^5.1.0"
+  }
+}

@@ -2,8 +2,8 @@
 // follow, under it.
 
 import { createEditor } from '@lorenzo/lorenzoscript-editor';
-import type { Renderer } from '../../lib/descriptions';
-import { requiredIn } from '../../lib/template';
+import { requiredIn } from './internal/template';
+import type { Renderer } from './text';
 
 export type DescriptionEditorOptions = {
   renderer: Renderer;
