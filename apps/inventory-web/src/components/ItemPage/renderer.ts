@@ -4,20 +4,19 @@
 
 import { listMyCharacters } from '../../lib/characters';
 import type { Renderer } from '../../lib/descriptions';
+import { renderDescriptionEdit, renderSlugEditor, renderTagEditor } from '../../lib/entityParts';
 import type { FoundItem } from '../../lib/itemLookup';
 import { getCatalogItem, getEntityDetail, getItemInstance } from '../../lib/items';
 import { isCampaignGm } from '../../lib/me';
 import { requiredIn } from '../../lib/template';
+import { hasOwnText } from '../../lib/textSources';
 import type { ItemBase, ItemInstance } from '../../lib/types';
 import { renderAncestryTree } from '../AncestryTree/renderer';
-import { renderDescriptionEdit } from '../DescriptionEdit/renderer';
 import { renderInformation } from '../Information/renderer';
 import { renderItemView } from '../ItemView/renderer';
 import { renderMentionedIn } from '../MentionedIn/renderer';
 import { type Reader, renderNotes } from '../Notes/renderer';
-import { renderSlugEditor } from '../SlugEditor/renderer';
 import { renderStatEditor } from '../StatEditor/renderer';
-import { renderTagEditor } from '../TagEditor/renderer';
 import { renderUsedBy } from '../UsedBy/renderer';
 
 export type ItemPageOptions = {
@@ -180,7 +179,11 @@ export function renderItemPage(options: ItemPageOptions): RenderedItemPage {
     quantity.hidden = !stacked;
     quantity.textContent = stacked ? `×${item.quantity}` : '';
     itemView.show(item);
-    description.show(item);
+    description.show({
+      entityId: item.entity_id,
+      name: item.title,
+      hasDescription: hasOwnText(item.descriptions),
+    });
   }
 
   return {

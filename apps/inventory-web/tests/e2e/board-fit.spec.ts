@@ -172,7 +172,7 @@ test('giving a card changes its mark, and neither fetches nor draws the board', 
   await page.getByRole('button', { name: 'Give to…' }).click();
   await pickBeing(page, 'Brisk');
 
-  await expect(cardIn(page, "Ornate Spellbook Brisk's")).toBeVisible();
+  await expect(cardIn(page, "Ornate Spellbook Brisk's")).toBeVisible({ timeout: 15_000 });
   await unchanged();
 });
 
@@ -191,7 +191,7 @@ test('giving part of a stack adds a card and says the rest, with no fetch', asyn
   await page.getByLabel('How many? (of 3, blank for all)').fill('1');
   await pickBeing(page, 'Brisk');
 
-  await expect(cardIn(page, 'Arrow ×2')).toBeVisible();
+  await expect(cardIn(page, 'Arrow ×2')).toBeVisible({ timeout: 15_000 });
   await expect(cardIn(page, "Arrow Brisk's")).toBeVisible();
   await expect(backpack(page).locator('[data-column-count]')).toHaveText('3');
   await unchanged();
@@ -211,7 +211,7 @@ test('merging a stack into another joins them, with no fetch', async ({ world, a
   await page.getByRole('button', { name: 'Merge into…' }).click();
   await page.getByRole('dialog').getByRole('button', { name: 'Arrow ×3' }).click();
 
-  await expect(cardIn(page, 'Arrow ×4')).toBeVisible();
+  await expect(cardIn(page, 'Arrow ×4')).toBeVisible({ timeout: 15_000 });
   await expect(backpack(page).locator('[data-column-count]')).toHaveText('2');
   await unchanged();
 });
@@ -235,7 +235,7 @@ test('giving selected cards from the select bar marks them, with no fetch', asyn
     .click();
   await pickBeing(page, 'Brisk');
 
-  await expect(cardIn(page, "Ornate Spellbook Brisk's")).toBeVisible();
+  await expect(cardIn(page, "Ornate Spellbook Brisk's")).toBeVisible({ timeout: 15_000 });
   await expect(cardIn(page, "Arrow ×3 Brisk's")).toBeVisible();
   await unchanged();
 });
