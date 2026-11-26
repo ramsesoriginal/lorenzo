@@ -9,14 +9,13 @@ from lorenzo_api.db import Base, CreatedAt, TenantFk, UuidPk
 
 
 class AuditLog(Base):
-    """One tenant-admin-relevant event - see ADR 0063. A first,
-    deliberately narrow slice: only membership and campaign/GM lifecycle
-    events are logged (see `lorenzo_api.activity_log` for exactly which),
-    not an exhaustive record of every mutation in the API.
+    """One tenant-admin-relevant event - see ADR 0063. The mutations that change
+    what exists, who holds it, or who can see or do what are logged, by any
+    actor, bar the exclusions ADR 0084 lists (see `lorenzo_api.activity_log`).
 
     `tenant_id` is **not nullable** - platform-scope events (e.g. account
-    suspension, ADR 0057) are explicitly out of scope for this slice, not
-    a NULL case to design around yet. Plain `tenant_id = app.tenant_id`
+    suspension, ADR 0057) are out of scope, not a NULL case to design
+    around. Plain `tenant_id = app.tenant_id`
     RLS, the ordinary shape - unlike `notification` (ADR 0058/0061), this
     is inherently a per-tenant admin view, not a cross-tenant personal
     inbox, so no self-access clause is needed.

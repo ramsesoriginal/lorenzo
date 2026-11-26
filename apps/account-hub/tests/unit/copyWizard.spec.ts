@@ -71,11 +71,11 @@ function copy(overrides: Partial<CopyOut> = {}): CopyOut {
 }
 
 describe('the limits of a copy', () => {
-  it('say what cannot be undone, the one game system and what GM only means', () => {
+  it('say what cannot be undone, the game systems and what GM only means', () => {
     const text = COPY_LIMITS.join(' ');
 
     expect(text).toMatch(/cannot be undone as a whole/);
-    expect(text).toMatch(/one game system at a time/);
+    expect(text).toMatch(/several game systems/);
     expect(text).toMatch(/GM only/);
   });
 

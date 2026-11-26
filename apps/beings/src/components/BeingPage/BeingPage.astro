@@ -4,7 +4,7 @@ import BeingRelationships from '../BeingRelationships/BeingRelationships.astro';
 import BeingNotes from '../BeingNotes/BeingNotes.astro';
 import Datasheet from '../Datasheet/Datasheet.astro';
 import DeleteBeing from '../DeleteBeing/DeleteBeing.astro';
-import DescriptionEdit from '../DescriptionEdit/DescriptionEdit.astro';
+import DescriptionEdit from '@lorenzo/entity-parts/DescriptionEdit.astro';
 import HandOver from '../HandOver/HandOver.astro';
 import InventorySummary from '../InventorySummary/InventorySummary.astro';
 import LayoutSwitch from '../LayoutSwitch/LayoutSwitch.astro';
@@ -12,9 +12,9 @@ import ModeSwitch from '../ModeSwitch/ModeSwitch.astro';
 import NameEdit from '../NameEdit/NameEdit.astro';
 import People from '../People/People.astro';
 import PictureEdit from '../PictureEdit/PictureEdit.astro';
-import SlugEditor from '../SlugEditor/SlugEditor.astro';
+import SlugEditor from '@lorenzo/entity-parts/SlugEditor.astro';
 import StatBand from '../StatBand/StatBand.astro';
-import TagEditor from '../TagEditor/TagEditor.astro';
+import TagEditor from '@lorenzo/entity-parts/TagEditor.astro';
 import { BRANDING_CSS_URL } from '../../lib/config';
 ---
 
@@ -87,7 +87,7 @@ import { BRANDING_CSS_URL } from '../../lib/config';
       <h3 id="being-slug-heading" class="visually-hidden">
         Link name
       </h3>
-      <SlugEditor />
+      <SlugEditor label="Link name" example="link-name" also="Also called its slug." />
     </div>
     <div role="region" aria-labelledby="being-tags-heading">
       <h3 id="being-tags-heading" class="visually-hidden">

@@ -44,7 +44,7 @@ export async function listMyTenants(
   );
 }
 
-// ADR 0085 - TenantSummaryOut/TenantOut carry no picture_url field (unlike MeOut, ADR 0056/0060), so
+// ADR 0087 - TenantSummaryOut/TenantOut carry no picture_url field (unlike MeOut, ADR 0056/0060), so
 // the client builds the address itself; GET .../picture has no fallback for a tenant with nothing
 // uploaded (a plain 404, unlike a user's Gravatar redirect), which the pages leave out.
 //
@@ -135,7 +135,7 @@ export async function updateCampaign(
   );
 }
 
-// ADR 0085 - same reasoning as tenantPictureUrl above, gated by
+// ADR 0087 - same reasoning as tenantPictureUrl above, gated by
 // can_manage_campaign server-side (same as update_campaign).
 export function campaignPictureUrl(tenantId: string, campaignId: string): string {
   return `${API_BASE_URL}/tenants/${tenantId}/campaigns/${campaignId}/picture`;

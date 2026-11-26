@@ -153,3 +153,5 @@ The design is built in `apps/beings` ([RFC 0043](../../rfcs/0043-the-being-sheet
 6. **Undo scope**: Play changes only.
 
 Differences from the prototype: the datasheet's notes say only "Not for everyone" where a note is not public (the sheet's notes keep the full audience); a library with no weapon group gets "Carried", the names and counts of what the being owns; the stat vocabulary is readable by every participant so a player's sheet can be drawn. The prototype remains the reference for anything not listed.
+
+Since then the page was redesigned and moved into the web shell ([ADR 0422](../../adr/0422-beings-redesign.md), [ADR 0524](../../adr/0524-beings-and-inventory-move-into-the-web-shell.md); the design is [docs/design/web/beings](../web/beings/README.md)). There is no Edit mode: a page is Read or Play, and a section a person may change has its own edit control and saves as it goes. A being opens in the mode last used on it, so the answer to question 5 above no longer holds. The brief and the prototype are kept as they were; where they differ from [`apps/beings`](../../../apps/beings/README.md), the app and ADR 0524 win.

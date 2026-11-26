@@ -27,11 +27,11 @@ class Parts:
         self._nodes = {n.slug: n.part for n in vocabulary.nodes}
 
     def stat(self, name: str) -> Part | None:
-        """The part of one of the seed's stats, or None where the seed doesn't have it."""
+        """The part of one of the starters' stats, or None where they don't have it."""
         return self._stats.get(name)
 
     def node(self, slug: str) -> Part | None:
-        """The part of one of the seed's categories, or None where the seed doesn't have it."""
+        """The part of one of the starters' categories, or None where they don't have it."""
         return self._nodes.get(slug)
 
 

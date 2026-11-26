@@ -177,7 +177,7 @@ def test_the_command_writes_the_ledger_and_says_what_to_do_next(
 
     assert result.exit_code == 0, result.output
     assert out.read_text("utf-8") == (GOLDEN / "sheet-de.ledger").read_text("utf-8")
-    assert "lorenzo inventory import" in result.output
+    assert "lorenzo import inventory" in result.output
 
 
 def test_the_command_prints_to_the_screen_by_default(make_book: Callable[..., Path]) -> None:
