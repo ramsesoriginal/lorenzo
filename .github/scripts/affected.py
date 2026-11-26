@@ -7,7 +7,7 @@ Standard library only (3.11+: tomllib), because this runs in the job every other
 job waits for.
 
     affected.py --root . --base <sha> [--github-output FILE] [--summary FILE]
-    affected.py --root . --all       [...]      # push to main: everything
+    affected.py --root . --all       [...]      # the nightly run, or no base to compare with: everything
 
 Edges come from three places:
   * derived: a package.json `workspace:` dependency, a pyproject.toml uv path source;
@@ -355,7 +355,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--root", default=".")
     parser.add_argument("--base", help="base commit of a pull request")
-    parser.add_argument("--all", action="store_true", help="everything is affected (push to main)")
+    parser.add_argument("--all", action="store_true", help="everything is affected (the nightly run)")
     parser.add_argument("--changed", nargs="*", help="changed paths instead of git diff (testing)")
     parser.add_argument("--release", action="store_true", help="the release-please pull request: lint only")
     parser.add_argument("--github-output")
@@ -371,7 +371,7 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     changed: list[str] = []
-    everything, why = args.all, "push to main, or no base to compare with"
+    everything, why = args.all, "the nightly or a manual run, or no base to compare with"
     if not args.all:
         if args.changed is not None:
             changed = args.changed

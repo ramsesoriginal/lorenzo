@@ -2,14 +2,22 @@ name: CI
 
 on:
   pull_request:
+  # A push to main runs what changed since the last green run; the whole suite runs every night, and on
+  # demand (ADR 0148, addendum of 2026-11-26).
   push:
     branches: [main]
+  schedule:
+    - cron: "41 1 * * *" # nightly, UTC
+  workflow_dispatch:
 
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.ref }}
+  # The nightly run has a group of its own: a push to main must not displace it while it waits.
+  group: ci-${{ github.workflow }}-${{ github.event_name == 'schedule' && 'nightly' || github.ref }}
   # A newer push to a pull request makes the run of the older one pointless. A push to main does not:
   # each merge is a commit whose result is wanted, and 3 of the last 30 runs on main were cancelled by
-  # the next merge, which left them with no result at all (ADR 0148, addendum of 2026-11-24).
+  # the next merge, which left them with no result at all (ADR 0148, addendum of 2026-11-24). A run that
+  # waits behind another is still replaced by the next one, which is harmless: a run on main compares
+  # with the last green commit, so it tests what the replaced one would have.
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 # mise itself is pinned, not "latest". Left floating, the action picks the newest release older than
@@ -27,12 +35,18 @@ jobs:
   # Decides what this change can affect (ADR 0148). Every apps/*/mise.toml and packages/*/mise.toml is a
   # node (docs/adr/0007-apps-layout-and-multiplicity.md; packages since ADR 0100); a change reaches its
   # own node and everything that depends on it, never what it depends on. Dependencies are derived from
-  # package.json and uv path sources, plus the hand-written .github/ci-graph.toml. A push to main is
-  # the full run: everything is affected. A node CI can't read and that isn't declared fails this job.
+  # package.json and uv path sources, plus the hand-written .github/ci-graph.toml. A push to main runs what
+  # changed since the last green run on main (.github/scripts/last_green.py), everything when there is
+  # none; the nightly run and a manual one run everything (ADR 0148, addendum of 2026-11-26). A node CI
+  # can't read and that isn't declared fails this job.
   # Nothing here needs mise or a toolchain: the script is standard-library Python, so it is fast.
   discover:
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    # actions: read lists the runs on main, for the last green commit.
+    permissions:
+      contents: read
+      actions: read
     outputs:
       test_matrix: ${{ steps.find.outputs.test_matrix }}
       drift_matrix: ${{ steps.find.outputs.drift_matrix }}
@@ -43,9 +57,24 @@ jobs:
       - name: Fetch the pull request's base
         if: github.event_name == 'pull_request'
         run: git fetch --no-tags --depth=1 origin "${{ github.event.pull_request.base.sha }}"
+      # A push to main: the commit CI last passed on, or nothing (everything runs then, as it does when
+      # that commit cannot be fetched).
+      - name: Find the last green commit on main
+        id: green
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          sha=$(python3 .github/scripts/last_green.py --repo "$GITHUB_REPOSITORY" --sha "$GITHUB_SHA")
+          if [ -n "$sha" ] && git fetch --no-tags --depth=1 origin "$sha"; then
+            echo "base=$sha" >> "$GITHUB_OUTPUT"
+          else
+            echo "No green commit to compare with: everything runs."
+          fi
       - id: find
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          GREEN_SHA: ${{ steps.green.outputs.base }}
           HEAD_REF: ${{ github.head_ref }}
         run: |
           if [[ "$HEAD_REF" == release-please--* ]]; then
@@ -55,7 +84,10 @@ jobs:
             python3 .github/scripts/affected.py --root . --release --github-output "$GITHUB_OUTPUT" --summary "$GITHUB_STEP_SUMMARY"
           elif [ "${{ github.event_name }}" = "pull_request" ]; then
             python3 .github/scripts/affected.py --root . --base "$BASE_SHA" --github-output "$GITHUB_OUTPUT" --summary "$GITHUB_STEP_SUMMARY"
+          elif [ -n "$GREEN_SHA" ]; then
+            python3 .github/scripts/affected.py --root . --base "$GREEN_SHA" --github-output "$GITHUB_OUTPUT" --summary "$GITHUB_STEP_SUMMARY"
           else
+            # The nightly run, a manual one, or a push with no green commit to compare with.
             python3 .github/scripts/affected.py --root . --all --github-output "$GITHUB_OUTPUT" --summary "$GITHUB_STEP_SUMMARY"
           fi
 
@@ -259,8 +291,8 @@ jobs:
   # class of gap release.yml's sync-lockfile job catches for uv.lock), so every node with a
   # `check-schema` task is checked whenever it, or the node it is generated from, is affected (ADR
   # 0148; `generated_from` in .github/ci-graph.toml). Today that is packages/api-client (ADR
-  # 0122), apps/cli (ADR 0137), apps/inventory-mobile and apps/inventory-ios. A push to main
-  # checks them all, so a drift that slips in some other way still shows up red.
+  # 0122), apps/cli (ADR 0137), apps/inventory-mobile and apps/inventory-ios. The nightly
+  # run checks them all, so a drift that slips in some other way still shows up red.
   client-drift:
     name: client-drift (${{ matrix.app }})
     needs: discover

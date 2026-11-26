@@ -47,5 +47,25 @@ class Timeouts(unittest.TestCase):
         self.assertIn("test", jobs((WORKFLOWS / "ci.yml").read_text(encoding="utf-8")))
 
 
+class Nightly(unittest.TestCase):
+    """A push to main runs only what changed since the last green run (ADR 0148, addendum of
+    2026-11-26); what keeps the rest honest is the whole suite every night."""
+
+    def setUp(self) -> None:
+        self.text = (WORKFLOWS / "ci.yml").read_text(encoding="utf-8")
+
+    def test_the_whole_suite_runs_every_night_and_on_demand(self) -> None:
+        self.assertRegex(self.text, r"(?m)^  schedule:\n    - cron: ")
+        self.assertRegex(self.text, r"(?m)^  workflow_dispatch:")
+
+    def test_a_scheduled_run_compares_with_nothing(self) -> None:
+        # the baseline step is for a push only: with one on a schedule, the nightly run would test a diff
+        step = self.text.split("- name: Find the last green commit on main", 1)[1].split("- id: find", 1)[0]
+        self.assertIn("if: github.event_name == 'push'", step)
+
+    def test_discover_may_list_the_runs_on_main(self) -> None:
+        self.assertIn("actions: read", jobs(self.text)["discover"])
+
+
 if __name__ == "__main__":
     unittest.main()
