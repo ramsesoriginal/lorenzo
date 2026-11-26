@@ -65,6 +65,10 @@
       "release-type": "node",
       "component": "stat-values"
     },
+    "packages/entity-parts": {
+      "release-type": "node",
+      "component": "entity-parts"
+    },
     "apps/inventory-mobile": {
       "release-type": "simple",
       "component": "inventory-mobile"

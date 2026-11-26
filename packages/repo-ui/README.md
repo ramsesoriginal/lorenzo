@@ -6,7 +6,9 @@ The elements the repository screens share ([RFC 0036](../../docs/rfcs/0036-repos
 a field that changed, with what it was, what the other side has now and, where the host changed it
 too, what the host has, and the choice between the two. The hub's update inbox
 ([ADR 0203](../../docs/adr/0203-shelf-the-update-inbox.md)) and Bench's conflict view
-([ADR 0254](../../docs/adr/0254-bench-status-bar-and-conflict-review.md)) draw their fields with it.
+([ADR 0254](../../docs/adr/0254-bench-status-bar-and-conflict-review.md)) and Writing's comparison of a
+copied manuscript ([ADR 0398](../../docs/adr/0398-copied-manuscript-comparison.md)) and review of
+composition updates draw their fields with it.
 No framework and no dependencies; it ships TypeScript source and a stylesheet, as the other packages
 do.
 

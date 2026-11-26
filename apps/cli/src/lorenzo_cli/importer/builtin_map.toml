@@ -9,11 +9,12 @@
 #
 # Every item has two halves (ADR 0182): the neutral one, true anywhere (its name, weight, forms,
 # materials, other names), and the system's, D&D's (its price, dice, proficiency, properties).
-# `lorenzo apply --part neutral` writes the first into the common equipment; `--part system`
-# writes the second as a prototype attached to it. Which half a thing is in is decided by the seed:
-# a stat has the part of its definition's layer, a category the part of its node's, a category a
-# row mints the part of its axis. A row says `part = "neutral" | "system"` only for what no layer
-# decides, such as text: here a weapon's description (a property list) and its special rules.
+# `lorenzo import mpmb apply --part neutral` writes the first into the common equipment; `--part
+# system` writes the second as a prototype attached to it. Which half a thing is in is decided by
+# the starters (ADR 0504): a stat has the part of its group's system, a category the part of the
+# system document's entry it is, a category a row mints the part of its axis. A row says
+# `part = "neutral" | "system"` only for what the starters do not decide, such as text: here a
+# weapon's description (a property list) and its special rules.
 # `[system_namespaces]` and `[system] label` in a project map name the prototypes' slugs and names.
 
 schema = 1

@@ -78,7 +78,7 @@ class Account:
 async def account(
     raw_client: AsyncClient, fake_jwks_server: FakeJwksServer, no_poll_wait: None
 ) -> AsyncGenerator[Account]:
-    acct = Account(raw_client, fake_jwks_server, ["tenant_creator", "platform-operator"])
+    acct = Account(raw_client, fake_jwks_server, ["tenant_creator", "platform_operator"])
     await acct.sign_in()
     yield acct
     async with admin_session_factory() as session:

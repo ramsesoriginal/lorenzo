@@ -1,4 +1,4 @@
-// A tenant's or a campaign's own picture widget (ADR 0085) - reused as-is for both call sites,
+// A tenant's or a campaign's own picture widget (ADR 0087) - reused as-is for both call sites,
 // the way the user picker (ADR 0074) is reused across pages. Unlike /me/picture
 // (MeOut.picture_url, always resolvable via a Gravatar fallback), tenants/campaigns have no
 // server-provided picture_url field and GET .../picture has no fallback at all - a 404 when

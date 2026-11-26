@@ -1,4 +1,4 @@
-"""`lorenzo inventory import` for any being a GM may list, with `--replace`, and its display
+"""`lorenzo import inventory` for any being a GM may list, with `--replace`, and its display
 (ADR 0232), against a fake API."""
 
 from __future__ import annotations

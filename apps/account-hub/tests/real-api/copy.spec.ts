@@ -59,7 +59,7 @@ test('a library copies a repository: check first, review, done', async ({ browse
   // Step 1: the limits are said before anything else, and what it brings is counted.
   await expect(step(page)).toHaveText('Step 1 of 3: Check first');
   await expect(page.getByText('cannot be undone as a whole')).toBeVisible();
-  await expect(page.getByText('one game system at a time')).toBeVisible();
+  await expect(page.getByText('several game systems')).toBeVisible();
   await expect(page.getByText('stay GM only')).toBeVisible();
   await expect(page.locator('[data-brings]')).toContainText(
     `${repository.name}: 2 entries, 1 stat group, 2 stats`,
