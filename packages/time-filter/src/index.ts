@@ -8,6 +8,7 @@ import {
   totalDays,
 } from './strip';
 
+export * from './period';
 export * from './strip';
 
 export interface TimeFilterOptions {

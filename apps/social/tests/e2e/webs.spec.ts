@@ -590,3 +590,84 @@ test('a line is labelled with its type, a chain is dashed, and a hand-placed ent
   await expect(page.getByText(/placed by hand, not saved yet/)).toBeVisible();
   await page.getByRole('button', { name: 'Fit' }).click();
 });
+
+test('the date lens chooses an Event from the shared time filter and the Events in story order', async ({
+  browser,
+}) => {
+  const w = await world();
+  const mara = await w.entry('Mara Quill');
+  const wren = await w.entry('Wren Ashdown');
+  await w.tie('Always friends', mara.id, wren.id, true);
+  // A calendar with one Event dated in its second month, and one Event dated nowhere.
+  const document = {
+    format: 'lorenzo.calendar-document/1' as const,
+    source_key: 'isles',
+    name: 'Isles calendar',
+    definition: {
+      format: 'lorenzo.calendar/1' as const,
+      segments: ['Frostwane', 'Thaw', 'Bloom'].map((name, i) => ({
+        key: `segment-${i + 1}`,
+        name,
+        days: 10,
+        kind: 'month' as const,
+        in_week: false,
+        when: null,
+      })),
+      week: null,
+      moons: [],
+    },
+    is_public: true,
+    period_is_public: true,
+    warnings: [],
+    annotations: [
+      {
+        key: 'storm',
+        date: { year: 0, segment: 'segment-2', day: 5 },
+        text: 'A storm reaches the harbour.',
+        original_text: 'A storm reaches the harbour.',
+        title: 'Harbour storm',
+        classification: 'event' as const,
+        is_public: true,
+        information_is_public: true,
+      },
+    ],
+  };
+  const plan = await ok(
+    w.gm.POST('/tenants/{tenant_id}/calendar-imports/plan', {
+      params: { path: w.path },
+      body: { document },
+    }),
+  );
+  await ok(
+    w.gm.POST('/tenants/{tenant_id}/calendar-imports', {
+      params: { path: w.path },
+      body: { document, token: plan.token },
+    }),
+  );
+  await ok(
+    w.gm.POST('/tenants/{tenant_id}/entities', {
+      params: { path: w.path },
+      body: { name: 'The wedding', kinds: ['event'], parents: [] },
+    }),
+  );
+  const web = await webOf(w, 'The court', [mara.id, wren.id]);
+  const page = await signedIn(browser, w.subject);
+  await page.goto(`/web/?tenant=${w.tenant.id}&id=${web.id}`);
+  await page.getByRole('button', { name: 'As of an Event' }).click();
+  const chooser = page.getByRole('group', { name: 'As of this Event' });
+
+  // The Events as the library tells its story, and the strip of a calendar's year over them.
+  await expect(chooser.getByRole('radio', { name: /The wedding/ })).toBeVisible();
+  await expect(chooser.getByRole('radio', { name: /Harbour storm/ })).toBeVisible();
+  await expect(chooser.locator('.time-filter-seg')).toHaveCount(3);
+  await expect(chooser.getByLabel('Order')).toHaveValue('order');
+
+  // A range of the strip keeps the Events dated in it: the second month holds the storm only.
+  await chooser.locator('.time-filter-seg').nth(1).click();
+  await expect(chooser.getByRole('radio', { name: /The wedding/ })).toHaveCount(0);
+  await chooser.getByRole('radio', { name: /Harbour storm/ }).check();
+  await expect(chooser.getByText('Chosen: Harbour storm')).toBeVisible();
+  await page.getByRole('button', { name: 'Read as of this Event' }).click();
+  await expect(page.getByText('Looking as of Harbour storm')).toBeVisible();
+  expect(page.url()).toContain('as_of=');
+});

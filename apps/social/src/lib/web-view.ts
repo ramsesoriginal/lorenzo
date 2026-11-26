@@ -31,6 +31,7 @@ import {
   select,
   statusLine,
 } from './dom';
+import { eventChooser } from './event-chooser';
 import { listStats, readStanding, type StatDef } from './matrix-api';
 import { canManage } from './names';
 import { notes } from './notes';
@@ -497,7 +498,7 @@ export async function mountWeb() {
       const lensControls = () => {
         const panel = card();
         panel.body.append(el('h2', 'Date lens and point of view', 'group-title'));
-        const events = entryPicker(tenant, 'As of this Event', { kind: 'event' });
+        const events = eventChooser(tenant, 'As of this Event');
         const readers = entryPicker(tenant, 'Read as this entry (what it may read)', {
           kind: 'being',
         });

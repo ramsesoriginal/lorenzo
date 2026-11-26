@@ -31,6 +31,7 @@
     "@lorenzo/lorenzoscript-editor": "workspace:*",
     "@lorenzo/period-picker": "workspace:*",
     "@lorenzo/read-cache": "workspace:*",
+    "@lorenzo/time-filter": "workspace:*",
     "astro": "^7.4.12"
   },
   "devDependencies": {

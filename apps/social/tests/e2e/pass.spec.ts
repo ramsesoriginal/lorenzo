@@ -89,6 +89,10 @@ for (const theme of ['light', 'dark'] as const) {
     await expect(page.getByRole('group', { name: 'Members' })).toBeVisible();
     expect((await new AxeBuilder({ page }).analyze()).violations.map((v) => v.id)).toEqual([]);
     await page.getByRole('button', { name: 'Close', exact: true }).click();
+    // The date lens' Event chooser, with its list and the shared time filter.
+    await page.getByRole('button', { name: 'As of an Event' }).click();
+    await expect(page.getByRole('group', { name: 'As of this Event' })).toBeVisible();
+    expect((await new AxeBuilder({ page }).analyze()).violations.map((v) => v.id)).toEqual([]);
     await page.getByRole('button', { name: 'Connect' }).click();
     await expect(page.getByRole('form', { name: 'Connect two entries' })).toBeVisible();
     expect((await new AxeBuilder({ page }).analyze()).violations.map((v) => v.id)).toEqual([]);
