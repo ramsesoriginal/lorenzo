@@ -6,6 +6,11 @@ import { API_BASE_URL } from './config';
 import { message } from './dom';
 import { readScope, socialReads } from './read-cache';
 
+let bound: ReturnType<typeof bindShell> = null;
+
+/** The shell the page is in, once `start` has bound it: for toasts, confirmations and states. */
+export const shellOf = () => bound;
+
 export async function start() {
   const shell = bindShell({
     themeKey: 'lorenzo:social:theme',
@@ -17,6 +22,7 @@ export async function start() {
       void logout();
     },
   });
+  bound = shell;
   if (!shell || !document.querySelector('[data-session]')) return null;
   shell.account({ state: 'checking' });
   // The links that belong to a library name the one the address names.

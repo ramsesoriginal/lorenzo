@@ -21,7 +21,7 @@ import {
   statusLine,
   submit,
 } from './dom';
-import { canManage, libraryName, myLibraries } from './names';
+import { canManage, libraryName } from './names';
 import { notes } from './notes';
 import { endPicker, typePicker } from './pickers';
 import { start } from './sign-in';
@@ -39,42 +39,6 @@ import { readLibrary, readsOf } from './types-api';
 import { audienceWords, defaultName, directionWords, sentence } from './words';
 
 const tenantOf = () => new URLSearchParams(location.search).get('tenant');
-
-/** Libraries first: a person opens Social from the library they are working in. */
-export async function mountHome() {
-  const host = document.querySelector<HTMLElement>('#social-home');
-  if (!host || !claim(host)) return;
-  const me = await start();
-  if (!me || !host.isConnected) return;
-  try {
-    host.replaceChildren(loading('Opening your libraries…'));
-    const libraries = await myLibraries();
-    const view = el('div', '', 'stack view');
-    view.append(
-      pageHead('Social', {
-        lede: 'Who knows whom: the relationships of your libraries, and how much each one counts.',
-      }),
-    );
-    if (libraries.length) {
-      const list = el('ul', '', 'list');
-      for (const library of libraries) {
-        const row = el('li');
-        const text = el('div', '', 'stack-tight grow');
-        text.append(
-          link(library.name, `/relationships/?${new URLSearchParams({ tenant: library.id })}`),
-        );
-        row.append(text, el('span', library.role, 'chip'));
-        list.append(row);
-      }
-      view.append(list);
-    } else {
-      view.append(empty('You are not in a library yet.'));
-    }
-    host.replaceChildren(view);
-  } catch (error) {
-    host.replaceChildren(errorNotice(error));
-  }
-}
 
 /** The relationships of one library, searchable, and a form to make one. */
 export async function mountRelationships() {
@@ -259,7 +223,7 @@ export async function mountRelationship() {
   const draw = async () => {
     try {
       host.replaceChildren(loading('Opening the relationship…'));
-      const [{ relationship, version }, entry, manage] = await Promise.all([
+      const [{ relationship, version }, entry, _manage] = await Promise.all([
         readRelationship(tenant, id),
         readEntry(tenant, id),
         canManage(tenant),

@@ -7,8 +7,7 @@ test('a GM makes a relationship from the form and reads it on its page', async (
   await w.person('Mara Quill');
   await w.person('Wren Ashdown');
   const page = await signedIn(browser, w.subject);
-  await page.goto('/');
-  await page.getByRole('link', { name: w.tenant.name }).click();
+  await page.goto(`/relationships/?tenant=${w.tenant.id}`);
   await expect(page.getByRole('heading', { name: 'Relationships', level: 1 })).toBeVisible();
   await expect(page.getByText('There are no relationships you can see yet.')).toBeVisible();
 

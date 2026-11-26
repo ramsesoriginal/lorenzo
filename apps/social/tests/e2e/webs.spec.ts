@@ -36,6 +36,7 @@ test('a GM makes a web, adds entries and sees them drawn with a sentence a relat
   const page = await signedIn(browser, w.subject);
   await page.goto(`/webs/?tenant=${w.tenant.id}`);
   await expect(page.getByText('There are no webs you can see yet.')).toBeVisible();
+  await page.getByRole('button', { name: 'New web' }).first().click();
   const form = page.getByRole('form', { name: 'Make a web' });
   await form.getByLabel('Name').fill('The court');
   await form.getByLabel('Layout').selectOption('stress');
@@ -235,4 +236,41 @@ test('a family tree is drawn in rows with right angles when the layered layout a
   expect(await y('Mara Quill')).toBeLessThan(await y('Wren Quill'));
   const edge = drawing.locator('path.gr-edge').first();
   expect(((await edge.getAttribute('d')) ?? '').match(/L/g)?.length).toBe(3);
+});
+
+test('Home opens the webs of the library, continues the last web, renames and deletes one', async ({
+  browser,
+}) => {
+  const w = await world();
+  const a = await w.entry('Mara Quill');
+  const made = await webOf(w, 'The court', [a.id]);
+  await webOf(w, 'The guild', [a.id]);
+  const page = await signedIn(browser, w.subject);
+  await page.goto('/');
+  await expect(page.getByRole('heading', { name: 'Webs', level: 1 })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'The court' })).toBeVisible();
+
+  // Opening a web makes Home offer it again.
+  await page.goto(`/web/?tenant=${w.tenant.id}&id=${made.id}`);
+  await expect(page.getByRole('group', { name: 'The court' })).toBeVisible();
+  await page.goto('/');
+  await expect(
+    page.getByRole('region', { name: 'Continue' }).getByRole('link', { name: 'The court' }),
+  ).toBeVisible();
+
+  // A rename is in place; a delete asks first and names what stays.
+  await page.getByRole('button', { name: 'Rename The guild' }).click();
+  const rename = page.getByRole('form', { name: 'Rename the web' });
+  await rename.getByLabel('Name').fill('The order');
+  await rename.getByRole('button', { name: 'Rename' }).click();
+  await expect(page.getByRole('link', { name: 'The order' })).toBeVisible();
+  await page.getByRole('button', { name: 'Delete The order' }).click();
+  await expect(
+    page.getByText('The entries and their relationships stay as they are.'),
+  ).toBeVisible();
+  await page.getByRole('button', { name: 'Delete the web' }).click();
+  await expect(page.getByRole('link', { name: 'The order' })).toHaveCount(0);
+  await expect(
+    page.getByRole('list', { name: 'Webs' }).getByRole('link', { name: 'The court' }),
+  ).toBeVisible();
 });

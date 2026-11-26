@@ -18,11 +18,9 @@ import {
   empty,
   errorNotice,
   field,
-  icon,
   link,
   linkButton,
   loading,
-  message,
   metaLine,
   pageHead,
   relationshipHref,
@@ -30,26 +28,15 @@ import {
   sectionHead,
   select,
   statusLine,
-  submit,
 } from './dom';
-import { canManage, libraryName } from './names';
+import { canManage } from './names';
 import { notes } from './notes';
 import { endPicker, entryPicker, typePicker as findType } from './pickers';
 import { start } from './sign-in';
 import { readEntry } from './social-api';
-import {
-  createWeb,
-  type Layout,
-  listWebs,
-  readGraph,
-  readWeb,
-  saveSettings,
-  saveTypes,
-  writeMembers,
-} from './web-api';
+import { type Layout, readGraph, readWeb, saveSettings, saveTypes, writeMembers } from './web-api';
+import { rememberWeb } from './webs-view';
 import { audienceWords, directionWords, sentence, stateWords } from './words';
-
-const tenantOf = () => new URLSearchParams(location.search).get('tenant');
 
 /** The icon the brand's atlas has for what an entry is. */
 export function iconFor(kinds: readonly string[]): string {
@@ -59,96 +46,6 @@ export function iconFor(kinds: readonly string[]): string {
   if (kinds.includes('item')) return 'kind-item';
   if (kinds.includes('event')) return 'kind-clock';
   return 'kind-entity';
-}
-
-/** The webs of one library, and a form to make one. */
-export async function mountWebs() {
-  const host = document.querySelector<HTMLElement>('#social-webs');
-  if (!host || !claim(host)) return;
-  const tenant = tenantOf();
-  if (!tenant) {
-    location.replace('/');
-    return;
-  }
-  const me = await start();
-  if (!me || !host.isConnected) return;
-  try {
-    host.replaceChildren(loading('Opening the webs…'));
-    const [name, manage, first] = await Promise.all([
-      libraryName(tenant),
-      canManage(tenant),
-      listWebs(tenant, 1),
-    ]);
-    const view = el('div', '', 'stack view');
-    view.append(
-      pageHead('Webs', {
-        crumbs: [link('Libraries', '/')],
-        lede: name
-          ? `The saved views of the relationships of ${name}.`
-          : 'Saved views of relationships.',
-      }),
-    );
-    const list = el('ul', '', 'list');
-    list.setAttribute('aria-label', 'Webs');
-    for (const web of first.items) {
-      const row = el('li');
-      const text = el('div', '', 'stack-tight grow');
-      const title = el('div', '', 'row-tight');
-      title.append(
-        icon('kind-social-web'),
-        link(web.name, `/web/?${new URLSearchParams({ tenant, id: web.id })}`),
-      );
-      text.append(title, el('span', `Laid out as ${web.layout}`, 'status-text'));
-      row.append(text);
-      if (web.is_public !== null && web.is_public !== undefined) {
-        row.append(audienceBadge(audienceWords(web.is_public), web.is_public));
-      }
-      list.append(row);
-    }
-    const listing = el('section', '', 'stack');
-    listing.append(sectionHead('All webs', { count: first.total ?? first.items.length }), list);
-    if (first.items.length === 0) listing.append(empty('There are no webs you can see yet.'));
-    view.append(listing);
-
-    if (manage) {
-      const section = el('section', '', 'stack');
-      section.append(sectionHead('Make a web'));
-      const form = el('form', '', 'stack');
-      form.setAttribute('aria-label', 'Make a web');
-      const named = field('Name');
-      named.input.required = true;
-      const layouts = select(
-        'Layout',
-        LAYOUT_NAMES.map((l) => [l, l]),
-        'circle',
-      );
-      const visible = field('Everyone in the library may see it', '', 'checkbox');
-      const status = statusLine();
-      form.append(
-        named.label,
-        layouts.label,
-        visible.label,
-        actions(submit('Make the web')),
-        status,
-      );
-      form.addEventListener('submit', (event) => {
-        event.preventDefault();
-        say(status, 'Making the web…');
-        void createWeb(tenant, {
-          name: named.input.value.trim(),
-          layout: layouts.input.value as Layout,
-          is_public: visible.input.checked,
-        })
-          .then((made) => location.assign(`/web/?${new URLSearchParams({ tenant, id: made.id })}`))
-          .catch((error) => say(status, message(error), true));
-      });
-      section.append(form);
-      view.append(section);
-    }
-    host.replaceChildren(view);
-  } catch (error) {
-    host.replaceChildren(errorNotice(error));
-  }
 }
 
 /** One web: the drawing the person may see, its settings, and what it shows. */
@@ -164,6 +61,7 @@ export async function mountWeb() {
   }
   const me = await start();
   if (!me || !host.isConnected) return;
+  rememberWeb(tenant, id);
   let drawing: ReturnType<typeof createGraphView> | null = null;
   // The date lens and "as read by" are the address of the page, unsaved (ADR 0406); a web that saved a
   // lens starts with it when the address names none.

@@ -87,3 +87,35 @@ export async function saveTypes(tenant: string, id: string, version: string, typ
   });
   return { web: await unwrap(result), version: result.response.headers.get('etag') ?? version };
 }
+
+/** Rename a web: it is an entry, so its name is written with the entry's own route. */
+export async function renameWeb(tenant: string, id: string, name: string) {
+  const path = { tenant_id: tenant, entity_id: id };
+  const read = await client.GET('/tenants/{tenant_id}/entities/{entity_id}', {
+    params: { path },
+    cache: 'no-cache',
+  });
+  await unwrap(read);
+  await unwrap(
+    await client.PATCH('/tenants/{tenant_id}/entities/{entity_id}', {
+      params: { path },
+      headers: { 'If-Match': read.response.headers.get('etag') ?? '' },
+      body: { name },
+    }),
+  );
+}
+
+/** Delete a web. It holds no entries of its own, only which ones it shows, so nothing else goes. */
+export async function deleteWeb(tenant: string, id: string) {
+  const path = { tenant_id: tenant, entity_id: id };
+  const read = await client.GET('/tenants/{tenant_id}/entities/{entity_id}', {
+    params: { path },
+    cache: 'no-cache',
+  });
+  await unwrap(read);
+  const result = await client.DELETE('/tenants/{tenant_id}/entities/{entity_id}', {
+    params: { path },
+    headers: { 'If-Match': read.response.headers.get('etag') ?? '' },
+  });
+  if (!result.response.ok) await unwrap(result as never);
+}
