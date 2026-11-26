@@ -1,4 +1,6 @@
-"""More of `plan` and `apply` against the real API: identity, recovery, and the flags (ADR 0144)."""
+"""More of `import mpmb plan` and `apply` against the real API: identity, recovery, and the flags
+(ADR 0144).
+"""
 
 from __future__ import annotations
 

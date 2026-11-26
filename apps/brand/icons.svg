@@ -11,7 +11,8 @@
   See icons.manifest.yaml for the full semantic-name -> Tabler-source
   mapping, including aliases that intentionally reuse one icon's artwork
   for more than one (closely related) semantic name. The eight moon phases
-  at the end are Lorenzo's own drawings (ADR 0326), not Tabler's.
+  (ADR 0326) and the two Social kinds, relationship and social web (ADR 0424),
+  at the end are Lorenzo's own drawings, not Tabler's.
 -->
 <svg xmlns="http://www.w3.org/2000/svg" style="display: none">
   <symbol id="icon-back" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">

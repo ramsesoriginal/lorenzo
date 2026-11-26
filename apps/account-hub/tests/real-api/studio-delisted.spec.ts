@@ -57,7 +57,7 @@ async function world() {
   const owner = await newUser('owner', ['tenant_creator']);
   const organizer = await newUser('organizer');
   const author = await newUser('author');
-  const operator = await newUser('operator', ['platform-operator']);
+  const operator = await newUser('operator', ['platform_operator']);
   const tag = crypto.randomUUID().slice(0, 8);
   const repository = await newRepository(owner.api, `Bestiary ${tag}`);
 

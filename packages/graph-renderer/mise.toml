@@ -6,7 +6,7 @@ run = "pnpm install --frozen-lockfile"
 hide = true
 
 [tasks.dev]
-description = "Nothing to run - the app that uses this package (social) has the dev server"
+description = "Nothing to run - the apps that use this package (beings, bench, social) have the dev servers"
 run = "echo 'packages/graph-renderer has no dev server - run the tests, or an app that uses it.'"
 
 [tasks.lint]

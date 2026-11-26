@@ -1,3 +1,4 @@
+import { renderDescriptionEditor } from '@lorenzo/entity-parts';
 import type { Renderer } from '../../lib/descriptions';
 import { errorMessage } from '../../lib/errorMessage';
 import { descriptionDraft, type Information, type InformationDraft } from '../../lib/information';
@@ -7,7 +8,6 @@ import { say } from '../../lib/statusLine';
 import { cloneTemplate, requiredIn } from '../../lib/template';
 import type { CatalogItem } from '../../lib/types';
 import { renderCombobox } from '../Combobox/renderer';
-import { renderDescriptionEditor } from '../DescriptionEditor/renderer';
 
 export type ItemFormValues = {
   name: string;

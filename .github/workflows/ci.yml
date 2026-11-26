@@ -98,7 +98,7 @@ jobs:
           version: ${{ env.MISE_VERSION }}
       # pnpm itself ships via corepack, not as a mise [tools] entry (ADR
       # 0003) - needed job-wide once any app is a pnpm workspace member
-      # (apps/loot-bot, ADR 0029); a no-op for apps/api's own matrix entry.
+      # (apps/loot-bot, ADR 0050); a no-op for apps/api's own matrix entry.
       - run: npm install --global corepack@latest && corepack enable
       - name: Set up Android SDK
         if: contains(format(' {0} ', matrix.apps), ' apps/inventory-mobile ')
@@ -151,7 +151,7 @@ jobs:
           # creates lorenzo_app in the first place.
           DATABASE_URL: postgresql+asyncpg://lorenzo_app:lorenzo_app@localhost:5432/lorenzo
           MIGRATIONS_DATABASE_URL: postgresql+asyncpg://lorenzo:lorenzo@localhost:5432/lorenzo
-          # apps/loot-bot's own restricted role/schema (ADR 0029) - same
+          # apps/loot-bot's own restricted role/schema (ADR 0050) - same
           # Postgres service container/database as above, a separate role
           # loot-bot's own migrations bootstrap on first run (src/migrate.ts).
           LOOT_BOT_DATABASE_URL: postgres://loot_bot:loot_bot@localhost:5432/lorenzo

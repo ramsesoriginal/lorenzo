@@ -17,7 +17,7 @@ import { sayError } from './statusLine';
 import { canCreateTenants, isRepository } from './tenantKind';
 import { listMyTenants } from './tenants';
 
-// How often to ask again - the notifications page polls at the same pace (ADR 0085).
+// How often to ask again - the notifications page polls at the same pace (ADR 0087).
 const POLL_INTERVAL_MS = 30_000;
 
 /**

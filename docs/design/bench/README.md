@@ -52,7 +52,8 @@ The shell, entry editing, stats, formulas, pictures, the pack editor, the compar
 | Map | [Lorenzo Maps](../../../apps/maps/README.md) |
 | Calendar | [Lorenzo Calendars](../../../apps/calendars/README.md) |
 | Manuscript | [Lorenzo Writing](../../../apps/writing/README.md) |
-| Relations, Timeline, Sheets from templates | not built |
+| Relations | [The Relations pane](../../../apps/bench/README.md#the-relations-pane), read only: relationships are written in [Lorenzo Social](../../../apps/social/README.md) |
+| Timeline, Sheets from templates | not built |
 
 Bench integration of these views is deferred ([RFC 0048](../../rfcs/0048-locations-maps-connections-and-optional-dates.md)).
 

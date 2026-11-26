@@ -30,7 +30,7 @@ substitute for reading that value directly). That's deliberate: it's the
 proof that including this package is enough to style a real page, baseline
 included, not just a components catalog.
 
-Ten further preview pages exercise everything else: `preview/motion.html`
+Thirteen further preview pages exercise everything else (the last three, `preview/shell.html`, `preview/pages.html` and `preview/graph.html`, show the web interface parts below): `preview/motion.html`
 (every `motion.css` technique, live), `preview/dialogs.html` (a single
 modal `<dialog>`, and two non-modal, semi-overlapping dialogs open at
 once), `preview/forms.html` (every field type on one form), `preview/trees.html`
@@ -47,7 +47,8 @@ not just Lorenzo's own domain.
 
 **`icons.svg`** + **`icons.manifest.yaml`** — a self-hosted SVG sprite of
 [Tabler Icons](https://tabler.io/icons) (MIT), referenced via `<use>`
-(identity.md §17/§15.6), covering every real icon-worthy action audited
+(identity.md §17/§15.6), plus Lorenzo's own drawings: the eight moon phases (ADR 0326) and the
+Relationship and Social web kinds (ADR 0424). It covers every real icon-worthy action audited
 across `apps/inventory-web`/`apps/account-hub` ([issue #178](https://github.com/ramsesoriginal/lorenzo/issues/178)).
 Not `<link>`'d like the stylesheets — an SVG sprite isn't a stylesheet, it's
 referenced directly wherever an icon is shown. No build step here either:
@@ -71,7 +72,7 @@ The web design ([docs/design/web](../../docs/design/web/README.md), [RFC 0050](.
 
 - **Containers.** An app's root is a `.shell-container` with a `.shell-app` inside it; the shell's bars read that container's width (phone to 720px, desktop from 1100px, large from 1700px), so the same markup works in a pane. Dialogs, menus and toasts follow the window. A dialog closes at once by default; an app that wants the closing fade sets `data-closing`, waits for `animationend`, then calls `close()` (the Dialogs preview shows it).
 - **Class names.** `web-classes.json` lists the class names the web design added. `tests/class-clash.test.mjs` fails if another app's stylesheet defines one, and if a listed class is not defined here, so an app is never restyled without asking.
-- **Palette commands.** `palette-command.schema.json` is the shape of one command an app declares for the palette (ADR 0414); `tests/palette-command.test.mjs` checks the sample against it and against the icon atlas. How an app registers its commands at runtime is settled with the shell package.
+- **Palette commands.** `palette-command.schema.json` is the shape of one command an app declares for the palette (ADR 0414); `tests/palette-command.test.mjs` checks the sample against it and against the icon atlas. An app registers its commands at runtime with `shell.palette({ commands, … })` of [`@lorenzo/app-shell`](../../packages/app-shell/README.md#the-palette-and-the-keys).
 
 ## Local development
 

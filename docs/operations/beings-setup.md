@@ -11,7 +11,7 @@
    - **Build command**: `npm install --global corepack@latest && corepack enable && pnpm install --frozen-lockfile && pnpm run build`
    - **Build output directory**: `dist`
    - **Node version**: the environment variable `NODE_VERSION` set to the major in the root `mise.toml`.
-4. **Build watch paths** ([the rule](deployment-setup.md#build-watch-paths)): `apps/beings/**`, `apps/brand/**`, `packages/api-client/**`, `packages/brand/**`, `packages/information-editor/**`, `packages/lorenzoscript/**`, `packages/lorenzoscript-editor/**`, `packages/stat-values/**`, `pnpm-lock.yaml` and `tools/brand/**`.
+4. **Build watch paths** ([the rule](deployment-setup.md#build-watch-paths)): `apps/beings/**`, `apps/brand/**`, `packages/api-client/**`, `packages/app-shell/**`, `packages/brand/**`, `packages/entity-parts/**`, `packages/graph-renderer/**`, `packages/information-editor/**`, `packages/lorenzoscript/**`, `packages/lorenzoscript-editor/**`, `packages/stat-values/**`, `pnpm-lock.yaml` and `tools/brand/**`.
 
 ## 2. Create the Authgear client
 
@@ -31,7 +31,7 @@ In the Authgear Cloud console of the project the other apps use: **Applications,
 
 In the Pages project's **Settings, Environment variables** (Production): `PUBLIC_AUTHGEAR_ENDPOINT` and `PUBLIC_AUTHGEAR_CLIENT_ID` from step 2, and optionally `PUBLIC_API_BASE_URL` (the API's address; the build defaults to the deployed Cloud Run API). Then retry the first deployment.
 
-Where the other Lorenzo apps live is not a variable of this project: the app asks the API's app-links registry ([ADR 0273](../adr/0273-app-links-registry.md)).
+Where the other Lorenzo apps live is not a variable of this project: the app asks the API's app-links registry ([ADR 0273](../adr/0273-app-links-registry.md)). The registry already has the `https://lorenzo-beings.pages.dev` address; set the API/GitHub `BEINGS_URL` variable for a different one ([deployment-setup.md](deployment-setup.md)). Deployment passes an unset value through to the API's default.
 
 ## 4. Let the API accept the site
 
