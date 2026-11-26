@@ -1,3 +1,6 @@
+import { pageState } from '@lorenzo/app-shell';
+import { BRANDING_CSS_URL } from './config';
+import { formDialog } from './dialog';
 import {
   actions,
   audienceBadge,
@@ -57,8 +60,13 @@ export async function mountRelationships() {
     const view = el('div', '', 'stack view');
     view.append(
       pageHead('Relationships', {
-        crumbs: [link('Libraries', '/')],
         lede: name ? `In ${name}.` : undefined,
+        actions: [
+          button('New relationship', () => makeRelationship(tenant, manage), {
+            variant: 'primary',
+            icon: 'add',
+          }),
+        ],
       }),
     );
 
@@ -67,6 +75,7 @@ export async function mountRelationships() {
     list.setAttribute('aria-label', 'Relationships');
     const status = statusLine();
     const more = el('div', '', 'row');
+    const empties = el('div');
     let page = 1;
     let query = '';
     let total = 0;
@@ -106,13 +115,33 @@ export async function mountRelationships() {
           list.append(item);
         }
         shown += result.items.length;
+        const nothing = total === 0 && !query;
+        empties.replaceChildren();
+        if (nothing) {
+          empties.append(
+            pageState(BRANDING_CSS_URL, {
+              art: 'empty-relationships',
+              alt: 'Illustration: empty-relationships. No relationships yet',
+              level: 2,
+              title: 'There are no relationships you can see yet.',
+              text: 'A relationship ties two beings or groups, and says how much it counts.',
+              actions: [
+                {
+                  label: 'New relationship',
+                  primary: true,
+                  run: () => void makeRelationship(tenant, manage),
+                },
+              ],
+            }),
+          );
+        }
         say(
           status,
-          total === 0
-            ? query
+          nothing
+            ? ''
+            : total === 0
               ? 'No relationship has that in its name.'
-              : 'There are no relationships you can see yet.'
-            : `Showing ${shown} of ${total}.`,
+              : `Showing ${shown} of ${total}.`,
         );
         more.replaceChildren();
         if (shown < total) {
@@ -137,10 +166,16 @@ export async function mountRelationships() {
       query = find.input.value.trim();
       void load(true);
     });
-    listing.append(sectionHead('All relationships', { actions: [] }), search, list, status, more);
+    listing.append(
+      sectionHead('All relationships', { actions: [] }),
+      search,
+      empties,
+      list,
+      status,
+      more,
+    );
     view.append(listing);
 
-    view.append(creator(tenant, manage));
     host.replaceChildren(view);
     await load(true);
   } catch (error) {
@@ -148,12 +183,8 @@ export async function mountRelationships() {
   }
 }
 
-/** The form that makes a relationship: two ends, how it goes, what it is, and who may see it. */
-function creator(tenant: string, manage: boolean) {
-  const section = el('section', '', 'stack');
-  section.append(sectionHead('Make a relationship'));
-  const form = el('form', '', 'stack');
-  form.setAttribute('aria-label', 'Make a relationship');
+/** The form that makes a relationship, in a dialog: two ends, how it goes, what it is, who may see it. */
+function makeRelationship(tenant: string, manage: boolean) {
   const first = endPicker(tenant, 'First end', () => second.value());
   const second = endPicker(tenant, 'Second end', () => first.value());
   const kind = typePicker(tenant, 'Type of relationship (optional)');
@@ -163,48 +194,41 @@ function creator(tenant: string, manage: boolean) {
   ]);
   const named = field('Name (optional)');
   const visible = field('Everyone in the library may see it', '', 'checkbox');
-  const status = statusLine();
-  form.append(
-    first.label,
-    second.label,
-    direction.label,
-    kind.label,
-    named.label,
-    ...(manage
-      ? [visible.label]
-      : [
-          el(
-            'p',
-            'A relationship you make is for a being of yours and the GMs: it starts restricted and you cannot open it.',
-            'status-text',
-          ),
-        ]),
-    actions(submit('Make the relationship')),
-    status,
-  );
-  form.addEventListener('submit', (event) => {
-    event.preventDefault();
-    const a = first.value();
-    const b = second.value();
-    if (!a || !b) {
-      say(status, 'Choose both ends first.', true);
-      return;
-    }
-    say(status, 'Making the relationship…');
-    const type = kind.value();
-    void createRelationship(tenant, {
-      name: named.input.value.trim() || defaultName(first.name(), second.name(), kind.name()),
-      end_a: a,
-      end_b: b,
-      one_way: direction.input.value === 'one',
-      prototypes: type ? [type] : [],
-      is_public: manage && visible.input.checked,
-    })
-      .then((made) => location.assign(relationshipHref(tenant, made.id)))
-      .catch((error) => say(status, message(error), true));
+  return formDialog({
+    title: 'Make a relationship',
+    submit: 'Make the relationship',
+    fields: [
+      first.label,
+      second.label,
+      direction.label,
+      kind.label,
+      named.label,
+      ...(manage
+        ? [visible.label]
+        : [
+            el(
+              'p',
+              'A relationship you make is for a being of yours and the GMs: it starts restricted and you cannot open it.',
+              'status-text',
+            ),
+          ]),
+    ],
+    async run() {
+      const a = first.value();
+      const b = second.value();
+      if (!a || !b) throw new Error('Choose both ends first.');
+      const type = kind.value();
+      const made = await createRelationship(tenant, {
+        name: named.input.value.trim() || defaultName(first.name(), second.name(), kind.name()),
+        end_a: a,
+        end_b: b,
+        one_way: direction.input.value === 'one',
+        prototypes: type ? [type] : [],
+        is_public: manage && visible.input.checked,
+      });
+      location.assign(relationshipHref(tenant, made.id));
+    },
   });
-  section.append(form);
-  return section;
 }
 
 /** One relationship: who it ties and how, what it is, what it holds, and who may see it. */

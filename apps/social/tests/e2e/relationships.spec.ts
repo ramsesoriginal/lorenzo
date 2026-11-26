@@ -11,6 +11,7 @@ test('a GM makes a relationship from the form and reads it on its page', async (
   await expect(page.getByRole('heading', { name: 'Relationships', level: 1 })).toBeVisible();
   await expect(page.getByText('There are no relationships you can see yet.')).toBeVisible();
 
+  await page.getByRole('button', { name: 'New relationship' }).first().click();
   const form = page.getByRole('form', { name: 'Make a relationship' });
   await form.getByLabel('First end: search by name').fill('Mara');
   await form.getByLabel('First end: results').selectOption({ label: 'Mara Quill' });
@@ -51,6 +52,7 @@ test('a player sees only the relationships they may, and a form with no way to o
   await expect(page.getByText('Cut tie')).toHaveCount(0);
   await expect(page.getByText('sealed vault')).toHaveCount(0);
   // The form is offered, without the choice of opening it to everyone (ADR 0425).
+  await page.getByRole('button', { name: 'New relationship' }).first().click();
   await expect(page.getByRole('form', { name: 'Make a relationship' })).toBeVisible();
   await expect(page.getByLabel('Everyone in the library may see it')).toHaveCount(0);
 });
@@ -99,6 +101,7 @@ test('a player makes a relationship with their own being, and changes and delete
   const wren = await w.being('Wren Ashdown');
   const page = await signedIn(browser, w.playerSubject);
   await page.goto(`/relationships/?tenant=${w.tenant.id}`);
+  await page.getByRole('button', { name: 'New relationship' }).first().click();
   const form = page.getByRole('form', { name: 'Make a relationship' });
   await form.getByLabel('First end: search by name').fill('Alice');
   await form.getByLabel('First end: results').selectOption({ label: 'Alice the Bold' });
@@ -131,6 +134,7 @@ test('the ends offered are beings and groups, and the types offered are types', 
   await w.entry('Ash Hold');
   const page = await signedIn(browser, w.subject);
   await page.goto(`/relationships/?tenant=${w.tenant.id}`);
+  await page.getByRole('button', { name: 'New relationship' }).first().click();
   const form = page.getByRole('form', { name: 'Make a relationship' });
 
   // A being and a group are found; a Location is not, even when its name matches.
