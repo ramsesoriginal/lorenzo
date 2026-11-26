@@ -875,16 +875,6 @@ dialog.unpack-dialog {
   background: var(--surface-default);
   color: var(--text-primary);
 }
-dialog.unpack-dialog .dialog-actions {
-  display: flex;
-  justify-content: flex-end;
-  margin-block-start: var(--space-3);
-}
-
-/* An empty board: the mascot's place, smaller than a whole page's. */
-[data-empty] .page-state-art {
-  width: 140px;
-}
 
 /* A view transition moves what is named (a card, the open item); the page itself does not fade. */
 ::view-transition-group(root),
@@ -893,20 +883,11 @@ dialog.unpack-dialog .dialog-actions {
   animation: none;
 }
 
-/* The board page is exactly the window tall (IN9), by layout alone: every box from the app down to
-   the columns is a flex column that may shrink (min-height 0), so the columns take what the head,
-   bar and status bar leave and a long column scrolls inside itself. A phone scrolls the page. */
+/* The board page is exactly the window tall (IN9): the shell's frame fits the window when the board
+   asks (data-fit-window, apps/brand), and what is the board's own gives the columns what the head,
+   bar and status bar leave, so a long column scrolls inside itself. */
 @media (min-width: 721px) {
-  body:has([data-board]) .shell-container,
-  body:has([data-board]) .shell-app--page {
-    height: 100dvh;
-    min-height: 0;
-  }
-  body:has([data-board]) .shell-app--page > main,
-  body:has([data-board]) .shell-app--page > main > .stack,
-  body:has([data-board]) [data-page],
-  body:has([data-board]) #page:not([hidden]),
-  body:has([data-board]) [data-board] {
+  #page:not([hidden]) {
     display: flex;
     flex-direction: column;
     flex: 1;
