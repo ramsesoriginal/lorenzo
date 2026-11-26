@@ -193,11 +193,17 @@ test('the date lens draws what holds, dots what is not known and lists the rest 
   await expect(sentences.getByText('Always friends')).toBeVisible();
   // It has not begun yet: not drawn, and listed only under the switch.
   await expect(sentences.getByText('Rivals once the war began')).toHaveCount(0);
-  await page.getByRole('button', { name: 'Date and reader' }).click();
-  await page.getByLabel('Also list those that have not begun or have ended').check();
+  await expect(
+    page.getByText('1 relationship has not begun or has ended, and is not drawn'),
+  ).toBeVisible();
+  await page.getByRole('button', { name: 'List them' }).click();
   await expect(sentences.getByText('Has not begun.')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'As of an Event' })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  );
   // The lens is part of the address, and can be removed.
-  await page.getByRole('button', { name: 'Clear' }).click();
+  await page.getByRole('button', { name: 'Clear the date lens' }).click();
   await expect(page.getByText('Looking as of The wedding')).toHaveCount(0);
   expect(page.url()).not.toContain('as_of=');
 });
@@ -369,4 +375,30 @@ test('Members adds a group’s members and everyone within steps, and Connect ti
   await form.getByRole('button', { name: 'Make the relationship' }).click();
   await expect(drawing.getByRole('button', { name: 'Far Away' })).toBeVisible();
   expect(page.url()).toContain('/web/');
+});
+
+test('"as read by" is a switch with a line that says what is on and clears it', async ({
+  browser,
+}) => {
+  const w = await world();
+  const a = await w.person('Mara Quill');
+  const b = await w.person('Wren Ashdown');
+  await w.tie('Open friendship', a.id, b.id, true);
+  const made = await webOf(w, 'The court', [a.id, b.id]);
+  const page = await signedIn(browser, w.subject);
+  await page.goto(`/web/?tenant=${w.tenant.id}&id=${made.id}&as_seen_by=${a.id}`);
+  await expect(
+    page.getByText('As read by Mara Quill: what it may read, not what it believes'),
+  ).toBeVisible();
+  await expect(page.getByRole('button', { name: 'As read by' })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  );
+  await page.getByRole('button', { name: 'Clear the reader' }).click();
+  await expect(page.getByText('As read by Mara Quill')).toHaveCount(0);
+  expect(page.url()).not.toContain('as_seen_by=');
+  await expect(page.getByRole('button', { name: 'As read by' })).toHaveAttribute(
+    'aria-pressed',
+    'false',
+  );
 });

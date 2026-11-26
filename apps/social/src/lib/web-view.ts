@@ -139,20 +139,12 @@ export async function mountWeb() {
       floatHead.append(title.root);
 
       // What a lens has on is said, and cleared, in one line (SO4).
-      const lensLines: string[] = [];
-      if (asOfName) lensLines.push(`Looking as of ${asOfName}`);
-      if (asSeenByName)
-        lensLines.push(`As read by ${asSeenByName}: what it may read, not what it believes`);
-      for (const [text, clear] of [
-        [lensLines[0], () => (lens.asOf = null)],
-        [lensLines[1], () => (lens.asSeenBy = null)],
-      ] as const) {
-        if (!text || (text.startsWith('Looking') ? !asOfName : !asSeenByName)) continue;
+      const lensLine = (text: string, clearName: string, clear: () => void) => {
         const line = el('div', '', 'lens-line');
         line.append(
           el('span', text),
           button(
-            'Clear',
+            clearName,
             async () => {
               clear();
               remember();
@@ -162,6 +154,42 @@ export async function mountWeb() {
           ),
         );
         floatHead.append(line);
+      };
+      if (asOfName) {
+        lensLine(`Looking as of ${asOfName}`, 'Clear the date lens', () => {
+          lens.asOf = null;
+        });
+      }
+      if (asSeenByName) {
+        lensLine(
+          `As read by ${asSeenByName}: what it may read, not what it believes`,
+          'Clear the reader',
+          () => {
+            lens.asSeenBy = null;
+          },
+        );
+      }
+      // What the date lens leaves out is counted, with a switch that lists it (SO4).
+      const absent = graph.edges.filter((e) => e.as_of === 'not_yet' || e.as_of === 'ended').length;
+      if (lens.asOf && absent > 0) {
+        const count = el('div', '', 'lens-line');
+        const listThem = button(
+          showOthers ? 'Stop listing them' : 'List them',
+          async () => {
+            showOthers = !showOthers;
+            await draw();
+          },
+          { variant: 'secondary' },
+        );
+        listThem.setAttribute('aria-pressed', String(showOthers));
+        count.append(
+          el(
+            'span',
+            `${absent} ${absent === 1 ? 'relationship has' : 'relationships have'} not begun or ${absent === 1 ? 'has' : 'have'} ended, and ${absent === 1 ? 'is' : 'are'} not drawn`,
+          ),
+          listThem,
+        );
+        floatHead.append(count);
       }
 
       const model: GraphModel = {
@@ -226,7 +254,8 @@ export async function mountWeb() {
         const row = el('li');
         const text = el('div', '', 'stack-tight grow');
         const ends = { endA: e.end_a.name, endB: e.end_b.name, oneWay: e.one_way };
-        const standing = stateWords(e.as_of);
+        const standing =
+          e.as_of === 'unknown' && asOfName ? `Unknown as of ${asOfName}` : stateWords(e.as_of);
         text.append(
           link(e.name, relationshipHref(tenant, e.id)),
           el(
@@ -356,12 +385,6 @@ export async function mountWeb() {
           remember();
           await draw();
         };
-        const others = field('Also list those that have not begun or have ended', '', 'checkbox');
-        others.input.checked = showOthers;
-        others.input.addEventListener('change', () => {
-          showOthers = others.input.checked;
-          void draw();
-        });
         panel.body.append(
           events.label,
           actions(
@@ -377,7 +400,6 @@ export async function mountWeb() {
               await apply();
             }),
           ),
-          ...(lens.asOf ? [others.label] : []),
           readers.label,
           actions(
             button('Read as this entry', async () => {
@@ -534,6 +556,20 @@ export async function mountWeb() {
         }
         applyFocus();
       });
+      // A lens is a switch: on says so and a second press clears it; off opens its controls.
+      const lensChip = (name: string, iconName: string, on: boolean, clear: () => void) => {
+        const node = chip(name, iconName, () => {
+          if (!on) {
+            openTab('lens');
+            return;
+          }
+          clear();
+          remember();
+          void draw();
+        });
+        node.setAttribute('aria-pressed', String(on));
+        return node;
+      };
       const tabChip = (tab: Tab, name: string, iconName: string) => {
         const node = chip(name, iconName, () => openTab(tab));
         node.dataset.tab = tab;
@@ -544,7 +580,12 @@ export async function mountWeb() {
         labelsChip,
         focusChip,
         tabChip('drawing', 'Drawing', 'settings'),
-        tabChip('lens', 'Date and reader', 'kind-clock'),
+        lensChip('As of an Event', 'kind-clock', Boolean(lens.asOf), () => {
+          lens.asOf = null;
+        }),
+        lensChip('As read by', 'eye', Boolean(lens.asSeenBy), () => {
+          lens.asSeenBy = null;
+        }),
         ...(manage ? [tabChip('types', 'Types', 'filter')] : []),
         ...(manage
           ? [
