@@ -62,6 +62,16 @@ test('merges stacks of one item, and only those', async ({ world, as }) => {
   await world.instance(items.arrow, { owner: world.pia, container: backpack });
   const page = await boardOf(as, world);
 
+  await expect(card(page, 'Backpack', 'Arrow ×3')).toBeVisible();
+  await page.evaluate(() => {
+    for (const el of document.querySelectorAll('[data-column]')) el.setAttribute('data-probe', '1');
+  });
+  const reads: string[] = [];
+
+  page.on('request', (request) => {
+    if (request.url().includes('/controlled-by/')) reads.push(request.url());
+  });
+
   await page.getByRole('button', { name: 'Select', exact: true }).click();
   await card(page, 'Backpack', 'Ornate Spellbook').click();
   await expect(bar(page).getByRole('button', { name: 'Merge' })).toBeDisabled();
@@ -73,6 +83,8 @@ test('merges stacks of one item, and only those', async ({ world, as }) => {
   await bar(page).getByRole('button', { name: 'Merge' }).click();
   await expect(card(page, 'Backpack', 'Arrow ×4')).toBeVisible();
   await expect(bar(page)).toBeHidden();
+  await expect(page.locator('[data-column]:not([data-probe])')).toHaveCount(0);
+  expect(reads).toEqual([]);
 
   await page.getByRole('button', { name: 'Select', exact: true }).click();
   await card(page, 'Backpack', 'Arrow ×4').click();

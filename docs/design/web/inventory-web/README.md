@@ -2,7 +2,7 @@
 
 A minimal redesign of Lorenzo Inventory. The board stays: its idea and its rough look are kept, and everything around it is redone on the system in [the web design](../README.md): the shell, the templates, the states and the decisions D1 to D29. The account hub, Writing, Calendars with Sessions, Maps and Beings are decided. This page holds the brief, the questions and the decision log for this app. Bench is not redesigned.
 
-Status: decided (IN1 to IN12). The checks are re-run once on the final screens before the write-up.
+Status: decided (IN1 to IN12). The pages of [`apps/inventory-web`](../../../../apps/inventory-web/README.md) are in the web shell; how far each part matches this design is in the table of [ADR 0524](../../../adr/0524-beings-and-inventory-move-into-the-web-shell.md). The checks are re-run once on the final screens before the write-up.
 
 ## What the app is for
 

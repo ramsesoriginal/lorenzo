@@ -23,7 +23,7 @@ npm install --global corepack@latest && corepack enable && pnpm install --frozen
 
 Set `PUBLIC_API_BASE_URL`, `PUBLIC_AUTHGEAR_ENDPOINT` and this app's `PUBLIC_AUTHGEAR_CLIENT_ID` in the Pages build environment. Branding is bundled locally; `PUBLIC_BRANDING_CSS_URL` is optional. These are public configuration, not client secrets.
 
-Build watch paths follow [the rule in the deployment setup](deployment-setup.md#build-watch-paths). For this app: `apps/writing/**`, `apps/brand/**`, `packages/api-client/**`, `packages/app-shell/**`, `packages/brand/**`, `packages/information-editor/**`, `packages/lorenzoscript/**`, `packages/lorenzoscript-editor/**`, `pnpm-lock.yaml` and `tools/brand/**`.
+Build watch paths follow [the rule in the deployment setup](deployment-setup.md#build-watch-paths). For this app: `apps/writing/**`, `apps/brand/**`, `packages/api-client/**`, `packages/app-shell/**`, `packages/brand/**`, `packages/information-editor/**`, `packages/lorenzoscript/**`, `packages/lorenzoscript-editor/**`, `packages/lorenzoscript-semilive-editor/**`, `packages/repo-ui/**`, `pnpm-lock.yaml` and `tools/brand/**`.
 
 ## API and verification
 

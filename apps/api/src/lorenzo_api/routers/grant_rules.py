@@ -4,7 +4,7 @@ A rule hangs on a source entry and says which features a holder that has the ent
 (or holds an active instance of it) is entitled to; a prerequisite is what a holder needs to have a
 feature at all. Authoring is the vocabulary's tier, as the stats' and the templates': any member of
 the library, an Author too, and a deletion an administrator's. Nothing here grants: that is the
-apply of a later slice (ADR 0456).
+apply in `routers/grants.py` (ADR 0456).
 """
 
 from __future__ import annotations

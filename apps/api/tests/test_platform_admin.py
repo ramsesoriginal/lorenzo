@@ -26,7 +26,7 @@ async def test_require_platform_operator_role_checks_the_claim_directly() -> Non
     own precedent (test_api_tenants.py).
     """
     user_with_role = User(authgear_subject_id="has-platform-operator-role")
-    user_with_role.authgear_roles = frozenset({"platform-operator"})
+    user_with_role.authgear_roles = frozenset({"platform_operator"})
     await require_platform_operator_role(user_with_role)  # must not raise
 
     user_without_role = User(authgear_subject_id="no-roles-at-all")
@@ -202,7 +202,7 @@ async def test_suspended_account_is_rejected_on_its_very_next_request(
     of the real, suspended-checking dependency).
     """
     operator_token = fake_jwks_server.issue_token(
-        f"authgear|suspend-operator-{uuid.uuid4()}", **{_ROLES_CLAIM: ["platform-operator"]}
+        f"authgear|suspend-operator-{uuid.uuid4()}", **{_ROLES_CLAIM: ["platform_operator"]}
     )
     operator_headers = {"Authorization": f"Bearer {operator_token}"}
 

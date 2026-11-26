@@ -4,7 +4,7 @@
 // new tool is one more entry. Pure, so it is tested without a browser.
 //
 // A tool that the data cannot hold yet, or that is not built yet, is `planned`: it is listed, says
-// why, and does nothing. Each is built later, with its own ADR (ADR 0421).
+// why, and does nothing (ADR 0421). Every tool is built now (ADR 0480 the last), so none is planned.
 
 import { ROLE_WORDS, ROLES } from '@lorenzo/map-renderer';
 

@@ -2,7 +2,7 @@
 
 version: 1.0
 status: living specification
-updated: 2026-10-28
+updated: 2026-11-24
 scope: master brand, product family, digital applications, developer tools, community surfaces
 
 ---
@@ -149,6 +149,7 @@ Preferred pattern, with the names the apps show today:
 | Lorenzo Calendars | calendars, Events and clocks |
 | Lorenzo Sessions | Sessions and Scenes |
 | Lorenzo Maps | Locations and Maps |
+| Lorenzo Social | relationships between entries, and saved webs |
 | Lorenzo Writing | manuscripts |
 | Lorenzo Bench | editing a repository's entries |
 
@@ -405,7 +406,7 @@ Use **Newsreader** selectively for:
 - editorial section titles
 - narrative introductions
 - empty-state titles
-- selected entity names where a literary tone is useful
+- selected entry names where a literary tone is useful
 
 Do not use it for dense forms, long tables, small metadata, or developer tooling.
 
@@ -439,7 +440,7 @@ A practical starting scale:
 | H1           | Newsreader or Geist       |     36–48 px | Regular / 600  |
 | H2           | Geist                     |     28–36 px | 600            |
 | H3           | Geist                     |     20–24 px | 600            |
-| Entity title | Newsreader                |     24–32 px | Regular        |
+| Entry title  | Newsreader                |     24–32 px | Regular        |
 | Body         | Geist                     |     15–17 px | 400            |
 | UI           | Geist                     |     13–15 px | 400–500        |
 | Metadata     | Geist                     |     12–13 px | 400–500        |
@@ -931,6 +932,16 @@ A phone is a first-class width for the screens a person uses away from a desk, s
 
 A chain such as the repositories one is built on is shown as an outline (`.outline`), not a graph, so that it reads in order and works at this width; §18 gives its edges.
 
+### 8.6 The web shell, widths and saving
+
+The web apps share one shell and one set of page templates ([docs/design/web](../design/web/README.md), [RFC 0050](../rfcs/0050-the-web-interface.md)). The rules that hold for every web screen:
+
+- **Widths** are read from the container, not the window, with steps at 720, 1100 and 1700px; 430px is the phone design width and every screen is checked there. §8.5's single breakpoint is the first of these steps.
+- **Density** has three levels, comfortable, compact and dense (dense on a fine pointer only); a screen is complete at any of them, and the choice is a person's setting.
+- **The header** is one row with a single library and two tiers with several; on a phone the app's links are a bottom tab bar. A state strip appears only when something needs attention. A slim status bar is always shown, with the sync state, the app's own meta and the real date and time.
+- **A control has a visible edge** at a contrast of at least 3 to 1 against its surface (WCAG 1.4.11).
+- **Saving** is one of two kinds per page: a field saves as it changes and says so, or the page has a save bar that batches and shows the count. A refusal is shown next to the field as the API gave it and the draft is kept.
+
 ---
 
 ## 9. Mascot and illustration system
@@ -1038,16 +1049,6 @@ Avoid generic fantasy cosplay imagery as the default brand representation.
 
 For screenshots and product imagery, show real information architecture and meaningful data relationships. The product itself is visually interesting; it does not need fantasy dressing.
 
-### 8.6 The web shell, widths and saving
-
-The web apps share one shell and one set of page templates ([docs/design/web](../design/web/README.md), [RFC 0050](../rfcs/0050-the-web-interface.md)). The rules that hold for every web screen:
-
-- **Widths** are read from the container, not the window, with steps at 720, 1100 and 1700px; 430px is the phone design width and every screen is checked there. §8.5's single breakpoint is the first of these steps.
-- **Density** has two levels, comfortable and compact; a screen is complete at either, and the choice is a person's setting.
-- **The header** is one row with a single library and two tiers with several; on a phone the app's links are a bottom tab bar. A state strip appears only when something needs attention. A slim status bar is always shown, with the sync state, the app's own meta and the real date and time.
-- **A control has a visible edge** at a contrast of at least 3 to 1 against its surface (WCAG 1.4.11).
-- **Saving** is one of two kinds per page: a field saves as it changes and says so, or the page has a save bar that batches and shows the count. A refusal is shown next to the field as the API gave it and the draft is kept.
-
 ---
 
 ## 11. Motion
@@ -1121,7 +1122,7 @@ UI:
 - Geist-first typography
 - Archive Blue interactions
 - Gold sparingly for brand and special emphasis
-- Newsreader for world/entity titles only when it improves character rather than density
+- Newsreader for world and entry titles only when it improves character rather than density
 
 The web apps' shell, page templates and per-app designs are in [docs/design/web](../design/web/README.md); the rules that apply everywhere are §8.6, §15.7 and §18.5.
 
@@ -1311,7 +1312,7 @@ The last example is appropriate for a rare mascot-led error state, not routine s
 ### 14.3 Terminology
 
 Prefer stable domain terms consistently. If Lorenzo distinguishes repositories,
-worlds, timelines, planes, entities, secrets, knowledge, campaigns, and visibility,
+worlds, timelines, planes, entries, secrets, knowledge, campaigns, and visibility,
 each term should have a clear product definition.
 
 Do not swap terminology for flavor from screen to screen.
@@ -1743,7 +1744,7 @@ Do not use it for:
 - generic importance or "featured" content
 - premium/paid status
 - ordinary section dividers
-- a default placeholder for user- or entity-owned avatars/pictures
+- a default placeholder for user- or entry-owned avatars/pictures
 
 A spark inside product data should imply *this has special significance within Lorenzo*. It should never merely mean "currently selected" or "please wait" — use conventional UI treatments for transient state instead: color, borders, focus rings, checks, progress bars, skeletons, spinners, line styles, and standard icons.
 
@@ -1814,7 +1815,7 @@ External brand marks (a payment provider's logo, a platform's logo) are not UI i
 
 Icons reinforce state; they do not define it. Use explicit text for success, warning, error, pending, private/restricted visibility, and canonical/source status — matching §15.1's "do not rely on hue alone" rule and §6.6's color-neutral visibility treatment.
 
-Visibility is not severity: a private or GM-only item uses the neutral treatment plus a clear label and icon (§6.6), never danger styling. Selection and focus are UI states, not entity properties — represent them through surfaces, borders, and focus rings (§6.6), not an icon standing in for the state.
+Visibility is not severity: a private or GM-only item uses the neutral treatment plus a clear label and icon (§6.6), never danger styling. Selection and focus are UI states, not entry properties — represent them through surfaces, borders, and focus rings (§6.6), not an icon standing in for the state.
 
 ### 17.9 Loading
 
@@ -1860,7 +1861,7 @@ A few rules matter more than the exact mapping:
 
 - **Selection stays separate from meaning.** A selected node gets `--surface-selected`/`--focus-ring`; its semantic shape or icon never changes to show selection.
 - **Color reinforces meaning, it doesn't carry it.** "Inherited" should still read as inherited in grayscale — dash pattern, shape, labels, and icons carry the distinction first, matching §15.1's existing rule.
-- **Edges carry relationship semantics; nodes carry entity semantics.** Don't turn every relationship into a different node color.
+- **Edges carry relationship semantics; nodes carry entry semantics.** Don't turn every relationship into a different node color.
 
 ### 18.3 Keep the vocabulary small
 
@@ -1956,7 +1957,7 @@ Use this decision flow to pick the right *brand* asset. For an ordinary interfac
 
 ## 21. Mascot
 
-Lorenzo the mascot is described in detail in [the lorenzo charcter bible](lorenzo-character-bible.md)
+Lorenzo the mascot is described in detail in [the Lorenzo character bible](lorenzo-character-bible.md)
 
 The second mascot, Catileo, is described in [the catileo character bible](catileo-character-bible.md)
 

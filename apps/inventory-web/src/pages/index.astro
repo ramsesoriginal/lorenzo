@@ -1,6 +1,6 @@
 ---
 import Base from '../layouts/Base.astro';
-import LibraryList from '../components/LibraryList/LibraryList.astro';
+import LibraryList from '@lorenzo/entity-parts/LibraryList.astro';
 ---
 
 <Base>
@@ -10,7 +10,7 @@ import LibraryList from '../components/LibraryList/LibraryList.astro';
   <LibraryList />
 
   <script>
-    import { renderLibraryList } from '../components/LibraryList/renderer';
+    import { renderLibraryList } from '../lib/entityParts';
     import { isAuthConfigured, isAuthenticated } from '../lib/auth';
     import { requiredIn } from '../lib/template';
 

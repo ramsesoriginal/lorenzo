@@ -28,7 +28,7 @@ The host needs a definite size (the drawing fills it) and the brand's `tokens.cs
 1. `layout(model, view, theme?) -> Scene`. Pure: the same input is the same bytes. The Scene is
    plain, JSON-serialisable data in the **screen pixels of the viewport** (so the `<svg>` has
    `viewBox="0 0 width height"` and no transform): an ordered list of primitives (`rect`, `path`,
-   `circle`, `text`, `icon`), each with a stable `id` (entry id, part index, purpose), a class
+   `circle`, `text`, `icon`, `image`; see "Pictures"), each with a stable `id` (entry id, part index, purpose), a class
    name, numbers rounded to two decimals, a `bbox`, the `entryId` it came from (none for the sheet)
    and, on the first primitive of each placement, an accessible `label`. A number that is not
    finite throws a `RangeError`.

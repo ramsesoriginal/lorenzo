@@ -33,7 +33,7 @@ def upgrade() -> None:
     # `name`, extended to slug/description here) - avoids retrofitting the
     # ~50 existing bare Tenant() fixture calls across the test suite. A
     # random slug is a placeholder, not a real one; a real create-tenant
-    # flow (RFC 0012, not built yet) always supplies a derived one
+    # flow (RFC 0012, ADR 0033) always supplies a derived one
     # explicitly.
     op.add_column(
         "tenant",

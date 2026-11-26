@@ -86,7 +86,7 @@ C4Deployment
 
 ## Static apps on Cloudflare Pages
 
-`apps/account-hub`, `apps/inventory-web`, `apps/beings`, `apps/bench`, `apps/calendars`, `apps/sessions`, `apps/writing`, `apps/maps`, `apps/social` and `apps/brand` deploy the same way: a static build served by Cloudflare Pages, wired to Cloudflare's own Git integration (no GitHub Actions job, no container, no database), rebuilt on a push to `main` that touches the app or a watched package. They call the API on Cloud Run from the browser (the API's `CORS_ALLOWED_ORIGINS` has to list each origin) and sign in through Authgear with a public client of their own.
+`apps/account-hub`, `apps/inventory-web`, `apps/beings`, `apps/bench`, `apps/calendars`, `apps/sessions`, `apps/writing`, `apps/maps`, `apps/social`, `apps/legal` and `apps/brand` deploy the same way: a static build served by Cloudflare Pages, wired to Cloudflare's own Git integration (no GitHub Actions job, no container, no database), rebuilt on a push to `main` that touches the app or a watched package. Every one but `apps/legal` and `apps/brand` calls the API on Cloud Run from the browser (the API's `CORS_ALLOWED_ORIGINS` has to list each origin) and signs in through Authgear with a public client of their own; those two have neither, and the legal build fails until the operator sets `LEGAL_PROFILE`.
 
 ```mermaid
 C4Deployment
@@ -106,6 +106,7 @@ C4Deployment
     Container(writing, "lorenzo-writing", "astro build, dist", "apps/writing")
     Container(maps, "lorenzo-maps", "astro build, dist", "apps/maps")
     Container(social, "lorenzo-social", "astro build, dist", "apps/social")
+    Container(legal, "lorenzo-legal", "astro build, dist", "apps/legal - needs LEGAL_PROFILE")
     Container(brand, "lorenzo-brand", "no build, static files", "apps/brand - tokens.css and the preview")
   }
 
@@ -118,10 +119,11 @@ C4Deployment
   Rel(repo, writing, "Cloudflare builds and publishes")
   Rel(repo, maps, "Cloudflare builds and publishes")
   Rel(repo, social, "Cloudflare builds and publishes")
+  Rel(repo, legal, "Cloudflare builds and publishes")
   Rel(repo, brand, "Cloudflare builds and publishes")
 ```
 
-The apps' addresses, and the links between them, are served by the API's registry, `GET /app-links` ([ADR 0273](../../adr/0273-app-links-registry.md)); an address the registry does not set (one variable per app, eight in all, see [deployment.md](../deployment.md#static-apps-on-cloudflare-pages)) falls back to the official `https://lorenzo-<app>.pages.dev`. Setup, one app each: [deployment-setup.md](../../operations/deployment-setup.md) (account-hub, inventory-web, bench, brand), [beings-setup.md](../../operations/beings-setup.md), [calendars-setup.md](../../operations/calendars-setup.md), [sessions-setup.md](../../operations/sessions-setup.md), [writing-setup.md](../../operations/writing-setup.md) and [maps-setup.md](../../operations/maps-setup.md). See [docs/architecture/deployment.md](../deployment.md#static-apps-on-cloudflare-pages) for the prose version.
+The apps' addresses, and the links between them, are served by the API's registry, `GET /app-links` ([ADR 0273](../../adr/0273-app-links-registry.md)); an address the registry does not set (one variable per app, nine in all, see [deployment.md](../deployment.md#static-apps-on-cloudflare-pages)) falls back to the official `https://lorenzo-<app>.pages.dev`. Setup, one app each: [deployment-setup.md](../../operations/deployment-setup.md) (account-hub, inventory-web, bench, brand), [beings-setup.md](../../operations/beings-setup.md), [calendars-setup.md](../../operations/calendars-setup.md), [sessions-setup.md](../../operations/sessions-setup.md), [writing-setup.md](../../operations/writing-setup.md), [maps-setup.md](../../operations/maps-setup.md), [social-setup.md](../../operations/social-setup.md) and [legal-pages.md](../../operations/legal-pages.md) (apps/legal). See [docs/architecture/deployment.md](../deployment.md#static-apps-on-cloudflare-pages) for the prose version.
 
 ## Native apps
 

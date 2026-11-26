@@ -2,7 +2,7 @@
 // chosen and looked at before it is uploaded, Replace, and Remove after a confirm. Every member sees the
 // cover; only an Owner has the buttons. It has its own buttons, and is not part of the form's Save.
 //
-// Not the shared PictureUpload (ADR 0085): that one uploads the moment a file is picked, is a square
+// Not the shared PictureUpload (ADR 0087): that one uploads the moment a file is picked, is a square
 // of 128 pixels, removes without asking and has nothing to say for no picture, and the cover is a wide
 // strip that is looked at first and has Discover's own stand-in to explain. What they share is what is
 // shared: the types and size the API takes (lib/profilePicture.ts), the status line and the picture

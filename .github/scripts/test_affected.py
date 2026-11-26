@@ -277,7 +277,7 @@ class ThisRepository(unittest.TestCase):
         tests = affected.affected(self.graph, ["packages/api-client/src/index.ts"]).tests
         self.assertEqual(
             tests,
-            {"packages/api-client", "apps/loot-bot", "apps/inventory-web", "apps/account-hub", "apps/bench", "apps/beings", "apps/calendars", "apps/sessions", "apps/maps", "apps/social", "apps/writing", "packages/stat-values", "packages/information-editor", "packages/period-picker", "apps/legal"},
+            {"packages/api-client", "apps/loot-bot", "apps/inventory-web", "apps/account-hub", "apps/bench", "apps/beings", "apps/calendars", "apps/sessions", "apps/maps", "apps/social", "apps/writing", "packages/stat-values", "packages/information-editor", "packages/period-picker", "packages/entity-parts", "apps/legal"},
         )
 
     def test_an_api_change_does_not_retest_the_typescript_apps(self) -> None:

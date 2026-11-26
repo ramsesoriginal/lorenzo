@@ -65,7 +65,7 @@ export function buildDropEmbed(
 }
 
 /**
- * The take/claim select menus + apply/clear-claims buttons (ADR 0052/0064).
+ * The take/claim select menus + apply/clear-claims buttons (ADR 0052).
  * Every `customId` is namespaced `"drop:<action>:<dropId>"` -
  * commands/index.ts's dispatcher routes on the part before the first `:`.
  */

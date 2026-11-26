@@ -10,7 +10,7 @@ Create a Pages project connected to `ramsesoriginal/lorenzo`, named `lorenzo-cal
 npm install --global corepack@latest && corepack enable && pnpm install --frozen-lockfile && pnpm run build
 ```
 
-Build watch paths follow [the rule in the deployment setup](deployment-setup.md#build-watch-paths). For this app: `apps/calendars/**`, `apps/brand/**`, `packages/api-client/**`, `packages/app-shell/**`, `packages/brand/**`, `packages/information-editor/**`, `packages/lorenzoscript/**`, `packages/lorenzoscript-editor/**`, `packages/read-cache/**`, `pnpm-lock.yaml` and `tools/brand/**`.
+Build watch paths follow [the rule in the deployment setup](deployment-setup.md#build-watch-paths). For this app: `apps/calendars/**`, `apps/brand/**`, `packages/api-client/**`, `packages/app-shell/**`, `packages/brand/**`, `packages/information-editor/**`, `packages/lorenzoscript/**`, `packages/lorenzoscript-editor/**`, `packages/read-cache/**`, `packages/time-filter/**`, `pnpm-lock.yaml` and `tools/brand/**`.
 
 ## Authgear and public configuration
 

@@ -79,7 +79,7 @@ Set `PUBLIC_API_BASE_URL`, `PUBLIC_AUTHGEAR_ENDPOINT` and `PUBLIC_AUTHGEAR_CLIEN
 Use Node and pnpm from the repository. `mise run //apps/maps:dev` serves port 4328; `lint`, `test`, `build` and `test-e2e` are the other tasks (`mise run //apps/maps:<task>`). The browser tests run against the real API on a disposable
 database, with launcher ports of their own (Authgear 4415, API 8780, site 4346). Reads are held in memory
 for a few seconds under the viewer's scope (`@lorenzo/read-cache`); nothing private is kept in browser
-storage. Remembered in this browser: the theme, the Map's Look and how each sphere Map is drawn, ; the tab's `sessionStorage` holds who you are and your libraries, never entry content.
+storage. Remembered in this browser: the theme, the Map's Look (`lorenzo:maps:look`), how each sphere Map is drawn (`lorenzo:maps:projection:<map>`), the height and unit last used on each Map (`lorenzo:maps:height:<map>`) and the key chosen for each tool (`lorenzo:maps:keys`); the tab's `sessionStorage` holds the page to return to after sign-in and who you are and your libraries, never entry content.
 
 ## Hosting
 
@@ -87,6 +87,8 @@ Deployed at <https://lorenzo-maps.pages.dev/> on Cloudflare Pages; [docs/operati
 
 ## Page frame
 
-The header, skip link, welcome, footer and theme toggle come from
-[`@lorenzo/app-shell`](../../packages/app-shell/README.md) over the shared brand;
-`src/layouts/Base.astro` only names the product, its page links and its welcome text.
+The header, palette, apps sheet, status bar and account menu come from
+[`@lorenzo/app-shell`](../../packages/app-shell/README.md) over the shared brand
+([ADR 0465](../../docs/adr/0465-maps-moves-into-the-web-shell.md));
+`src/layouts/Base.astro` sets `shell="web"`, picks the `list-detail` or `workspace` template (a
+Map's page is a workspace) and names the product, its tabs (Maps and Locations) and its welcome text.

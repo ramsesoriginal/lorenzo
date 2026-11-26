@@ -13,7 +13,7 @@ import http from "node:http";
  * apps/api do, and this fixture stands in for Authgear specifically.
  *
  * loot-bot's own code never calls `/oauth2/authorize` itself (per ADR
- * 0029, `/link` only ever hands the Discord user a URL to click - see
+ * 0050, `/link` only ever hands the Discord user a URL to click - see
  * src/commands/link.ts) - there is no production code path that would hit
  * a real authorize endpoint here. `issueAuthorizationCode` simulates the
  * one fact that step leaves behind that the rest of the flow actually

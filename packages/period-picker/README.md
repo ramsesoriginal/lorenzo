@@ -25,6 +25,10 @@ await picker.ready;
 const periodIds = await picker.resolve(); // creates the days that do not exist yet
 ```
 
+The picker object has `element`, `ready`, `selection()` (the current choice, a list of `Picked`), `setSelection(selection)` (replaces the choice, redraws and calls `onChange`; Maps clears its date lens with `setSelection([])`) and `resolve()`.
+
+The rules behind it are exported too, with no page and no API, so they can be used or tested alone: `toggle`, `addAll`, `remove`, `isSelected`, `limit` and `MAX_SELECTION` for the choice; `daysBetween` for a range of days; `summarize` and `periodLabel` for how a choice reads in words; `granularityOf` and `coordinateKey` for a coordinate. `loadCalendars`, `loadYear`, `loadPeriods` and `materializeSelection` are the API reads and the one write the control itself is built on.
+
 ## What it does
 
 - **Browses without writing.** It reads a year as the API calculates it (`GET .../years/{year}`) and the periods that exist (`GET .../calendar-periods`, ADR 0324); no calendar rules run in the browser ([ADR 0308](../../docs/adr/0308-authored-calendars-and-calculation.md)). Nothing is created until `resolve()`, which is one batch write per calendar (`POST .../periods/batch`).

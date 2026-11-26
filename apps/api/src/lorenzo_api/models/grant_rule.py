@@ -25,8 +25,8 @@ class GrantRule(Base):
     features under a category entry. It holds while its conditions all hold. `lasts` says whether a
     grant outlives its source, and `changeable` whether a pick can be swapped.
 
-    A rule goes with its source and with its category entry (the keys cascade). Nothing reads a rule
-    here but the vocabulary's own routes; granting is the apply of a later slice (ADR 0456).
+    A rule goes with its source and with its category entry (the keys cascade). The vocabulary's
+    own routes author it; `grants.py` reads it to make the grants that are due (ADR 0456).
     """
 
     __tablename__ = "grant_rule"

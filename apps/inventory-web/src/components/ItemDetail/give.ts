@@ -11,7 +11,7 @@ import { bulkAssignItemInstances, giveContents, setOwner } from '../../lib/items
 import { giveOrAsk, moveAnywayOptions } from '../../lib/moveAnyway';
 import type { BeingRef, ItemInstance, ProblemOut } from '../../lib/types';
 import { renderBeingPicker } from '../BeingPicker/renderer';
-import { containerOf } from '../Board/state';
+import { type BoardPatch, containerOf } from '../Board/state';
 import { renderCheckboxField } from '../CheckboxField/renderer';
 import { type ActionContext, quantityField } from './panels';
 
@@ -85,10 +85,15 @@ export function givePanel(ctx: ActionContext, item: ItemInstance): HTMLElement {
 
   const anyway = moveAnywayOptions(ctx.viewerIsGm);
 
+  // What the server confirmed, for the board to say in place; none when it can't be told.
+  let confirmed: BoardPatch | null = null;
+
   return renderBeingPicker({
     tenantId: ctx.tenantId,
 
     async perform(being) {
+      confirmed = null;
+
       const rawQuantity = quantity.input.value.trim();
       const requestedQuantity = rawQuantity ? Number.parseInt(rawQuantity, 10) : undefined;
       const plan = planGive(item, requestedQuantity);
@@ -104,6 +109,7 @@ export function givePanel(ctx: ActionContext, item: ItemInstance): HTMLElement {
 
       if (plan.mode === 'partial') {
         let splitOffEntityId = '';
+        let splitOff: ItemInstance | null = null;
 
         await giveOrAsk(async (flags) => {
           const [result] = await bulkAssignItemInstances(ctx.tenantId, [
@@ -121,7 +127,21 @@ export function givePanel(ctx: ActionContext, item: ItemInstance): HTMLElement {
           }
 
           splitOffEntityId = result.item_instance.entity_id;
+          splitOff = result.item_instance as ItemInstance;
         }, anyway);
+
+        // The part given is a card of its own beside the rest, which is fewer now.
+        const given = splitOff as ItemInstance | null;
+
+        if (!moveToOwner && given) {
+          confirmed = {
+            owners: [[being.entity_id, being.name]],
+            updated: [
+              { id: item.entity_id, patch: { quantity: (item.quantity ?? 0) - plan.quantity } },
+            ],
+            added: [{ after: item.entity_id, item: { ...item, ...given } }],
+          };
+        }
 
         // The split-off instance is a new entity, with no owner to restore: merging it
         // back is the honest inverse.
@@ -135,6 +155,13 @@ export function givePanel(ctx: ActionContext, item: ItemInstance): HTMLElement {
           (flags) => setOwner(ctx.tenantId, item.entity_id, being.entity_id, moveToOwner, flags),
           anyway,
         );
+        if (!moveToOwner) {
+          confirmed = {
+            owners: [[being.entity_id, being.name]],
+            updated: [{ id: item.entity_id, patch: { owner_entity_id: being.entity_id } }],
+          };
+        }
+
         ctx.undo.recordGive(
           being.entity_id,
           {
@@ -150,7 +177,7 @@ export function givePanel(ctx: ActionContext, item: ItemInstance): HTMLElement {
       return `Given to ${being.name}.`;
     },
 
-    onDone: ctx.finish,
+    onDone: () => (confirmed ? ctx.patched(confirmed) : ctx.finish()),
 
     extraFields: [
       ...(hasStack ? [quantity.element] : []),
