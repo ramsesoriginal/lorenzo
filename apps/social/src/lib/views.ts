@@ -24,11 +24,11 @@ import {
   statusLine,
   submit,
 } from './dom';
+import { listStats, type StatDef } from './matrix-api';
 import { canManage, libraryName } from './names';
 import { notes } from './notes';
 import { endPicker, typePicker } from './pickers';
-import { start } from './sign-in';
-
+import { shellOf, start } from './sign-in';
 import {
   createRelationship,
   deleteRelationship,
@@ -38,6 +38,7 @@ import {
   replaceRelationship,
   setPublic,
 } from './social-api';
+import { standingMark } from './standing';
 import { readLibrary, readsOf } from './types-api';
 import { audienceWords, defaultName, directionWords, sentence } from './words';
 
@@ -276,10 +277,7 @@ export async function mountRelationship() {
       }
       view.append(
         pageHead(relationship.name, {
-          crumbs: [
-            link('Libraries', '/'),
-            link('Relationships', `/relationships/?${new URLSearchParams({ tenant })}`),
-          ],
+          crumbs: [link('Relationships', `/relationships/?${new URLSearchParams({ tenant })}`)],
           lede: sentence(ends, type),
           meta,
         }),
@@ -300,13 +298,21 @@ export async function mountRelationship() {
       const stats = card();
       stats.body.append(el('h2', 'What it holds', 'group-title'));
       if (entry.stats.length) {
+        const scales = new Map(
+          (await listStats(tenant).catch((): StatDef[] => [])).map((def) => [def.id, def] as const),
+        );
         const rows = el('ul', '', 'list');
+        rows.setAttribute('aria-label', 'Standings');
         for (const stat of entry.stats) {
           const row = el('li');
+          const def = scales.get(stat.stat_definition_id);
           row.append(
             el('span', stat.name, 'grow'),
-            el('span', String(stat.value), 'chip'),
-            el('span', stat.own ? 'its own' : 'inherited', 'status-text'),
+            standingMark(
+              stat.value,
+              { min: def?.min_value ?? null, max: def?.max_value ?? null },
+              stat.own ? 'direct' : 'inherited',
+            ),
           );
           rows.append(row);
         }
@@ -373,7 +379,13 @@ function manager(
     button(
       'Delete it',
       async () => {
-        if (!confirm(`Delete “${relationship.name}”? This cannot be undone.`)) return;
+        const yes = await shellOf()?.confirm({
+          title: `Delete “${relationship.name}”?`,
+          body: 'The relationship and its notes go. The two entries stay as they are.',
+          confirm: 'Delete it',
+          danger: true,
+        });
+        if (!yes) return;
         await deleteRelationship(tenant, id, version);
         location.assign(`/relationships/?${new URLSearchParams({ tenant })}`);
       },

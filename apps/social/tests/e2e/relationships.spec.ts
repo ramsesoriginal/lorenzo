@@ -117,8 +117,8 @@ test('a player makes a relationship with their own being, and changes and delete
   ).toHaveCount(0);
   await page.getByRole('button', { name: 'Make it go one way' }).click();
   await expect(page.getByText('From Alice the Bold to Wren Ashdown').first()).toBeVisible();
-  page.once('dialog', (dialog) => void dialog.accept());
   await page.getByRole('button', { name: 'Delete it' }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Delete it' }).click();
   await expect(page.getByRole('heading', { name: 'Relationships', level: 1 })).toBeVisible();
   await expect(page.getByText('There are no relationships you can see yet.')).toBeVisible();
   expect(alice.entity_id).toBeTruthy();

@@ -72,7 +72,7 @@ Filled in as each slice lands.
 | --- | --- | --- |
 | The frame, the tabs (SO1) | G0 | Built: the shell's header with the tabs and their icons (Libraries, Relationships, Webs, Types and standings; Problems comes with G8), the status bar and the apps sheet; the pages are unchanged inside it. The shell's status bar is a labelled region, so the pages pass axe's landmark rule without the check being turned off |
 | Webs as Home (SO1) | G1 | Built: Home opens the library's webs (the last library, or the only one), with Continue, a New web dialog (`empty-social-web`), rename in a dialog, delete behind a confirmation (no Undo: the API deletes for good) |
-| Relationships and a relationship (SO3) | G2 | Partly built: the list, New relationship as a dialog and the `empty-relationships` mascot; the relationship page's marks and its webs follow |
+| Relationships and a relationship (SO3) | G2 | Built, but for the webs that name a relationship (the API has no read for it yet): the list, New relationship as a dialog, `empty-relationships`, standings with number, bar and word (SO3), delete behind the shell's confirmation |
 | Types and standings | G3 | Not built |
 | One web: the graph, the switch, the panel, Focus (SO2, SO6, SO7) | G4 | Not built |
 | Members and Connect (SO6) | G5 | Not built |
