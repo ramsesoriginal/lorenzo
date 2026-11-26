@@ -487,6 +487,10 @@
   border-style: dashed;
 }
 
+.matrix-rowhead[aria-current="true"] {
+  background: var(--fill-soft);
+}
+
 .matrix-data.is-unknown {
   outline: 1px dotted var(--text-secondary);
   outline-offset: -3px;

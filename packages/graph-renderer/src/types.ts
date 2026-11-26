@@ -27,6 +27,8 @@ export interface GraphEdge {
   directed: boolean;
   label?: string;
   status: EdgeStatus;
+  /** Drawn faded (a relationship the lens leaves out, shown on request), never hidden by this flag. */
+  dim?: boolean;
   /** An optional value, drawn as the line's weight against `scale` when both are given. */
   value?: number;
   scale?: readonly [number, number];

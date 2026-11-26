@@ -42,6 +42,7 @@ import { typePicker as findType } from './pickers';
 import { shellOf } from './sign-in';
 import { standingMark, unknownMark } from './standing';
 import { readGraph, readWeb } from './web-api';
+import { loadGroups } from './web-facts';
 
 const ROW_H = 36;
 const COL_W = 112;
@@ -89,13 +90,16 @@ export async function renderMatrix(
     if (members.length < 2) {
       view.append(empty('A matrix needs at least two entries: add them to the web first.'));
       host.replaceChildren(view);
-      return;
+      return null;
     }
-    view.append(await matrix(tenant, members, stats, manage, web.standing_stat_id ?? null, lens));
+    const built = await matrix(tenant, members, stats, manage, web.standing_stat_id ?? null, lens);
+    view.append(built.root);
     host.replaceChildren(view);
+    return { carry: built.carry };
   } catch (error) {
     host.replaceChildren(errorNotice(error));
   }
+  return null;
 }
 
 async function matrix(
@@ -112,7 +116,11 @@ async function matrix(
   let mode: 'value' | 'presence' = numbers.length ? 'value' : 'presence';
   let stat: StatDef | undefined = numbers.find((s) => s.id === savedStanding) ?? numbers[0];
   let type: { id: string; name: string } | null = null;
-  let order: 'name' | 'standing' = 'name';
+  let order: 'name' | 'standing' | 'group' = 'name';
+  // A member's group, for the order by group: the first group (by name) that has it, or none.
+  const groupOf = new Map<string, string>();
+  // What a person selected in the drawing, shown here too (SO2).
+  let carried: { entries: string[] } | null = null;
   let rowWindow = 0;
   let colWindow = 0;
   let cells = new Map<string, Cell>();
@@ -151,7 +159,10 @@ async function matrix(
     'Order',
     [
       ['name', 'By name'],
-      ['standing', 'By standing, highest first'],
+      ...(numbers.length
+        ? ([['standing', 'By standing, highest first']] as [string, string][])
+        : []),
+      ['group', 'By group'],
     ],
     order,
   );
@@ -167,7 +178,8 @@ async function matrix(
   });
   controls.body.append(
     modeSelect.label,
-    ...(numbers.length ? [statSelect.label, orderSelect.label] : []),
+    ...(numbers.length ? [statSelect.label] : []),
+    orderSelect.label,
     typePicker.label,
     actions(useType, clearType),
   );
@@ -182,8 +194,21 @@ async function matrix(
   });
   orderSelect.input.addEventListener('change', () => {
     order = orderSelect.input.value as typeof order;
-    sortMembers();
-    render();
+    void (async () => {
+      if (order === 'group' && groupOf.size === 0) {
+        const groups = (
+          await loadGroups(
+            tenant,
+            members.map((m) => m.id),
+          ).catch(() => [])
+        ).sort((a, b) => a.name.localeCompare(b.name));
+        for (const group of groups) {
+          for (const id of group.members) if (!groupOf.has(id)) groupOf.set(id, group.name);
+        }
+      }
+      sortMembers();
+      render();
+    })();
   });
 
   const rowRanges = windows(members.length);
@@ -212,6 +237,10 @@ async function matrix(
 
   const sortMembers = () => {
     ordered = [...members].sort((a, b) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id));
+    if (order === 'group') {
+      const rank = (m: Member) => groupOf.get(m.id) ?? '\uffff';
+      ordered = [...ordered].sort((a, b) => rank(a).localeCompare(rank(b)));
+    }
     if (order === 'standing' && mode === 'value') {
       const total = (m: Member) =>
         [...cells]
@@ -388,6 +417,7 @@ async function matrix(
       row.style.height = `${ROW_H}px`;
       const head = el('div', rowMember.name, 'matrix-cell matrix-rowhead');
       head.setAttribute('role', 'rowheader');
+      if (carried?.entries.includes(rowMember.id)) head.setAttribute('aria-current', 'true');
       row.append(head);
       for (let c = c0; c < c1; c += 1) {
         const colMember = cols[c] as Member;
@@ -682,7 +712,19 @@ async function matrix(
     root.append(controls.root, legend(), gridHost, summary, bar, status);
   }
   await load();
-  return root;
+
+  /** Brings what is selected in the drawing here: its row is marked, and the cell under focus goes there. */
+  const carry = (entries: string[]) => {
+    carried = entries.length ? { entries } : null;
+    const row = rowsOf().findIndex((m) => m.id === entries[0]);
+    const col = entries[1] ? colsOf().findIndex((m) => m.id === entries[1]) : -1;
+    if (row >= 0) {
+      focus = { row, col: col >= 0 ? col : focus.col };
+      scroller.scrollTop = Math.max(0, row * ROW_H - ROW_H * 2);
+    }
+    render();
+  };
+  return { root, carry };
 
   /** What the number, the bar and the marks in a cell mean (SO3): each has a word, so none rests on colour. */
   function legend() {

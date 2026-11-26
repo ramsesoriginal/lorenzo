@@ -198,6 +198,9 @@ test('the date lens draws what holds, dots what is not known and lists the rest 
   ).toBeVisible();
   await page.getByRole('button', { name: 'List them' }).click();
   await expect(sentences.getByText('Has not begun.')).toBeVisible();
+  // And it is drawn, faded, while the switch is on.
+  await expect(page.locator('.gr-edge.is-dim').first()).toBeAttached();
+  await expect(page.getByText(/is shown faded/)).toBeVisible();
   await expect(page.getByRole('button', { name: 'As of an Event' })).toHaveAttribute(
     'aria-pressed',
     'true',
@@ -517,4 +520,73 @@ test('Groups outlines a group, Steps shows only what is near the selection, and 
   // Groups: the group's two members in the web are outlined.
   await page.getByRole('button', { name: 'Groups' }).click();
   await expect(page.locator('.gr-hull').first()).toBeAttached();
+});
+
+test('a line is labelled with its type, a chain is dashed, and a hand-placed entry moves by keys and by number', async ({
+  browser,
+}) => {
+  const w = await world();
+  const wren = await w.entry('Wren Ashdown');
+  const mara = await w.entry('Mara Quill');
+  const tomas = await w.entry('Tomas Ashdown');
+  const parent = await ok(
+    w.gm.POST('/tenants/{tenant_id}/entities', {
+      params: { path: w.path },
+      body: { name: 'Parent of', kinds: [], parents: [] },
+    }),
+  );
+  const made1 = await ok(
+    w.gm.POST('/tenants/{tenant_id}/relationships', {
+      params: { path: w.path },
+      body: {
+        name: 'Wren and Mara',
+        end_a: wren.id,
+        end_b: mara.id,
+        one_way: true,
+        is_public: true,
+        prototypes: [parent.id],
+      },
+    }),
+  );
+  const up = await w.tie('Mara and Tomas', mara.id, tomas.id, true);
+  const grand = await w.tie('Wren and Tomas', wren.id, tomas.id, true);
+  const path = { ...w.path, relationship_id: grand.id };
+  const tag = (
+    await w.gm.GET('/tenants/{tenant_id}/relationships/{relationship_id}/through', {
+      params: { path },
+    })
+  ).response.headers.get('etag');
+  await ok(
+    w.gm.PUT('/tenants/{tenant_id}/relationships/{relationship_id}/through', {
+      params: { path },
+      headers: { 'If-Match': tag ?? '' },
+      body: { via: [made1.id, up.id] },
+    }),
+  );
+  const web = await webOf(w, 'The court', [wren.id, mara.id, tomas.id]);
+  const page = await signedIn(browser, w.subject);
+  await page.goto(`/web/?tenant=${w.tenant.id}&id=${web.id}`);
+  const drawing = page.getByRole('group', { name: 'The court' });
+  await expect(drawing.getByRole('button', { name: 'Wren Ashdown' })).toBeVisible();
+  // The type labels its line, and the one that holds through a chain is dashed.
+  await expect(page.locator('.gr-svg text', { hasText: 'Parent of' })).toBeVisible();
+  await expect(page.locator('.gr-svg path[stroke-dasharray]').first()).toBeAttached();
+
+  // By hand: choose the layout, move an entry with Alt and an arrow, then give it a place by number.
+  await page.getByRole('button', { name: 'Drawing' }).click();
+  await page.getByLabel('Layout').selectOption('manual');
+  await page.getByRole('button', { name: 'Close the panel' }).click();
+  await drawing.getByRole('button', { name: 'Mara Quill' }).focus();
+  await page.keyboard.press('Space');
+  await expect(page.getByLabel('X', { exact: true })).toBeVisible();
+  const before = Number(await page.getByLabel('X', { exact: true }).inputValue());
+  await drawing.getByRole('button', { name: 'Mara Quill' }).focus();
+  await page.keyboard.press('Alt+ArrowRight');
+  await expect(page.getByText(/placed by hand, not saved yet/)).toBeVisible();
+  await page.getByLabel('X', { exact: true }).fill(String(before + 50));
+  await page.getByLabel('X', { exact: true }).press('Tab');
+  await page.getByLabel('Y', { exact: true }).fill('12');
+  await page.getByLabel('Y', { exact: true }).press('Tab');
+  await expect(page.getByText(/placed by hand, not saved yet/)).toBeVisible();
+  await page.getByRole('button', { name: 'Fit' }).click();
 });

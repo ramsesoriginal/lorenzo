@@ -6,7 +6,10 @@ import {
   type ArrowKey,
   centreOn as centred,
   moveAlongEdges,
+  nodeWorld,
+  nudge,
   panBy,
+  pinch,
   toWorld,
   zoomAt,
 } from './interaction';
@@ -48,6 +51,12 @@ export interface GraphViewHandle {
   centreOn(id: string): void;
   zoomIn(): void;
   zoomOut(): void;
+  /** Back to the whole drawing: no zoom, no pan. */
+  fit(): void;
+  /** Where a node is drawn, in the units a hand placement is written in. */
+  positionOf(id: string): Point | null;
+  /** Puts a node somewhere by hand (the layout becomes, or stays, `manual`'s to use); emits `onMove`. */
+  place(id: string, at: Point): void;
   resize(width: number, height: number): void;
   destroy(): void;
 }
@@ -89,14 +98,28 @@ export function createGraphView(host: HTMLElement, options: GraphViewOptions): G
   };
 
   let drag: { at: Point; node: string | null; moved: boolean } | null = null;
+  // Fingers down at once: two of them zoom and pan (a phone's pinch), and select nothing.
+  const fingers = new Map<number, Point>();
   const onDown = (event: PointerEvent) => {
     const at = local(event);
+    fingers.set(event.pointerId, at);
+    if (fingers.size === 2) {
+      drag = null;
+      return;
+    }
     const hit = hitTest(scene, at);
     drag = { at, node: hit?.kind === 'node' ? hit.id : null, moved: false };
     svg.setPointerCapture(event.pointerId);
     svg.dataset.cursor = 'grabbing';
   };
   const onMove = (event: PointerEvent) => {
+    if (fingers.size === 2 && fingers.has(event.pointerId)) {
+      const before = [...fingers.values()] as [Point, Point];
+      fingers.set(event.pointerId, local(event));
+      view = pinch(view, before, [...fingers.values()] as [Point, Point]);
+      redraw();
+      return;
+    }
     if (!drag) return;
     const at = local(event);
     const dx = at.x - drag.at.x;
@@ -113,6 +136,7 @@ export function createGraphView(host: HTMLElement, options: GraphViewOptions): G
     redraw();
   };
   const onUp = (event: PointerEvent) => {
+    fingers.delete(event.pointerId);
     if (!drag) return;
     const finished = drag;
     drag = null;
@@ -147,6 +171,19 @@ export function createGraphView(host: HTMLElement, options: GraphViewOptions): G
     } else if (id && event.key === ' ') {
       event.preventDefault();
       select({ kind: 'node', id });
+    } else if (id && event.altKey && view.layout === 'manual' && event.key.startsWith('Arrow')) {
+      // Placing by hand with the keys: Alt and an arrow moves the node by a step.
+      const step = event.shiftKey ? 40 : 10;
+      const dx = event.key === 'ArrowLeft' ? -step : event.key === 'ArrowRight' ? step : 0;
+      const dy = event.key === 'ArrowUp' ? -step : event.key === 'ArrowDown' ? step : 0;
+      const moved = nudge(scene, view, id, dx, dy);
+      if (moved) {
+        event.preventDefault();
+        view = moved.view;
+        redraw();
+        options.onMove?.(id, moved.at);
+        svg.querySelector<SVGElement>(`[data-node-id="${CSS.escape(id)}"]`)?.focus();
+      }
     } else if (id && event.key.startsWith('Arrow')) {
       const next = moveAlongEdges(scene, model, id, event.key as ArrowKey);
       if (next) {
@@ -195,6 +232,16 @@ export function createGraphView(host: HTMLElement, options: GraphViewOptions): G
     zoomOut() {
       view = zoomAt(view, 1 / 1.2, { x: view.width / 2, y: view.height / 2 });
       redraw();
+    },
+    fit() {
+      view = { ...view, zoom: 1, pan: { x: 0, y: 0 } };
+      redraw();
+    },
+    positionOf: (id) => nodeWorld(scene, id),
+    place(id, at) {
+      view = { ...view, positions: { ...view.positions, [id]: at } };
+      redraw();
+      options.onMove?.(id, at);
     },
     resize(width, height) {
       view = { ...view, width, height };

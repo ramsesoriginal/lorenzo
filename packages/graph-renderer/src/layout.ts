@@ -298,7 +298,7 @@ export function layout(
       width: round2(width),
       className: theme.classes.edge,
       selected: isSelected,
-      dim: false,
+      dim: !!edge.dim,
       source: { kind: 'edge', id: edge.id },
     });
     if (edge.directed) {
@@ -316,7 +316,7 @@ export function layout(
         width: 1,
         className: theme.classes.arrow,
         selected: isSelected,
-        dim: false,
+        dim: !!edge.dim,
         source: { kind: 'edge', id: edge.id },
       });
     }

@@ -44,3 +44,37 @@ test('Types and standings and Problems are tabs for those who write; a player se
   await expect(seen.getByRole('link', { name: 'Types and standings' })).toBeHidden();
   await expect(seen.getByRole('link', { name: 'Problems' })).toBeHidden();
 });
+
+test('the palette goes to a being’s social page and makes a web or a relationship', async ({
+  browser,
+}) => {
+  const w = await world();
+  await w.person('Mara Quill');
+  const page = await signedIn(browser, w.subject);
+  await page.goto(`/webs/?tenant=${w.tenant.id}`);
+  await expect(page.getByRole('heading', { name: 'Webs', level: 1 })).toBeVisible();
+
+  await page.keyboard.press('Control+k');
+  const palette = page.getByRole('dialog');
+  await palette.getByRole('combobox').fill('Mara');
+  await palette.getByRole('option', { name: /Mara Quill/ }).click();
+  await expect(page.getByRole('heading', { name: 'Mara Quill', level: 1 })).toBeVisible();
+  await expect(page).toHaveURL(/\/entry\//);
+
+  await page.keyboard.press('Control+k');
+  await page.getByRole('dialog').getByRole('combobox').fill('New web');
+  await page
+    .getByRole('dialog')
+    .getByRole('option', { name: /New web/ })
+    .click();
+  await expect(page.getByRole('form', { name: 'Make a web' })).toBeVisible();
+
+  await page.goto(`/webs/?tenant=${w.tenant.id}`);
+  await page.keyboard.press('Control+k');
+  await page.getByRole('dialog').getByRole('combobox').fill('New relationship');
+  await page
+    .getByRole('dialog')
+    .getByRole('option', { name: /New relationship/ })
+    .click();
+  await expect(page.getByRole('form', { name: 'Make a relationship' })).toBeVisible();
+});

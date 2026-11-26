@@ -1,4 +1,5 @@
 import { pageState } from '@lorenzo/app-shell';
+import { fetchAllPages } from './api';
 import { BRANDING_CSS_URL } from './config';
 import { formDialog } from './dialog';
 import {
@@ -21,10 +22,11 @@ import {
   relationshipHref,
   say,
   sectionHead,
+  select,
   statusLine,
   submit,
 } from './dom';
-import { listStats, type StatDef } from './matrix-api';
+import { listStats, readStanding, type StatDef } from './matrix-api';
 import { canManage, libraryName } from './names';
 import { notes } from './notes';
 import { endPicker, typePicker } from './pickers';
@@ -82,6 +84,9 @@ export async function mountRelationships() {
     let query = '';
     let typeId = '';
     let endId = '';
+    let statId = '';
+    let atLeast: number | null = null;
+    let atMost: number | null = null;
     let total = 0;
     let shown = 0;
 
@@ -93,12 +98,29 @@ export async function mountRelationships() {
       }
       say(status, 'Reading the relationships…');
       try {
-        const result = await listRelationships(tenant, {
-          page,
+        const asked = {
           q: query,
           ...(typeId ? { type: typeId } : {}),
           ...(endId ? { end: endId } : {}),
-        });
+        };
+        // By standing: the list read has no such filter, so those that match are found here, whole.
+        const result = statId
+          ? await (async () => {
+              const [all, values] = await Promise.all([
+                fetchAllPages((p) => listRelationships(tenant, { page: p, ...asked })),
+                readStanding(tenant, statId),
+              ]);
+              const items = all.filter((r) => {
+                const v = values.get(r.id)?.value;
+                return (
+                  typeof v === 'number' &&
+                  (atLeast === null || v >= atLeast) &&
+                  (atMost === null || v <= atMost)
+                );
+              });
+              return { items, total: items.length };
+            })()
+          : await listRelationships(tenant, { page, ...asked });
         total = result.total ?? result.items.length;
         for (const row of result.items) {
           const item = el('li');
@@ -184,15 +206,40 @@ export async function mountRelationships() {
         query = '';
         typeId = '';
         endId = '';
+        statId = '';
+        atLeast = null;
+        atMost = null;
+        byStanding.input.value = '';
         void load(true);
       }),
     );
-    search.append(find.label, ofType.label, withEnd.label, narrow);
+    // By a standing: those with a value, and between two numbers if they are given.
+    const numbers = (await listStats(tenant).catch((): StatDef[] => [])).filter(
+      (x) => x.value_type === 'int',
+    );
+    const byStanding = select('Having the standing', [
+      ['', 'Any'],
+      ...numbers.map((x): [string, string] => [x.id, x.name]),
+    ]);
+    const least = field('At least', '', 'number');
+    const most = field('At most', '', 'number');
+    const range = el('div', '', 'row');
+    range.append(least.label, most.label);
+    search.append(
+      find.label,
+      ofType.label,
+      withEnd.label,
+      ...(numbers.length ? [byStanding.label, range] : []),
+      narrow,
+    );
     search.addEventListener('submit', (event) => {
       event.preventDefault();
       query = find.input.value.trim();
       typeId = ofType.value() ?? '';
       endId = withEnd.value() ?? '';
+      statId = byStanding.input.value;
+      atLeast = least.input.value === '' ? null : Number(least.input.value);
+      atMost = most.input.value === '' ? null : Number(most.input.value);
       void load(true);
     });
     listing.append(
@@ -207,6 +254,9 @@ export async function mountRelationships() {
 
     host.replaceChildren(view);
     await load(true);
+    // The palette's "New relationship…" lands here with the form open.
+    if (new URLSearchParams(location.search).get('new') === '1')
+      void makeRelationship(tenant, manage);
   } catch (error) {
     host.replaceChildren(errorNotice(error));
   }

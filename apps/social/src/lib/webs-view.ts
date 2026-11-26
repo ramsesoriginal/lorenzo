@@ -266,6 +266,8 @@ export async function mountWebs() {
     };
 
     await draw();
+    // The palette's "New web…" lands here with the dialog open.
+    if (manage && new URLSearchParams(location.search).get('new') === '1') void makeOne();
   } catch (error) {
     host.replaceChildren(errorNotice(error));
   }

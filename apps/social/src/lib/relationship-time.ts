@@ -1,4 +1,4 @@
-import { actions, button, card, el, empty, link, relationshipHref } from './dom';
+import { actions, button, card, el, empty, icon, link, relationshipHref } from './dom';
 import { entryPicker } from './pickers';
 import {
   listRelationships,
@@ -7,6 +7,7 @@ import {
   replaceRelationship,
   writeThrough,
 } from './social-api';
+import { websNaming } from './web-api';
 
 type Relationship = Awaited<ReturnType<typeof readRelationship>>['relationship'];
 
@@ -132,6 +133,29 @@ export async function timeAndChain(
       );
     }
     sections.push(through.root);
+  }
+
+  // The webs that name it: both of its ends are members (SO3).
+  const webs = await websNaming(tenant, id).catch(() => null);
+  if (webs) {
+    const named = card();
+    named.body.append(el('h2', 'The webs that name it', 'group-title'));
+    if (webs.items.length) {
+      const list = el('ul', '', 'list');
+      list.setAttribute('aria-label', 'The webs that name it');
+      for (const web of webs.items) {
+        const row = el('li');
+        row.append(
+          icon('kind-social-web'),
+          link(web.name, `/web/?${new URLSearchParams({ tenant, id: web.id })}`),
+        );
+        list.append(row);
+      }
+      named.body.append(list);
+    } else {
+      named.body.append(empty('No web you can see has both of its ends.'));
+    }
+    sections.push(named.root);
   }
   return sections;
 }

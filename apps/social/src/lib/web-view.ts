@@ -8,7 +8,6 @@ import {
   LIMITS,
   THEMES,
 } from '@lorenzo/graph-renderer';
-import { client, fetchAllPages, unwrap } from './api';
 import { BRANDING_CSS_URL } from './config';
 import { formDialog } from './dialog';
 import {
@@ -40,6 +39,7 @@ import { relationshipForm } from './relationship-form';
 import { shellOf, start } from './sign-in';
 import { readEntry } from './social-api';
 import { type Layout, readGraph, readWeb, saveSettings, saveTypes, writeMembers } from './web-api';
+import { edgeFacts, loadGroups } from './web-facts';
 import { openMembers } from './web-members';
 import { membersPanel, relationshipPanel } from './web-panel';
 import { rememberWeb } from './webs-view';
@@ -189,13 +189,18 @@ export async function mountWeb() {
         count.append(
           el(
             'span',
-            `${absent} ${absent === 1 ? 'relationship has' : 'relationships have'} not begun or ${absent === 1 ? 'has' : 'have'} ended, and ${absent === 1 ? 'is' : 'are'} not drawn`,
+            `${absent} ${absent === 1 ? 'relationship has' : 'relationships have'} not begun or ${absent === 1 ? 'has' : 'have'} ended, and ${absent === 1 ? 'is' : 'are'} ${showOthers ? 'shown faded' : 'not drawn'}`,
           ),
           listThem,
         );
         floatHead.append(count);
       }
 
+      const facts = await edgeFacts(
+        tenant,
+        graph.members.map((m) => m.entry.id),
+        graph.edges,
+      );
       // The standing a web shows: drawn as the line's weight on the stat's scale, and said in its label.
       const stats = await listStats(tenant).catch((): StatDef[] => []);
       const numbers = stats.filter((x) => x.value_type === 'int');
@@ -214,19 +219,29 @@ export async function mountWeb() {
           icon: iconFor(m.entry.kinds),
         })),
         // What has not begun or has ended is not drawn; what is not known is dotted (ADR 0405).
+        // Those the lens leaves out are drawn only when asked for, and then faded (SO4).
         edges: graph.edges
-          .filter((e) => e.as_of !== 'not_yet' && e.as_of !== 'ended')
+          .filter((e) => showOthers || (e.as_of !== 'not_yet' && e.as_of !== 'ended'))
           .map(
             (e): GraphEdge => ({
               id: e.id,
               a: e.end_a.id,
               b: e.end_b.id,
               directed: e.one_way,
+              // The type and the standing label a line; a relationship with no type reads as its name.
               label: (() => {
                 const v = standings.get(e.id)?.value;
-                return typeof v === 'number' ? `${e.name}: ${v}` : e.name;
+                const said = facts.typeOf.get(e.id) ?? e.name;
+                return typeof v === 'number' ? `${said}: ${v}` : said;
               })(),
-              status: e.as_of === 'unknown' ? 'uncertain' : 'direct',
+              // Solid is stated, dashed holds through others, dotted is not known (identity section 18).
+              status:
+                e.as_of === 'unknown'
+                  ? 'uncertain'
+                  : facts.through.has(e.id)
+                    ? 'derived'
+                    : 'direct',
+              ...(e.as_of === 'not_yet' || e.as_of === 'ended' ? { dim: true } : {}),
               ...(() => {
                 const v = standings.get(e.id)?.value;
                 return typeof v === 'number' && scale ? { value: v, scale } : {};
@@ -360,6 +375,32 @@ export async function mountWeb() {
         selectedBox.append(
           around.length ? items : empty('No relationship in this web ties it to another entry.'),
         );
+        // In the hand-placed layout a writer gives a position by number, as well as by drag or by keys.
+        if (manage && current === 'manual' && drawing) {
+          const at = drawing.positionOf(selected.id);
+          const nodeId = selected.id;
+          const x = field('X', at ? String(Math.round(at.x * 10) / 10) : '', 'number');
+          const y = field('Y', at ? String(Math.round(at.y * 10) / 10) : '', 'number');
+          const apply = () => {
+            const nx = Number(x.input.value);
+            const ny = Number(y.input.value);
+            if (x.input.value !== '' && y.input.value !== '' && Number.isFinite(nx + ny)) {
+              drawing?.place(nodeId, { x: nx, y: ny });
+            }
+          };
+          x.input.addEventListener('change', apply);
+          y.input.addEventListener('change', apply);
+          selectedBox.append(
+            el('h3', 'Place it by hand', 'group-title'),
+            x.label,
+            y.label,
+            el(
+              'p',
+              'Drag it, or hold Alt and press an arrow key (Shift for a bigger step).',
+              'status-text',
+            ),
+          );
+        }
         const asked = selected.id;
         void membersPanel(tenant, asked).then((group) => {
           if (group && selected?.id === asked) selectedBox.append(group);
@@ -762,6 +803,7 @@ export async function mountWeb() {
       floatZoom.append(
         button('Zoom in', () => drawing?.zoomIn()),
         button('Zoom out', () => drawing?.zoomOut()),
+        button('Fit', () => drawing?.fit()),
       );
 
       // The legend says what a line is (identity.md section 18).
@@ -783,6 +825,14 @@ export async function mountWeb() {
       switcher.setAttribute('role', 'group');
       switcher.setAttribute('aria-label', 'View');
       let matrixDrawn = false;
+      let matrixHandle: { carry(entries: string[]): void } | null = null;
+      // What is selected, as the entries the matrix can mark: an entry, or the two ends of a relationship.
+      const selectedEntries = (): string[] => {
+        if (!selected) return [];
+        if (selected.kind === 'node') return [selected.id];
+        const e = model.edges.find((x) => x.id === selected?.id);
+        return e ? [e.a, e.b] : [];
+      };
       const showView = (name: 'graph' | 'matrix' | 'list') => {
         graphPane.hidden = name !== 'graph';
         matrixPane.hidden = name !== 'matrix';
@@ -796,14 +846,19 @@ export async function mountWeb() {
         view.dataset.view = name;
         if (name === 'matrix' && !matrixDrawn) {
           matrixDrawn = true;
-          void import('./matrix-view').then((m) =>
-            m.renderMatrix(matrixPane, tenant, id, {
-              asOf: lens.asOf,
-              asOfName,
-              asSeenBy: lens.asSeenBy,
-            }),
-          );
-        }
+          void import('./matrix-view')
+            .then((m) =>
+              m.renderMatrix(matrixPane, tenant, id, {
+                asOf: lens.asOf,
+                asOfName,
+                asSeenBy: lens.asSeenBy,
+              }),
+            )
+            .then((handle) => {
+              matrixHandle = handle;
+              handle?.carry(selectedEntries());
+            });
+        } else if (name === 'matrix') matrixHandle?.carry(selectedEntries());
         for (const b of switcher.querySelectorAll('button')) {
           b.setAttribute('aria-pressed', String(b.dataset.view === name));
         }
@@ -833,32 +888,6 @@ export async function mountWeb() {
     }
   };
   await draw();
-}
-
-/** The groups with at least two members in the web: soft outlines round them, read when asked for. */
-async function loadGroups(tenant: string, inWeb: readonly string[]): Promise<GraphGroup[]> {
-  const here = new Set(inWeb);
-  const all = await fetchAllPages(async (page) =>
-    unwrap(
-      await client.GET('/tenants/{tenant_id}/groups', {
-        params: { path: { tenant_id: tenant }, query: { page, size: 100 } },
-        cache: 'no-cache',
-      }),
-    ),
-  ).catch(() => []);
-  const found: GraphGroup[] = [];
-  for (const group of all.slice(0, 40)) {
-    const members = await client
-      .GET('/tenants/{tenant_id}/groups/{group_entity_id}/members', {
-        params: { path: { tenant_id: tenant, group_entity_id: group.id } },
-        cache: 'no-cache',
-      })
-      .then((r) => (r.response.ok ? (r.data ?? []) : []))
-      .catch(() => []);
-    const ours = members.map((m) => m.id).filter((id) => here.has(id));
-    if (ours.length >= 2) found.push({ id: group.id, name: group.name, members: ours });
-  }
-  return found;
 }
 
 function nameOf(

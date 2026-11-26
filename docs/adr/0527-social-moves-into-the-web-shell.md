@@ -100,15 +100,20 @@ After G10 the built app was checked item by item against [the design](../design/
 - A relationship's page sets and clears since and until, and shows, adds to and takes out of the chain it holds through.
 - The matrix reads as of the date lens and as read by; a relationship not known as of the Event is dotted and worded; a stat with no scale is drawn against the values in view and the legend says so.
 
+**Built after the first audit pass**
+
+- Edge labels name the type and the standing; a relationship that holds through a chain is dashed (read when the web is drawn, for webs of up to 100 entries and 60 relationships; a larger web is drawn without).
+- The renderer gained a Fit, placing by hand with Alt and the arrow keys (Shift for a bigger step), a pinch on a phone and a faded edge (what the date lens leaves out is drawn faded when asked for, as well as listed); an entry in the hand-placed layout is also placed by X and Y fields in the panel.
+- The selection carries into the matrix (its row is marked and its cell has the focus); the matrix orders by group.
+- The relationships list finds by a standing and the numbers it lies between (worked out in the page: the list read has no such filter).
+- The palette (Ctrl or Cmd K) and the go-to keys are fed: Webs, Relationships, Types and standings, Problems, New web, New relationship, and any being or group, which opens its page. The app had never called the shell's palette.
+- A relationship's page lists the webs that name it: the webs list read gained `names=<relationship>` (webs with both ends as members; a relationship the reader may not see names none), and the API client was regenerated.
+
 **In the design, still not built**
 
-- A webs-that-name-this-relationship list on a relationship's page (the API has no read for it).
-- Finding a relationship by standing (the list read has no such filter); sorting the matrix by group.
-- "Groups that disagree" in Problems (nothing defines it); doubled relationships are worked out in the page, not reported by the API.
-- Edge labels that name the type, and dashed edges for a relationship that holds through a chain (a read for each edge's type and chain would be needed).
-- Placing an entry by hand with the keys (Alt and the arrows) and with fields for X and Y; a Fit button; pinch on a phone: these belong to the renderer.
-- The selection carrying into the matrix; the date lens' Event list from the shared time filter (decided above); fading what the lens leaves out instead of listing it.
-- A palette entry for an entry's page and links to it from other apps.
+- "Groups that disagree" in Problems: nothing defines it. Doubled relationships are worked out in the page, not reported by the API.
+- The date lens' Event list from the shared time filter (decided above: the Event picker stays).
+- Links to an entry's page from other apps: none asks for one yet.
 
 ## Consequences
 

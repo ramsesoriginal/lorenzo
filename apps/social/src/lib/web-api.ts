@@ -119,3 +119,13 @@ export async function deleteWeb(tenant: string, id: string) {
   });
   if (!result.response.ok) await unwrap(result as never);
 }
+
+/** The webs that name a relationship: both of its ends are members, and the reader may see them. */
+export async function websNaming(tenant: string, relationship: string) {
+  return unwrap(
+    await client.GET('/tenants/{tenant_id}/social-webs', {
+      params: { path: { tenant_id: tenant }, query: { names: relationship, size: 50 } },
+      cache: 'no-cache',
+    }),
+  );
+}
