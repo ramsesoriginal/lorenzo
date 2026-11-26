@@ -33,6 +33,10 @@ The end-to-end tests start a fake Authgear (4410), the real API on a fresh datab
 
 `src/pages/` has the pages; `src/components/<Name>/` is a `<Name>.astro` of markup and `data-*` hooks with a `renderer.ts` that finds them; `src/lib/` is the API reads and writes and the pure rules, each with a `.test.ts` where it has logic. The stat logic is `packages/stat-values`, shared with inventory-web.
 
+## Parts shared with Inventory
+
+The tag editor, the link name field, the description editor and the form a note is written in, and the list of libraries are the shared parts of [`@lorenzo/entity-parts`](../../packages/entity-parts/README.md) ([ADR 0526](../../docs/adr/0526-the-entity-parts-package.md)), bound to this app once in `src/lib/entityParts.ts`; [`apps/inventory-web`](../inventory-web/README.md) draws the same ones.
+
 ## Who can read this
 
 Editable descriptions and notes include **Who can read this**, with explicit character and group
