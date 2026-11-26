@@ -20,6 +20,7 @@ Status: decided. The shell, the page templates and the design of every web app (
 | maps | New design |
 | beings | New design |
 | inventory-web | Minimal redesign only |
+| social | New design (a new app) |
 | bench | No redesign. It stays its own thing; the system takes nothing from it unless the maintainer says so |
 
 ## The brief
@@ -144,7 +145,7 @@ A hybrid. Page structure and the shell are quiet: no boxes, a hairline and space
 
 ### D6. The edge of a control (decided with the maintainer, 2026-11-04)
 
-A new token, `--border-control`, for the edge of fields and secondary buttons, at a contrast of at least 3:1 against the surfaces they sit on (WCAG 2.1, 1.4.11). Today `--border-strong` is about 1.7:1 on Paper and `--border-subtle` about 1.4:1, calculated from the token values. Proposed values: Ink 50% on Paper in light (about 3.5:1), Paper 42% on Ink in dark (about 3.6:1). The change to `apps/brand` is a follow-up, not made here. Turned down: keeping today's borders and relying on labels; the token for fields only.
+A new token, `--border-control`, for the edge of fields and secondary buttons, at a contrast of at least 3:1 against the surfaces they sit on (WCAG 2.1, 1.4.11). Today `--border-strong` is about 1.7:1 on Paper and `--border-subtle` about 1.4:1, calculated from the token values. Proposed values: Ink 50% on Paper in light (about 3.5:1), Paper 42% on Ink in dark (about 3.6:1). The change to `apps/brand` was a follow-up, not made in the design work; it is built there (slice UI-A, [follow-ups.md](follow-ups.md)). Turned down: keeping today's borders and relying on labels; the token for fields only.
 
 ### D7. Principles (decided with the maintainer, 2026-11-04)
 
@@ -205,7 +206,7 @@ Idea, not decided: the clock may open to show a calendar, a pomodoro timer or a 
 
 ### D19. Legal links (decided with the maintainer, 2026-11-04)
 
-Labelled in the interface language, so in English for now. Working labels: "Legal notice" (the Impressum) and "Privacy policy" (the Datenschutzerklärung). The pages do not exist yet (v1.0 lists the privacy notice as New). The source-code link stays visible because the licence is AGPL-3.0. Turned down: always the German names.
+Labelled in the interface language, so in English for now. Working labels: "Legal notice" (the Impressum) and "Privacy policy" (the Datenschutzerklärung). The pages are [`apps/legal`](../../../apps/legal/README.md) ([ADR 0439](../../adr/0439-legal-notice-and-privacy-policy.md)); the shell links to them. The source-code link stays visible because the licence is AGPL-3.0. Turned down: always the German names.
 
 ### D20. Widths and breakpoints (decided with the maintainer, 2026-11-04)
 

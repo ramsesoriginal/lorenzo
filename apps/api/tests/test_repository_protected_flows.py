@@ -264,7 +264,7 @@ async def test_every_reader_against_every_state_of_a_protected_repository(
     w = await _world(raw_client, fake_jwks_server)
     try:
         operator = await make_actor(
-            raw_client, fake_jwks_server, "operator", roles=("platform-operator",)
+            raw_client, fake_jwks_server, "operator", roles=("platform_operator",)
         )
         visitor = await make_actor(raw_client, fake_jwks_server, "visitor", roles=())
         w.actors.extend([operator, visitor])

@@ -17,7 +17,7 @@ run = "pnpm exec vitest run --coverage"
 [tasks.build]
 description = "Build the container image"
 # Context is the repo root, not this directory: this app is a pnpm workspace
-# member (ADR 0003/0029), not a standalone project, so the build needs the
+# member (ADR 0003/0050), not a standalone project, so the build needs the
 # shared root lockfile/workspace file too. `-f` itself still resolves
 # relative to this task's own cwd (apps/loot-bot).
 run = "docker build -f Dockerfile -t lorenzo-loot-bot ../.."

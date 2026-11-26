@@ -1,7 +1,7 @@
 """Writing a LorenzoLedger (format v1, ADR 0191, 0226; docs/guides/inventory-file-format.md).
 
 Only what a converter needs: a tree of lines under two sections, written as the format says. The
-reader, and every rule about what a line means, is `lorenzo inventory import`'s (apps/cli); a test
+reader, and every rule about what a line means, is `lorenzo import inventory`'s (apps/cli); a test
 there parses the golden files kept with this package.
 """
 

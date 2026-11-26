@@ -49,8 +49,10 @@ class Settings(BaseSettings):
 
     # Same mechanism, gating /admin/* instead (ADR 0057) - a platform-wide
     # capability orthogonal to tenant membership, not assignable via this
-    # API, mirroring tenant_creator_role_key's own precedent.
-    platform_operator_role_key: str = "platform-operator"
+    # API, mirroring tenant_creator_role_key's own precedent. The role is named
+    # "platform-operator" in Authgear, whose portal rewrites a hyphen in the
+    # key to an underscore, so the key is platform_operator.
+    platform_operator_role_key: str = "platform_operator"
 
     # CORS (ADR 0048) - space-separated exact origins in the
     # CORS_ALLOWED_ORIGINS env var, e.g. "https://a.example.com

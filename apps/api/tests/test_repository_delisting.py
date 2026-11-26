@@ -33,7 +33,7 @@ from lorenzo_api.models import (
 )
 from lorenzo_api.repository_delisting import SUSPENSION_REASON
 
-OPERATORS = ("platform-operator",)
+OPERATORS = ("platform_operator",)
 
 
 @dataclass

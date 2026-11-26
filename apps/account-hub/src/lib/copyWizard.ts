@@ -14,11 +14,12 @@ export type ChoiceAction = CollisionOut['choices'][number];
 export type Choice = { action: ChoiceAction; name: string };
 
 // The limits of a copy, said before anything else. Each is true of the API as it is: a copy cannot
-// be undone as a whole (ADR 0119); a library holds one game system at a time (ADR 0183); text a
-// repository marks GM only comes along and stays GM only (ADR 0119).
+// be undone as a whole (ADR 0119); a library can hold several game systems, and removes a copied
+// one once nothing uses it (ADR 0453); text a repository marks GM only comes along and stays GM
+// only (ADR 0119).
 export const COPY_LIMITS: readonly string[] = [
   'A copy cannot be undone as a whole. Your library can remove what it copied piece by piece, or copy again and replace it.',
-  'A library works with one game system at a time for now, and a game system that has been copied cannot be taken out again.',
+  'A library can hold several game systems. A copied game system can be removed once nothing uses it: its stat groups, templates and campaigns.',
   'Notes the repository marks GM only are copied along and stay GM only: players never see them.',
   'After a copy, nothing is shared except updates, and an update never arrives by itself: you choose what to take.',
 ];

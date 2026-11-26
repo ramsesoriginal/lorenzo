@@ -1,6 +1,6 @@
 # @lorenzo/time-filter
 
-A strip of a calendar's year to look a list through, drawn once for the apps to share ([the calendars and sessions design](../../docs/design/web/calendars-sessions/README.md), CS2 and CS7). Calendars' Events list is the first user; Maps' date lens is the next.
+A strip of a calendar's year to look a list through, drawn once for the apps to share ([the calendars and sessions design](../../docs/design/web/calendars-sessions/README.md), CS2 and CS7). Calendars' Events list uses it, and so does the date lens over the Maps and Locations lists in Maps ([ADR 0373](../../docs/adr/0373-the-date-lens-in-lorenzo-maps.md), [ADR 0377](../../docs/adr/0377-the-date-lens-on-locations-in-lorenzo-maps.md)).
 
 It draws the brand's `.time-filter` (the strip, its segment bar, the ticks and the handles come from `apps/brand`), so it ships no stylesheet.
 
@@ -20,4 +20,4 @@ host.append(filter.element);
 - `mode: 'point'` is one handle for one date (the date lens on Maps and Locations): `onChange` gets `{ from, to }` with both the same place, or null.
 - **Any time** clears the range. The filter narrows a list in the browser and changes nothing in the data; it infers no order from a date.
 
-`mise run //packages/time-filter:test` covers the strip's arithmetic (places, words, keys, the pointer and the range's order); the control is covered by the end-to-end suite of Calendars.
+`mise run //packages/time-filter:test` covers the strip's arithmetic (places, words, keys, the pointer and the range's order); the control is covered by the end-to-end suites of Calendars and Maps.

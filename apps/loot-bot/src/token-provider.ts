@@ -59,7 +59,7 @@ async function resolveAccessToken(discordUserId: string): Promise<string | null>
     const tokens = await refreshAccessToken(oidcConfig, refreshToken);
 
     // Authgear's refresh-token rotation behavior is undocumented (ADR
-    // 0029) - only overwrite the stored refresh token when the response
+    // 0050) - only overwrite the stored refresh token when the response
     // actually included a new one, which is correct whether or not
     // Authgear rotates it on use.
     await updateAccessToken(discordUserId, {

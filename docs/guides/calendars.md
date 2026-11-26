@@ -21,11 +21,11 @@ Log in and the page opens in one of your libraries. The **Library or repository*
 
 ## Browse a year
 
-Open a calendar and a year. **Previous year**, **Next year** and the year field move between years.
+Open a calendar and a year. The **Year** field and **Open year** reach any year; the arrows beside it step one month, or one year in the whole-year view.
 
-Two views show the same dates:
+Two views, the **Month** and **Whole year** tabs, show the same dates:
 
-- **Month or festival** shows one month or festival at a time; a menu chooses which.
+- **Month** shows one month or festival at a time; a row of chips above the days chooses which.
 - **Whole year** shows every month and festival in the order of the definition.
 
 Each day shows its number, its weekday column when the calendar has weeks, the phase of each moon (hover for the name), a short extract of its notes, the names of Facts and Events dated to it, and any recurring observance. The year and view are part of the address, so a link keeps them. On a phone, choosing a date in the whole-year view opens its details with a **Back to calendar** control.
@@ -40,13 +40,13 @@ Choose a day to see its notes, the Facts and Events dated to it, and the observa
 
 A note belongs to exactly the period it was added to. The year has its own notes (the **Year ...: notes and dated entries** button), each month or festival has its own (**Month or festival notes**), and each day has its own. A note on a month is not shown on its days, and a note on a year is not shown on its months. Broader notes never apply to every day beneath them.
 
-Owners, Organizers and Authors of a library can add a note: choose **Add a note to this date**. The first time something is added, Calendars saves the day, together with its month and year, and no others. Notes are written in the same editor as elsewhere in Lorenzo, with text and pictures, and each note has an audience of its own.
+Owners, Organizers and Authors of a library can add a note: choose **Add to this day**, then **A note on this day**. The first time something is added, Calendars saves the day, together with its month and year, and no others. Notes are written in the same editor as elsewhere in Lorenzo, with text and pictures, and each note has an audience of its own.
 
 ## Facts and Events, and their dates
 
 A **Fact** is a statement the library treats as canonical. An **Event** is something that happened in the story. Both are entries with notes of their own.
 
-From an open date, authors can **Create a fact or story event** there, or **Associate an existing fact or event**. The entry's page lists its **Dates** and lets an author remove one (**Remove date association**). To give an existing entry another date, open that date in the calendar and choose the entry.
+From an open date, authors choose **Add to this day**, then **An Event** or **A Fact** to create one there (the form is **Create a fact or story event**), or **An existing Event or Fact…** to associate one (**Associate an existing fact or event**). The entry's page lists its **Dates** and lets an author remove one (**Remove date association**). To give an existing entry another date, open that date in the calendar and choose the entry.
 
 A date association says only that the entry is connected to that date. It does not say that the Event lasted the whole day, when anyone learned of it, or what caused what. Several dates on one entry are several dates, not a span, and an association with a month alone does not invent a day.
 
@@ -54,7 +54,7 @@ Events can also be created without a date, from the Events page.
 
 ## Recurring observances
 
-An observance is something that recurs: a festival day, an anniversary, a holy day. From a day, an author chooses **Create a recurring observance** and gives a name, the month or festival, the day, **Every N years** and **Year offset**. It then appears on that date in every year the rule matches.
+An observance is something that recurs: a festival day, an anniversary, a holy day. From a day, an author chooses **Add to this day**, then **A recurring observance…** (**Create a recurring observance**), and gives a name, the month or festival, the day, **Every N years** and **Year offset**. It then appears on that date in every year the rule matches.
 
 When a year does not contain the day, as with a leap festival, the observance is skipped that year; it is never moved. Observances are worked out when a year is shown and no occurrence is stored. An observance does not claim that any particular celebration took place: to record one, create an Event for it and give it that date. The recurrence can be edited on the observance's own page.
 
@@ -70,7 +70,7 @@ What a reader cannot see is left out without a placeholder or a count. Two reade
 
 ## The Events page
 
-**Browse Events** on the calendar list opens the Events page. It lists the Events you can see and searches their names (**Find Events**). **Create an Event** adds an Event or a Fact that starts undated, with a visibility of Restricted, Participants or Everyone in this library. Players can create Events and Facts and write notes of their own on entries they can see; authors and GMs manage the rest.
+**Events** in the navigation opens the Events page. It lists the Events you can see and searches their names (**Find Events**). **New Event** opens **Create an Event**, which adds an Event or a Fact that starts undated, with a visibility of Restricted, Participants or Everyone in this library. Players can create Events and Facts and write notes of their own on entries they can see; authors and GMs manage the rest.
 
 Events can be listed by **Name** or in **Story order**. Story order and the causal filters (under **Causes**, or **Participants and causes** for authors and GMs) use the recorded relationships the reader is allowed to see:
 
@@ -83,7 +83,7 @@ An Event's page also records which beings took part in it, and, for authors and 
 
 ## Clocks
 
-A calendar dates the story in days. A **Clock** is a separate, optional entry for a flow of time of its own, such as a place where time runs faster. **Browse clocks** on the calendar list opens the Clocks page, which lists them and, for authors and GMs, creates one (**Create a clock**). A clock is ticking, or declared **timeless**; a library with no clocks works as before.
+A calendar dates the story in days. A **Clock** is a separate, optional entry for a flow of time of its own, such as a place where time runs faster. **Clocks** in the navigation opens the Clocks page, which lists them and, for authors and GMs, creates one (**Create a clock**). The link shows for authors and GMs, and for anyone when the library has a clock. A clock is ticking, or declared **timeless**; a library with no clocks works as before.
 
 - **Reckonings.** On a ticking clock, **Clock and calendar reckonings** pairs the start of one date in a calendar with an exact reading of the clock. A clock can have several.
 - **Readings.** On an Event, **Clock readings** records an exact value, a range or a calendar day (through a reckoning). Numbers may be fractions such as `1/3`.
