@@ -50,12 +50,25 @@ const REPOSITORY_SURFACES: Record<string, string> = {
   'lib/gmTitle.ts': "{ title: 'GM', plural: 'GMs' }",
 };
 
-const read = (name: string) => withoutComments(readFileSync(join(here, name), 'utf8'));
+// The parts it shares with the other apps (ADR 0526), which its pages show as its own.
+const shared = join(here, '../../../packages/entity-parts/src');
+const SHARED = 'entity-parts/';
+
+const read = (name: string) =>
+  withoutComments(
+    readFileSync(
+      name.startsWith(SHARED) ? join(shared, name.slice(SHARED.length)) : join(here, name),
+      'utf8',
+    ),
+  );
 
 describe('a campaign surface has no literal GM', () => {
-  const files = sourceFiles(here).map((file) => ({
-    name: relative(here, file).replaceAll('\\', '/'),
-  }));
+  const files = [
+    ...sourceFiles(here).map((file) => ({ name: relative(here, file).replaceAll('\\', '/') })),
+    ...sourceFiles(shared).map((file) => ({
+      name: `${SHARED}${relative(shared, file).replaceAll('\\', '/')}`,
+    })),
+  ];
 
   it('finds the source it is checking', () => {
     expect(files.length).toBeGreaterThan(40);

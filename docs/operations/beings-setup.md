@@ -11,7 +11,7 @@
    - **Build command**: `npm install --global corepack@latest && corepack enable && pnpm install --frozen-lockfile && pnpm run build`
    - **Build output directory**: `dist`
    - **Node version**: the environment variable `NODE_VERSION` set to the major in the root `mise.toml`.
-4. **Build watch paths** ([the rule](deployment-setup.md#build-watch-paths)): `apps/beings/**`, `apps/brand/**`, `packages/api-client/**`, `packages/app-shell/**`, `packages/brand/**`, `packages/graph-renderer/**`, `packages/information-editor/**`, `packages/lorenzoscript/**`, `packages/lorenzoscript-editor/**`, `packages/stat-values/**`, `pnpm-lock.yaml` and `tools/brand/**`.
+4. **Build watch paths** ([the rule](deployment-setup.md#build-watch-paths)): `apps/beings/**`, `apps/brand/**`, `packages/api-client/**`, `packages/app-shell/**`, `packages/brand/**`, `packages/entity-parts/**`, `packages/graph-renderer/**`, `packages/information-editor/**`, `packages/lorenzoscript/**`, `packages/lorenzoscript-editor/**`, `packages/stat-values/**`, `pnpm-lock.yaml` and `tools/brand/**`.
 
 ## 2. Create the Authgear client
 

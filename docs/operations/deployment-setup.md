@@ -185,7 +185,7 @@ A **Single Page Application** (public, PKCE), distinct from every other app's cl
    - **Build output directory**: `dist`
    - **Node version**: set the environment variable `NODE_VERSION` to the major in the root `mise.toml`, same as `apps/account-hub`; Pages otherwise builds with its own default.
 5. **Environment variables** (that Pages project's own **Settings → Environment variables**, Production): `PUBLIC_AUTHGEAR_ENDPOINT`, `PUBLIC_AUTHGEAR_CLIENT_ID` — from the Authgear application below. Scoped to this Pages project alone, so reusing the exact same variable names as `apps/account-hub`'s project doesn't collide.
-6. **Build watch paths** ([the rule](#build-watch-paths)): `apps/inventory-web/**`, `apps/brand/**`, `packages/api-client/**`, `packages/app-shell/**`, `packages/brand/**`, `packages/entry-preview/**`, `packages/information-editor/**`, `packages/inventory-names/**`, `packages/lorenzoscript/**`, `packages/lorenzoscript-editor/**`, `packages/stat-values/**` and `pnpm-lock.yaml`. A change to one of those packages rebuilds the site, since it bundles them ([ADR 0122](../adr/0122-api-client-package.md)).
+6. **Build watch paths** ([the rule](#build-watch-paths)): `apps/inventory-web/**`, `apps/brand/**`, `packages/api-client/**`, `packages/app-shell/**`, `packages/brand/**`, `packages/entity-parts/**`, `packages/entry-preview/**`, `packages/information-editor/**`, `packages/inventory-names/**`, `packages/lorenzoscript/**`, `packages/lorenzoscript-editor/**`, `packages/stat-values/**` and `pnpm-lock.yaml`. A change to one of those packages rebuilds the site, since it bundles them ([ADR 0122](../adr/0122-api-client-package.md)).
 
 ### `apps/inventory-web`'s own Authgear application
 
