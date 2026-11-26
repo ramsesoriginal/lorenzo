@@ -1,6 +1,6 @@
 import { renderInformationPayloads } from '@lorenzo/information-editor';
+import { renderFactsAbout } from '../../lib/entityParts';
 import { listInformation } from '../../lib/information';
-import { renderFactsAbout } from '../Facts/renderer';
 // One rendering of an item for the dialog and the item page (ADR 0112): its stat groups, tags,
 // pictures, and descriptions, its own and those it inherits from its prototypes (ADR 0111).
 
