@@ -2197,7 +2197,7 @@ export function createEditor(context: EditorContext): Editor {
     const tools = el('div', '', 'row-tight map-tools');
     tools.setAttribute('role', 'group');
     tools.setAttribute('aria-label', 'Tool');
-    // The tools of the registry (MP6), in their groups; the ones that are planned are in All tools.
+    // The tools of the registry (MP6), in their groups.
     // Every group of the registry; one with no tool this Map can use yet is not drawn.
     for (const group of GROUPS) {
       const cluster = el('div', '', 'row-tight map-tool-group');

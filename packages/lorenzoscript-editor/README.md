@@ -17,12 +17,14 @@ It enhances the textarea in place, keeping its form, name, and value, so the pag
 
 - **Toolbar.** Action names from `ACTIONS`: `bold`, `italic`, `strike`, `sub`, `sup`, `code`, `math`, `link`, `entity`, `image`, `date`, `heading`, `quote`, `bullets`, `numbers`, `tasks`, `codeblock`, `table`, `rule`, `toc`, `footnote`, plus `undo`, `redo`, and `'|'` for a divider. Edits go through the browser's own undo.
 - **Keys.** Ctrl/⌘+B, I, and K for bold, italic, and link. Enter continues a list, task list, or quote, and ends it on an empty item. Tab and Shift-Tab indent and outdent by 4 spaces. **Escape, then Tab, moves on to the next field.**
-- **Preview.** Without `render`, the preview is LorenzoScript with no resolver, so entity links show as plain text. Pass your own `render`, possibly async, to look up `references()` first. An older result never replaces a newer one.
+- **Preview.** Without `render`, the preview is LorenzoScript with no resolver, so entity links show as plain text. Pass your own `render`, possibly async, to look up `references()` first. An older result never replaces a newer one. The preview re-renders `delay` milliseconds (default 150) after the last keystroke.
+- **Entity tool with a selection.** With `reviewEntitySelection` set, the `entity` tool calls it instead of inserting when text is selected, so the host can open its own review of that selection.
+
+The editor object has `element` (the wrapper that holds the toolbar, the textarea and the preview), `replaceSelection(source)`, `refresh()` (renders the preview again now, for when the text was set from outside or the resolver's data changed) and `destroy()`.
 
 Styling lives in `apps/brand` (`.ls-editor`, and `.ls-content` for rendered text anywhere); this package ships no CSS. The actions in `ACTIONS` are pure `(text, selection)` functions, exported for reuse and tested on their own. `pasteFromWord` and `findReplace` are opt-in options: pasted HTML from Word or Google Docs becomes LorenzoScript, and Ctrl/⌘+H opens find and replace ([ADR 0512](../../docs/adr/0512-lorenzoscript-editor-paste-and-find.md)). `completeNames` offers names after `[[` ([ADR 0514](../../docs/adr/0514-lorenzoscript-editor-name-completion.md)) and `highlight` shows the markers quietly ([ADR 0516](../../docs/adr/0516-lorenzoscript-editor-quiet-highlighting.md)). `keyAction` is the keyboard rules as a pure function over the same state, for a second editor to reuse ([ADR 0510](../../docs/adr/0510-lorenzoscript-editor-keys-as-a-pure-function.md)).
 
-Call `editor.replaceSelection(source)` to apply an explicitly chosen insertion through the
-same textarea edit and undo handling as the toolbar.
+`editor.replaceSelection(source)` applies an explicitly chosen insertion through the same textarea edit and undo handling as the toolbar.
 
 ## Demo
 

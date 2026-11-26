@@ -32,7 +32,7 @@ None of these needs setting. They are API environment variables, so changing one
 
 ## 5. Dealing with an abusive repository
 
-An operator (an account with the `platform-operator` role, [ADR 0057](../adr/0057-platform-operations.md)) takes a repository off Discover with a reason; its Owners are told, libraries that copied it keep their copies and stop updating from it, and its members still reach it ([ADR 0303](../adr/0303-operator-delist.md)):
+An operator (an account with the `platform-operator` role, [ADR 0057](../adr/0057-platform-operations.md), [how to grant it](deployment-setup.md#granting-the-platform-operator-role-adr-0057)) takes a repository off Discover with a reason; its Owners are told, libraries that copied it keep their copies and stop updating from it, and its members still reach it ([ADR 0303](../adr/0303-operator-delist.md)):
 
 ```bash
 lorenzo api PUT /admin/repositories/<repository-id>/delist --data '{"reason": "Why it was taken off"}'

@@ -101,13 +101,5 @@
   ],
   "allowed": {
     "bench": "bench does not load apps/brand; its own .palette and the like are its own"
-  },
-  "overrides": {
-    "inventory-web/src/styles/components.css": {
-      "dialog-actions": "inside its own dialog.unpack-dialog: the brand's class, placed there",
-      "page-state-art": "inside [data-empty], the empty board: the brand's class, smaller",
-      "shell-container": "inside body:has([data-board]): the board page is exactly the window tall",
-      "shell-app--page": "inside body:has([data-board]): the board page is exactly the window tall"
-    }
   }
 }

@@ -91,7 +91,7 @@ class ImportPlan:
     problems: list[str] = field(default_factory=list)
     # Which half of the items this plan is for (ADR 0182); None writes both onto one item.
     part: Part | None = None
-    # The parents the importer places (the seed's categories and those a row mints): re-parenting
+    # The parents the importer places (the starters' categories and those a row mints): re-parenting
     # replaces these and keeps every other parent.
     managed_ids: frozenset[UUID] = frozenset()
 

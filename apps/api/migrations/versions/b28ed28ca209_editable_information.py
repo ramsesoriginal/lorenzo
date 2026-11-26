@@ -21,7 +21,7 @@ depends_on: Sequence[str] | None = None
 
 # ADR 0101: the partial index predicate can't read information_type, so this
 # literal list and the catalog's is_singleton rows are two separately
-# maintained facts. tests/test_information_type.py checks they agree.
+# maintained facts. tests/test_information.py checks that a singleton type is unique per entity.
 _SINGLETON_TYPES = ("description", "main_picture")
 
 # "order omitted -> append after the last sibling" (ADR 0101), in the

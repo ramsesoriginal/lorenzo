@@ -1,4 +1,4 @@
-// Where the end-to-end stack listens (ADR 0114, 0270): ports and a database of this app's own, so it
+// Where the end-to-end stack listens (ADR 0114, 0327): ports and a database of this app's own, so it
 // can run beside inventory-web's. Read by the Playwright config, the fake
 // Authgear, the API launcher, and the tests. 127.0.0.1 rather than localhost, so no server
 // ends up on ::1 alone.

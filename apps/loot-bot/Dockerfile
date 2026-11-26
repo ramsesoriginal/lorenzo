@@ -1,11 +1,10 @@
 # Build context is the repo root, not this directory - this app is a pnpm
-# workspace member sharing the root lockfile (ADR 0003/0029), not a
+# workspace member sharing the root lockfile (ADR 0003/0050), not a
 # standalone project. See mise.toml's `build` task, which runs
 # `docker build -f Dockerfile ../..` from here.
 #
-# NOTE: written but not built in the environment this was authored in (no
-# Docker available there) - deployment itself is out of scope for this
-# slice (ADR 0029); smoke-test this before relying on it.
+# Built and deployed to Cloud Run by .github/workflows/deploy-loot-bot.yml
+# (ADR 0053).
 
 FROM node:26-slim AS build
 WORKDIR /workspace
