@@ -1,5 +1,6 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test } from '@playwright/test';
+import { ok } from './support/api.ts';
 import { signedIn, world } from './support/world.ts';
 
 test('a GM makes a relationship from the form and reads it on its page', async ({ browser }) => {
@@ -155,4 +156,92 @@ test('the ends offered are beings and groups, and the types offered are types', 
   // An entry nothing makes a type of is not offered as a type.
   await form.getByLabel('Type of relationship (optional): search by name').fill('Court');
   await expect(form.getByText('No type of relationship by that name.')).toBeVisible();
+});
+
+test('the list is narrowed by a type and by an end, and the filters are cleared', async ({
+  browser,
+}) => {
+  const w = await world();
+  const mara = await w.person('Mara Quill');
+  const wren = await w.person('Wren Ashdown');
+  const dren = await w.person('Dren Holloway');
+  const group = await w.group('The Court', mara.id);
+  await w.tie('Mara knows Wren', mara.id, wren.id, true);
+  await w.tie('Dren knows Wren', dren.id, wren.id, true);
+  await w.tie('The Court holds Dren', group.id, dren.id, true);
+  const page = await signedIn(browser, w.subject);
+  await page.goto(`/relationships/?tenant=${w.tenant.id}`);
+  const list = page.getByRole('list', { name: 'Relationships' });
+  await expect(list.getByRole('listitem')).toHaveCount(3);
+
+  // By an end: a being, or a group.
+  const form = page.getByRole('form', { name: 'Find relationships' });
+  await form.getByLabel('With the entry or group: search by name').fill('Wren');
+  await form.getByLabel('With the entry or group: results').selectOption({ label: 'Wren Ashdown' });
+  await form.getByRole('button', { name: 'Find', exact: true }).click();
+  await expect(list.getByRole('listitem')).toHaveCount(2);
+  await expect(list.getByText('The Court holds Dren')).toHaveCount(0);
+
+  await form.getByLabel('With the entry or group: search by name').fill('Court');
+  await form.getByLabel('With the entry or group: results').selectOption({ label: 'The Court' });
+  await form.getByRole('button', { name: 'Find', exact: true }).click();
+  await expect(list.getByRole('listitem')).toHaveCount(1);
+  await expect(list.getByRole('link', { name: 'The Court holds Dren' })).toBeVisible();
+
+  await form.getByRole('button', { name: 'Clear the filters' }).click();
+  await expect(list.getByRole('listitem')).toHaveCount(3);
+});
+
+test('a relationship is tied to an Event and holds through a chain, and swapping its ends keeps its time', async ({
+  browser,
+}) => {
+  const w = await world();
+  const wren = await w.entry('Wren Ashdown');
+  const mara = await w.entry('Mara Quill');
+  const tomas = await w.entry('Tomas Ashdown');
+  await ok(
+    w.gm.POST('/tenants/{tenant_id}/entities', {
+      params: { path: w.path },
+      body: { name: 'The wedding', kinds: ['event'], parents: [] },
+    }),
+  );
+  const grand = await w.tie('Wren and Tomas', wren.id, tomas.id, true);
+  await w.tie('Wren and Mara', wren.id, mara.id, true);
+  await w.tie('Mara and Tomas', mara.id, tomas.id, true);
+  const page = await signedIn(browser, w.subject);
+  await page.goto(`/relationship/?tenant=${w.tenant.id}&id=${grand.id}`);
+  await expect(page.getByText('It is not tied to any Event.')).toBeVisible();
+
+  await page.getByLabel('Since this Event: search by name').fill('wedding');
+  await page.getByLabel('Since this Event: results').selectOption({ label: 'The wedding' });
+  await page.getByRole('button', { name: 'Set since' }).click();
+  await expect(page.getByText('Since The wedding.')).toBeVisible();
+
+  // Swapping the ends does not clear the time (the API replaces it with the rest).
+  await page.getByRole('button', { name: 'Swap the two ends' }).click();
+  await page.waitForLoadState('networkidle');
+  await expect(page.getByText('Since The wedding.')).toBeVisible();
+
+  // The chain it is stated to hold through: added, read in order, and taken out.
+  for (const step of ['Wren and Mara', 'Mara and Tomas']) {
+    // The page may still be drawing itself after the last change: fill and choose again until it holds.
+    await expect(async () => {
+      await page.getByLabel('Add a step: search by name').fill(step);
+      await page.getByLabel('Add a step: results').selectOption({ label: step }, { timeout: 2000 });
+    }).toPass({ timeout: 15_000 });
+    await page.getByRole('button', { name: 'Add it to the chain' }).click();
+    await expect(
+      page
+        .getByRole('list', { name: 'The chain it holds through' })
+        .getByRole('link', { name: step }),
+    ).toBeVisible();
+  }
+  await page.getByRole('button', { name: 'Take out Wren and Mara' }).click();
+  await expect(
+    page
+      .getByRole('list', { name: 'The chain it holds through' })
+      .getByRole('link', { name: 'Wren and Mara' }),
+  ).toHaveCount(0);
+  await page.getByRole('button', { name: 'Clear since' }).click();
+  await expect(page.getByText('It is not tied to any Event.')).toBeVisible();
 });

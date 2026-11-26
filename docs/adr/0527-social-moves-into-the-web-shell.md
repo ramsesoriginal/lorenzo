@@ -82,6 +82,34 @@ Filled in as each slice lands.
 | An entry's social page | G9 | Built at `/entry/?tenant=&id=`: its relationships grouped by type (one read a type), each with the other end, With, To or From, who may read it and its standing, written in place by those who manage relationships (inside the scale, refused in words); a group's members apart; reached from a relationship's page and from a selected entry's panel in a web. Not built: the palette entry, and an entry in another app linking here (no app asks yet) |
 | Phone, tablet, audits | G10 | Built: on a phone the web page flows (head, view, bar, drawing, panel one after another) instead of floating; the legend belongs to the drawing only; one audit spec visits every page on desktop, phone and tablet: axe in both themes (with the panel, Members and Connect open), nothing scrolling sideways, and every button, select and field at least 44px on a phone; the matrix's Delete asks in the shell and not in the browser |
 
+## Audit against the design and the old app (2026-11-26)
+
+After G10 the built app was checked item by item against [the design](../design/web/social/README.md) (SO1 to SO8 and the prototype's lists), against the old app on `main` and against [ADR 0408](0408-lorenzo-social-the-app.md). Every scenario of the old app's five specs is still there. What the audit found and what was done:
+
+**Lost or wrong, now fixed**
+
+- **No way to switch library.** The Libraries page went and the shell's switcher was never fed. The shell now gets the person's libraries (and Home carries on to the last one used).
+- **Swapping a relationship's ends, or changing its direction, cleared its since and until.** The API replaces them with the rest; the page sent neither. It now sends what the relationship had. (The old app did the same.)
+- **Types and standings and Problems were tabs for everyone** (SO1 says a person who may not write sees Webs and Relationships). They now show for those who write.
+
+**In the design, missing, now built**
+
+- The relationships list narrows by type (and what inherits from it) and by an end, which may be a group.
+- The web's panel says what a relationship is: its type, who may read it, since and until, each standing with its scale and where it comes from (written in place, refused in words, with Undo), the chain it holds through; and for a group, its members apart. A row of the List view selects it in the panel and in the drawing.
+- The bar has Groups (outlines) and Steps (All, 1, 2 from the selection); radial draws from the selected entry; a web can show a standing on its lines (their weight, and a label), chosen in Drawing and saved with it.
+- A relationship's page sets and clears since and until, and shows, adds to and takes out of the chain it holds through.
+- The matrix reads as of the date lens and as read by; a relationship not known as of the Event is dotted and worded; a stat with no scale is drawn against the values in view and the legend says so.
+
+**In the design, still not built**
+
+- A webs-that-name-this-relationship list on a relationship's page (the API has no read for it).
+- Finding a relationship by standing (the list read has no such filter); sorting the matrix by group.
+- "Groups that disagree" in Problems (nothing defines it); doubled relationships are worked out in the page, not reported by the API.
+- Edge labels that name the type, and dashed edges for a relationship that holds through a chain (a read for each edge's type and chain would be needed).
+- Placing an entry by hand with the keys (Alt and the arrows) and with fields for X and Y; a Fit button; pinch on a phone: these belong to the renderer.
+- The selection carrying into the matrix; the date lens' Event list from the shared time filter (decided above); fading what the lens leaves out instead of listing it.
+- A palette entry for an entry's page and links to it from other apps.
+
 ## Consequences
 
 - When it is built, every web app is on the shell, and UI-H (retiring each app's own header, footer and button styles) is what is left.

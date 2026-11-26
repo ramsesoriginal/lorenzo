@@ -15,6 +15,8 @@ export interface Tie {
   endA: string;
   endB: string;
   oneWay: boolean;
+  /** How it holds as of the date lens, when one is on: holds, not_yet, ended or unknown. */
+  state?: string | null;
 }
 
 export interface Standing {
@@ -50,11 +52,17 @@ export function buildCells(
     cells.set(k, cell);
   };
   for (const tie of ties) {
+    // What has not begun or has ended is not in the matrix; what is not known is, and is marked so.
+    if (tie.state === 'not_yet' || tie.state === 'ended') continue;
     put(tie.endA, tie.endB, tie);
     if (!tie.oneWay) put(tie.endB, tie.endA, tie);
   }
   return cells;
 }
+
+/** A cell whose relationship is not known as of the date lens: marked, never given a value. */
+export const isUnknown = (cell: Cell | undefined) =>
+  (cell?.ties.length ?? 0) > 0 && (cell?.ties.every((t) => t.state === 'unknown') ?? false);
 
 export const isConflict = (cell: Cell | undefined) => (cell?.ties.length ?? 0) > 1;
 

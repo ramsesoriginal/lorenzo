@@ -1,12 +1,14 @@
 import {
   createGraphView,
   type GraphEdge,
+  type GraphGroup,
   type GraphModel,
   LAYOUT_NAMES,
   type LayoutName,
   LIMITS,
   THEMES,
 } from '@lorenzo/graph-renderer';
+import { client, fetchAllPages, unwrap } from './api';
 import { BRANDING_CSS_URL } from './config';
 import { formDialog } from './dialog';
 import {
@@ -30,14 +32,16 @@ import {
   select,
   statusLine,
 } from './dom';
+import { listStats, readStanding, type StatDef } from './matrix-api';
 import { canManage } from './names';
 import { notes } from './notes';
 import { entryPicker, typePicker as findType } from './pickers';
 import { relationshipForm } from './relationship-form';
-import { start } from './sign-in';
+import { shellOf, start } from './sign-in';
 import { readEntry } from './social-api';
 import { type Layout, readGraph, readWeb, saveSettings, saveTypes, writeMembers } from './web-api';
 import { openMembers } from './web-members';
+import { membersPanel, relationshipPanel } from './web-panel';
 import { rememberWeb } from './webs-view';
 import { audienceWords, directionWords, sentence, stateWords } from './words';
 
@@ -192,6 +196,17 @@ export async function mountWeb() {
         floatHead.append(count);
       }
 
+      // The standing a web shows: drawn as the line's weight on the stat's scale, and said in its label.
+      const stats = await listStats(tenant).catch((): StatDef[] => []);
+      const numbers = stats.filter((x) => x.value_type === 'int');
+      const shown = numbers.find((x) => x.id === web.standing_stat_id);
+      const standings = shown
+        ? await readStanding(tenant, shown.id).catch(() => new Map<string, { value: unknown }>())
+        : new Map<string, { value: unknown }>();
+      const scale: readonly [number, number] | undefined =
+        shown && shown.min_value != null && shown.max_value != null
+          ? [shown.min_value, shown.max_value]
+          : undefined;
       const model: GraphModel = {
         nodes: graph.members.map((m) => ({
           id: m.entry.id,
@@ -207,8 +222,15 @@ export async function mountWeb() {
               a: e.end_a.id,
               b: e.end_b.id,
               directed: e.one_way,
-              label: e.name,
+              label: (() => {
+                const v = standings.get(e.id)?.value;
+                return typeof v === 'number' ? `${e.name}: ${v}` : e.name;
+              })(),
               status: e.as_of === 'unknown' ? 'uncertain' : 'direct',
+              ...(() => {
+                const v = standings.get(e.id)?.value;
+                return typeof v === 'number' && scale ? { value: v, scale } : {};
+              })(),
             }),
           ),
       };
@@ -242,6 +264,8 @@ export async function mountWeb() {
       // the selection in the drawing.
       const sentences = el('ul', '', 'list');
       sentences.setAttribute('aria-label', 'Relationships in this web');
+      // Choosing from the list is choosing in the drawing: the same selection, the same panel.
+      let pick: (choice: { kind: 'node' | 'edge'; id: string }) => void = () => {};
       const rows = new Map<string, HTMLElement>();
       const mark = (selected: string | null) => {
         for (const [edgeId, row] of rows) {
@@ -265,7 +289,12 @@ export async function mountWeb() {
             'status-text',
           ),
         );
-        row.append(text);
+        row.append(
+          text,
+          button(`Read ${e.name} in the panel`, () => pick({ kind: 'edge', id: e.id }), {
+            variant: 'secondary',
+          }),
+        );
         rows.set(e.id, row);
         sentences.append(row);
       }
@@ -299,11 +328,18 @@ export async function mountWeb() {
           const e = graph.edges.find((x) => x.id === selected?.id);
           if (!e) return;
           const ends = { endA: e.end_a.name, endB: e.end_b.name, oneWay: e.one_way };
+          const detail = el('div', '', 'stack');
           selectedBox.append(
             el('h2', e.name, 'group-title'),
             el('p', `${sentence(ends)}. ${directionWords(ends)}.`, 'status-text'),
+            detail,
             link('Open the relationship', relationshipHref(tenant, e.id)),
           );
+          const asked = e.id;
+          void relationshipPanel(tenant, e, shellOf()).then((filled) => {
+            // The selection may have moved on while this was read.
+            if (selected?.id === asked) detail.replaceChildren(filled);
+          });
           return;
         }
         const node = model.nodes.find((n) => n.id === selected?.id);
@@ -324,29 +360,68 @@ export async function mountWeb() {
         selectedBox.append(
           around.length ? items : empty('No relationship in this web ties it to another entry.'),
         );
+        const asked = selected.id;
+        void membersPanel(tenant, asked).then((group) => {
+          if (group && selected?.id === asked) selectedBox.append(group);
+        });
       };
-      const applyFocus = () => {
-        if (!drawing) return;
+      let steps = 0;
+      let hullsOn = false;
+      let groups: GraphGroup[] = [];
+      /** What is drawn: within some steps of the selection, with Focus dimming the rest, and the groups. */
+      const composed = (): GraphModel => {
+        let nodes = [...model.nodes];
+        let edges = [...model.edges];
+        const ends = (): string[] => {
+          if (!selected) return [];
+          if (selected.kind === 'node') return [selected.id];
+          const e = model.edges.find((x) => x.id === selected?.id);
+          return e ? [e.a, e.b] : [];
+        };
+        if (steps > 0 && ends().length) {
+          const within = new Set(ends());
+          for (let hop = 0; hop < steps; hop += 1) {
+            for (const e of model.edges) {
+              if (within.has(e.a) || within.has(e.b)) {
+                within.add(e.a);
+                within.add(e.b);
+              }
+            }
+          }
+          nodes = nodes.filter((n) => within.has(n.id));
+          edges = edges.filter((e) => within.has(e.a) && within.has(e.b));
+        }
         let keep: Set<string> | null = null;
         if (focusOn && selected) {
-          keep = new Set<string>([selected.id]);
-          for (const e of graph.edges) {
-            if (selected.kind === 'edge' && e.id === selected.id) {
-              keep.add(e.end_a.id);
-              keep.add(e.end_b.id);
-            } else if (
-              selected.kind === 'node' &&
-              (e.end_a.id === selected.id || e.end_b.id === selected.id)
-            ) {
-              keep.add(e.end_a.id);
-              keep.add(e.end_b.id);
+          keep = new Set<string>(ends());
+          for (const e of model.edges) {
+            if (selected.kind === 'node' && (e.a === selected.id || e.b === selected.id)) {
+              keep.add(e.a);
+              keep.add(e.b);
             }
           }
         }
-        drawing.setModel({
-          ...model,
-          nodes: model.nodes.map((n) => ({ ...n, dim: keep ? !keep.has(n.id) : false })),
-        });
+        return {
+          nodes: nodes.map((n) => ({ ...n, dim: keep ? !keep.has(n.id) : false })),
+          edges,
+          groups: hullsOn ? groups : [],
+        };
+      };
+      const applyFocus = () => {
+        if (!drawing) return;
+        drawing.setModel(composed());
+        // Radial draws outwards from the selected entry (SO7).
+        if (current === 'radial') {
+          drawing.setView({ focus: selected?.kind === 'node' ? selected.id : null });
+        }
+      };
+      pick = (choice) => {
+        selected = choice;
+        mark(choice.kind === 'edge' ? choice.id : null);
+        drawing?.select(choice);
+        showSelected();
+        applyFocus();
+        openTab('selected');
       };
       if (!tooBig && model.nodes.length > 0) {
         drawing = createGraphView(hostBox, {
@@ -444,13 +519,22 @@ export async function mountWeb() {
       themes.input.addEventListener('change', () => drawing?.setTheme(themes.input.value || null));
       layout.input.addEventListener('change', () => {
         current = layout.input.value as Layout;
-        drawing?.setView({ layout: current as LayoutName });
+        drawing?.setView({
+          layout: current as LayoutName,
+          focus: current === 'radial' && selected?.kind === 'node' ? selected.id : null,
+        });
       });
       seeded.input.addEventListener('change', () => {
         seed = Math.max(0, Math.floor(Number(seeded.input.value) || 0));
         drawing?.setView({ seed });
       });
-      controls.body.append(layout.label, seeded.label, themes.label);
+      // The standing the lines show (weight and label); saved with how the web is drawn.
+      const shownSelect = select(
+        'Standing shown on the lines',
+        [['', 'None'], ...numbers.map((x): [string, string] => [x.id, x.name])],
+        shown?.id ?? '',
+      );
+      controls.body.append(layout.label, seeded.label, themes.label, shownSelect.label);
       if (manage) {
         const state = { version };
         controls.body.append(
@@ -461,11 +545,16 @@ export async function mountWeb() {
                 layout_seed: seed,
                 theme_hint: themes.input.value || web.theme_hint || null,
                 view: web.view ?? null,
-                standing_stat_id: web.standing_stat_id ?? null,
+                standing_stat_id: shownSelect.input.value || null,
                 as_of_event: lens.asOf,
               });
               state.version = saved.version;
               say(status, 'Saved how it is drawn.');
+              // A different standing on the lines is read again, which draws the web afresh.
+              if ((shownSelect.input.value || null) !== (shown?.id ?? null)) {
+                shellOf()?.toast({ kind: 'ok', title: 'Saved how it is drawn' });
+                await draw();
+              }
             }),
             button('Save hand placements', async () => {
               if (moved.size === 0) {
@@ -576,6 +665,38 @@ export async function mountWeb() {
         node.setAttribute('aria-pressed', String(on));
         return node;
       };
+      const groupsChip = toggleChip('Groups', 'social', (value) => {
+        hullsOn = value;
+        drawing?.setView({ hulls: value });
+        if (value && groups.length === 0) {
+          void loadGroups(
+            tenant,
+            graph.members.map((m) => m.entry.id),
+          ).then((found) => {
+            groups = found;
+            if (found.length === 0) say(status, 'No group has two members in this web.');
+            applyFocus();
+          });
+        } else applyFocus();
+      });
+      const stepsChip = chip('Steps: All', 'kind-relationship', (self) => {
+        if (!selected) {
+          say(
+            status,
+            'Steps are counted from a selection: select an entry or a relationship first.',
+          );
+          return;
+        }
+        steps = (steps + 1) % 3;
+        self.textContent = '';
+        self.append(
+          icon('kind-relationship'),
+          document.createTextNode(steps ? `Steps: ${steps}` : 'Steps: All'),
+        );
+        self.setAttribute('aria-pressed', String(steps > 0));
+        applyFocus();
+      });
+      stepsChip.setAttribute('aria-pressed', 'false');
       const tabChip = (tab: Tab, name: string, iconName: string) => {
         const node = chip(name, iconName, () => openTab(tab));
         node.dataset.tab = tab;
@@ -584,6 +705,8 @@ export async function mountWeb() {
       };
       bar.append(
         labelsChip,
+        groupsChip,
+        stepsChip,
         focusChip,
         tabChip('drawing', 'Drawing', 'settings'),
         lensChip('As of an Event', 'kind-clock', Boolean(lens.asOf), () => {
@@ -667,11 +790,19 @@ export async function mountWeb() {
         floatZoom.hidden = name !== 'graph';
         // Labels and Focus are about the drawing only.
         labelsChip.hidden = name !== 'graph';
+        groupsChip.hidden = name !== 'graph';
+        stepsChip.hidden = name !== 'graph';
         focusChip.hidden = name !== 'graph';
         view.dataset.view = name;
         if (name === 'matrix' && !matrixDrawn) {
           matrixDrawn = true;
-          void import('./matrix-view').then((m) => m.renderMatrix(matrixPane, tenant, id));
+          void import('./matrix-view').then((m) =>
+            m.renderMatrix(matrixPane, tenant, id, {
+              asOf: lens.asOf,
+              asOfName,
+              asSeenBy: lens.asSeenBy,
+            }),
+          );
         }
         for (const b of switcher.querySelectorAll('button')) {
           b.setAttribute('aria-pressed', String(b.dataset.view === name));
@@ -702,6 +833,32 @@ export async function mountWeb() {
     }
   };
   await draw();
+}
+
+/** The groups with at least two members in the web: soft outlines round them, read when asked for. */
+async function loadGroups(tenant: string, inWeb: readonly string[]): Promise<GraphGroup[]> {
+  const here = new Set(inWeb);
+  const all = await fetchAllPages(async (page) =>
+    unwrap(
+      await client.GET('/tenants/{tenant_id}/groups', {
+        params: { path: { tenant_id: tenant }, query: { page, size: 100 } },
+        cache: 'no-cache',
+      }),
+    ),
+  ).catch(() => []);
+  const found: GraphGroup[] = [];
+  for (const group of all.slice(0, 40)) {
+    const members = await client
+      .GET('/tenants/{tenant_id}/groups/{group_entity_id}/members', {
+        params: { path: { tenant_id: tenant, group_entity_id: group.id } },
+        cache: 'no-cache',
+      })
+      .then((r) => (r.response.ok ? (r.data ?? []) : []))
+      .catch(() => []);
+    const ours = members.map((m) => m.id).filter((id) => here.has(id));
+    if (ours.length >= 2) found.push({ id: group.id, name: group.name, members: ours });
+  }
+  return found;
 }
 
 function nameOf(

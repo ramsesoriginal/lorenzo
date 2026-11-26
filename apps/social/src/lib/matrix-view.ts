@@ -19,6 +19,7 @@ import {
   cellKey,
   type Edit,
   isConflict,
+  isUnknown,
   moveFocus,
   type Planned,
   parseInput,
@@ -39,7 +40,7 @@ import {
 import { canManage } from './names';
 import { typePicker as findType } from './pickers';
 import { shellOf } from './sign-in';
-import { standingMark } from './standing';
+import { standingMark, unknownMark } from './standing';
 import { readGraph, readWeb } from './web-api';
 
 const ROW_H = 36;
@@ -65,7 +66,16 @@ export function mountMatrix() {
 }
 
 /** The matrix of one web, drawn into `host`: its members on both sides, a standing (or presence) in every cell. */
-export async function renderMatrix(host: HTMLElement, tenant: string, id: string) {
+export async function renderMatrix(
+  host: HTMLElement,
+  tenant: string,
+  id: string,
+  lens: { asOf: string | null; asOfName: string | null; asSeenBy: string | null } = {
+    asOf: null,
+    asOfName: null,
+    asSeenBy: null,
+  },
+) {
   try {
     host.replaceChildren(loading('Opening the matrix…'));
     const [{ web }, graph, manage, stats] = await Promise.all([
@@ -81,7 +91,7 @@ export async function renderMatrix(host: HTMLElement, tenant: string, id: string
       host.replaceChildren(view);
       return;
     }
-    view.append(await matrix(tenant, members, stats, manage, web.standing_stat_id ?? null));
+    view.append(await matrix(tenant, members, stats, manage, web.standing_stat_id ?? null, lens));
     host.replaceChildren(view);
   } catch (error) {
     host.replaceChildren(errorNotice(error));
@@ -94,6 +104,7 @@ async function matrix(
   stats: StatDef[],
   manage: boolean,
   savedStanding: string | null,
+  lens: { asOf: string | null; asOfName: string | null; asSeenBy: string | null },
 ) {
   const root = el('div', '', 'stack');
   const names = new Map(members.map((m) => [m.id, m.name]));
@@ -111,6 +122,9 @@ async function matrix(
   const redo: { key: string; after: Edit | undefined }[] = [];
   let focus = { row: 0, col: 0 };
   let confirmedDelete = false;
+  // A stat with no scale of its own is drawn against the values in view, and the legend says so.
+  let visible: [number, number] | null = null;
+  const scaleNote = el('span', 'Bar: where it sits on the scale, hatched below zero');
   let selectedKey = '';
   let ordered = [...members];
 
@@ -219,6 +233,7 @@ async function matrix(
     const cell = cells.get(k);
     if (pending) return pending.value === null ? '' : String(pending.value);
     if (isConflict(cell)) return `${cell?.ties.length} here`;
+    if (isUnknown(cell)) return '?';
     if (mode === 'presence') return cell ? 'Yes' : '';
     if (!cell) return '';
     return cell.value ? String(cell.value.value) : '–';
@@ -230,6 +245,7 @@ async function matrix(
     const pending = edits.get(k);
     if (pending) bits.push(pending.value === null ? 'cleared' : String(pending.value));
     else if (isConflict(cell)) bits.push(`${cell?.ties.length} relationships, a conflict`);
+    else if (isUnknown(cell)) bits.push(`unknown as of ${lens.asOfName ?? 'the Event'}`);
     else if (cell)
       bits.push(mode === 'presence' ? 'a relationship' : cellText(row, col) || 'no value');
     else bits.push('none');
@@ -398,13 +414,19 @@ async function matrix(
           node.replaceChildren(
             standingMark(
               cell.value.value,
-              { min: stat.min_value ?? null, max: stat.max_value ?? null },
+              stat.min_value != null && stat.max_value != null
+                ? { min: stat.min_value, max: stat.max_value }
+                : { min: visible?.[0] ?? null, max: visible?.[1] ?? null },
               cell.value.own ? 'direct' : 'inherited',
             ),
           );
         }
         if (rowMember.id === colMember.id) node.classList.add('is-self');
         if (isConflict(cell)) node.classList.add('is-conflict');
+        if (isUnknown(cell) && !edits.has(k)) {
+          node.classList.add('is-unknown');
+          node.replaceChildren(unknownMark(`unknown as of ${lens.asOfName ?? 'the Event'}`));
+        }
         if (cell?.value && !cell.value.own && !edits.has(k)) node.classList.add('is-inherited');
         if (edits.has(k)) node.classList.add('is-pending');
         if (failures.has(k)) node.classList.add('is-failed');
@@ -548,6 +570,7 @@ async function matrix(
         rows.map((m) => m.id),
         cols.map((m) => m.id),
         type?.id ?? null,
+        { asOf: lens.asOf, asSeenBy: lens.asSeenBy },
       );
       const values = mode === 'value' && stat ? await readStanding(tenant, stat.id) : new Map();
       cells = buildCells(
@@ -557,6 +580,14 @@ async function matrix(
         new Set(cols.map((m) => m.id)),
       );
       sortMembers();
+      const seen = [...cells.values()].flatMap((c) =>
+        typeof c.value?.value === 'number' ? [c.value.value] : [],
+      );
+      visible = seen.length > 1 ? [Math.min(...seen), Math.max(...seen)] : null;
+      scaleNote.textContent =
+        stat && (stat.min_value == null || stat.max_value == null)
+          ? `Bar: ${stat.name} has no scale, so it is scaled to the values in view${visible ? ` (${visible[0]} to ${visible[1]})` : ''}`
+          : 'Bar: where it sits on the scale, hatched below zero';
       render();
       summarize();
       say(
@@ -658,13 +689,13 @@ async function matrix(
     const key = el('div', '', 'graph-legend');
     key.setAttribute('aria-label', 'What the cells show');
     key.setAttribute('role', 'group');
+    key.append(el('span', 'Number: the standing'), scaleNote);
     for (const text of [
-      'Number: the standing',
-      'Bar: where it sits on the scale, hatched below zero',
       'Inherited: the standing comes from a type',
       'Not saved: a draft of yours',
       '– : a relationship with no value',
       'N here: two relationships fill the cell',
+      'Dotted ?: not known as of the Event you are reading as of',
     ]) {
       key.append(el('span', text));
     }

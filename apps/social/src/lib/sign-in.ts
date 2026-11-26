@@ -4,6 +4,7 @@ import { client, unwrap } from './api';
 import { isAuthConfigured, isAuthenticated, login, logout } from './auth';
 import { API_BASE_URL } from './config';
 import { message } from './dom';
+import { canManage, myLibraries } from './names';
 import { readScope, socialReads } from './read-cache';
 
 let bound: ReturnType<typeof bindShell> = null;
@@ -46,10 +47,37 @@ export async function start() {
     shell.account({ state: 'signed-in', label: me.email ?? undefined });
     shell.status('');
     shell.reveal();
+    await offerLibraries(shell, tenant);
     return me;
   } catch (error) {
     shell.account({ state: 'signed-out' });
     shell.status(message(error), 'error');
     return null;
+  }
+}
+
+/**
+ * The libraries, for the switcher (SO1), and what the person may write, for the tabs that are only for
+ * those who write (Types and standings, Problems). Both are conveniences: without them the frame stays
+ * as it is, and the API decides every write.
+ */
+async function offerLibraries(
+  shell: NonNullable<ReturnType<typeof bindShell>>,
+  tenant: string | null,
+) {
+  try {
+    const libraries = await myLibraries();
+    shell.libraries(libraries, tenant ?? '', (id) => {
+      try {
+        localStorage.setItem('lorenzo:social:last-library', id);
+      } catch {
+        // A library that cannot be remembered is chosen again next time.
+      }
+      // Another library has other webs and entries: it opens at its webs.
+      location.assign(`/webs/?${new URLSearchParams({ tenant: id })}`);
+    });
+    if (tenant && (await canManage(tenant))) shell.allow('write');
+  } catch {
+    // The switcher and the writers' tabs are a convenience.
   }
 }

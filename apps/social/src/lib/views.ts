@@ -27,7 +27,9 @@ import {
 import { listStats, type StatDef } from './matrix-api';
 import { canManage, libraryName } from './names';
 import { notes } from './notes';
+import { endPicker, typePicker } from './pickers';
 import { relationshipForm } from './relationship-form';
+import { timeAndChain } from './relationship-time';
 import { shellOf, start } from './sign-in';
 import {
   deleteRelationship,
@@ -78,6 +80,8 @@ export async function mountRelationships() {
     const empties = el('div');
     let page = 1;
     let query = '';
+    let typeId = '';
+    let endId = '';
     let total = 0;
     let shown = 0;
 
@@ -89,7 +93,12 @@ export async function mountRelationships() {
       }
       say(status, 'Reading the relationships…');
       try {
-        const result = await listRelationships(tenant, { page, q: query });
+        const result = await listRelationships(tenant, {
+          page,
+          q: query,
+          ...(typeId ? { type: typeId } : {}),
+          ...(endId ? { end: endId } : {}),
+        });
         total = result.total ?? result.items.length;
         for (const row of result.items) {
           const item = el('li');
@@ -157,13 +166,33 @@ export async function mountRelationships() {
       }
     };
 
-    const search = el('form', '', 'row');
+    // Find by name, and narrow by a type (and what inherits from it) or by an end: a being, or a group.
+    const search = el('form', '', 'stack-tight');
+    search.setAttribute('aria-label', 'Find relationships');
     const find = field('Find by name');
     find.input.type = 'search';
-    search.append(find.label, submit('Find', 'secondary'));
+    const ofType = typePicker(tenant, 'Of the type');
+    const withEnd = endPicker(tenant, 'With the entry or group');
+    const narrow = el('div', '', 'row');
+    narrow.append(
+      submit('Find', 'secondary'),
+      button('Clear the filters', () => {
+        for (const input of search.querySelectorAll<HTMLInputElement>('input')) input.value = '';
+        for (const results of search.querySelectorAll<HTMLSelectElement>('select')) {
+          results.hidden = true;
+        }
+        query = '';
+        typeId = '';
+        endId = '';
+        void load(true);
+      }),
+    );
+    search.append(find.label, ofType.label, withEnd.label, narrow);
     search.addEventListener('submit', (event) => {
       event.preventDefault();
       query = find.input.value.trim();
+      typeId = ofType.value() ?? '';
+      endId = withEnd.value() ?? '';
       void load(true);
     });
     listing.append(
@@ -295,6 +324,9 @@ export async function mountRelationship() {
         stats.body.append(empty('It holds no standings.'));
       }
       view.append(stats.root);
+      view.append(
+        ...(await timeAndChain(tenant, id, version, relationship, relationship.can_edit, draw)),
+      );
       view.append(notes(tenant, id));
 
       if (relationship.can_edit) view.append(manager(tenant, id, version, relationship, draw));
@@ -316,8 +348,12 @@ function manager(
 ) {
   const panel = card();
   const status = statusLine();
+  const limits = {
+    starts_at: relationship.starts_at?.id ?? null,
+    ends_at: relationship.ends_at?.id ?? null,
+  };
   const changeEnds = (body: { end_a: string; end_b: string; one_way: boolean }) => async () => {
-    await replaceRelationship(tenant, id, version, body);
+    await replaceRelationship(tenant, id, version, { ...body, ...limits });
     await redraw();
   };
   const buttons = [

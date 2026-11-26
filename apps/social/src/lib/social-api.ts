@@ -32,7 +32,7 @@ export async function findEntries(
 /** One page of the relationships the person may see. */
 export async function listRelationships(
   tenant: string,
-  options: { page: number; q?: string; end?: string },
+  options: { page: number; q?: string; end?: string; type?: string },
 ) {
   return unwrap(
     await client.GET('/tenants/{tenant_id}/relationships', {
@@ -43,6 +43,7 @@ export async function listRelationships(
           size: 25,
           ...(options.q ? { q: options.q } : {}),
           ...(options.end ? { end: options.end } : {}),
+          ...(options.type ? { type: options.type } : {}),
         },
       },
       cache: 'no-cache',
@@ -73,7 +74,14 @@ export async function replaceRelationship(
   tenant: string,
   id: string,
   version: string,
-  body: { end_a: string; end_b: string; one_way: boolean },
+  body: {
+    end_a: string;
+    end_b: string;
+    one_way: boolean;
+    // The API replaces these with the rest: leaving them out would clear them.
+    starts_at: string | null;
+    ends_at: string | null;
+  },
 ) {
   return unwrap(
     await client.PUT('/tenants/{tenant_id}/relationships/{relationship_id}', {
@@ -162,4 +170,25 @@ export async function findTypes(tenant: string, query: string): Promise<EntryCho
     .map((type) => ({ id: type.id, name: type.name, kinds: [...type.kinds] }))
     .sort(byName)
     .slice(0, FOUND);
+}
+
+/** The chain a relationship is stated to hold through, in order, with the version to change it under. */
+export async function readThrough(tenant: string, id: string) {
+  const result = await client.GET('/tenants/{tenant_id}/relationships/{relationship_id}/through', {
+    params: { path: { tenant_id: tenant, relationship_id: id } },
+    cache: 'no-cache',
+  });
+  const through = await unwrap(result);
+  return { via: through.via, version: result.response.headers.get('etag') ?? '' };
+}
+
+/** Replaces the whole chain; an empty list removes it. */
+export async function writeThrough(tenant: string, id: string, version: string, via: string[]) {
+  return unwrap(
+    await client.PUT('/tenants/{tenant_id}/relationships/{relationship_id}/through', {
+      params: { path: { tenant_id: tenant, relationship_id: id } },
+      headers: { 'If-Match': version },
+      body: { via },
+    }),
+  );
 }

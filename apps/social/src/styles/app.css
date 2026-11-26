@@ -487,6 +487,11 @@
   border-style: dashed;
 }
 
+.matrix-data.is-unknown {
+  outline: 1px dotted var(--text-secondary);
+  outline-offset: -3px;
+}
+
 .matrix-data.is-pending {
   background: var(--fill-soft);
   outline: 1px dashed var(--border-strong);

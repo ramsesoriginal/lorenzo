@@ -31,6 +31,7 @@ export async function readWindow(
   rows: readonly string[],
   cols: readonly string[],
   type: string | null,
+  lens: { asOf?: string | null; asSeenBy?: string | null } = {},
 ): Promise<Tie[]> {
   const found = new Map<string, Tie>();
   for (const [first, second] of [
@@ -49,6 +50,8 @@ export async function readWindow(
               page,
               size: 100,
               ...(type ? { type } : {}),
+              ...(lens.asOf ? { as_of: lens.asOf } : {}),
+              ...(lens.asSeenBy ? { as_seen_by: lens.asSeenBy } : {}),
             },
           },
           cache: 'no-cache',
@@ -62,6 +65,7 @@ export async function readWindow(
         endA: r.end_a.id,
         endB: r.end_b.id,
         oneWay: r.one_way,
+        state: r.as_of ?? null,
       });
     }
   }

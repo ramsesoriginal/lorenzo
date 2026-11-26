@@ -35,3 +35,11 @@ export function standingMark(
   if (state === 'inherited') root.append(el('span', 'inherited', 'standing-mark'));
   return root;
 }
+
+/** A standing that is not known as of the date lens: no number, a word, drawn dotted (SO4). */
+export function unknownMark(words: string) {
+  const root = el('span', '', 'standing');
+  root.dataset.state = 'unknown';
+  root.append(el('span', '?', 'standing-num'), el('span', words, 'standing-mark'));
+  return root;
+}
