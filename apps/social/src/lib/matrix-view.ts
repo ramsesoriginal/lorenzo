@@ -3,14 +3,11 @@ import {
   actions,
   button,
   card,
-  claim,
   el,
   empty,
   errorNotice,
-  link,
   loading,
   message,
-  pageHead,
   say,
   select,
   statusLine,
@@ -41,7 +38,7 @@ import {
 } from './matrix-api';
 import { canManage } from './names';
 import { typePicker as findType } from './pickers';
-import { start } from './sign-in';
+import { standingMark } from './standing';
 import { readGraph, readWeb } from './web-api';
 
 const ROW_H = 36;
@@ -54,10 +51,8 @@ interface Member {
   name: string;
 }
 
-/** The matrix of one web: its members on both sides, a standing (or presence) in every cell. */
-export async function mountMatrix() {
-  const host = document.querySelector<HTMLElement>('#social-matrix');
-  if (!host || !claim(host)) return;
+/** The old address of the matrix: it is a view of the web now, and keeps the same query. */
+export function mountMatrix() {
   const params = new URLSearchParams(location.search);
   const tenant = params.get('tenant');
   const id = params.get('id');
@@ -65,8 +60,11 @@ export async function mountMatrix() {
     location.replace('/');
     return;
   }
-  const me = await start();
-  if (!me || !host.isConnected) return;
+  location.replace(`/web/?${new URLSearchParams({ tenant, id, view: 'matrix' })}`);
+}
+
+/** The matrix of one web, drawn into `host`: its members on both sides, a standing (or presence) in every cell. */
+export async function renderMatrix(host: HTMLElement, tenant: string, id: string) {
   try {
     host.replaceChildren(loading('Opening the matrix…'));
     const [{ web }, graph, manage, stats] = await Promise.all([
@@ -77,15 +75,6 @@ export async function mountMatrix() {
     ]);
     const members: Member[] = graph.members.map((m) => ({ id: m.entry.id, name: m.entry.name }));
     const view = el('div', '', 'stack view');
-    view.append(
-      pageHead(`${web.name}: matrix`, {
-        crumbs: [
-          link('Webs', `/webs/?${new URLSearchParams({ tenant })}`),
-          link(web.name, `/web/?${new URLSearchParams({ tenant, id })}`),
-        ],
-        lede: 'One ordered pair of its entries in every cell: the row to the column.',
-      }),
-    );
     if (members.length < 2) {
       view.append(empty('A matrix needs at least two entries: add them to the web first.'));
       host.replaceChildren(view);
@@ -121,6 +110,7 @@ async function matrix(
   const redo: { key: string; after: Edit | undefined }[] = [];
   let focus = { row: 0, col: 0 };
   let confirmedDelete = false;
+  let selectedKey = '';
   let ordered = [...members];
 
   const controls = card();
@@ -292,7 +282,7 @@ async function matrix(
     input.focus();
     if (seed === undefined) input.select();
     else input.setSelectionRange(input.value.length, input.value.length);
-    const finish = (commit: boolean, step: number) => {
+    const finish = (commit: boolean, step: number, across = 0) => {
       if (commit) {
         const parsed = parseInput(input.value, limitsOf(stat as StatDef));
         if (!parsed.ok) {
@@ -313,7 +303,10 @@ async function matrix(
         say(status, '');
       }
       render();
-      focus = { row: Math.min(rowsOf().length - 1, focus.row + step), col: focus.col };
+      focus = {
+        row: Math.min(rowsOf().length - 1, Math.max(0, focus.row + step)),
+        col: Math.min(colsOf().length - 1, Math.max(0, focus.col + across)),
+      };
       render();
       focusCell();
     };
@@ -326,7 +319,9 @@ async function matrix(
         event.preventDefault();
         finish(false, 0);
       } else if (event.key === 'Tab') {
-        finish(true, 0);
+        // Tab saves the draft and moves along the row, as a spreadsheet does (SO8).
+        event.preventDefault();
+        finish(true, 0, event.shiftKey ? -1 : 1);
       }
     });
     input.addEventListener('blur', () => {
@@ -389,6 +384,24 @@ async function matrix(
         node.setAttribute('aria-label', cellName(rowMember.id, colMember.id));
         node.textContent = cellText(rowMember.id, colMember.id);
         const cell = cells.get(k);
+        // A standing shows its number, a quiet bar on the stat's scale and, when it is not the cell's
+        // own, a word for how it is known (SO3).
+        if (
+          mode === 'value' &&
+          stat &&
+          cell?.value &&
+          !edits.has(k) &&
+          !isConflict(cell) &&
+          typeof cell.value.value === 'number'
+        ) {
+          node.replaceChildren(
+            standingMark(
+              cell.value.value,
+              { min: stat.min_value ?? null, max: stat.max_value ?? null },
+              cell.value.own ? 'direct' : 'inherited',
+            ),
+          );
+        }
         if (rowMember.id === colMember.id) node.classList.add('is-self');
         if (isConflict(cell)) node.classList.add('is-conflict');
         if (cell?.value && !cell.value.own && !edits.has(k)) node.classList.add('is-inherited');
@@ -399,8 +412,15 @@ async function matrix(
           summarize();
         });
         node.addEventListener('dblclick', () => editCell(node, rowMember.id, colMember.id));
+        // A first click selects the cell, a second on the same cell edits it where it is (SO8).
         node.addEventListener('click', () => {
+          const again = selectedKey === k && node.contains(document.activeElement);
+          selectedKey = k;
           focus = { row: r, col: c };
+          if (again && !node.querySelector('input')) {
+            editCell(node, rowMember.id, colMember.id);
+            return;
+          }
           node.focus();
         });
         node.addEventListener('keydown', (event) => {
@@ -619,10 +639,28 @@ async function matrix(
   if (matchMedia('(max-width: 720px)').matches) {
     root.append(controls.root, phoneList());
   } else {
-    root.append(controls.root, gridHost, summary, bar, status);
+    root.append(controls.root, legend(), gridHost, summary, bar, status);
   }
   await load();
   return root;
+
+  /** What the number, the bar and the marks in a cell mean (SO3): each has a word, so none rests on colour. */
+  function legend() {
+    const key = el('div', '', 'graph-legend');
+    key.setAttribute('aria-label', 'What the cells show');
+    key.setAttribute('role', 'group');
+    for (const text of [
+      'Number: the standing',
+      'Bar: where it sits on the scale, hatched below zero',
+      'Inherited: the standing comes from a type',
+      'Not saved: a draft of yours',
+      '– : a relationship with no value',
+      'N here: two relationships fill the cell',
+    ]) {
+      key.append(el('span', text));
+    }
+    return key;
+  }
 
   /** On a phone the matrix does not fit: one entry's standings as a list, with the same save. */
   function phoneList() {

@@ -21,7 +21,6 @@ import {
   field,
   icon,
   link,
-  linkButton,
   loading,
   metaLine,
   relationshipHref,
@@ -223,6 +222,7 @@ export async function mountWeb() {
       const hostBox = el('div', '', 'graph-host');
       const graphPane = el('div', '', 'web-pane web-pane--graph');
       const listPane = el('div', '', 'web-pane web-pane--list');
+      const matrixPane = el('div', '', 'web-pane web-pane--matrix');
       if (tooBig) {
         graphPane.append(
           empty(
@@ -234,7 +234,7 @@ export async function mountWeb() {
       } else {
         graphPane.append(hostBox);
       }
-      stageBox.append(graphPane, listPane);
+      stageBox.append(graphPane, listPane, matrixPane);
       floatLegend.append(status);
 
       // One sentence a relationship: the primary form for reading without sight, kept in step with
@@ -644,25 +644,40 @@ export async function mountWeb() {
       );
       floatLegend.prepend(legend);
 
-      // Graph, Matrix and List are three views of one web (SO2); the view is in the address.
-      const wanted = new URLSearchParams(location.search).get('view') === 'list' ? 'list' : 'graph';
+      // Graph, Matrix and List are three views of one web (SO2); the view is in the address. On a
+      // phone the matrix is one entry's standings as a list, and is called so.
+      const asked = new URLSearchParams(location.search).get('view');
+      const wanted: 'graph' | 'matrix' | 'list' =
+        asked === 'list' || asked === 'matrix' ? asked : 'graph';
+      const phone = matchMedia('(max-width: 720px)').matches;
       const switcher = el('div', '', 'segmented-control');
       switcher.setAttribute('role', 'group');
       switcher.setAttribute('aria-label', 'View');
-      const showView = (name: 'graph' | 'list') => {
+      let matrixDrawn = false;
+      const showView = (name: 'graph' | 'matrix' | 'list') => {
         graphPane.hidden = name !== 'graph';
+        matrixPane.hidden = name !== 'matrix';
         listPane.hidden = name !== 'list';
         floatZoom.hidden = name !== 'graph';
+        // Labels and Focus are about the drawing only.
+        labelsChip.hidden = name !== 'graph';
+        focusChip.hidden = name !== 'graph';
+        view.dataset.view = name;
+        if (name === 'matrix' && !matrixDrawn) {
+          matrixDrawn = true;
+          void import('./matrix-view').then((m) => m.renderMatrix(matrixPane, tenant, id));
+        }
         for (const b of switcher.querySelectorAll('button')) {
           b.setAttribute('aria-pressed', String(b.dataset.view === name));
         }
         const next = new URLSearchParams(location.search);
-        if (name === 'list') next.set('view', 'list');
-        else next.delete('view');
+        if (name === 'graph') next.delete('view');
+        else next.set('view', name);
         history.replaceState(null, '', `${location.pathname}?${next}`);
       };
       for (const [name, text] of [
         ['graph', 'Graph'],
+        ['matrix', phone ? 'Standings' : 'Matrix'],
         ['list', 'List'],
       ] as const) {
         const b = el('button', text);
@@ -671,9 +686,8 @@ export async function mountWeb() {
         b.addEventListener('click', () => showView(name));
         switcher.append(b);
       }
-      const matrixLink = linkButton('Matrix', `/matrix/?${new URLSearchParams({ tenant, id })}`);
       floatHead.append(el('div', '', 'row-tight'));
-      floatHead.lastElementChild?.append(switcher, matrixLink);
+      floatHead.lastElementChild?.append(switcher);
       showView(wanted);
       host.replaceChildren(view);
       if (panelTab) openTab(panelTab as Tab);

@@ -233,9 +233,13 @@
   display: none;
 }
 
-.web-pane--list {
+.web-pane--list,
+.web-pane--matrix {
   padding: var(--space-5) var(--space-4);
-  padding-block-start: calc(var(--space-7) * 3);
+  /* The title card floats over the top left, and the bar over the right; these views start below
+     the one and stop short of the other. */
+  padding-block-start: 11rem;
+  padding-inline-end: 12rem;
 }
 
 .graph-host {
@@ -265,6 +269,15 @@
 
 .web-title {
   margin: 0;
+}
+
+/* The views that are read down a page need less of the title card: its words are shorter. */
+.web-workspace:not([data-view="graph"]) .web-title-card p,
+.web-workspace:not([data-view="graph"]) .web-title-card .row-tight:last-child {
+  display: none;
+}
+.web-workspace:not([data-view="graph"]) .web-title {
+  font-size: var(--fs-heading);
 }
 
 .web-float--bar {
@@ -352,6 +365,13 @@
 
   .web-float--legend {
     display: none;
+  }
+
+  .web-pane--list,
+  .web-pane--matrix {
+    padding-inline-end: var(--space-4);
+    padding-block-start: 13rem;
+    padding-block-end: 12rem;
   }
 }
 
