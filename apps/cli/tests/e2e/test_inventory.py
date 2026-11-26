@@ -1,4 +1,4 @@
-"""`lorenzo inventory import` and `export` for a player, against the real API (ADR 0193)."""
+"""`lorenzo import inventory` and `export` for a player, against the real API (ADR 0193)."""
 
 from __future__ import annotations
 

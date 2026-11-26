@@ -1,5 +1,5 @@
 // A catalog item edited in place, for a game master (IN5): the description saves as you type, the
-// weight and the value and the tags save as you change them, and what could break a link (the link
+// stats (its own and what it inherits) and the tags save as you change them, and what could break a link (the link
 // name, what it is made from, whether it is in the public catalog) is kept until the shell's save bar
 // says Save changes.
 
@@ -18,17 +18,17 @@ import {
 } from '../../lib/items';
 import { currentShell } from '../../lib/shell';
 import { saveSlug } from '../../lib/slugs';
+import { statLabel } from '../../lib/statLabel';
 import {
   clearStat,
   parseStat,
   type Seen,
-  type StatDefinition,
   type StatValue,
   setStat,
   statDefinitions,
   statRows,
 } from '../../lib/statValues';
-import { setTag, tagDefinitions, tagState } from '../../lib/tagEditor';
+import { setTag, tagDefinitions } from '../../lib/tagEditor';
 import type { CatalogItem, EntityDetail } from '../../lib/types';
 import { renderCombobox } from '../Combobox/renderer';
 
@@ -140,100 +140,219 @@ export function renderCatalogEditor(options: CatalogEditorOptions): RenderedCata
       clearTimeout(timer);
     });
 
-    // --- Weight and value, saved when they change.
-    const rows = statRows(definitions, entity);
-    const find = (match: (definition: StatDefinition) => boolean) =>
-      rows.find((row) => match(row.definition));
-    const numberRows = [
-      find((d) => d.role === 'weight' || d.name === 'weight'),
-      find((d) => d.name === 'price' || d.name === 'value'),
-    ].filter((row): row is NonNullable<typeof row> => row !== undefined);
-    const fields = el('div', 'item-editor-fields');
+    // --- Stats: every one the item has, its own or inherited, written where it is. A value typed
+    // over an inherited one is the item's own, and the ancestor keeps its.
+    const statsBox = el('div', 'stack-tight');
+    const statList = el('div', 'item-editor-fields');
+    const addStat = el('select', 'text-input item-editor-add');
+    // A stat chosen to add: a field with no value yet, which saves when it has one.
+    const drafts = new Set<string>();
 
-    for (const row of numberRows) {
-      const label = el('label', 'item-editor-field');
-      const unit = row.definition.unit ? `, ${row.definition.unit}` : '';
-      const input = el('input', 'text-input');
-      let seen: Seen = { value: row.value, own: row.own };
+    addStat.setAttribute('aria-label', 'Add a stat');
+    statsBox.append(el('p', 'field-label', 'Stats'), statList, addStat);
 
-      label.append(
-        el(
-          'span',
-          undefined,
-          `${row.definition.name.replace(/^./, (c) => c.toUpperCase())}${unit}`,
-        ),
-        input,
+    const sourceText = (stat: EntityDetail['stats'][number] | undefined, own: boolean) => {
+      if (stat?.computed) return 'Worked out from its other stats';
+      if (own) return 'Set on this item';
+      if (stat?.from_entity) return `Inherited from ${stat.from_entity.name}`;
+      if (stat?.from_hidden) return 'Inherited from a hidden entry';
+
+      return stat ? 'Inherited' : 'Not set yet';
+    };
+
+    function drawStats() {
+      const rows = statRows(definitions, entity);
+      const byName = new Map(entity.stats.map((stat) => [stat.name, stat]));
+      const shown = rows.filter(
+        (row) => row.value !== null || row.own || drafts.has(row.definition.name),
       );
-      input.inputMode = 'decimal';
-      input.value = row.value === null ? '' : String(row.value);
-      input.addEventListener(
-        'change',
-        async () => {
-          try {
-            if (input.value.trim() === '') {
-              entity = await clearStat(tenantId, entityId, row.definition, seen);
-            } else {
-              const parsed = parseStat(row.definition, input.value);
+      const rest = rows.filter((row) => !shown.includes(row));
 
-              if ('problem' in parsed) throw new Error(parsed.problem);
+      statList.replaceChildren(
+        ...shown.map((row) => {
+          const stat = byName.get(row.definition.name);
+          const box = el('div', 'item-editor-stat');
+          const label = el('label', 'item-editor-field');
+          const unit = row.definition.unit ? `, ${row.definition.unit}` : '';
+          const name = `${statLabel(row.definition.name)}${unit}`;
+          const caption = el('span', 'caption', sourceText(stat, row.own));
+          const seen: Seen = { value: row.value, own: row.own };
+          let field: HTMLInputElement | HTMLSelectElement;
 
-              entity = await setStat(
-                tenantId,
-                entityId,
-                row.definition,
-                parsed.value as StatValue,
-                seen,
-              );
-            }
+          if (row.definition.value_type === 'enum') {
+            const choice = el('select', 'text-input');
 
-            const fresh = statRows(definitions, entity).find(
-              (r) => r.definition.name === row.definition.name,
-            );
+            choice.append(new Option('Choose a value', ''));
 
-            seen = { value: fresh?.value ?? null, own: fresh?.own === true };
-          } catch (error) {
-            toast(`Couldn’t save ${row.definition.name}`, errorMessage(error));
+            for (const value of row.definition.enum_values) choice.append(new Option(value, value));
+
+            choice.value = row.value === null ? '' : String(row.value);
+            field = choice;
+          } else {
+            const input = el('input', 'text-input');
+
+            input.inputMode = row.definition.value_type === 'text' ? 'text' : 'decimal';
+            input.value = row.value === null ? '' : String(row.value);
+            field = input;
           }
-        },
-        { signal },
+
+          field.setAttribute('aria-label', name);
+          field.disabled = stat?.computed === true;
+          label.append(el('span', undefined, name), field);
+          box.append(label, caption);
+
+          field.addEventListener(
+            'change',
+            async () => {
+              try {
+                if (field.value.trim() === '') {
+                  if (!row.own) {
+                    drawStats();
+
+                    return;
+                  }
+
+                  entity = await clearStat(tenantId, entityId, row.definition, seen);
+                } else {
+                  const parsed = parseStat(row.definition, field.value);
+
+                  if ('problem' in parsed) throw new Error(parsed.problem);
+
+                  entity = await setStat(
+                    tenantId,
+                    entityId,
+                    row.definition,
+                    parsed.value as StatValue,
+                    seen,
+                  );
+                }
+
+                drafts.delete(row.definition.name);
+                drawStats();
+              } catch (error) {
+                toast(`Couldn’t save ${statLabel(row.definition.name)}`, errorMessage(error));
+                drawStats();
+              }
+            },
+            { signal },
+          );
+
+          if (row.own) {
+            const clear = el('button', 'btn btn-secondary item-editor-clear', 'Clear');
+
+            clear.type = 'button';
+            clear.setAttribute('aria-label', `Clear ${statLabel(row.definition.name)}`);
+            clear.addEventListener(
+              'click',
+              async () => {
+                try {
+                  entity = await clearStat(tenantId, entityId, row.definition, seen);
+                  drawStats();
+                } catch (error) {
+                  toast(`Couldn’t clear ${statLabel(row.definition.name)}`, errorMessage(error));
+                }
+              },
+              { signal },
+            );
+            box.append(clear);
+          }
+
+          return box;
+        }),
       );
-      fields.append(label);
+
+      addStat.replaceChildren(
+        new Option('Add a stat…', ''),
+        ...rest.map((row) => new Option(statLabel(row.definition.name), row.definition.name)),
+      );
+      addStat.hidden = rest.length === 0;
     }
 
-    // --- Tags, on or not, as you choose.
+    addStat.addEventListener(
+      'change',
+      () => {
+        if (addStat.value) drafts.add(addStat.value);
+
+        const name = addStat.value;
+
+        drawStats();
+        statList
+          .querySelector<HTMLElement>(`[aria-label^="${CSS.escape(statLabel(name))}"]`)
+          ?.focus();
+      },
+      { signal },
+    );
+    drawStats();
+
+    // --- Tags: the ones the item has, its own or inherited; the rest are added.
     const tagsBox = el('div', 'stack-tight');
     const tagList = el('ul', 'row item-editor-tags');
+    const addTag = el('select', 'text-input item-editor-add');
 
-    tagsBox.append(el('p', 'field-label', 'Tags'), tagList);
+    addTag.setAttribute('aria-label', 'Add a tag');
+    tagsBox.append(el('p', 'field-label', 'Tags'), tagList, addTag);
 
-    for (const definition of tagDefs) {
-      const chip = el('li');
-      const button = el('button', 'chip chip-choice', definition.name.replace(/_/g, ' '));
-      const stateOf = () =>
-        tagState(entity.stats.find((stat) => stat.name === definition.name)).state;
-
-      button.type = 'button';
-      button.setAttribute('aria-pressed', String(stateOf() === 'on'));
-      button.addEventListener(
-        'click',
-        async () => {
-          try {
-            entity = await setTag(
-              tenantId,
-              entityId,
-              definition.id,
-              stateOf() === 'on' ? 'inherited' : 'on',
-            );
-            button.setAttribute('aria-pressed', String(stateOf() === 'on'));
-          } catch (error) {
-            toast(`Couldn’t change ${definition.name}`, errorMessage(error));
-          }
-        },
-        { signal },
-      );
-      chip.append(button);
-      tagList.append(chip);
+    async function changeTag(definition: (typeof tagDefs)[number], to: 'on' | 'off' | 'inherited') {
+      try {
+        entity = await setTag(tenantId, entityId, definition.id, to);
+        drawTags();
+      } catch (error) {
+        toast(`Couldn’t change ${statLabel(definition.name)}`, errorMessage(error));
+      }
     }
+
+    function drawTags() {
+      const byName = new Map(entity.stats.map((stat) => [stat.name, stat]));
+      const has = (definition: (typeof tagDefs)[number]) =>
+        byName.get(definition.name)?.value === true;
+      const shown = tagDefs.filter(has);
+
+      tagList.replaceChildren(
+        ...shown.map((definition) => {
+          const stat = byName.get(definition.name);
+          const own = stat?.own === true;
+          const chip = el('li', own ? 'chip' : 'chip chip--inherited');
+          const from = stat?.from_entity?.name;
+          const remove = el('button', 'chip-remove', '×');
+
+          chip.append(statLabel(definition.name));
+
+          if (!own) chip.append(el('span', 'caption', from ? ` from ${from}` : ' inherited'));
+
+          remove.type = 'button';
+          remove.setAttribute('aria-label', `Remove ${statLabel(definition.name)}`);
+          // Its own goes back to what it inherits; what it inherits is turned off here.
+          remove.addEventListener(
+            'click',
+            () => void changeTag(definition, own ? 'inherited' : 'off'),
+            { signal },
+          );
+          chip.append(remove);
+
+          return chip;
+        }),
+      );
+
+      const rest = tagDefs.filter((definition) => !has(definition));
+
+      addTag.replaceChildren(
+        new Option('Add a tag…', ''),
+        ...rest.map((definition) => new Option(statLabel(definition.name), definition.id)),
+      );
+      addTag.hidden = rest.length === 0;
+      tagsBox.hidden = tagDefs.length === 0;
+    }
+
+    addTag.addEventListener(
+      'change',
+      () => {
+        const definition = tagDefs.find((d) => d.id === addTag.value);
+
+        if (definition) void changeTag(definition, 'on');
+      },
+      { signal },
+    );
+    drawTags();
 
     // --- The structure, kept with the save bar.
     const structure = el('fieldset', 'item-editor-structure');
@@ -366,7 +485,7 @@ export function renderCatalogEditor(options: CatalogEditorOptions): RenderedCata
     });
     signal.addEventListener('abort', () => bar?.set(0));
 
-    host.replaceChildren(descriptionLabel, fields, tagsBox, structure);
+    host.replaceChildren(descriptionLabel, statsBox, tagsBox, structure);
   }
 
   load().catch((error) => {

@@ -83,7 +83,7 @@ Or pipe a token in with `--token-stdin`. A token from the stored login is used l
 | `lorenzo --version` | Says which version is installed. Needs no login |
 | `lorenzo whoami [--json]` | Asks the API who the token you'd use belongs to, and says where the token came from: the check that a login works |
 | `lorenzo tenant list [--kind repository\|play] [--json]` | The tenants you belong to, with each one's kind and your role |
-| `lorenzo tenant create <name> [--slug S] [--description D] [--kind KIND] [--json]` | Creates a tenant and makes you its owner (a `repository`, which is what an import needs, unless `--kind play`; the kind can't be changed later). Needs the tenant-creator role. It starts empty: `lorenzo apply --starter neutral` next |
+| `lorenzo tenant create <name> [--slug S] [--description D] [--kind KIND] [--yes] [--json]` | Creates a tenant and makes you its owner (a `repository`, which is what an import needs, unless `--kind play`; the kind can't be changed later). Asks first at a terminal; `--yes` skips the question, and without a terminal or with `--json` nothing is created unless `--yes` is given. Needs the tenant-creator role. It starts empty: `lorenzo apply --starter neutral` next |
 | `lorenzo tenant show <tenant>` | Reads one tenant (its `kind`, whether it is published) - the first call through the generated client |
 | `lorenzo tenant delete <tenant> [--yes] [--json]` | Deletes a tenant and everything in it. **It can't be undone.** Needs the tenant-creator role and being one of the tenant's owners; asks you to type the slug (`--yes` skips that, `--json` needs it). A repository other tenants still hold a grant on is refused, with how to go on ([ADR 0184](../../docs/adr/0184-deleting-a-tenant.md)) |
 | `lorenzo login --token` | Connects with a personal access token ([ADR 0269](../../docs/adr/0269-personal-access-tokens-hub-and-cli.md)): prints a code and the address of the account hub's *Connect a device* page, waits until you approve it there (naming the token and, if you like, an expiry), and stores it like any login. `whoami` then names it; `logout` forgets it here, and it works until you revoke it under your profile in the hub |
@@ -120,7 +120,7 @@ Or pipe a token in with `--token-stdin`. A token from the stored login is used l
 From an empty library to a character whose numbers the API works out, with the starters that ship with the CLI. `tests/e2e/test_walkthrough.py` runs these commands, in this order, against the real API.
 
 ```bash
-lorenzo tenant create "Our table" --slug our-table --kind play
+lorenzo tenant create "Our table" --slug our-table --kind play --yes
 lorenzo starter list                                       # neutral, dnd5e, wrath-and-glory
 lorenzo apply --starter neutral -t our-table --yes         # what is true of a thing in any game
 lorenzo apply --starter dnd5e -t our-table --yes           # D&D 5e as a system on top of it
@@ -380,7 +380,7 @@ The parser is bundled in the wheel, so installing and running the CLI does not r
 
 ## Importing MPMB items
 
-The order is: create a repository (`lorenzo tenant create "My Homebrew" --slug my-homebrew`), apply the [starters](#starters) once, then plan, then apply ([ADR 0144](../../docs/adr/0144-lorenzo-import-mapping-identity-plan-apply.md)). For something you mean to publish, split it into [two repositories](#equipment-and-rules-as-two-repositories) instead.
+The order is: create a repository (`lorenzo tenant create "My Homebrew" --slug my-homebrew --yes`), apply the [starters](#starters) once, then plan, then apply ([ADR 0144](../../docs/adr/0144-lorenzo-import-mapping-identity-plan-apply.md)). For something you mean to publish, split it into [two repositories](#equipment-and-rules-as-two-repositories) instead.
 
 ```bash
 uv run lorenzo apply --starter neutral -t my-repository --yes
@@ -508,13 +508,13 @@ S=/tmp/mpmb/_variables    # the sheet's data, see Reading MPMB files
 BASE="--base $S/ListsSources.js --base $S/Lists.js --base $S/ListsGear.js"
 
 # the equipment: the neutral starter, and the neutral half of every item, public
-lorenzo tenant create "Common Fantasy Equipment" --slug common-fantasy-eq
+lorenzo tenant create "Common Fantasy Equipment" --slug common-fantasy-eq --yes
 lorenzo apply --starter neutral -t common-fantasy-eq --yes
 lorenzo import mpmb apply --tenant common-fantasy-eq --part neutral --public-catalog $BASE --yes
 lorenzo repo publish --tenant common-fantasy-eq
 
 # the rules: a copy of the equipment, the dnd5e starter, then D&D's half of every item
-lorenzo tenant create "Common D&D5e Equipment" --slug dnd5e-common-eq
+lorenzo tenant create "Common D&D5e Equipment" --slug dnd5e-common-eq --yes
 lorenzo repo offer dnd5e-common-eq --tenant common-fantasy-eq --yes
 lorenzo apply --starter dnd5e -t dnd5e-common-eq --yes
 lorenzo import mpmb apply --tenant dnd5e-common-eq --part system $BASE --yes
@@ -526,7 +526,7 @@ lorenzo repo publish --tenant dnd5e-common-eq
 #### A table takes them
 
 ```bash
-lorenzo tenant create "My table" --slug my-table --kind play
+lorenzo tenant create "My table" --slug my-table --kind play --yes
 lorenzo repo offer my-table --tenant common-fantasy-eq --yes   # the equipment alone is usable
 lorenzo repo offer my-table --tenant dnd5e-common-eq --yes     # later, D&D, on the items it already has
 ```

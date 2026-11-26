@@ -11,7 +11,7 @@ Everything here is as the API behaves today. It was checked against a local API;
 - A **stat group** holds **stat definitions**. A definition has a name (unique in a library), a value type (`int`, `float`, `text`, `bool`, `enum` or `dice`), and optional display fields: a unit, a sign, "adjustable in play", a pin, hints and, for `int` and `float`, a minimum and a maximum ([ADR 0014](../adr/0014-stats.md), [ADR 0103](../adr/0103-stat-tags-enum-values-and-mandatory-groups.md), [ADR 0278](../adr/0278-stat-definition-display-fields-order-and-patch.md), [ADR 0403](../adr/0403-stat-scales.md)). A `bool` is a tag. A `dice` stat holds a dice expression, written the way tables write it (`2d6`, `W20`, `4W6DL1`: a drop of the lowest or the highest), read back as `2d6`, `d20`, `4d6dl1` with its parts beside it, and takes no unit or scale; Lorenzo states dice and never rolls them ([ADR 0462](../adr/0462-the-dice-value-type.md)). A definition's type and group never change; its name, unit, bounds and hints can.
 - An entry holds a **value** of a definition: its own, one **inherited** from a parent, or one **computed** by a formula ([ADR 0276](../adr/0276-where-a-stat-value-comes-from.md)).
 - An entry's **parents** (a prototype chain) are ordered. The closest value wins; at equal distance the stat groups the parents have acquired decide, then parent order ([ADR 0037](../adr/0037-effective-stat-resolution.md), [ADR 0266](../adr/0266-stat-tie-break-by-parent-order.md)). Values never add up along the chain.
-- A **formula** is one of four kinds, set on an entry for a stat, and evaluated for the entry that is read, so a formula on a prototype answers for every entry below it ([ADR 0104](../adr/0104-computed-stats.md), [ADR 0126](../adr/0126-sum-formulas.md), [ADR 0127](../adr/0127-contents-formulas.md)):
+- A **formula** has a kind, set on an entry for a stat, and evaluated for the entry that is read, so a formula on a prototype answers for every entry below it ([ADR 0104](../adr/0104-computed-stats.md), [ADR 0126](../adr/0126-sum-formulas.md), [ADR 0127](../adr/0127-contents-formulas.md)):
 
 | Kind | Result |
 | --- | --- |
@@ -19,6 +19,8 @@ Everything here is as the API behaves today. It was checked against a local API;
 | `sum` | `coefficient x stat` over up to 20 stats, plus an offset, with a round mode |
 | `comparison` | a stat against a stat or a constant: a `bool`, or one of two text or enum values |
 | `contents` | the sum of a stat times the quantity over what the entry directly contains |
+
+  These four came first. `min`, `max`, `product`, `ratio` and `select` (RFC 0053) are in the recipes below, and `dice_value` and `dice` are under Dice.
 
   Coefficients and multipliers are constants. An `int` result needs a round mode unless every input is an `int` stat and every constant is whole. A `float` stat takes a JSON number with a decimal point (`3.0`, not `3`).
 
@@ -33,7 +35,7 @@ A library holds the stats of several game systems by giving each a **system** ([
 - **What the API reads is a role, not a name** ([ADR 0449](../adr/0449-roles-the-api-reads-a-stat-by-what-it-is-for.md)): `weight`, `height`, `price`, `rarity`, `hp`, `armor`, `size`, `carry_capacity`, `containment_capacity`, `max_item_size`, `binding` and `is_container` for a stat, `physical`, `economic`, `destroyable`, `damaging` and `tags` for a group ([well-known stats](../reference/well-known-stats.md)). One stat holds each in a library, it must fit the types the role is read as, and it belongs to no system. A stat or group called after a free role takes it by default (`role: null` says none), and a holder can be renamed.
 - A unit is a string on the definition. Lorenzo does not convert between units; the same measure in two units is two stats, the second a `linear` formula of the first (see below). A copy that merges a stat into the library's own with another unit or bounds says so (`warnings`), or asks first with `strict_units` ([ADR 0453](../adr/0453-repositories-carry-systems-and-templates.md)).
 - Changing a type or group is not possible, and a stat in use cannot be deleted. In a repository that others copy, settle types, groups and units before the first release.
-- A repository carries its systems, the system of each group and its templates; a copy joins a system by slug and keeps the library's name for it. Updates do not carry them yet.
+- A repository carries its systems, the system of each group and its templates; a copy joins a system by slug and keeps the library's name for it. An update tracks them too ([ADR 0469](../adr/0469-updates-track-game-systems-and-templates.md)): a renamed system, a changed template or a group moved to another system is offered, and a system the library already had by slug is merged and never offered.
 
 ## Recipes
 
@@ -155,7 +157,7 @@ A `dice` stat holds a dice expression, written the way tables write it and read 
 
 ## What the formulas do not say
 
-Left to the author: a `text` stat as input to arithmetic (a `comparison` reads only numbers, and a `select` matches text), a rule that nests one kind inside another (a longer rule is a chain of named stats, up to 200), and dice. A `ratio` rounds its quotient at 28 digits. For anything else, store the value on the entry and let the author keep it current.
+Left to the author: a `text` stat as input to arithmetic (a `comparison` reads only numbers, and a `select` matches text), a rule that nests one kind inside another (a longer rule is a chain of named stats, up to 200), and rolling dice. A `ratio` rounds its quotient at 28 digits. For anything else, store the value on the entry and let the author keep it current.
 
 ## What the sheet draws
 

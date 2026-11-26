@@ -50,10 +50,19 @@ const LIBRARY_SURFACES: Record<string, string> = {
 };
 
 describe('a campaign surface has no literal GM', () => {
-  const files = sourceFiles(here).map((file) => ({
-    name: relative(here, file).replaceAll('\\', '/'),
-    text: withoutComments(readFileSync(file, 'utf8')),
-  }));
+  // What the app draws of its own, and the parts it shares with the other apps (ADR 0526), which
+  // its pages show as its own.
+  const shared = join(here, '../../../packages/entity-parts/src');
+  const files = [
+    ...sourceFiles(here).map((file) => ({
+      name: relative(here, file).replaceAll('\\', '/'),
+      text: withoutComments(readFileSync(file, 'utf8')),
+    })),
+    ...sourceFiles(shared).map((file) => ({
+      name: `entity-parts/${relative(shared, file).replaceAll('\\', '/')}`,
+      text: withoutComments(readFileSync(file, 'utf8')),
+    })),
+  ];
 
   it('finds the source it is checking', () => {
     expect(files.length).toBeGreaterThan(50);

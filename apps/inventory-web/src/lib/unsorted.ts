@@ -1,6 +1,6 @@
 // Unsorted items from the board (ADR 0238): what a player adds when the catalog does not know it.
 // The placeholder is the library's `unsorted` item (ADR 0192); the notes are written exactly as
-// `lorenzo inventory import` writes them (ADR 0193), so a GM reads the same thing from either.
+// `lorenzo import inventory` writes them (ADR 0193), so a GM reads the same thing from either.
 import { addKnower, createInformation } from './information';
 import { createItemInstance } from './items';
 import { resolveSlugs } from './slugs';

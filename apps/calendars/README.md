@@ -4,7 +4,7 @@ Calendar authoring and browsing for a library or repository: static Astro and pl
 
 ## Using it
 
-Choose a library and open a calendar and year. Use the Month or festival / Whole year tabs to show one segment or every segment in definition order. Both views use the same day renderer and content cache; the whole year retains one shared four-date loading limit. The view stays selected when changing years and is included in the URL. On phones, selecting a date in the whole year opens its detail panel with a Back to calendar control. A year contains the authored months and festivals, weekday readings, moon phases and the recurring observances available to the reader. Month cells show permitted day-note snippets, dated entry names and recurring observances, with the brand atlas’s moon-phase symbols ([ADR 0326](../../docs/adr/0326-moon-phases-in-the-icon-atlas.md); names and phases on hover, in the date’s accessible description, and in the selected-day panel). Saved-day content is loaded only for displayed months, four dates at a time, and cached while switching views or months. There is no current story date. Browsing does not create period entries. Year, month/festival and day notes are separate: broader notes do not silently apply to every day.
+Choose a library and open a calendar and year. Use the Month and Whole year tabs to show one segment (a month or festival) or every segment in definition order. Both views use the same day renderer and content cache. The view stays selected when changing years and is included in the URL. On phones, selecting a date in the whole year opens its detail panel with a Back to calendar control. A year contains the authored months and festivals, weekday readings, moon phases and the recurring observances available to the reader. Month cells show permitted day-note snippets, dated entry names and recurring observances, with the brand atlas’s moon-phase symbols ([ADR 0326](../../docs/adr/0326-moon-phases-in-the-icon-atlas.md); names and phases on hover, in the date’s accessible description, and in the selected-day panel). Saved-day content is loaded only for displayed months or festivals, in one period-summaries request for each ([ADR 0324](../../docs/adr/0324-bulk-reads-for-calendar-periods-and-day-content.md)), and cached while switching views or months. There is no current story date. Browsing does not create period entries. Year, month/festival and day notes are separate: broader notes do not silently apply to every day.
 
 An author can create a calendar with ordered months/festivals, independent week advancement and simple periodic leap segments. Week and moon rules are optional expandable sections. New calendars start from an empty authored segment, without setting data. Preview validates the definition before saving. Stable segment identities survive renames and moves. The API refuses edits that invalidate existing periods or observance rules.
 
@@ -28,7 +28,7 @@ records neither knowledge nor lived order and grants no visibility. Readers may 
 
 Calendar, period and Event link names use the existing entry editor. Calendars URLs accept
 UUIDs or slugs and prefer an entry's defined slug; internal identities stay UUIDs. An explicit
-`slug` parameter handles UUID-shaped link names. Tenant links also prefer the library slug.
+`slug` parameter handles UUID-shaped link names. Library links also prefer the library slug.
 LorenzoScript supports `[[calendar/reckoning]]`, `[[event/arrival]]`,
 `[[calendar_period/first-day]]` and computed dates such as `{{cal reckoning 3286/Quirm/16}}`
 or `{{cal reckoning 3286/6/16}}`. A year or month alone works too. Numbers count every
@@ -50,13 +50,13 @@ No private Information is stored in localStorage or available as an offline fall
 Hovering or focusing a calendar, date or entry can prefetch its visible details. Small
 calendars also prefetch the next year's first pages. Prefetch uses at most two requests at
 once, eight queued and sixteen distinct intentions per view; it respects the full-visibility
-check, does not change the selected date and never authors periods. Existing four-date
-loading for visible month content remains in place. In-app navigation uses Astro's built-in
+check, does not change the selected date and never authors periods. Visible month
+content loads through the same summary request. In-app navigation uses Astro's built-in
 client router; every new page remounts behind its fresh session check.
 
 Appearance (light, dark or the system's) is chosen in the account menu's Appearance dialog, which the shell keeps; a visitor who is not signed in has the system's.
 
-The app is drawn in the web shell ([ADR 0440](../../docs/adr/0440-calendars-moves-into-the-web-shell.md)): Calendar, Events and Clocks tabs, a Home of calendar cards with Continue, the month with a strip of segments and a day panel (a bottom sheet below 1100px), the Whole year as squares, and an Events list with the date and participants on each row and a time filter over a year (`@lorenzo/time-filter`, which Maps' date lens will share). The arrows beside the title step the month; the year's field reaches any year.
+The app is drawn in the web shell ([ADR 0440](../../docs/adr/0440-calendars-moves-into-the-web-shell.md)): Calendar, Events and Clocks tabs, a Home of calendar cards with Continue, the month with a strip of segments and a day panel (a bottom sheet below 1100px), the Whole year as squares, and an Events list with the date and participants on each row and a time filter over a year (`@lorenzo/time-filter`, which Maps' date lens uses too). The arrows beside the title step the month; the year's field reaches any year.
 
 ## Development and checks
 
@@ -118,7 +118,7 @@ Character, and group knowledge remains direct rather than inherited through nest
 
 ## Page frame
 
-The header, skip link, welcome, footer and theme toggle come from [`@lorenzo/app-shell`](../../packages/app-shell/README.md) over the shared brand ([ADR 0322](../../docs/adr/0322-calendars-and-sessions-share-a-header-and-the-brand-base.md)); `src/layouts/Base.astro` only names the product, its page links and its welcome text. At phone width the header shows the spark alone. The page styles itself with the brand’s classes and tokens; `src/styles/app.css` holds only the month grid, a day, the year view and the day panel, and `tests/css.test.ts` fails on an undefined token, a literal colour, font, shadow or breakpoint, or `!important`. The end-to-end suite also runs axe on the main pages at desktop and phone width in both themes, checks nothing scrolls sideways at 390px and that what is pressed is at least 44px tall.
+The header, palette, apps sheet, status bar and account menu come from [`@lorenzo/app-shell`](../../packages/app-shell/README.md) over the shared brand ([ADR 0440](../../docs/adr/0440-calendars-moves-into-the-web-shell.md); [ADR 0322](../../docs/adr/0322-calendars-and-sessions-share-a-header-and-the-brand-base.md) records the brand base); `src/layouts/Base.astro` sets `shell="web"` and the `list-detail` template and names the product, its tabs (Calendar, Events and Clocks) and its welcome text. The page styles itself with the brand’s classes and tokens; `src/styles/app.css` holds only the month grid, a day, the year view and the day panel, and `tests/css.test.ts` fails on an undefined token, a literal colour, font, shadow or breakpoint, or `!important`. The end-to-end suite also runs axe on the main pages at desktop and phone width in both themes, checks nothing scrolls sideways at 390px and that what is pressed is at least 44px tall.
 
 ## Optional clocks and readings
 

@@ -7,7 +7,7 @@ static Astro app) and [docs/guides/adding-an-app.md](../../docs/guides/adding-an
 
 ## What it does
 
-After logging in via Authgear and picking a tenant, a character's inventory
+After logging in via Authgear and picking a library, a character's inventory
 renders as a kanban-style board of everything they control ([ADR
 0131](../../docs/adr/0131-the-board-on-controlled-by.md)): Equipped and Not
 carried first and always, then a column for every container they control,
@@ -44,7 +44,7 @@ same table `lorenzo import inventory` uses ([ADR 0242](../../docs/adr/0242-inven
 From that detail view, or when multiple cards are multi-selected:
 
 - **Give** an item (or part of a stack) to another being; a player finds the
-  tenant's characters, a GM any being. **Hand it over** to take it out of its
+  library's characters, a GM any being. **Hand it over** to take it out of its
   container and into their hands too; otherwise it stays where it is, theirs
   now ([ADR 0115](../../docs/adr/0115-hand-over-on-give-and-stacks-leave-containers-into-their-owner.md))
 - **Move** it between containers, or into the character's own hands (Equipped):
@@ -111,33 +111,24 @@ A GM (anyone holding a `CampaignGm` grant) additionally gets, from `/items`:
   browse everyone's unowned/unclaimed loot, both via the same board UI a
   player uses for their own characters
 
-Deliberately not built yet: naming who may read a private piece of
-information (ADR 0109's knowers) beyond a note's own character, and showing who
-wrote a note outside the Fact page —
-see the tracking issue for what's actually in flight.
+Not built here: showing who wrote a note outside the Fact page (the Fact page shows the
+author of each information bundle).
 
-## Who can read this
+## Audiences, bundles and Facts
 
-Editable descriptions and notes include **Who can read this**, with explicit character and group
-recipients and the existing Player grants. Audience changes are atomic and versioned
-([ADR 0304](../../docs/adr/0304-atomic-information-audiences.md)); a stale form asks the editor to
-review the current audience before saving again.
+Descriptions and notes are edited with the shared `@lorenzo/information-editor` controls: the
+audience control (**Who can read this**, atomic and versioned, [ADR 0304](../../docs/adr/0304-atomic-information-audiences.md))
+and the bundle editor (several ordered texts and pictures under one audience, **Add text** and
+**Add picture**, [ADR 0306](../../docs/adr/0306-information-bundles-and-their-editors.md)); what they
+do is described in the [package README](../../packages/information-editor/README.md). An item's page
+lists "Facts about this item", and `/fact/` renders a Fact's visible information bundles and About
+subjects, with LorenzoScript links resolving to it ([ADR 0305](../../docs/adr/0305-facts-and-entry-audiences.md),
+[RFC 0044](../../docs/rfcs/0044-facts-audiences-and-information-bundles.md)). The Beings app uses
+the same controls on a being's page ([apps/beings](../beings/README.md)).
 
-## Several texts and pictures in one note
-
-Descriptions and notes may hold several LorenzoScript texts and pictures, kept in one ordered
-bundle with one audience ([ADR 0306](../../docs/adr/0306-information-bundles-and-their-editors.md)).
-**Add picture** (an upload) and **Add text** extend the existing editor; move/remove controls keep
-each part in order. A failed save keeps the draft and stable attachment IDs for retry. Read mode
-includes every part; protected pictures use authenticated requests.
-
-## Facts about an entry
-
-An entry lists the Facts explicitly about it when the reader can see their existence/name.
-The Fact page renders its visible information bundles and About subjects. LorenzoScript links
-resolve to that page. The Fact's outer audience and each information audience are independent;
-hidden Facts produce the same unavailable view as missing entries
-([ADR 0305](../../docs/adr/0305-facts-and-entry-audiences.md), [RFC 0044](../../docs/rfcs/0044-facts-audiences-and-information-bundles.md)).
+The tag editor, the link name field, the description editor, the form a note is written in and the list of
+libraries are the shared parts of [`@lorenzo/entity-parts`](../../packages/entity-parts/README.md)
+([ADR 0526](../../docs/adr/0526-the-entity-parts-package.md)), bound to this app in `src/lib/entityParts.ts`.
 
 ## Commands
 
