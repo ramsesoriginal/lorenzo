@@ -83,7 +83,7 @@ export async function mountEntry() {
     let stat: StatDef | undefined = numbers[0];
     let values = stat ? await readStanding(tenant, stat.id) : new Map();
 
-    const view = el('div', '', 'stack view');
+    const view = el('div', '', 'stack view view-narrow');
     view.append(
       pageHead(entry.name, {
         crumbs: [link('Back to the webs', `/webs/?${new URLSearchParams({ tenant })}`)],

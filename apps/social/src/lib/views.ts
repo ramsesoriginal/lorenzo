@@ -350,7 +350,7 @@ export async function mountRelationship() {
             readsAsBack: words?.readsAsBack ?? null,
           }
         : null;
-      const view = el('div', '', 'stack view');
+      const view = el('div', '', 'stack view view-narrow');
       const meta: Node[] = [metaLine('social', directionWords(ends))];
       if (relationship.is_public !== null && relationship.is_public !== undefined) {
         meta.push(audienceBadge(audienceWords(relationship.is_public), relationship.is_public));

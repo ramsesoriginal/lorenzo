@@ -596,3 +596,9 @@
   border-inline-start: 7px solid currentColor;
   border-block: 4px solid transparent;
 }
+
+/* The pages that are read down a column: a relationship, an entry, the types, the problems (SO3). */
+.view-narrow {
+  max-inline-size: 48rem;
+  margin-inline: auto;
+}

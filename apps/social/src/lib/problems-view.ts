@@ -60,7 +60,7 @@ export async function mountProblems() {
   try {
     host.replaceChildren(loading('Looking for problems…'));
     const [name, manage] = await Promise.all([libraryName(tenant), canManage(tenant)]);
-    const view = el('div', '', 'stack view');
+    const view = el('div', '', 'stack view view-narrow');
     view.append(
       pageHead('Problems', {
         lede: name

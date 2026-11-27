@@ -60,7 +60,7 @@ export async function mountTypes() {
         listTypes(tenant),
         readLibrary(tenant),
       ]);
-      const view = el('div', '', 'stack view');
+      const view = el('div', '', 'stack view view-narrow');
       view.append(
         pageHead('Types and standings', {
           crumbs: [link('Relationships', `/relationships/?${new URLSearchParams({ tenant })}`)],
@@ -227,7 +227,7 @@ function standingsSection(
   section.append(list);
   if (numbers.length === 0) section.append(empty('The library has no standings yet.'));
   if (manage) {
-    const form = el('form', '', 'stack');
+    const form = el('form', '', 'filters');
     form.setAttribute('aria-label', 'Add a standing');
     const named = field('Name of the standing');
     named.input.required = true;
@@ -293,7 +293,7 @@ function typesSection(
   section.append(list);
   if (types.length === 0) section.append(empty('The library has no types yet.'));
   if (manage) {
-    const form = el('form', '', 'stack');
+    const form = el('form', '', 'filters');
     form.setAttribute('aria-label', 'Make a type');
     const named = field('Name of the type');
     named.input.required = true;
