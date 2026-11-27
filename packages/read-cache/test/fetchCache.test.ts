@@ -151,6 +151,16 @@ describe('writes', () => {
     expect(t.calls).toEqual(['GET /tenants/a/x', 'POST /tenants/a/preview']);
   });
 
+  it('to a person’s own preferences leave the reads, and those in flight, alone', async () => {
+    const t = setup();
+
+    t.cache.configure('viewer-1');
+    await t.get('/tenants/a/x');
+    await t.get('/me/preferences', { method: 'PUT', body: '{}' });
+    await t.get('/tenants/a/x');
+    expect(t.calls).toEqual(['GET /tenants/a/x', 'PUT /me/preferences']);
+  });
+
   it('keep a read that began before them from filling the cache', async () => {
     const calls: string[] = [];
     let release: (() => void) | undefined;

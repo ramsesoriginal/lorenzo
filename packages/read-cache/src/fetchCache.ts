@@ -288,7 +288,10 @@ export function createFetchCache(options: FetchCacheOptions): FetchCache {
     const url = new URL(request.url);
 
     if (request.method !== 'GET') {
-      const pure = options.isPureWrite?.(url, request.method) ?? false;
+      // A person's appearance in their account changes nothing a page has read, and a page must not
+      // lose the reads in flight because it was saved (ADR 0532).
+      const pure =
+        url.pathname === '/me/preferences' || (options.isPureWrite?.(url, request.method) ?? false);
 
       if (!pure) invalidate();
 
