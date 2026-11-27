@@ -42,8 +42,9 @@ Read from ADR 0409 to 0527, the design's follow-ups and issues #1129 and #1020. 
 | Libraries in the account hub: the design's cards and the "Libraries / name" crumb | #1129 | H6 |
 | Campaigns in the account hub as drawn (a "New campaign" button that opens the form; players, links and notifications as one scroll, not tabs in a card) | #1129 (screens 06 to 08) | H6 |
 | The hub's Author variant of People compared with screen 11; the hub's pages at 834 and 2200 px wide, with a screen reader, in Safari and Firefox (the checks the design did not cover) | #1129 | H6 |
-| The `/debug/me` link; the repository listing for reading that `/beings` kept in the hub and the Beings app's test for it | #1129 | All beings / Mine as the shell's two tabs, not a toolbar choice: the shell tells tabs apart by path only | 0524 | H6, with a small change to the shell |
-| The design's "starts Greening 3" and "Not placed in order" on a Session row in Sessions | [0441](0441-sessions-moves-into-the-web-shell.md) | H6 (a read of each Session's start; if it is too many reads, H3 says so and the row stays) |
+| The `/debug/me` link; the repository listing for reading that `/beings` kept in the hub and the Beings app's test for it | #1129 | H7 |
+| All beings / Mine as the shell's two tabs, not a toolbar choice: the shell tells tabs apart by path only | 0524 | H6, with a small change to the shell |
+| The design's "starts Greening 3" and "Not placed in order" on a Session row in Sessions | [0441](0441-sessions-moves-into-the-web-shell.md) | H6 (a read of each Session's start; if it is too many reads, H6 says so and the row stays) |
 | "Groups that disagree" in Problems (Social), and an entry's page linked from other apps | 0527 | H6, once the maintainer says what "disagree" means; the links once a first app asks for one |
 | The new matrix control "New cells are" as its own select | 0527 | H6 |
 
