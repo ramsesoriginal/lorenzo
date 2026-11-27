@@ -24,7 +24,7 @@ from lorenzo_api.dependencies import (
 )
 from lorenzo_api.entity_access import entity_id_among
 from lorenzo_api.entity_kinds import require_deletable
-from lorenzo_api.entry_visibility import unhidden
+from lorenzo_api.entry_visibility import require_visible_entry, unhidden, visible_entry_clause
 from lorenzo_api.etag import check_if_match
 from lorenzo_api.exceptions import EntityNotFoundError, TenantNotFoundError
 from lorenzo_api.information_visibility import (
@@ -98,10 +98,15 @@ async def list_beings(
             await resolve_information_visibility(session, user_id=user.id, tenant_id=tenant_id)
         ).gm_reachable_entity_ids
 
+    seen_by = await resolve_information_visibility(session, user_id=user.id, tenant_id=tenant_id)
     stmt = (
         select(Being)
         .join(Entity, Entity.id == Being.entity_id)
-        .where(Being.tenant_id == tenant_id, await unhidden(session, tenant_id, Being.entity_id))
+        .where(
+            Being.tenant_id == tenant_id,
+            await unhidden(session, tenant_id, Being.entity_id),
+            visible_entry_clause(seen_by, Being.entity_id),
+        )
         .options(selectinload(Being.entity), selectinload(Being.character))
         .order_by(Entity.name, Being.entity_id)
     )
@@ -171,6 +176,8 @@ async def get_being_sheet(
     await get_entity_or_404(session, entity_id, tenant_id)
     if await session.get(Being, entity_id) is None:
         raise EntityNotFoundError(detail=f"No being with id {entity_id} in tenant {tenant_id}")
+    # A being someone has restricted is not there for a reader outside its audience (ADR 0529).
+    await require_visible_entry(session, entity_id=entity_id, tenant_id=tenant_id, user_id=user.id)
     tenant = await session.get_one(Tenant, tenant_id)
     visibility = await resolve_information_visibility(session, user_id=user.id, tenant_id=tenant_id)
 

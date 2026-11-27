@@ -1938,11 +1938,12 @@ async def editable_fact_audience(
                 SceneTelling,
                 WritingBiography,
                 Edition,
+                Being,
             )
         ]
     ):
         raise InvalidKindRequestError(
-            detail="An outer audience is available for facts and calendar entries."
+            detail="An outer audience is available for facts, calendar entries and beings."
         )
     audience = await session.scalar(
         select(EntityAudience)
@@ -1956,6 +1957,18 @@ async def editable_fact_audience(
         audience = EntityAudience(entity_id=entity_id, tenant_id=tenant_id, is_public=True)
         session.add(audience)
         await session.flush()
+    if audience is None and await session.get(Being, entity_id) is not None:
+        # A being has none either, until someone says who sees it (ADR 0529): it is open to all
+        # until then. The row is made by the write that first says otherwise, and not here, so a
+        # read changes nothing; until then the ETag is the entry's own.
+        entity = await get_entity_or_404(session, entity_id, tenant_id)
+        audience = EntityAudience(
+            entity_id=entity_id,
+            tenant_id=tenant_id,
+            is_public=True,
+            shared_with_participants=False,
+            updated_at=entity.updated_at,
+        )
     assert audience is not None
     return audience
 
@@ -2114,6 +2127,10 @@ async def replace_entry_audience(
         or set(previous.entity_ids) != entities
         or set(previous.player_ids) != players
     ):
+        if audience not in session:
+            # A being's first say on who sees it makes its row (ADR 0529).
+            session.add(audience)
+            await session.flush()
         await session.execute(
             delete(EntityKnowledge).where(
                 EntityKnowledge.entity_id == entity_id, EntityKnowledge.tenant_id == tenant_id

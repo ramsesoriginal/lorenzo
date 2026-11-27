@@ -65,6 +65,7 @@ from lorenzo_api.models import (
     CalendarObservance,
     CalendarPeriod,
     CampaignGm,
+    Character,
     CharacterPlayer,
     Connection,
     EntityAudience,
@@ -578,6 +579,20 @@ async def resolve_information_visibility(
         if event_fact_ids
         else frozenset()
     )
+    # A player's own characters are theirs to see whoever else may not (ADR 0529): the ones they
+    # pilot and the ones they own.
+    owned = (
+        frozenset(
+            await session.scalars(
+                select(Character.entity_id).where(
+                    Character.tenant_id == tenant_id, Character.owner_player_id.in_(player_ids)
+                )
+            )
+        )
+        if player_ids
+        else frozenset()
+    )
+    own_entry_ids = own_entry_ids | frozenset(character_ids) | owned
     event_manager = await manages_events(session, tenant_id=tenant_id, user_id=user_id)
     if event_manager:
         from lorenzo_api.models import Clock
