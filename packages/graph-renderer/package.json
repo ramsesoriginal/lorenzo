@@ -2,7 +2,7 @@
   "name": "@lorenzo/graph-renderer",
   "private": true,
   "type": "module",
-  "version": "0.0.0",
+  "version": "1.0.0",
   "description": "Hand-written SVG drawing of a graph of Lorenzo entries: layout to a Scene, painting, hit testing, interaction and themes (ADR 0407).",
   "exports": {
     ".": "./src/index.ts",

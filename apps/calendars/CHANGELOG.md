@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.0.0](https://github.com/ramsesoriginal/lorenzo/compare/calendars-v1.0.0...calendars-v2.0.0) (2026-11-27)
+
+
+### ⚠ BREAKING CHANGES
+
+* **cli:** the MPMB, inventory and calendar commands have new names.
+
+### Features
+
+* **cli:** the importers move under `lorenzo import` and `export` (RFC 0057 C3) ([1bad0f1](https://github.com/ramsesoriginal/lorenzo/commit/1bad0f1e3c919ddd7a0ed7934cf3417e4c1a167b))
+* **social:** the date lens chooses its Event with the shared time filter and the story-ordered Events ([389784f](https://github.com/ramsesoriginal/lorenzo/commit/389784fc7be13b0eedcf25e31d886883ca000a95))
+
 ## 1.0.0 (2026-10-29)
 
 

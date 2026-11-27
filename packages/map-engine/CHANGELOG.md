@@ -1,5 +1,27 @@
 # Changelog
 
+## [0.2.0](https://github.com/ramsesoriginal/lorenzo/compare/lorenzo-map-v0.1.0...lorenzo-map-v0.2.0) (2026-11-27)
+
+
+### Features
+
+* **maps,map-engine:** cells are written as merged outlines, and a drawing may be larger ([d8c8774](https://github.com/ramsesoriginal/lorenzo/commit/d8c877491dab58dccd20aa9851814b230f2af89c))
+* **maps,map-renderer:** the Height brush raises and lowers the land of an entry's height lines ([c95715e](https://github.com/ramsesoriginal/lorenzo/commit/c95715e38abc20dfa1443366b677c660c602dad6))
+* **maps:** the Height brush draws its lines as smooth curves (ADR 0491) ([a2531e2](https://github.com/ramsesoriginal/lorenzo/commit/a2531e207d793e304503eb6a1619d5a89ce06ca5))
+
+
+### Bug Fixes
+
+* **map-engine,maps:** a number is read as its nearest six decimals in its own scale ([4f9f113](https://github.com/ramsesoriginal/lorenzo/commit/4f9f113f41773c5ea37e25f60e044c79e82febaf))
+* **map-engine,maps:** a number is read as its nearest six decimals in its own scale ([c999469](https://github.com/ramsesoriginal/lorenzo/commit/c99946948d328af2fd5d9de32373ad2abd61d03a)), closes [#1255](https://github.com/ramsesoriginal/lorenzo/issues/1255)
+
+
+### Documentation
+
+* cite ADR 0479 in the collapse golden file ([eadb261](https://github.com/ramsesoriginal/lorenzo/commit/eadb261bd3905e35b6fca9d845ba0aa74faabbc9))
+* **map-engine:** its exports, golden files and how it is run ([7ac80cc](https://github.com/ramsesoriginal/lorenzo/commit/7ac80ccfa08f600bc9bc94f03b17b7cfe663bcdc))
+* stale ADR numbers and comments in code ([764e439](https://github.com/ramsesoriginal/lorenzo/commit/764e439f1492a07a2a8078942b4f5172acd4db33))
+
 ## 0.1.0 (2026-10-29)
 
 

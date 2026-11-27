@@ -1,5 +1,67 @@
 # Changelog
 
+## [1.0.0](https://github.com/ramsesoriginal/lorenzo/compare/cli-v0.1.0...cli-v1.0.0) (2026-11-27)
+
+
+### ⚠ BREAKING CHANGES
+
+* **cli:** `lorenzo seed` and `lorenzo unseed` are removed; use `lorenzo apply --starter neutral` (and `--starter dnd5e`). D&D's stats are renamed with a dnd5e_ prefix.
+* **cli:** the MPMB, inventory and calendar commands have new names.
+* **cli:** writes in a script need --yes, a refused or declined write exits 2 instead of 1, and --json lists are objects with a format.
+
+### Features
+
+* **api,writing:** undo a manuscript split (ADR 0513) ([839f0ef](https://github.com/ramsesoriginal/lorenzo/commit/839f0eff12b384ce340da3095ba8f3bcef04e3f5))
+* **api:** a being's recent stat changes, for the History of its sheet (ADR 0525) ([c082e77](https://github.com/ramsesoriginal/lorenzo/commit/c082e77a3d9e34104ec0a07245136f0db22e3456))
+* **api:** list the Editions shared with me for review ([caab79f](https://github.com/ramsesoriginal/lorenzo/commit/caab79f95ad6d0df31f885a8d7a38488f1d37e1e))
+* **api:** undo a Scene extraction (ADR 0517) ([1e772cd](https://github.com/ramsesoriginal/lorenzo/commit/1e772cd85572fd81451909002e8da9b2a7d38c65))
+* **cli:** complete library slugs and names from a private cache ([687d2af](https://github.com/ramsesoriginal/lorenzo/commit/687d2afc41a276cadf71dbb902964fefb26f89fb))
+* **cli:** D&D armour class bonuses, and MPMB's ways of working out AC ([13773bd](https://github.com/ramsesoriginal/lorenzo/commit/13773bd5fb8c1134f1d9cca97899f24ec2b11967))
+* **cli:** D&D armour class from the armour and shield a character wears ([2f43793](https://github.com/ramsesoriginal/lorenzo/commit/2f4379303cbf8f8f0efb10dd277641253c5c022a))
+* **cli:** D&D armour class from the best way a feature gives ([516bac0](https://github.com/ramsesoriginal/lorenzo/commit/516bac096769a4175cf60032de03c16ec233ae01))
+* **cli:** features, grant rules, prerequisites and grants (RFC 0057 C8) ([54e4497](https://github.com/ramsesoriginal/lorenzo/commit/54e4497d6a9fa4c170fbf1f9d7e0c1e7d424f725))
+* **cli:** formulas of every kind, in the document and with lorenzo formula (RFC 0057 C6) ([87b094d](https://github.com/ramsesoriginal/lorenzo/commit/87b094d921a87e10197018d7daac17f0a8f2fbd4))
+* **cli:** lorenzo check, the vocabulary check for a person and for CI (RFC 0057 C9) ([4f1ea5f](https://github.com/ramsesoriginal/lorenzo/commit/4f1ea5f5137ef9c095449206dbb61ae723a493b1))
+* **cli:** one console, one write contract, JSON with a format (RFC 0057 C2) ([d877b5a](https://github.com/ramsesoriginal/lorenzo/commit/d877b5a8d6cda2b028340c6d768951d14ad8ff75))
+* **cli:** replace the seed with the neutral, dnd5e and wrath-and-glory starters ([1d0857e](https://github.com/ramsesoriginal/lorenzo/commit/1d0857eb52524d0e57a2bc92e5a6f0347656b3b3))
+* **cli:** show systems, templates and unit warnings in the repo commands ([6fa37c0](https://github.com/ramsesoriginal/lorenzo/commit/6fa37c053d55a98be45b0f1fb663bece4fb748ec))
+* **cli:** templates, campaigns and beings, and reads by system (RFC 0057 C7) ([a364232](https://github.com/ramsesoriginal/lorenzo/commit/a3642320191cd030a1223785edf0319ac8a933c7))
+* **cli:** the core rulebook's species, archetypes and talents in the wrath-and-glory starter ([de0ddc6](https://github.com/ramsesoriginal/lorenzo/commit/de0ddc6e6e8f4c5f55e0bb022c03a4e385f981d5))
+* **cli:** the importers move under `lorenzo import` and `export` (RFC 0057 C3) ([1bad0f1](https://github.com/ramsesoriginal/lorenzo/commit/1bad0f1e3c919ddd7a0ed7934cf3417e4c1a167b))
+* **cli:** the library document, lorenzo system and the vocabulary with systems, roles and bounds (RFC 0057 C5) ([5973565](https://github.com/ramsesoriginal/lorenzo/commit/5973565fb5c7fb3f8ca7cb5c7b6e31892a88fa6c))
+* **cli:** typed operations for systems, templates, features, grants and the check (RFC 0057 C4) ([44eb099](https://github.com/ramsesoriginal/lorenzo/commit/44eb099ee45c579700c4b20f8584cc9dd8744faf))
+* **writing:** move a block to another Chapter from its menu (ADR 0520) ([3be2d82](https://github.com/ramsesoriginal/lorenzo/commit/3be2d821984a4e4c26d16df003af11a987cf5afa))
+* **writing:** the shelf shows when each work was edited, and counts them (ADR 0519) ([36b7c7f](https://github.com/ramsesoriginal/lorenzo/commit/36b7c7f894f2881490b5560cc2a6695ece4b288d))
+
+
+### Bug Fixes
+
+* **cli:** check the wrath-and-glory starter against the core rulebook ([76f6dc4](https://github.com/ramsesoriginal/lorenzo/commit/76f6dc4b62f1996c7d0c272d0b8dc9aa6fc5ed24))
+* **cli:** count a long plan by kind, and name a system's root by its slug ([4e669e4](https://github.com/ramsesoriginal/lorenzo/commit/4e669e4a3a8e28f46b9200743334c25cff20ffc0))
+* **cli:** draw a being's sheet through the template its campaign picks ([6d60972](https://github.com/ramsesoriginal/lorenzo/commit/6d609722c105a505f350cc72a1feefcd2819fb85))
+* **cli:** feature list as a table with slug, category and values ([bac622d](https://github.com/ramsesoriginal/lorenzo/commit/bac622dba0c640581b5f7769346eaf1aa05d17b4))
+* **cli:** never cut a feature's slug in feature list ([0aabc96](https://github.com/ramsesoriginal/lorenzo/commit/0aabc96f7e5041662b2ee1c724602e8d9076ce1e))
+* **cli:** regenerate the models with the repo's own command ([69b41e2](https://github.com/ramsesoriginal/lorenzo/commit/69b41e29503d1af045996d34f46c00b39ed391fd))
+* **cli:** say a finding many entries share once, with where ([665621b](https://github.com/ramsesoriginal/lorenzo/commit/665621bed3439a077f34a043d15fb4522b38c897))
+* **cli:** say a repository's roles plainly in repo contents ([eca0eba](https://github.com/ramsesoriginal/lorenzo/commit/eca0eba35b97417017a10a374ea3ffff692e1cbe))
+* **converters:** print the command the CLI really has, lorenzo import inventory ([c7b9cf5](https://github.com/ramsesoriginal/lorenzo/commit/c7b9cf55acc010a85c4030fc8ebae17e7138c2b3))
+
+
+### Performance Improvements
+
+* **cli:** load command groups and models when they are used (RFC 0057 C1) ([2d50492](https://github.com/ramsesoriginal/lorenzo/commit/2d50492ecf5b0afdb67f7e6d218afad1cdf85951))
+
+
+### Documentation
+
+* **adr:** renumber RFC 0057's ADRs 0481-0493 to 0495-0507 ([092693b](https://github.com/ramsesoriginal/lorenzo/commit/092693b9b395925b22201b2129320259ee486fd8))
+* **cli,loot-bot:** tenant create takes --yes, library wording in the bot's intro ([c4eaf8d](https://github.com/ramsesoriginal/lorenzo/commit/c4eaf8d006c8b1612fcd6ab4a0df5eef58dd020b))
+* **cli:** a walkthrough from an empty table to a D&D character ([27625d1](https://github.com/ramsesoriginal/lorenzo/commit/27625d18725fdb30ad4ddfaacaf500cc7a240103))
+* **cli:** a walkthrough from an empty table to a D&D character ([9c0586a](https://github.com/ramsesoriginal/lorenzo/commit/9c0586a9306f86cd5591662769b22520d5979977))
+* **cli:** escape the pipes in the README's command table (RFC 0057 C7) ([ddd85bf](https://github.com/ramsesoriginal/lorenzo/commit/ddd85bfb31c415903b3dc7bd70dcba04d24b81b8))
+* describe the cli as it is: starters, not a seed, and the real command names ([4712102](https://github.com/ramsesoriginal/lorenzo/commit/4712102ea6fcd5eaa60d3dae7cb4e49b736e1e91))
+* stale ADR numbers and comments in code ([764e439](https://github.com/ramsesoriginal/lorenzo/commit/764e439f1492a07a2a8078942b4f5172acd4db33))
+
 ## 0.1.0 (2026-10-29)
 
 

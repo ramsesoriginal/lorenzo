@@ -1,5 +1,36 @@
 # Changelog
 
+## [1.1.0](https://github.com/ramsesoriginal/lorenzo/compare/api-v1.0.0...api-v1.1.0) (2026-11-27)
+
+
+### Features
+
+* **api,writing:** undo a Chapter extraction (ADR 0515) ([36b6890](https://github.com/ramsesoriginal/lorenzo/commit/36b6890b2ee0274a3fe9a8e1c744e9b986a600e8))
+* **api,writing:** undo a manuscript split (ADR 0513) ([839f0ef](https://github.com/ramsesoriginal/lorenzo/commit/839f0eff12b384ce340da3095ba8f3bcef04e3f5))
+* **api:** a being's recent stat changes, for the History of its sheet (ADR 0525) ([c082e77](https://github.com/ramsesoriginal/lorenzo/commit/c082e77a3d9e34104ec0a07245136f0db22e3456))
+* **api:** list the Editions shared with me for review ([caab79f](https://github.com/ramsesoriginal/lorenzo/commit/caab79f95ad6d0df31f885a8d7a38488f1d37e1e))
+* **api:** undo a join, and Undo join in Writing (ADR 0518) ([ccdd82e](https://github.com/ramsesoriginal/lorenzo/commit/ccdd82ef7660249393c4e0a1cf8e323ccabcf7b5))
+* **api:** undo a Scene extraction (ADR 0517) ([1e772cd](https://github.com/ramsesoriginal/lorenzo/commit/1e772cd85572fd81451909002e8da9b2a7d38c65))
+* **api:** undo a Scene extraction, and Undo Scene in Writing (ADR 0517) ([c42c820](https://github.com/ramsesoriginal/lorenzo/commit/c42c820133f6df366d8d760b9aa90eba602440ee))
+* **social:** the rest of the audit: renderer fit/pinch/keys/fade, edge types and chains, palette, matrix selection and group order, standing filter, webs that name a relationship ([c2cc6f0](https://github.com/ramsesoriginal/lorenzo/commit/c2cc6f0fed027513aa15516302de4d4c00c5d6d3))
+* **writing:** move a block to another Chapter from its menu (ADR 0520) ([3be2d82](https://github.com/ramsesoriginal/lorenzo/commit/3be2d821984a4e4c26d16df003af11a987cf5afa))
+* **writing:** the shelf shows when each work was edited, and counts them (ADR 0519) ([36b7c7f](https://github.com/ramsesoriginal/lorenzo/commit/36b7c7f894f2881490b5560cc2a6695ece4b288d))
+
+
+### Bug Fixes
+
+* **api:** keep a pattern on every Decimal in the OpenAPI contract ([606a6f6](https://github.com/ramsesoriginal/lorenzo/commit/606a6f6742d5f8b4c65ef8e866442928e9b010b8))
+* **api:** the platform operator role key defaults to platform_operator ([01420e9](https://github.com/ramsesoriginal/lorenzo/commit/01420e94a683e221bca26963c9b1725c6fc5a3d7))
+* **api:** type the extraction receipt as either kind ([58bf41d](https://github.com/ramsesoriginal/lorenzo/commit/58bf41d99eb3949123348355a47b90148d4922b0))
+
+
+### Documentation
+
+* **api:** list game systems and relationships areas, name the campaign-access wiring ([21e128e](https://github.com/ramsesoriginal/lorenzo/commit/21e128e1bf24ab43ac3452d7b2b33aa4ff44635b))
+* correct the api comments that deny what is built ([68e99e3](https://github.com/ramsesoriginal/lorenzo/commit/68e99e330cd2394a83dee18e41fb1ff08bba1d39))
+* correct three comments in applied migrations ([f9cfd25](https://github.com/ramsesoriginal/lorenzo/commit/f9cfd2556fcf14e56388e3b10af37755fc232bc6))
+* stale ADR numbers and comments in code ([764e439](https://github.com/ramsesoriginal/lorenzo/commit/764e439f1492a07a2a8078942b4f5172acd4db33))
+
 ## [1.0.0](https://github.com/ramsesoriginal/lorenzo/compare/api-v0.7.0...api-v1.0.0) (2026-10-29)
 
 

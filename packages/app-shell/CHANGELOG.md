@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.1.0](https://github.com/ramsesoriginal/lorenzo/compare/app-shell-v1.0.0...app-shell-v1.1.0) (2026-11-27)
+
+
+### Features
+
+* **inventory-web:** the card menu, select bar, add dialog and catalog rows as the design draws them ([dfb96e7](https://github.com/ramsesoriginal/lorenzo/commit/dfb96e710c7afaa194bb5e7af15a4f4e827eef24))
+* **social:** the web shell frame (G0) ([ca5ec3d](https://github.com/ramsesoriginal/lorenzo/commit/ca5ec3deaf81ca8e78270c7f09b28f848ac525b2))
+
 ## 1.0.0 (2026-10-29)
 
 

@@ -1,5 +1,25 @@
 # Changelog
 
+## [1.1.0](https://github.com/ramsesoriginal/lorenzo/compare/maps-v1.0.0...maps-v1.1.0) (2026-11-27)
+
+
+### Features
+
+* **maps,map-engine:** cells are written as merged outlines, and a drawing may be larger ([d8c8774](https://github.com/ramsesoriginal/lorenzo/commit/d8c877491dab58dccd20aa9851814b230f2af89c))
+* **maps,map-renderer:** the Height brush raises and lowers the land of an entry's height lines ([c95715e](https://github.com/ramsesoriginal/lorenzo/commit/c95715e38abc20dfa1443366b677c660c602dad6))
+* **maps:** a Location's drawing of several parts is split into places inside it ([d5d9975](https://github.com/ramsesoriginal/lorenzo/commit/d5d9975cfdb35934c6a711e26426a9f27bcf2487))
+* **maps:** an area along the grid keeps its points, the area a fill works in is not a tile, and the docs say so ([62b31bd](https://github.com/ramsesoriginal/lorenzo/commit/62b31bd539a892c8ede91a73ed21cf54ce0bc90d))
+* **maps:** mirror, turn and copy a drawing about the sheet's middle ([5fb2b82](https://github.com/ramsesoriginal/lorenzo/commit/5fb2b8241431bbe9c21b72205cf81d0d057f8de8))
+* **maps:** the Height brush draws its lines as smooth curves ([118d565](https://github.com/ramsesoriginal/lorenzo/commit/118d56509f1ec98e8c604572ff20571acfe8215e))
+* **maps:** the Height brush draws its lines as smooth curves (ADR 0491) ([a2531e2](https://github.com/ramsesoriginal/lorenzo/commit/a2531e207d793e304503eb6a1619d5a89ce06ca5))
+
+
+### Bug Fixes
+
+* **map-engine,maps:** a number is read as its nearest six decimals in its own scale ([4f9f113](https://github.com/ramsesoriginal/lorenzo/commit/4f9f113f41773c5ea37e25f60e044c79e82febaf))
+* **map-engine,maps:** a number is read as its nearest six decimals in its own scale ([c999469](https://github.com/ramsesoriginal/lorenzo/commit/c99946948d328af2fd5d9de32373ad2abd61d03a)), closes [#1255](https://github.com/ramsesoriginal/lorenzo/issues/1255)
+* **maps:** the command line keeps its width when it has answered ([19f49cb](https://github.com/ramsesoriginal/lorenzo/commit/19f49cb96e986dabac1a42dce0bb1a4d419519c0))
+
 ## 1.0.0 (2026-10-29)
 
 
