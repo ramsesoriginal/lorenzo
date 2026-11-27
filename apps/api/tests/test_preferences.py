@@ -14,11 +14,11 @@ async def test_preferences_are_the_persons_own_and_replace_whole(raw_client, fak
             "density": None,
             "motion": None,
         }
-        put = await a.put("/me/preferences", json={"theme": "dark", "density": "compact"})
+        put = await a.put("/me/preferences", json={"theme": "dark", "density": "dense"})
         assert put.status_code == 200, put.text
         assert (await a.get("/me/preferences")).json() == {
             "theme": "dark",
-            "density": "compact",
+            "density": "dense",
             "motion": None,
         }
         # Another person's are theirs; a part left out is cleared; an unknown word is refused.

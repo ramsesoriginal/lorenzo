@@ -41,8 +41,8 @@ class Preferences(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
     theme: Literal["system", "light", "dark"] | None = None
-    density: Literal["comfortable", "compact"] | None = None
-    motion: Literal["normal", "reduced"] | None = None
+    density: Literal["comfortable", "compact", "dense"] | None = None
+    motion: Literal["system", "reduced"] | None = None
 
 
 @me_router.get("")
