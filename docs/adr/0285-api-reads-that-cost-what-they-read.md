@@ -108,3 +108,22 @@ The scale spike of [RFC 0037](../rfcs/0037-releases-and-public-snapshots.md) (R2
 - **Not changed:** the engine's other uses of `local_of` (one for each kind, once for each call), and the rest of what R2 listed (the manifest's read of a whole document, browse of a public repository, the compression level, the rewrite of the released rows), which are not this fix.
 
 Test: `apps/api/tests/test_update_attachment_lookup.py` counts the inversions of the entity links during an `updates` of a bridge with attachments the library has not taken, and fails when each end makes its own.
+
+## Addendum (2026-11-25): where the repository round trip's time goes
+
+The API's tests are 3,160 and about 2,977 worker-seconds (a run with `--durations=0` on 16 cores), and `tests/test_kind_matrix.py` is 679 s of that, a quarter: 92 cases, one for each combination of kinds a repository may be published with, in a plain repository and in a bridge, each going through a first copy, an update that adds the entry, one that changes it, a kind added and removed, and a purge. Splitting the suite by recorded duration (ADR 0148, addendum of 2026-11-24) stops that file sitting on one runner; this is what the cases themselves cost.
+
+One case (`being-plain`, 12.8 s) is 68 requests and **4,162 SQL statements**, 9.6 s of it in the requests and half of the profile (6.3 of 12.7 s) the process waiting for the database. Five routes are nearly all of it:
+
+| Route | Calls | Statements each | Time each |
+| --- | --- | --- | --- |
+| `POST /repositories/{id}/updates` (apply) | 4 | 336 | 0.64 s |
+| `GET /repositories/{id}/updates` | 5 | 248 | 0.51 s |
+| `POST /repositories/{id}/copy` | 2 | 242 | 0.53 s |
+| `PUT /published` | 5 | 152 | 0.36 s |
+| every other route of the case (entities, kinds, `me`) | 52 | 7-52 | 0.01-0.07 s |
+
+The library of the case holds four entries. The reason is `repository_content.load_content`: it reads everything a repository can hold, a `SELECT` for each of the tables, **117 statements and 63 ms for a tenant with nothing in it** (measured with an empty tenant), and `updates` loads two (the library's copy and the repository), `apply` more, and a publish one. So the cost of these routes is a constant of about a hundred statements for each tenant they read before it is a function of what the tenant holds, the opposite of this ADR's title: a library of four entries pays for a hundred tables it does not use, and a library of four thousand pays for those and its rows.
+
+- **Not changed here.** The load is a function of 2,000 lines of one loop after another, and every route that reads a repository's content (updates, publish, preview, upstream, digest, manuscript review) goes through it, so a change to it is its own slice. The options, cheapest first: one statement that says which of the content tables have a row for the tenant (the tables are known, so it is a `UNION ALL` of `EXISTS`), and each loop guarded by it, which should take a small library from 117 statements to about 15; loading by the kinds the tenant's entities have, since the entities are read first; and sharing one `Content` between the two reads of a route that loads the same tenant twice. A statement-count test per route, as `test_item_read_statements.py` is for the item read, goes with it. The matrix's cases would then be mostly the engine's own work and not the reading of empty tables; by this table that is up to 8.0 of the 9.6 s of requests, to be measured when it is built.
+- **The tests are not cut meanwhile.** Each combination is a thing publishing allows, and the matrix says so (`test_the_matrix_holds_exactly_the_combinations_publishing_allows`); the cost is the engine's, not the test's.
