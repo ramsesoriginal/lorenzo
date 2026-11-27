@@ -1,5 +1,60 @@
 # Changelog
 
+## [2.0.0](https://github.com/ramsesoriginal/lorenzo/compare/inventory-web-v1.2.0...inventory-web-v2.0.0) (2026-11-27)
+
+
+### ⚠ BREAKING CHANGES
+
+* **cli:** the MPMB, inventory and calendar commands have new names.
+
+### Features
+
+* **cli:** the importers move under `lorenzo import` and `export` (RFC 0057 C3) ([1bad0f1](https://github.com/ramsesoriginal/lorenzo/commit/1bad0f1e3c919ddd7a0ed7934cf3417e4c1a167b))
+* **entity-parts:** Facts, a Fact's page and the library list ([c9cc4b2](https://github.com/ramsesoriginal/lorenzo/commit/c9cc4b2d1f1c037c8b1da43c5b06585dd11f5916))
+* **entity-parts:** Facts, a Fact's page and the library list ([300f66c](https://github.com/ramsesoriginal/lorenzo/commit/300f66c37c8d3b2bc8ac53649af809dde799a07e))
+* **entity-parts:** the link name editor, the description form and the description edit ([f06ab2f](https://github.com/ramsesoriginal/lorenzo/commit/f06ab2feb06bbb02d72daf2a0e60e3468a90af13))
+* **entity-parts:** the package, with the tag editor and the description editor ([49bb652](https://github.com/ramsesoriginal/lorenzo/commit/49bb652c638baed6ec68c16e01f0a857c542dc08))
+* **inventory-web:** a catalog item is written in place, with the save bar, and the rest of the design's gaps ([624ef0e](https://github.com/ramsesoriginal/lorenzo/commit/624ef0e8aede2ed9e6ecf47d1a1ccbd56b610a4b))
+* **inventory-web:** a drag shows where the card lands, and the gold ring is thinner ([17e1c54](https://github.com/ramsesoriginal/lorenzo/commit/17e1c542d444aba73820baa1099b8ff8d0c2b5a4))
+* **inventory-web:** a drag shows where the card lands, and the gold ring is thinner ([9b00523](https://github.com/ramsesoriginal/lorenzo/commit/9b005234d781a09b9181c7fb74596b311b89e625))
+* **inventory-web:** a game master makes, reassigns, unassigns and deletes from the board ([f556437](https://github.com/ramsesoriginal/lorenzo/commit/f5564373b85129b07a14a12ed005019e3b3c3c19))
+* **inventory-web:** a game master makes, reassigns, unassigns and deletes from the board ([9d3e79a](https://github.com/ramsesoriginal/lorenzo/commit/9d3e79ad3d169c719c72a4633048989e1e6a420e))
+* **inventory-web:** an empty board shows the mascot's place, to be filled when the picture comes ([797d4f9](https://github.com/ramsesoriginal/lorenzo/commit/797d4f91f7b92d526f7754e4bd3b7169084a22a4))
+* **inventory-web:** an item opens in a panel, a sheet or its page, with actions on the card ([1f68b38](https://github.com/ramsesoriginal/lorenzo/commit/1f68b38046dd98e74a0a428064dfae1137192fdd))
+* **inventory-web:** an item opens in a panel, a sheet or its page, with actions on the card ([59d32f0](https://github.com/ramsesoriginal/lorenzo/commit/59d32f05e8c26551134e981fafb8bd23a72f9d5c))
+* **inventory-web:** the board as Home, with a switcher, weights and one column on a phone ([12d2f49](https://github.com/ramsesoriginal/lorenzo/commit/12d2f495fd714610c2d0b58341b2dfe9058aa6ab))
+* **inventory-web:** the board as Home, with a switcher, weights and one column on a phone ([5085c0b](https://github.com/ramsesoriginal/lorenzo/commit/5085c0b13cff63dd7b179ada1369b6df7ba3a982))
+* **inventory-web:** the card menu, select bar, add dialog and catalog rows as the design draws them ([dfb96e7](https://github.com/ramsesoriginal/lorenzo/commit/dfb96e710c7afaa194bb5e7af15a4f4e827eef24))
+* **inventory-web:** the card menu, select bar, add dialog and catalog rows as the design draws them ([0442b4a](https://github.com/ramsesoriginal/lorenzo/commit/0442b4ac8defdb81966fe785089286324affbb7f))
+* **inventory-web:** the catalog is a list with the item beside it ([a843948](https://github.com/ramsesoriginal/lorenzo/commit/a84394822c9320c1bee802ce08528f97f9d1077b))
+* **inventory-web:** the catalog is a list with the item beside it ([2b7d6ff](https://github.com/ramsesoriginal/lorenzo/commit/2b7d6ffaa7cce982a458c8a08f91cafa0fc5ff54))
+* **inventory-web:** Unpack asks in its own dialog, an empty group's board says so, and the game master can edit the page ([105b7ce](https://github.com/ramsesoriginal/lorenzo/commit/105b7ce07cdf9f88b977a786079f1525fad278d3))
+* **inventory:** put the pages in the web shell (ADR 0524, I0) ([73deed2](https://github.com/ramsesoriginal/lorenzo/commit/73deed26e332c25c9f5595e091b241801570b72e))
+* **inventory:** put the pages in the web shell (ADR 0524, I0) ([5f45763](https://github.com/ramsesoriginal/lorenzo/commit/5f45763dca2f51d133414b8d2344ce35a3e11924))
+
+
+### Bug Fixes
+
+* **brand:** no app defines a brand class; the shell frame can fit the window ([0dbd5d7](https://github.com/ramsesoriginal/lorenzo/commit/0dbd5d7b8fb11de0e1d9a1ee71f8d52fee370763))
+* **converters:** print the command the CLI really has, lorenzo import inventory ([c7b9cf5](https://github.com/ramsesoriginal/lorenzo/commit/c7b9cf55acc010a85c4030fc8ebae17e7138c2b3))
+* **inventory-web:** a catalog item shows and edits what it inherits, and only the tags it has ([3cd0828](https://github.com/ramsesoriginal/lorenzo/commit/3cd082825cd2858a8c91ca3841dc8830776561a1))
+* **inventory-web:** a catalog item shows and edits what it inherits, and only the tags it has ([13bb312](https://github.com/ramsesoriginal/lorenzo/commit/13bb312d5dd8288979f94e3bb03561a3687d26e6))
+* **inventory-web:** a catalog row with its form open is not squeezed by the list ([95fac05](https://github.com/ramsesoriginal/lorenzo/commit/95fac05f5287010dcaf9804b03966672d1d2061c))
+* **inventory-web:** a catalog row with its form open is not squeezed by the list ([cbb2b4d](https://github.com/ramsesoriginal/lorenzo/commit/cbb2b4d000a99d81855495783a66ac6e85b84e4c))
+* **inventory-web:** a move moves the card and not the page; the board fills the width and its columns scroll ([1282bc1](https://github.com/ramsesoriginal/lorenzo/commit/1282bc1f6bee808fa83bd0efe4690bc47658b175))
+* **inventory-web:** a move moves the card and not the page; the board fills the width and its columns scroll ([5211f45](https://github.com/ramsesoriginal/lorenzo/commit/5211f4538ff83ba0dc3125940557f0ef62d7920a))
+* **inventory-web:** a move or an add changes the board in place, not by drawing it again ([f1baeb3](https://github.com/ramsesoriginal/lorenzo/commit/f1baeb3026b47cb96f8541b9ce71672a771f69d3))
+* **inventory-web:** a move or an add changes the board in place, not by drawing it again ([b3ad049](https://github.com/ramsesoriginal/lorenzo/commit/b3ad049ac3a430a7ea3dc5b57c05e195e40a3caf))
+* **inventory-web:** giving and merging change the cards in place, with no fetch ([fa36239](https://github.com/ramsesoriginal/lorenzo/commit/fa36239b25a0770e3e810e956cfac7fdd45e9020))
+* **inventory-web:** giving and merging change the cards in place, with no fetch ([a8e455d](https://github.com/ramsesoriginal/lorenzo/commit/a8e455d3e58996e3a410255c913db1e6821ba4ca))
+* **inventory-web:** size the board by layout alone, not by measuring heights ([25f1843](https://github.com/ramsesoriginal/lorenzo/commit/25f184367d53356224ce829fc2d7a9b92bf80224))
+* **inventory-web:** the item on a tablet is a sheet from the bottom, and the panel and catalog read as drawn ([f237708](https://github.com/ramsesoriginal/lorenzo/commit/f2377087ebdaf2e2347aefeb06b5eab36a5c2b6a))
+* **inventory-web:** the select bar's Move to… puts the cards in place, with no fetch ([2acdd4a](https://github.com/ramsesoriginal/lorenzo/commit/2acdd4acff318dd365b2734ac006ed34d18b0ae7))
+* **inventory-web:** the select bar's Move to… puts the cards in place, with no fetch ([1b979b1](https://github.com/ramsesoriginal/lorenzo/commit/1b979b1a6ebf087722942a597319a0bd14b935b7))
+* **inventory-web:** the switcher's heading for a game master says the campaign's word ([6fc37d1](https://github.com/ramsesoriginal/lorenzo/commit/6fc37d124042459b9ef17e91137d49dc4e9653b6))
+* **inventory-web:** the switcher's heading for a game master says the campaign's word ([41fd52b](https://github.com/ramsesoriginal/lorenzo/commit/41fd52b54c12e3d1630552e51eebae4948a9123d))
+* **inventory-web:** the Undo of an added item stays within reach after the dialog is closed ([7b46460](https://github.com/ramsesoriginal/lorenzo/commit/7b46460feef0ea479732cdfad8863850a8e22d1c))
+
 ## [1.2.0](https://github.com/ramsesoriginal/lorenzo/compare/inventory-web-v1.1.0...inventory-web-v1.2.0) (2026-10-29)
 
 

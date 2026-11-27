@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.2.1](https://github.com/ramsesoriginal/lorenzo/compare/account-hub-v1.2.0...account-hub-v1.2.1) (2026-11-27)
+
+
+### Bug Fixes
+
+* **account-hub:** the copy wizard says a library can hold several game systems ([ba28a1a](https://github.com/ramsesoriginal/lorenzo/commit/ba28a1a149b013d0660fbf95ce5bbe7409df990d))
+* **api:** the platform operator role key defaults to platform_operator ([01420e9](https://github.com/ramsesoriginal/lorenzo/commit/01420e94a683e221bca26963c9b1725c6fc5a3d7))
+
 ## [1.2.0](https://github.com/ramsesoriginal/lorenzo/compare/account-hub-v1.1.0...account-hub-v1.2.0) (2026-10-29)
 
 

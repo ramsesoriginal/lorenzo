@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.0](https://github.com/ramsesoriginal/lorenzo/compare/map-renderer-v1.0.0...map-renderer-v1.1.0) (2026-11-27)
+
+
+### Features
+
+* **maps,map-renderer:** the Height brush raises and lowers the land of an entry's height lines ([c95715e](https://github.com/ramsesoriginal/lorenzo/commit/c95715e38abc20dfa1443366b677c660c602dad6))
+
 ## 1.0.0 (2026-10-29)
 
 

@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.2.1](https://github.com/ramsesoriginal/lorenzo/compare/brand-v1.2.0...brand-v1.2.1) (2026-11-27)
+
+
+### Bug Fixes
+
+* **beings,brand:** a being's avatar is not the brand's .avatar, and the inventory-web contexts are listed ([524c6ee](https://github.com/ramsesoriginal/lorenzo/commit/524c6ee8913f583b93de6740a32737eae4fc35fd))
+* **brand:** no app defines a brand class; the shell frame can fit the window ([0dbd5d7](https://github.com/ramsesoriginal/lorenzo/commit/0dbd5d7b8fb11de0e1d9a1ee71f8d52fee370763))
+
 ## [1.2.0](https://github.com/ramsesoriginal/lorenzo/compare/brand-v1.1.0...brand-v1.2.0) (2026-10-29)
 
 

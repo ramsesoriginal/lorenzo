@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.1.0](https://github.com/ramsesoriginal/lorenzo/compare/lorenzoscript-v1.0.0...lorenzoscript-v1.1.0) (2026-11-27)
+
+
+### Features
+
+* **api:** undo a Scene extraction (ADR 0517) ([1e772cd](https://github.com/ramsesoriginal/lorenzo/commit/1e772cd85572fd81451909002e8da9b2a7d38c65))
+* **lorenzoscript:** block ranges, and the editor's keys as a pure function ([564b02b](https://github.com/ramsesoriginal/lorenzo/commit/564b02b1926ffb06dc03485771e1547f19468b53))
+
 ## 1.0.0 (2026-10-29)
 
 
