@@ -18,7 +18,7 @@ UI-H is built in this order, each step its own small, tested pull request (or a 
 
 | Step | What |
 | --- | --- |
-| H1 | **Retire the old frame.** `AppPage` always draws the web shell; `SiteHeader`, the old footer and the opt-in prop go, with what only the old header drew and `bindShell`'s no-op calls. **Legal moves onto the shell** (decided by the maintainer, 2026-11-27): its two languages and operator profile stay, its own layout goes, and the shell learns to draw a public page with no sign-in and no library. **Bench stays as it is** (decided likewise) and keeps sharing the shell's appearance, theme and legal links, which H7 checks |
+| H1 | **Retire the old frame.** `AppPage` always draws the web shell; `SiteHeader`, the old footer and the opt-in prop go, with what only the old header drew and `bindShell`'s no-op calls. **Legal stays as it is** (the maintainer first chose the shell, then changed their mind, 2026-11-27: moving it is work that is not needed now): it keeps its own layout, and H7 only checks that it shares the brand's styles and the legal links the apps use. **Bench stays as it is** (decided by the maintainer) and keeps sharing the shell's appearance, theme and legal links, which H7 checks |
 | H2 | **Styles.** Each app's rules for buttons, fields, headers, footers and cards that restate the brand's or the shell's are removed; what is left is named a component of that app. A CI check says an app's stylesheet may not define the brand's own classes again |
 | H3 | **The API the open points need,** four small slices, each its own ADR, tests and `schema.d.ts`: **A1** who may read a being (an audience on a being, as facts and calendar entries have, and a read of it); **A2** the Sessions a being takes part in, read from the play record as well as from the text; **A3** a person's preferences in the account (density, theme, motion) and saved views; **A4** a calendar's current date, a field on the calendar, and a read of the dates something is written on within a period, for the strip's ticks |
 | H4 | **What those give the apps.** "Seen by" on a being; "Sessions this being takes part in" on its Where-it-appears page; the shell keeping appearance in the account (the device's value stays the fallback when signed out or offline) and saved views in Social, Maps and the lists that have filters; the strip's ticks in Social's Event chooser; the "This month" shortcut in Calendars' time filter and wherever it is used, and "today" where a calendar has one |
@@ -43,6 +43,7 @@ Read from ADR 0409 to 0527, the design's follow-ups and issues #1129 and #1020. 
 | Campaigns in the account hub as drawn (a "New campaign" button that opens the form; players, links and notifications as one scroll, not tabs in a card) | #1129 (screens 06 to 08) | H6 |
 | The hub's Author variant of People compared with screen 11; the hub's pages at 834 and 2200 px wide, with a screen reader, in Safari and Firefox (the checks the design did not cover) | #1129 | H6 |
 | The `/debug/me` link; the repository listing for reading that `/beings` kept in the hub and the Beings app's test for it | #1129 | H7 |
+| A "Where it appears" page for an Inventory item, as a being and a Fact have (BN11); ADR 0524 lists it as "Inventory's pages (I6)", though slice I6 itself is built | 0524 | H6, from the existing backlinks read |
 | All beings / Mine as the shell's two tabs, not a toolbar choice: the shell tells tabs apart by path only | 0524 | H6, with a small change to the shell |
 | The design's "starts Greening 3" and "Not placed in order" on a Session row in Sessions | [0441](0441-sessions-moves-into-the-web-shell.md) | H6 (a read of each Session's start; if it is too many reads, H6 says so and the row stays) |
 | "Groups that disagree" in Problems (Social), and an entry's page linked from other apps | 0527 | H6, once the maintainer says what "disagree" means; the links once a first app asks for one |
@@ -65,7 +66,6 @@ Read from ADR 0409 to 0527, the design's follow-ups and issues #1129 and #1020. 
 | --- | --- | --- |
 | A stored preview of a Map on save | [0465](0465-maps-moves-into-the-web-shell.md) | Only if drawing in the browser proves too slow in a large library |
 | Undo of a hand over (Beings, Inventory) | 0524 | A way to take an item back that the API offers; nothing asks yet |
-| Inventory's pages (I6) | 0524 | Decided there, not scheduled |
 | The "Restricted" chip of an Event | 0440 | Left out on purpose: a hidden Event is never shown |
 
 H6 turns the first table into pull requests, each named for one app and one screen, so that a reviewer can look at one thing at a time.
@@ -75,4 +75,4 @@ H6 turns the first table into pull requests, each named for one app and one scre
 - When it is built, every web page is drawn by one frame and one set of styles, the apps agree with their designs or say where they do not, and the code the apps share is in packages rather than in copies.
 - H1 changes `packages/app-shell`, which every app builds on: its pull request is checked against every app's end-to-end suite, not just the ones the dependency graph names.
 - H8 touches every app. It goes one extraction at a time so that a regression is one revert.
-- Legal is rebuilt on `AppPage`, which needs the shell to draw a page with no sign-in and no library (the legal pages are public); H1 settles that. Bench is left out of H1 to H3, and is audited in H4 only for what it should share with the shell.
+- Legal and Bench stay out of the shell and out of H1 and H2; H7 checks only what each should still share with it (the brand's styles, the appearance and theme, the legal links).
