@@ -1,4 +1,10 @@
-import { createTimeFilter, periodQuery, type StripSegment, stripOf } from '@lorenzo/time-filter';
+import {
+  createTimeFilter,
+  marksOfDays,
+  periodQuery,
+  type StripSegment,
+  stripOf,
+} from '@lorenzo/time-filter';
 import { client, fetchAllPages, unwrap } from './api';
 import { button, el, field, message, select, statusLine } from './dom';
 import type { Picker } from './pickers';
@@ -106,26 +112,46 @@ export function eventChooser(tenant: string, title: string): Picker {
       return;
     }
     try {
+      const read = await client
+        .GET('/tenants/{tenant_id}/calendars/{entity_id}', {
+          params: { path: { tenant_id: tenant, entity_id: calendar } },
+        })
+        .then((r) => r.data);
       if (!year.input.value) {
-        const definition = await client
-          .GET('/tenants/{tenant_id}/calendars/{entity_id}', {
-            params: { path: { tenant_id: tenant, entity_id: calendar } },
-          })
-          .then((r) => r.data?.definition);
+        const definition = read?.definition;
+        // The year the calendar says it is in, else the one it is anchored to.
         year.input.value = String(
-          definition?.week?.reference.year ?? definition?.moons[0]?.reference.year ?? 0,
+          read?.today?.year ??
+            definition?.week?.reference.year ??
+            definition?.moons[0]?.reference.year ??
+            0,
         );
       }
+      const chosenYear = Number(year.input.value);
       const calculated = await unwrap(
         await client.GET('/tenants/{tenant_id}/calendars/{entity_id}/years/{year}', {
           params: {
-            path: { tenant_id: tenant, entity_id: calendar, year: Number(year.input.value) },
+            path: { tenant_id: tenant, entity_id: calendar, year: chosenYear },
           },
         }),
       );
       strip = stripOf(calculated.segments);
+      // A tick for each day Events are dated on, in one read of the year (ADR 0530).
+      const marks = marksOfDays(
+        await unwrap(
+          await client.GET('/tenants/{tenant_id}/events/dated-days', {
+            params: {
+              path: { tenant_id: tenant },
+              query: { calendar_id: calendar, year: chosenYear },
+            },
+          }),
+        ).catch(() => []),
+      );
+      const today = read?.today?.year === chosenYear ? read.today : null;
       const filter = createTimeFilter({
         segments: strip,
+        marks,
+        today,
         onChange: (next) => {
           range = next;
           void load(true);

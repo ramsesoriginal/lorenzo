@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { marksOf, periodQuery, stripOf } from '../src';
+import { marksOf, marksOfDays, periodQuery, segmentRange, stripOf } from '../src';
 
 const year = [
   { key: 'frostwane', name: 'Frostwane', days: new Array(30).fill(0), month_ordinal: 1 },
@@ -53,5 +53,42 @@ describe('the period an Events read is asked for', () => {
       dated_to_segment: 'thaw',
       dated_to_day: 1,
     });
+  });
+});
+
+describe("marks from the year's dated days, and this month", () => {
+  const segments = [
+    { key: 'first', name: 'First', days: 10 },
+    { key: 'fest', name: 'Feast', days: 2, festival: true },
+    { key: 'second', name: 'Second', days: 5 },
+  ];
+
+  it('ticks each day by how many Events are on it, and none for a whole segment or year', () => {
+    expect(
+      marksOfDays([
+        { segment: null, day: null, count: 1 },
+        { segment: 'first', day: null, count: 2 },
+        { segment: 'first', day: 3, count: 2 },
+        { segment: 'second', day: 1, count: 9 },
+      ]),
+    ).toEqual([
+      ['first', 3],
+      ['first', 3],
+      ['second', 1],
+      ['second', 1],
+      ['second', 1],
+      ['second', 1],
+    ]);
+  });
+
+  it('takes this month as the whole segment today is in, as places on the strip', () => {
+    expect(segmentRange(segments, { segment: 'first', day: 4 })).toEqual({ from: 1, to: 10 });
+    expect(segmentRange(segments, { segment: 'fest', day: 2 })).toEqual({ from: 11, to: 12 });
+    expect(segmentRange(segments, { segment: 'second', day: 5 })).toEqual({ from: 13, to: 17 });
+  });
+
+  it('has no range when today is not in this year', () => {
+    expect(segmentRange(segments, { segment: 'gone', day: 1 })).toBeNull();
+    expect(segmentRange(segments, { segment: 'first', day: 11 })).toBeNull();
   });
 });

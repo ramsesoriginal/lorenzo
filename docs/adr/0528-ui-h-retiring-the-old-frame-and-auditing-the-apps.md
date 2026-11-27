@@ -51,6 +51,10 @@ The rail of a being has a **Seen by** select (Everyone, or the game masters only
 
 `bindShell` takes an optional `preferences: { load, save }`, and the eight apps pass `accountPreferences(client)` (from `@lorenzo/api-client`, over `/me/preferences`). When the person is signed in, what the account names (theme, density, motion) is applied to the device and kept there as its fallback; parts the account does not name stay the device's; a first sign-in with nothing in the account sends a non-default device choice up. A change made in Appearance while signed in is sent back, and a failure is silent (the device keeps it). The dialog says so. The read cache treats `PUT /me/preferences` as a write that changes nothing a page has read: any other write invalidates the cache and aborts the reads in flight ("This view changed"), which saving an appearance at start-up would have done to a page that was still loading. Bench and Legal do not use the shell and are not changed. `appearance.spec.ts` (Beings) drives both ways against the real API.
 
+### H4c, as built (the calendar's today, the strip's ticks)
+
+The day panel of a calendar has **Make this day today** and **Clear today** for those who may write the calendar; the day is marked in the grid with a ring and the word "today" (in its name for a screen reader). A calendar opens on the year it says it is in. The time filter (`@lorenzo/time-filter`) takes `today`: it marks it on the strip and offers **This month** (the whole segment today falls in; "This <name>" for a festival). The Events list of Calendars and the Event chooser of Social draw their ticks from one `dated-days` read of the year instead of reading every Event's dates, and both open on today's year. `segmentRange` and `marksOfDays` are pure and tested; `today.spec.ts` (Calendars) and `webs.spec.ts` (Social) drive it.
+
 ## Open points in the earlier UI ADRs
 
 Read from ADR 0409 to 0527, the design's follow-ups and issues #1129 and #1020. The maintainer chose (2026-11-27) to pull the API and art work in as well, so most of what waited is now H3 to H5. What is still outside UI-H is the last table.

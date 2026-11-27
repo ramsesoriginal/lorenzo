@@ -1,6 +1,6 @@
 import {
   createTimeFilter,
-  marksOf,
+  marksOfDays,
   periodQuery,
   type StripSegment,
   stripOf,
@@ -297,15 +297,20 @@ export async function mount() {
       return;
     }
     try {
-      // Without a year in the address, the year the calendar is anchored to, as the calendar opens on.
+      // Without a year in the address, the year the calendar says it is in, else the one it is
+      // anchored to, as the calendar opens on.
+      const read = await client
+        .GET('/tenants/{tenant_id}/calendars/{entity_id}', {
+          params: { path: { tenant_id: tenantId, entity_id: calendarId } },
+        })
+        .then((r) => r.data);
       if (!yearField.input.value) {
-        const definition = await client
-          .GET('/tenants/{tenant_id}/calendars/{entity_id}', {
-            params: { path: { tenant_id: tenantId, entity_id: calendarId } },
-          })
-          .then((r) => r.data?.definition);
+        const definition = read?.definition;
         yearField.input.value = String(
-          definition?.week?.reference.year ?? definition?.moons[0]?.reference.year ?? 0,
+          read?.today?.year ??
+            definition?.week?.reference.year ??
+            definition?.moons[0]?.reference.year ??
+            0,
         );
       }
       const year = Number(yearField.input.value);
@@ -315,23 +320,20 @@ export async function mount() {
         }),
       );
       strip = stripOf(calculated.segments);
-      // A tick for every day something is dated on, read from every Event the person can see.
-      const everyone = await fetchAllPages(async (n) =>
-        unwrap(
-          await client.GET('/tenants/{tenant_id}/events', {
-            params: { path: { tenant_id: tenantId }, query: { page: n, size: 100 } },
+      // A tick for every day something is dated on: one read for the year, through what the person
+      // may see (ADR 0530).
+      const marks = marksOfDays(
+        await unwrap(
+          await client.GET('/tenants/{tenant_id}/events/dated-days', {
+            params: { path: { tenant_id: tenantId }, query: { calendar_id: calendarId, year } },
           }),
         ),
       );
-      const metas = await Promise.all(everyone.map((e) => metaFor(e.entity_id)));
-      const marks = marksOf(
-        metas.flatMap((m) => m.dates),
-        calendarId,
-        year,
-      );
+      const today = read?.today?.year === year ? read.today : null;
       const filter = createTimeFilter({
         segments: strip,
         marks,
+        today,
         initial: range,
         onChange: (next) => {
           range = next;

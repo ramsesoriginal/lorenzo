@@ -1,3 +1,4 @@
+import { segmentRange, type TodayOn } from './period';
 import {
   describe,
   indexOf,
@@ -19,6 +20,8 @@ export interface TimeFilterOptions {
   /** Called with a range of places on the strip, or null for any time. */
   onChange: (range: { from: number; to: number } | null) => void;
   initial?: { from: number; to: number } | null;
+  /** Where the calendar is now, if it says: it is marked on the strip, and "This month" shows. */
+  today?: TodayOn | null;
   /** A range (two handles, the default) or one date (one handle, the date lens). */
   mode?: 'range' | 'point';
 }
@@ -49,6 +52,22 @@ export function createTimeFilter(options: TimeFilterOptions): TimeFilter {
   const clear = node('button', 'btn btn-text', 'Any time');
   clear.type = 'button';
   head.append(node('b', '', point ? 'Looking at' : 'When'), out, clear);
+  // "This month": the segment today falls in, where the calendar says what day it is (ADR 0530).
+  const nowRange = options.today ? segmentRange(segments, options.today) : null;
+  const nowSegment = options.today ? segments.find((s) => s.key === options.today?.segment) : null;
+  if (nowRange && nowSegment) {
+    const shortcut = node(
+      'button',
+      'btn btn-text',
+      nowSegment.festival ? `This ${nowSegment.name}` : 'This month',
+    );
+    shortcut.type = 'button';
+    shortcut.dataset.timeFilterNow = '';
+    shortcut.addEventListener('click', () =>
+      apply(point ? { from: nowRange.from, to: nowRange.from } : nowRange),
+    );
+    head.append(shortcut);
+  }
   const strip = node('div', 'time-filter-strip');
   const bar = node('div', 'time-filter-segs');
   for (const s of segments) {
@@ -73,6 +92,17 @@ export function createTimeFilter(options: TimeFilterOptions): TimeFilter {
     // The more is dated on a day, the taller its tick: a density, not a count of what is hidden.
     tick.style.height = `${Math.min(16, 5 + count * 3)}px`;
     ticks.append(tick);
+  }
+  // Today, marked on the strip and said in words, not by colour alone.
+  const todayAt = options.today
+    ? indexOf(segments, options.today.segment, options.today.day)
+    : null;
+  if (todayAt !== null) {
+    const today = node('b', 'time-filter-today');
+    today.style.left = `${pct(todayAt)}%`;
+    today.title = 'Today';
+    today.append(node('span', 'visually-hidden', 'Today'));
+    ticks.append(today);
   }
   const band = node('div', 'time-filter-range');
   const handles = (['from', 'to'] as const).map((which) => {
