@@ -78,6 +78,7 @@ from lorenzo_api.models.repository_release_document import RepositoryReleaseDocu
 from lorenzo_api.models.repository_released_row import RepositoryReleasedRow
 from lorenzo_api.models.repository_showcase import RepositoryShowcase
 from lorenzo_api.models.repository_subscription import RepositorySubscription
+from lorenzo_api.models.saved_view import SavedView
 from lorenzo_api.models.stat_definition import StatDefinition, StatValueType
 from lorenzo_api.models.stat_definition_enum_value import StatDefinitionEnumValue
 from lorenzo_api.models.stat_group import StatGroup
@@ -195,6 +196,7 @@ __all__ = [
     "EntitySlug",
     "EntityStat",
     "EntityStatChange",
+    "SavedView",
     "EntityStatGroup",
     "GroupMember",
     "Information",
