@@ -8,7 +8,8 @@
     ".": "./src/index.ts",
     "./AppPage.astro": "./src/AppPage.astro",
     "./LegalLinks.astro": "./src/LegalLinks.astro",
-    "./legal": "./src/legal.ts"
+    "./legal": "./src/legal.ts",
+    "./page-parts.css": "./src/page-parts.css"
   },
   "scripts": {
     "lint": "biome check . && tsc --noEmit && prettier --check \"**/*.astro\"",

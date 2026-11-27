@@ -1,0 +1,116 @@
+/*
+ * The chrome of the brand's own preview pages: a header with the page's name and the links
+ * between previews. It is not shipped to the apps (they draw the web shell); only the previews
+ * load this file. It was the brand's `.site-header` until UI-H (ADR 0528).
+ */
+
+.preview-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+/* A text wordmark (no logo asset shipped in this package) sized to sit
+   correctly in a compact header, rather than at its unconstrained
+   context-dependent default (identity.md §5.3's .display is deliberately
+   size-agnostic everywhere else). */
+.preview-header .display {
+  font-size: 20px;
+}
+
+/* Header nav - a bare <a> in a bare <nav> would otherwise render as
+   default underlined link-blue text crammed against the wordmark, with no
+   visual weight or way to show which page is current. Same treatment as
+   .sidebar below, so the two page shells read as one system. */
+/* Desktop: restore original navigation appearance */
+@media (min-width: 721px) {
+  .preview-navigation {
+    display: contents;
+  }
+
+  .preview-navigation > summary {
+    display: none;
+  }
+
+  .preview-navigation::details-content {
+    content-visibility: visible;
+  }
+}
+
+.preview-header nav {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.preview-header nav a {
+  font-size: 14px;
+  color: var(--text-secondary);
+  text-decoration: none;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-control);
+}
+
+.preview-header nav a:hover {
+  background: var(--fill-soft);
+  color: var(--text-primary);
+}
+
+.preview-header nav a[aria-current="page"] {
+  background: var(--fill-soft);
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+
+@media (max-width: 720px) {
+  .preview-header {
+    flex-wrap: wrap;
+    padding: var(--space-2) var(--space-3);
+  }
+
+  .preview-navigation {
+    position: relative;
+  }
+
+  /* An open menu takes its own line under the header row and is as wide as the
+     page, no wider: a fixed 100vw would run past the gutters. */
+  .preview-navigation[open] {
+    flex-basis: 100%;
+  }
+
+  .preview-navigation nav {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+
+@media (max-width: 720px), (pointer: coarse) {
+  .preview-navigation > summary {
+    min-height: var(--target-min);
+  }
+
+  /* The mobile navigation's toggle is a summary, not a block of its own;
+     centre its label the way a header link's is. */
+  .preview-navigation > summary {
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+  }
+
+  /* An inline link in a header is not a block, so min-height would be
+     ignored; make it one that centres its text. */
+
+  .preview-header nav {
+    align-items: stretch;
+  }
+
+  .preview-header nav a {
+    display: flex;
+    align-items: center;
+    min-height: var(--target-min);
+  }
+}

@@ -33,6 +33,16 @@ The audit steps (H6, H7) write their findings here as tables, the way ADR 0524 a
 
 `AppPage` draws the web shell and nothing else: `SiteHeader.astro`, `SiteFooter.astro`, the `shell` prop and the branches of `bindShell` that served the old header are gone, and the eight apps no longer pass `shell="web"`. The tests of the old header are removed; the shell's own tests now render the one frame. The brand's `.site-header`, `.site-navigation` and `.brand-product` rules stay for now: the brand's static previews still draw with them, so H2 removes them together with the previews that use them. The `data-site-header` hook stays too, since the shell's own header carries it and the apps' tests and Writing's focus mode read it.
 
+### H2, as built
+
+The survey for H2 compared every app's stylesheet with the brand's and with each other:
+
+- **Duplicated by Maps, Sessions and Social**: thirty-three identical rules (the page head and crumbs, a section's head, a collapsible panel, an ordered list, a checkbox with its words, how a busy or empty region looks, the touch heights of those). They are now one sheet, `packages/app-shell/src/page-parts.css`, which each of the three imports at the top of its own; their own sheets lost 200, 200 and 160 lines. It is not in the brand because Writing and Calendars define `.page-head` and `.section-head` differently, and a global brand rule would have bled into them.
+- **Beings** repeated the brand's `.visually-hidden` and a touch height for `.btn` that the brand already gives; both are gone.
+- **The brand's `.site-header`, `.site-navigation` and `.brand-product`** served only the old header and the brand's own preview pages. The rules left `layout.css` and `components.css`, and the previews draw their chrome with `.preview-header` from `apps/brand/preview/preview.css`, which the apps never load.
+- **A check in CI.** `apps/brand/tests/class-clash.test.mjs` fails when an app (not Bench, which does not load the brand) writes a rule that is only a brand class, for example `.btn { … }` or `.text-input:disabled { … }`. Grouped selectors that add to a list (a touch height) and scoped ones (`.panel .btn`) are an app's own and pass.
+- **Left for H8**, because they are shared components and not restated brand: `.home-tiles` (account hub and Calendars), and the stat bar, the search field and the descriptions of Beings and Inventory. Bench keeps its own styles.
+
 ## Open points in the earlier UI ADRs
 
 Read from ADR 0409 to 0527, the design's follow-ups and issues #1129 and #1020. The maintainer chose (2026-11-27) to pull the API and art work in as well, so most of what waited is now H3 to H5. What is still outside UI-H is the last table.
