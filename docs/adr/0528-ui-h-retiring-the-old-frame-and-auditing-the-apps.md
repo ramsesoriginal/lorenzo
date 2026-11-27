@@ -43,6 +43,10 @@ The survey for H2 compared every app's stylesheet with the brand's and with each
 - **A check in CI.** `apps/brand/tests/class-clash.test.mjs` fails when an app (not Bench, which does not load the brand) writes a rule that is only a brand class, for example `.btn { … }` or `.text-input:disabled { … }`. Grouped selectors that add to a list (a touch height) and scoped ones (`.panel .btn`) are an app's own and pass.
 - **Left for H8**, because they are shared components and not restated brand: `.home-tiles` (account hub and Calendars), and the stat bar, the search field and the descriptions of Beings and Inventory. Bench keeps its own styles.
 
+### H4a, as built (Beings)
+
+The rail of a being has a **Seen by** select (Everyone, or the game masters only, named as its campaign names them; "Some people" is shown, not made, when a being already has named recipients), for those the API lets say who sees it; a player who only plays the being is not offered it. A choice is saved at once and a refusal says so in a toast. **Where it appears** has a group "Sessions it takes part in" from `GET …/beings/{id}/sessions`, with how (came to it, a Scene tells of it), above the Sessions that name it in text. The page's own phone layout had the main column stick under a taller rail; both are now in the flow below 720px. `seen-by.spec.ts` drives all three.
+
 ## Open points in the earlier UI ADRs
 
 Read from ADR 0409 to 0527, the design's follow-ups and issues #1129 and #1020. The maintainer chose (2026-11-27) to pull the API and art work in as well, so most of what waited is now H3 to H5. What is still outside UI-H is the last table.

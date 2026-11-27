@@ -206,6 +206,16 @@ import { BRANDING_CSS_URL } from '../../lib/config';
             <dt>Campaign</dt>
             <dd data-campaign-text>None</dd>
           </div>
+          <div data-seen-by hidden>
+            <dt>Seen by</dt>
+            <dd>
+              <label class="visually-hidden" for="seen-by">
+                Who sees this being
+              </label>
+              <select class="text-input" id="seen-by" data-seen-by-select></select>
+              <span class="caption" data-seen-by-hint></span>
+            </dd>
+          </div>
         </dl>
         <div data-only-in="edit" hidden>
           <HandOver />

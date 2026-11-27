@@ -829,8 +829,13 @@ textarea.text-input {
   }
 }
 @media (max-width: 720px) {
+  /* One column: neither stays put while the other scrolls past it (a taller rail made the main
+     column stick and be drawn under it). */
+  .sheet-main,
   .sheet-rail {
     position: relative;
+  }
+  .sheet-rail {
     display: block;
   }
   .sticky-nav {

@@ -2,9 +2,9 @@
 // and the other entries that do - and, for a being, the way to the scenes it lived through. The
 // read is the one that shows each viewer only the information they may see (ADR 0110).
 
-import { type Appearance, groupAppearances } from '../../lib/appears';
+import { type Appearance, groupAppearances, takingPart } from '../../lib/appears';
 import { livedOrderUrl, loadAppLinks, sceneUrl, sessionUrl } from '../../lib/appLinks';
-import { getBacklinks } from '../../lib/descriptions';
+import { getBacklinks, getBeingSessions } from '../../lib/descriptions';
 import { getEntityDetail } from '../../lib/entities';
 import { beingPageHref, entityHref, factPageHref } from '../../lib/entityLinks';
 
@@ -49,6 +49,10 @@ export async function renderAppearsPage(
     loadAppLinks(),
   ]);
   const isFact = entity.kinds.includes('fact');
+  // The Sessions a being came to or a Scene tells of it, which no text of theirs names (ADR 0531).
+  const taking = isFact
+    ? []
+    : takingPart(await getBeingSessions(tenantId, entityId).catch(() => []));
   const back = element('a', `← ${entity.name}`);
   const found = groupAppearances(links);
 
@@ -81,14 +85,19 @@ export async function renderAppearsPage(
     }
   }
 
-  const total = found.sessions.length + found.scenes.length + found.others.length;
+  const total = taking.length + found.sessions.length + found.scenes.length + found.others.length;
 
   if (total === 0) {
     root.append(element('p', 'Nothing links here yet.', 'status-text'));
   }
 
   const groups: [string, Appearance[], (row: Appearance) => string | null][] = [
-    ['Sessions', found.sessions, (row) => sessionUrl(tenantId, row.entityId)],
+    ['Sessions it takes part in', taking, (row) => sessionUrl(tenantId, row.entityId)],
+    [
+      isFact ? 'Sessions' : 'Sessions that name it',
+      found.sessions,
+      (row) => sessionUrl(tenantId, row.entityId),
+    ],
     ['Scenes', found.scenes, (row) => sceneUrl(tenantId, row.entityId)],
     [
       'Other entries',
