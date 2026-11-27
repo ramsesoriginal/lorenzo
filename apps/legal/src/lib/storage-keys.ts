@@ -190,6 +190,16 @@ export const STORAGE_KEYS: StorageEntry[] = [
     ],
   },
   {
+    key: 'lorenzo:social:last-web:*, lorenzo:social:last-library',
+    store: 'localStorage',
+    purpose: bi(
+      'Merkt sich in Lorenzo Social für jede Bibliothek das zuletzt geöffnete Netz und die zuletzt genutzte Bibliothek, damit „Weitermachen“ es anbietet und die Startseite dort öffnet. Bleibt in Ihrem Browser und wird nirgendwohin gesendet.',
+      'Remembers in Lorenzo Social, for each library, the web you opened last, and the library you used last, so that Continue can offer it and Home opens there. It stays in your browser and is sent nowhere.',
+    ),
+    lasts: bi('Bis zum Löschen der Browserdaten', 'Until browser data is cleared'),
+    files: ['apps/social/src/lib/sign-in.ts', 'apps/social/src/lib/webs-view.ts'],
+  },
+  {
     key: 'lorenzo:writing:last',
     store: 'localStorage',
     purpose: bi(
