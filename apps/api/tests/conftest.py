@@ -4,6 +4,7 @@ import sys
 import uuid
 from collections.abc import AsyncGenerator, Awaitable, Callable, Generator
 
+import _sharding
 import _workers  # first: points the settings at this worker's database, before any reads them
 import pytest
 from _admin_db import admin_session_factory
@@ -56,22 +57,14 @@ def _role_of_a_named_stat(
 
 def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
     """CI splits this suite over several runners, each with its own database (ADR 0148): with
-    TEST_SHARD=2/3 only the second of three groups of test files runs. Files go to the lightest
-    group by test count, largest first, so the split is the same on every runner."""
+    TEST_SHARD=2/4 only the second of four groups of tests runs. The groups are of equal cost, by
+    the recorded duration of each test, the same on every runner (tests/_sharding.py)."""
     shard = os.environ.get("TEST_SHARD")
     if not shard:
         return
     index, total = (int(part) for part in shard.split("/"))
-    counts: dict[str, int] = {}
-    for item in items:
-        counts[str(item.path)] = counts.get(str(item.path), 0) + 1
-    loads = [0] * total
-    owner: dict[str, int] = {}
-    for path in sorted(counts, key=lambda p: (-counts[p], p)):
-        lightest = loads.index(min(loads))
-        owner[path] = lightest
-        loads[lightest] += counts[path]
-    kept = [item for item in items if owner[str(item.path)] == index - 1]
+    owner = _sharding.assign([item.nodeid for item in items], _sharding.load_weights(), total)
+    kept = [item for item in items if owner[item.nodeid] == index - 1]
     kept_ids = {id(item) for item in kept}
     config.hook.pytest_deselected(items=[item for item in items if id(item) not in kept_ids])
     items[:] = kept

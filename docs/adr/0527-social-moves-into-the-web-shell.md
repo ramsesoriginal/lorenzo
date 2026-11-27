@@ -86,13 +86,13 @@ Filled in as each slice lands.
 
 After G10 the built app was checked item by item against [the design](../design/web/social/README.md) (SO1 to SO8 and the prototype's lists), against the old app on `main` and against [ADR 0408](0408-lorenzo-social-the-app.md). Every scenario of the old app's five specs is still there. What the audit found and what was done:
 
-**Lost or wrong, now fixed**
+### Lost or wrong, now fixed
 
 - **No way to switch library.** The Libraries page went and the shell's switcher was never fed. The shell now gets the person's libraries (and Home carries on to the last one used).
 - **Swapping a relationship's ends, or changing its direction, cleared its since and until.** The API replaces them with the rest; the page sent neither. It now sends what the relationship had. (The old app did the same.)
 - **Types and standings and Problems were tabs for everyone** (SO1 says a person who may not write sees Webs and Relationships). They now show for those who write.
 
-**In the design, missing, now built**
+### In the design, missing, now built
 
 - The relationships list narrows by type (and what inherits from it) and by an end, which may be a group.
 - The web's panel says what a relationship is: its type, who may read it, since and until, each standing with its scale and where it comes from (written in place, refused in words, with Undo), the chain it holds through; and for a group, its members apart. A row of the List view selects it in the panel and in the drawing.
@@ -100,7 +100,7 @@ After G10 the built app was checked item by item against [the design](../design/
 - A relationship's page sets and clears since and until, and shows, adds to and takes out of the chain it holds through.
 - The matrix reads as of the date lens and as read by; a relationship not known as of the Event is dotted and worded; a stat with no scale is drawn against the values in view and the legend says so.
 
-**Built after the first audit pass**
+### Built after the first audit pass
 
 - The date lens chooses an Event from the shared time filter and the Events in story order, as the design says, and Calendars and Social now share one reading of the strip.
 - Edge labels name the type and the standing; a relationship that holds through a chain is dashed (read when the web is drawn, for webs of up to 100 entries and 60 relationships; a larger web is drawn without).
@@ -110,7 +110,7 @@ After G10 the built app was checked item by item against [the design](../design/
 - The palette (Ctrl or Cmd K) and the go-to keys are fed: Webs, Relationships, Types and standings, Problems, New web, New relationship, and any being or group, which opens its page. The app had never called the shell's palette.
 - A relationship's page lists the webs that name it: the webs list read gained `names=<relationship>` (webs with both ends as members; a relationship the reader may not see names none), and the API client was regenerated.
 
-**In the design, still not built**
+### In the design, still not built
 
 - "Groups that disagree" in Problems: nothing defines it. Doubled relationships are worked out in the page, not reported by the API.
 - Links to an entry's page from other apps: none asks for one yet.
