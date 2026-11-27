@@ -77,7 +77,8 @@ for (const theme of ['light', 'dark'] as const) {
     for (const [name, url] of pages) {
       await page.goto(url);
       await expect(page.getByRole('main')).toBeVisible();
-      await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+      // The page's own heading, not the welcome's while the page is still being drawn.
+      await expect(page.locator('[data-page]:not([hidden]) h1').first()).toBeVisible();
       await page.waitForTimeout(600);
       const found = (await new AxeBuilder({ page }).analyze()).violations;
       expect(found.map((v) => `${name}: ${v.id}`)).toEqual([]);
@@ -110,7 +111,8 @@ test('on a phone every page fits the width and its controls are tall enough to p
   for (const [, url] of pages) {
     await page.goto(url);
     await expect(page.getByRole('main')).toBeVisible();
-    await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+    // The page's own heading, not the welcome's while the page is still being drawn.
+    await expect(page.locator('[data-page]:not([hidden]) h1').first()).toBeVisible();
     await page.waitForTimeout(600);
     checked += await fitsAPhone(page);
   }
@@ -127,7 +129,8 @@ test('on a tablet the web keeps its bar and panel and nothing scrolls sideways',
   for (const [, url] of pages) {
     await page.goto(url);
     await expect(page.getByRole('main')).toBeVisible();
-    await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+    // The page's own heading, not the welcome's while the page is still being drawn.
+    await expect(page.locator('[data-page]:not([hidden]) h1').first()).toBeVisible();
     await page.waitForTimeout(400);
     const sideways = await page.evaluate(
       () => document.documentElement.scrollWidth - document.documentElement.clientWidth,

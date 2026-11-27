@@ -2900,6 +2900,19 @@ dialog.palette:not([open]) {
   opacity: 0.7;
 }
 
+/* Where the calendar says it is now: a ring under the ticks, with a word for a reader who cannot
+   see it (ADR 0530). */
+.time-filter-marks > .time-filter-today {
+  position: absolute;
+  bottom: -9px;
+  width: 9px;
+  height: 9px;
+  margin-left: -4.5px;
+  border-radius: 50%;
+  border: 2px solid var(--text-primary);
+  background: var(--surface-canvas);
+}
+
 .time-filter-range {
   position: absolute;
   top: 0;

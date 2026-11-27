@@ -664,6 +664,8 @@ test('the date lens chooses an Event from the shared time filter and the Events 
   await expect(chooser.getByRole('radio', { name: /The wedding/ })).toBeVisible();
   await expect(chooser.getByRole('radio', { name: /Harbour storm/ })).toBeVisible();
   await expect(chooser.locator('.time-filter-seg')).toHaveCount(3);
+  // A tick for each day an Event is dated on, from one read of the year (ADR 0530).
+  await expect(chooser.locator('.time-filter-marks > i').first()).toBeAttached();
   await expect(chooser.getByLabel('Order')).toHaveValue('order');
 
   // A range of the strip keeps the Events dated in it: the second month holds the storm only.

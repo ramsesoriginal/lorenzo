@@ -109,8 +109,12 @@ export async function mount() {
         renderAudienceControl({ client, tenantId, entityId: calendarId }),
       );
     }
+    // It opens on the year the calendar says it is in, where it says (ADR 0530).
     const fallback =
-      calendar.definition.week?.reference.year ?? calendar.definition.moons[0]?.reference.year ?? 0;
+      calendar.today?.year ??
+      calendar.definition.week?.reference.year ??
+      calendar.definition.moons[0]?.reference.year ??
+      0;
     let year = params.has('year') ? Number(params.get('year')) : fallback;
     const y = field('Year', String(year), 'number');
     y.input.min = '-1000000';
@@ -350,6 +354,30 @@ export async function mount() {
             }
           }
         });
+    }
+    // Where the calendar says it is now (ADR 0530), and how a day says so: a ring and a word.
+    const isToday = (segmentKey: string, dayNumber: number) =>
+      calendar.today?.year === year &&
+      calendar.today.segment === segmentKey &&
+      calendar.today.day === dayNumber;
+    function markToday(press: HTMLElement) {
+      press.dataset.today = '';
+      if (!press.getAttribute('aria-label')?.endsWith(', today'))
+        press.setAttribute('aria-label', `${press.getAttribute('aria-label')}, today`);
+    }
+    function repaintToday() {
+      for (const press of grid.querySelectorAll<HTMLElement>('.day-button')) {
+        const was = 'today' in press.dataset;
+        const now = isToday(press.dataset.segment ?? '', Number(press.dataset.day));
+
+        if (was && !now) {
+          delete press.dataset.today;
+          press.setAttribute(
+            'aria-label',
+            (press.getAttribute('aria-label') ?? '').replace(/, today$/, ''),
+          );
+        } else if (!was && now) markToday(press);
+      }
     }
     let generation = 0;
     let selection = 0;
@@ -699,6 +727,7 @@ export async function mount() {
         press.setAttribute('aria-label', `${day.date.day} ${segment.name} ${year}`);
         press.dataset.day = String(day.date.day);
         press.dataset.segment = key;
+        if (isToday(key, day.date.day)) markToday(press);
         if (selectedDay && selectedDay.segment === key && selectedDay.day === day.date.day)
           press.setAttribute('aria-pressed', 'true');
         const header = el('span', '', 'day-header');
@@ -823,6 +852,45 @@ export async function mount() {
       detail.append(el('h2', title));
       const addSlot = el('div', '', 'day-add');
       detail.append(addSlot);
+      if (canWrite && segment && day !== undefined) {
+        const now = isToday(segment, day);
+        const set = button(now ? 'Clear today' : 'Make this day today', () => {
+          void (async () => {
+            try {
+              const current = await client.GET('/tenants/{tenant_id}/calendars/{entity_id}', {
+                params: { path: { tenant_id: tenantId, entity_id: calendarId } },
+              });
+              const version = current.response.headers.get('etag') ?? '';
+              const saved = await unwrap(
+                await client.PUT('/tenants/{tenant_id}/calendars/{entity_id}/today', {
+                  params: {
+                    path: { tenant_id: tenantId, entity_id: calendarId },
+                    header: { 'if-match': version },
+                  },
+                  body: { today: now ? null : { year, segment, day } },
+                }),
+              );
+
+              calendar.today = saved.today ?? null;
+              repaintToday();
+              set.textContent = isToday(segment, day) ? 'Clear today' : 'Make this day today';
+              currentShell()?.toast({
+                kind: 'ok',
+                title: calendar.today ? `Today is now ${title}` : 'Today is no longer set',
+              });
+            } catch (error) {
+              currentShell()?.toast({
+                kind: 'error',
+                title: "Couldn't set today",
+                text: message(error),
+              });
+            }
+          })();
+        });
+
+        set.dataset.setToday = '';
+        addSlot.append(set);
+      }
       selectedDay = segment && day !== undefined ? { segment, day } : null;
       for (const pressed of grid.querySelectorAll('.day-button[aria-pressed]'))
         pressed.removeAttribute('aria-pressed');

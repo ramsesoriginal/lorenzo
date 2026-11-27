@@ -46,10 +46,15 @@ export function readMotion(): Motion {
   return motionOf(read(MOTION_KEY));
 }
 
+// What was chosen on this page, for when the browser keeps nothing (private browsing): the account
+// is sent this, and not the storage's silence.
+const chosen: AppearancePrefs = {};
+
 const dark = () => window.matchMedia?.('(prefers-color-scheme: dark)');
 
 /** Applies a theme choice; the system's one is kept up to date while it is the choice. */
 export function setThemeChoice(themeKey: string, choice: ThemeChoice): void {
+  chosen.theme = choice;
   write(themeKey, choice === 'system' ? null : choice);
   document.documentElement.dataset.theme = initialTheme(
     choice === 'system' ? null : choice,
@@ -58,11 +63,13 @@ export function setThemeChoice(themeKey: string, choice: ThemeChoice): void {
 }
 
 export function setDensity(density: Density): void {
+  chosen.density = density;
   write(DENSITY_KEY, density === 'comfortable' ? null : density);
   applyDensity(density);
 }
 
 export function setMotion(motion: Motion): void {
+  chosen.motion = motion;
   write(MOTION_KEY, motion === 'reduced' ? 'reduced' : null);
   applyMotion(motion);
 }
@@ -79,6 +86,8 @@ function applyMotion(motion: Motion): void {
 
 /** What was chosen, applied to this page, and the system's theme followed while it is the choice. */
 export function applyAppearance(themeKey: string): void {
+  // A page that starts over knows nothing of what an earlier one chose in memory.
+  for (const part of Object.keys(chosen)) delete chosen[part as keyof AppearancePrefs];
   applyDensity(readDensity());
   applyMotion(readMotion());
   dark()?.addEventListener?.('change', () => {
@@ -88,7 +97,11 @@ export function applyAppearance(themeKey: string): void {
 
 /** What this device has chosen, all three parts. */
 export function readChoices(themeKey: string): Required<AppearancePrefs> {
-  return { theme: readThemeChoice(themeKey), density: readDensity(), motion: readMotion() };
+  return {
+    theme: chosen.theme ?? readThemeChoice(themeKey),
+    density: chosen.density ?? readDensity(),
+    motion: chosen.motion ?? readMotion(),
+  };
 }
 
 /** Applies and keeps the parts the account named, on this device. */
