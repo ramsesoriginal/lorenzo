@@ -1,4 +1,5 @@
 import { LorenzoApiError } from '@lorenzo/api-client';
+import { client } from './api';
 import {
   actions,
   button,
@@ -130,6 +131,8 @@ async function matrix(
   const redo: { key: string; after: Edit | undefined }[] = [];
   let focus = { row: 0, col: 0 };
   let confirmedDelete = false;
+  // The relationships stated to hold through others: their standing is derived, and drawn so (SO3).
+  const derived = new Set<string>();
   // A stat with no scale of its own is drawn against the values in view, and the legend says so.
   let visible: [number, number] | null = null;
   const scaleNote = el('span', 'Bar: where it sits on the scale, hatched below zero');
@@ -447,7 +450,11 @@ async function matrix(
               stat.min_value != null && stat.max_value != null
                 ? { min: stat.min_value, max: stat.max_value }
                 : { min: visible?.[0] ?? null, max: visible?.[1] ?? null },
-              cell.value.own ? 'direct' : 'inherited',
+              derived.has(cell.ties[0]?.id ?? '')
+                ? 'derived'
+                : cell.value.own
+                  ? 'direct'
+                  : 'inherited',
             ),
           );
         }
@@ -609,6 +616,20 @@ async function matrix(
         new Set(rows.map((m) => m.id)),
         new Set(cols.map((m) => m.id)),
       );
+      derived.clear();
+      if (ties.length <= 60) {
+        await Promise.all(
+          ties.map(async (tie) => {
+            const read = await client
+              .GET('/tenants/{tenant_id}/relationships/{relationship_id}/through', {
+                params: { path: { tenant_id: tenant, relationship_id: tie.id } },
+                cache: 'no-cache',
+              })
+              .catch(() => null);
+            if (read?.response.ok && (read.data?.via.length ?? 0) > 0) derived.add(tie.id);
+          }),
+        );
+      }
       sortMembers();
       const seen = [...cells.values()].flatMap((c) =>
         typeof c.value?.value === 'number' ? [c.value.value] : [],
@@ -733,6 +754,7 @@ async function matrix(
     key.setAttribute('role', 'group');
     key.append(el('span', 'Number: the standing'), scaleNote);
     for (const text of [
+      'Derived: worked out through others',
       'Inherited: the standing comes from a type',
       'Not saved: a draft of yours',
       '– : a relationship with no value',

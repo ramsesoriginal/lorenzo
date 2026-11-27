@@ -8,7 +8,7 @@ import { el } from './dom';
 export function standingMark(
   value: number | string | boolean,
   scale: { min: number | null; max: number | null },
-  state: 'direct' | 'inherited',
+  state: 'direct' | 'inherited' | 'derived',
 ) {
   const root = el('span', '', 'standing');
   root.dataset.state = state;
@@ -32,7 +32,7 @@ export function standingMark(
     bar.append(fill);
     root.append(bar);
   }
-  if (state === 'inherited') root.append(el('span', 'inherited', 'standing-mark'));
+  if (state !== 'direct') root.append(el('span', state, 'standing-mark'));
   return root;
 }
 

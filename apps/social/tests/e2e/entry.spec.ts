@@ -33,6 +33,12 @@ test('an entry’s page groups its relationships, sets a standing in place and l
   await page.getByRole('combobox', { name: /^Standing/ }).selectOption(honor.id);
   await expect(page.getByLabel('Honor of Mara is the parent of Wren')).toHaveValue('6');
 
+  // A relationship can be made from here, with this entry as its first end.
+  await page.getByRole('button', { name: 'New relationship' }).click();
+  const made = page.getByRole('form', { name: 'Make a relationship' });
+  await expect(made.getByText('Chosen: Mara Quill')).toBeVisible();
+  await made.getByRole('button', { name: 'Cancel' }).click();
+
   // A group's members are apart from its relationships.
   await page.goto(`/entry/?tenant=${w.tenant.id}&id=${group.id}`);
   await expect(

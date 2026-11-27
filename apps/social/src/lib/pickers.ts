@@ -7,6 +7,8 @@ export interface Picker {
   value(): string | null;
   /** The name of the chosen entry, or ''. */
   name(): string;
+  /** Chooses an entry without a search, as when a page already knows one end. */
+  set?(entry: { id: string; name: string } | null): void;
 }
 
 /**
@@ -85,6 +87,7 @@ export function entryPicker(
     label,
     value: () => picked?.id ?? null,
     name: () => picked?.name ?? '',
+    set: (entry) => choose(entry ? { id: entry.id, name: entry.name, kinds: [] } : null),
   };
 }
 

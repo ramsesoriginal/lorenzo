@@ -110,9 +110,18 @@ After G10 the built app was checked item by item against [the design](../design/
 - The palette (Ctrl or Cmd K) and the go-to keys are fed: Webs, Relationships, Types and standings, Problems, New web, New relationship, and any being or group, which opens its page. The app had never called the shell's palette.
 - A relationship's page lists the webs that name it: the webs list read gained `names=<relationship>` (webs with both ends as members; a relationship the reader may not see names none), and the API client was regenerated.
 
+### Built after a second audit against the design's own screens
+
+- A web on the Webs home is a card: a small drawing, its name, "N entries · M relationships", who may read it and a menu (Rename, Delete); Continue is the same card.
+- Every standing the library has is read on a relationship, in its page and in the web's panel: its value as a number, a bar and a word, its scale (or that it has none and is shaded across the visible range), where an inherited value comes from, and for those who may write a field to set it where it is read, even when it has no value yet, refused outside the scale, with Undo (which clears a value that was new).
+- A row of the relationships list says its type and its standing; the filters are one wrapped row (name, type, an end, a standing and the numbers it lies between).
+- An entry's page has New relationship (this entry as the first end), "Back to the webs", and says what the entry is.
+- The matrix marks a standing that holds through others as derived, as the design does.
+- On a web, Members sits beside the view switch, and the layout and Connect with the zoom; the legend draws a sample of each line; the Types switch says how many types the web is limited to.
+
 ### In the design, still not built
 
-- "Groups that disagree" in Problems: nothing defines it. Doubled relationships are worked out in the page, not reported by the API.
+- "Groups that disagree" in Problems: the design's example is a relationship that says an entry is a member of a group the group does not hold, which depends on what a library's types mean (no type is built in), so nothing defines it yet. Doubled relationships are worked out in the page, not reported by the API.
 - Links to an entry's page from other apps: none asks for one yet.
 
 ## Consequences

@@ -9,7 +9,6 @@ import {
   card,
   claim,
   el,
-  empty,
   entryHref,
   errorNotice,
   field,
@@ -21,7 +20,6 @@ import {
   pageHead,
   relationshipHref,
   say,
-  sectionHead,
   select,
   statusLine,
   submit,
@@ -29,7 +27,7 @@ import {
 import { listStats, readStanding, type StatDef } from './matrix-api';
 import { canManage, libraryName } from './names';
 import { notes } from './notes';
-import { endPicker, typePicker } from './pickers';
+import { endPicker } from './pickers';
 import { relationshipForm } from './relationship-form';
 import { timeAndChain } from './relationship-time';
 import { shellOf, start } from './sign-in';
@@ -42,7 +40,8 @@ import {
   setPublic,
 } from './social-api';
 import { standingMark } from './standing';
-import { readLibrary, readsOf } from './types-api';
+import { standingRows } from './standing-rows';
+import { listTypes, readLibrary, readsOf } from './types-api';
 import { audienceWords, directionWords, sentence } from './words';
 
 const tenantOf = () => new URLSearchParams(location.search).get('tenant');
@@ -90,8 +89,42 @@ export async function mountRelationships() {
     let total = 0;
     let shown = 0;
 
+    // The standing a row shows is the one asked for, or the library's first; read for all at once.
+    let shownStanding: Promise<{
+      def: StatDef;
+      values: Map<string, { value: unknown; own: boolean }>;
+    } | null> = Promise.resolve(null);
+    const readRows = new Map<string, Promise<Awaited<ReturnType<typeof readEntry>> | null>>();
+    const fillRow = async (rowId: string, kind: HTMLElement, mark: HTMLElement) => {
+      let entry = readRows.get(rowId);
+      if (!entry) {
+        entry = readEntry(tenant, rowId).catch(() => null);
+        readRows.set(rowId, entry);
+      }
+      const read = await entry;
+      kind.textContent = read?.prototypes[0]?.name ?? '';
+      const shown = await shownStanding;
+      const value = shown?.values.get(rowId);
+      if (shown && value && typeof value.value === 'number') {
+        mark.replaceChildren(
+          standingMark(
+            value.value,
+            { min: shown.def.min_value ?? null, max: shown.def.max_value ?? null },
+            value.own ? 'direct' : 'inherited',
+          ),
+        );
+      }
+    };
+
     const load = async (fresh: boolean) => {
       if (fresh) {
+        shownStanding = (async () => {
+          const defs = (await listStats(tenant).catch((): StatDef[] => [])).filter(
+            (x) => x.value_type === 'int',
+          );
+          const def = defs.find((x) => x.id === statId) ?? defs[0];
+          return def ? { def, values: await readStanding(tenant, def.id) } : null;
+        })().catch(() => null);
         page = 1;
         shown = 0;
         list.replaceChildren();
@@ -140,6 +173,11 @@ export async function mountRelationships() {
             ),
           );
           item.append(text);
+          // Its type and its standing, read once the row is there (the list read has neither).
+          const kind = el('span', '', 'status-text');
+          const mark = el('span');
+          item.append(kind, mark);
+          void fillRow(row.id, kind, mark);
           if (row.is_public !== null && row.is_public !== undefined) {
             item.append(audienceBadge(audienceWords(row.is_public), row.is_public));
           }
@@ -189,13 +227,17 @@ export async function mountRelationships() {
     };
 
     // Find by name, and narrow by a type (and what inherits from it) or by an end: a being, or a group.
-    const search = el('form', '', 'stack-tight');
+    const search = el('form', '', 'filters');
     search.setAttribute('aria-label', 'Find relationships');
     const find = field('Find by name');
     find.input.type = 'search';
-    const ofType = typePicker(tenant, 'Of the type');
+    const typeRows = await listTypes(tenant).catch(() => []);
+    const ofType = select('Of the type', [
+      ['', 'Any type'],
+      ...typeRows.map((t): [string, string] => [t.id, t.name]),
+    ]);
     const withEnd = endPicker(tenant, 'With the entry or group');
-    const narrow = el('div', '', 'row');
+    const narrow = el('div', '', 'row filters-actions');
     narrow.append(
       submit('Find', 'secondary'),
       button('Clear the filters', () => {
@@ -210,6 +252,7 @@ export async function mountRelationships() {
         atLeast = null;
         atMost = null;
         byStanding.input.value = '';
+        ofType.input.value = '';
         void load(true);
       }),
     );
@@ -218,12 +261,12 @@ export async function mountRelationships() {
       (x) => x.value_type === 'int',
     );
     const byStanding = select('Having the standing', [
-      ['', 'Any'],
+      ['', 'Any standing'],
       ...numbers.map((x): [string, string] => [x.id, x.name]),
     ]);
     const least = field('At least', '', 'number');
     const most = field('At most', '', 'number');
-    const range = el('div', '', 'row');
+    const range = el('div', '', 'row filters-range');
     range.append(least.label, most.label);
     search.append(
       find.label,
@@ -235,21 +278,14 @@ export async function mountRelationships() {
     search.addEventListener('submit', (event) => {
       event.preventDefault();
       query = find.input.value.trim();
-      typeId = ofType.value() ?? '';
+      typeId = ofType.input.value;
       endId = withEnd.value() ?? '';
       statId = byStanding.input.value;
       atLeast = least.input.value === '' ? null : Number(least.input.value);
       atMost = most.input.value === '' ? null : Number(most.input.value);
       void load(true);
     });
-    listing.append(
-      sectionHead('All relationships', { actions: [] }),
-      search,
-      empties,
-      list,
-      status,
-      more,
-    );
+    listing.append(search, empties, list, status, more);
     view.append(listing);
 
     host.replaceChildren(view);
@@ -350,29 +386,16 @@ export async function mountRelationship() {
 
       const stats = card();
       stats.body.append(el('h2', 'What it holds', 'group-title'));
-      if (entry.stats.length) {
-        const scales = new Map(
-          (await listStats(tenant).catch((): StatDef[] => [])).map((def) => [def.id, def] as const),
-        );
-        const rows = el('ul', '', 'list');
-        rows.setAttribute('aria-label', 'Standings');
-        for (const stat of entry.stats) {
-          const row = el('li');
-          const def = scales.get(stat.stat_definition_id);
-          row.append(
-            el('span', stat.name, 'grow'),
-            standingMark(
-              stat.value,
-              { min: def?.min_value ?? null, max: def?.max_value ?? null },
-              stat.own ? 'direct' : 'inherited',
-            ),
-          );
-          rows.append(row);
-        }
-        stats.body.append(rows);
-      } else {
-        stats.body.append(empty('It holds no standings.'));
-      }
+      stats.body.append(
+        standingRows({
+          tenant,
+          relationship: { id, name: relationship.name },
+          entry,
+          stats: await listStats(tenant).catch((): StatDef[] => []),
+          canEdit: relationship.can_edit,
+          shell: shellOf(),
+        }),
+      );
       view.append(stats.root);
       view.append(
         ...(await timeAndChain(tenant, id, version, relationship, relationship.can_edit, draw)),

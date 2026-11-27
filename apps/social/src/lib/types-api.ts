@@ -200,3 +200,12 @@ export async function addStarter(
   }
   return { made };
 }
+
+/** Clears an entry's own value of a standing; what it inherits, if anything, shows through again. */
+export async function clearStatValue(tenant: string, entity: string, stat: string) {
+  const result = await client.DELETE(
+    '/tenants/{tenant_id}/entities/{entity_id}/stats/{stat_definition_id}',
+    { params: { path: { tenant_id: tenant, entity_id: entity, stat_definition_id: stat } } },
+  );
+  if (!result.response.ok) await unwrap(result as never);
+}

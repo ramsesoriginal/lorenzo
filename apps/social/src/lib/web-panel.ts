@@ -1,11 +1,9 @@
 import type { bindShell } from '@lorenzo/app-shell';
 import { client } from './api';
-import { el, empty, entryHref, link, message, relationshipHref } from './dom';
-import { parseInput } from './matrix';
-import { limitsOf, listStats } from './matrix-api';
+import { el, entryHref, link, relationshipHref } from './dom';
+import { listStats } from './matrix-api';
 import { readEntry } from './social-api';
-import { standingMark } from './standing';
-import { setStatValue } from './types-api';
+import { standingRows } from './standing-rows';
 import { audienceWords } from './words';
 
 type Shell = NonNullable<ReturnType<typeof bindShell>>;
@@ -71,66 +69,16 @@ export async function relationshipPanel(
     box.append(when);
   }
 
-  const scales = new Map(stats.map((s) => [s.id, s] as const));
-  const numbers = (entry?.stats ?? []).filter((s) => typeof s.value === 'number');
-  const standings = el('ul', '', 'list');
-  standings.setAttribute('aria-label', 'Standings of this relationship');
-  for (const stat of numbers) {
-    const def = scales.get(stat.stat_definition_id);
-    const row = el('li');
-    row.append(
-      el('span', stat.name, 'grow'),
-      standingMark(
-        stat.value,
-        { min: def?.min_value ?? null, max: def?.max_value ?? null },
-        stat.own ? 'direct' : 'inherited',
-      ),
-    );
-    if (def && (def.min_value ?? null) !== null && (def.max_value ?? null) !== null) {
-      row.append(el('span', `from ${def.min_value} to ${def.max_value}`, 'status-text'));
-    }
-    // Those who may write change a standing where it is read: it saves, says what it refused, and has Undo.
-    if (def && (edge.can_manage || edge.can_edit)) {
-      const limits = limitsOf(def);
-      const input = el('input', '', 'text-input matrix-input');
-      input.inputMode = 'numeric';
-      input.setAttribute('aria-label', `${stat.name} of ${edge.name}`);
-      input.value = String(stat.value);
-      const problem = el('p', '', 'error-text');
-      problem.setAttribute('role', 'alert');
-      input.addEventListener('change', () => {
-        const parsed = parseInput(input.value, limits);
-        if (!parsed.ok || parsed.value === null) {
-          problem.textContent = parsed.ok ? 'Type a whole number.' : parsed.reason;
-          return;
-        }
-        problem.textContent = '';
-        const before = stat.value;
-        const after = parsed.value;
-        void setStatValue(tenant, edge.id, stat.stat_definition_id, after)
-          .then(() => {
-            shell?.undoable({
-              title: `${stat.name} of ${edge.name} is ${after}`,
-              undo: () => {
-                void setStatValue(tenant, edge.id, stat.stat_definition_id, before as number)
-                  .then(() => {
-                    input.value = String(before);
-                  })
-                  .catch((error) => {
-                    problem.textContent = message(error);
-                  });
-              },
-            });
-          })
-          .catch((error) => {
-            problem.textContent = message(error);
-          });
-      });
-      row.append(input, problem);
-    }
-    standings.append(row);
-  }
-  box.append(numbers.length ? standings : empty('It holds no standings.'));
+  box.append(
+    standingRows({
+      tenant,
+      relationship: { id: edge.id, name: edge.name },
+      entry,
+      stats,
+      canEdit: Boolean(edge.can_manage || edge.can_edit),
+      shell,
+    }),
+  );
 
   if (through?.via.length) {
     const chain = el('ul', '', 'list');

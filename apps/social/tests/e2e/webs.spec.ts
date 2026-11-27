@@ -269,6 +269,8 @@ test('Home opens the webs of the library, continues the last web, renames and de
   await page.goto('/');
   await expect(page.getByRole('heading', { name: 'Webs', level: 1 })).toBeVisible();
   await expect(page.getByRole('link', { name: 'The court' })).toBeVisible();
+  // Each web is a card: its drawing's counts are read as it comes into view.
+  await expect(page.getByText('1 entry · 0 relationships').first()).toBeVisible();
 
   // Opening a web makes Home offer it again.
   await page.goto(`/web/?tenant=${w.tenant.id}&id=${made.id}`);
@@ -279,12 +281,14 @@ test('Home opens the webs of the library, continues the last web, renames and de
   ).toBeVisible();
 
   // A rename is in place; a delete asks first and names what stays.
-  await page.getByRole('button', { name: 'Rename The guild' }).click();
+  await page.getByRole('button', { name: 'More about The guild' }).click();
+  await page.getByRole('menuitem', { name: /Rename/ }).click();
   const rename = page.getByRole('form', { name: 'Rename the web' });
   await rename.getByLabel('Name').fill('The order');
   await rename.getByRole('button', { name: 'Rename' }).click();
   await expect(page.getByRole('link', { name: 'The order' })).toBeVisible();
-  await page.getByRole('button', { name: 'Delete The order' }).click();
+  await page.getByRole('button', { name: 'More about The order' }).click();
+  await page.getByRole('menuitem', { name: /Delete/ }).click();
   await expect(
     page.getByText('The entries and their relationships stay as they are.'),
   ).toBeVisible();
@@ -446,11 +450,11 @@ test('the panel reads a relationship: its type, standings with their scale, and 
   await expect(panel.getByText('It has no type.')).toBeVisible();
   await expect(panel.getByText('Since The wedding.')).toBeVisible();
   const standings = panel.getByRole('list', { name: 'Standings of this relationship' });
-  await expect(standings.getByText('Honor')).toBeVisible();
-  await expect(standings.locator('.standing-num')).toHaveText('5');
-  await expect(standings.getByText('from -10 to 10')).toBeVisible();
+  await expect(standings.getByText('Honor', { exact: true })).toBeVisible();
+  await expect(standings.getByText('Scale -10 to 10.')).toBeVisible();
   // A standing is changed where it is read, refused outside its scale, and has Undo.
   const input = panel.getByLabel('Honor of Mara trusts Wren');
+  await expect(input).toHaveValue('5');
   await input.fill('12');
   await input.press('Tab');
   await expect(panel.getByText('12 is above the scale (up to 10).')).toBeVisible();
@@ -670,4 +674,27 @@ test('the date lens chooses an Event from the shared time filter and the Events 
   await page.getByRole('button', { name: 'Read as of this Event' }).click();
   await expect(page.getByText('Looking as of Harbour storm')).toBeVisible();
   expect(page.url()).toContain('as_of=');
+});
+
+test('Members sits beside the view switch, and the layout and Connect with the zoom', async ({
+  browser,
+}) => {
+  const w = await world();
+  const mara = await w.entry('Mara Quill');
+  const wren = await w.entry('Wren Ashdown');
+  await w.tie('Always friends', mara.id, wren.id, true);
+  const web = await webOf(w, 'The court', [mara.id, wren.id]);
+  const page = await signedIn(browser, w.subject);
+  await page.goto(`/web/?tenant=${w.tenant.id}&id=${web.id}`);
+  await expect(page.getByRole('group', { name: 'The court' })).toBeVisible();
+  const head = page.locator('.web-float--head');
+  await expect(head.getByRole('button', { name: 'Members' })).toBeVisible();
+  const bottom = page.locator('.web-float--zoom');
+  await expect(bottom.getByRole('button', { name: 'Connect' })).toBeVisible();
+  await expect(bottom.getByLabel('Layout')).toBeVisible();
+  await expect(bottom.getByRole('button', { name: 'Fit' })).toBeVisible();
+  // The legend shows what a line looks like, not only its name.
+  await expect(page.locator('.legend-dashed')).toBeAttached();
+  await bottom.getByLabel('Layout').selectOption('radial');
+  await expect(page.getByRole('group', { name: 'The court' })).toBeVisible();
 });
