@@ -304,7 +304,10 @@ class BeingSessionOut(BaseModel):
 
 @router.get("/{entity_id}/sessions")
 async def list_being_sessions(
-    tenant_id: uuid.UUID, entity_id: uuid.UUID, session: SessionDep, user: CurrentUser
+    tenant_id: Annotated[uuid.UUID, Depends(get_tenant_or_404)],
+    entity_id: uuid.UUID,
+    session: SessionDep,
+    user: CurrentUser,
 ) -> list[BeingSessionOut]:
     """The Sessions a being takes part in, from who came and from the Scenes told, and not from
     what their texts say (ADR 0531). A Session is listed only when the reader may read it; a

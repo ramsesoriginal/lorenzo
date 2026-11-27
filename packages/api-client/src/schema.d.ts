@@ -3608,6 +3608,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/tenants/{tenant_id}/beings/{entity_id}/sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Being Sessions
+         * @description The Sessions a being takes part in, from who came and from the Scenes told, and not from
+         *     what their texts say (ADR 0531). A Session is listed only when the reader may read it; a
+         *     reader who does not manage a Session sees a Scene's telling of the being only when the
+         *     Scene appearance and the telling are shared, as the Session's own references say.
+         */
+        get: operations["list_being_sessions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/tenants/{tenant_id}/beings/{entity_id}": {
         parameters: {
             query?: never;
@@ -8513,6 +8536,23 @@ export interface components {
              * @default 0
              */
             z: number;
+        };
+        /**
+         * BeingSessionOut
+         * @description A Session a being takes part in, and how the reader may say so (ADR 0531).
+         */
+        BeingSessionOut: {
+            /**
+             * Session Id
+             * Format: uuid
+             */
+            session_id: string;
+            /** Name */
+            name: string;
+            /** Real Date */
+            real_date: string | null;
+            /** Via */
+            via: ("roster" | "scene")[];
         };
         /**
          * BeingSummaryOut
@@ -34281,6 +34321,72 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SheetOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    list_being_sessions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                entity_id: string;
+                tenant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BeingSessionOut"][];
                 };
             };
             /** @description Validation Error */
