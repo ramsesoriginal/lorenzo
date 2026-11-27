@@ -2,11 +2,13 @@ from __future__ import annotations
 
 import uuid
 from collections.abc import Sequence
-from typing import Annotated, cast
+from datetime import date
+from typing import Annotated, Literal, cast
 
 from fastapi import APIRouter, Depends, Header, Query, Request
 from fastapi_pagination import Page
 from fastapi_pagination.ext.sqlalchemy import apaginate
+from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import joinedload, selectinload
 
@@ -37,7 +39,11 @@ from lorenzo_api.models import (
     Containment,
     Entity,
     Information,
+    SceneAppearance,
+    SceneBeing,
+    SessionCharacter,
     StatDefinition,
+    StorySession,
     Tenant,
     VEffectiveStat,
     VItemInstance,
@@ -53,6 +59,7 @@ from lorenzo_api.routers.templates import (
 )
 from lorenzo_api.schemas.beings import BeingSummaryOut, SheetOut, SheetWeaponOut
 from lorenzo_api.schemas.entities import InformationOut, _stats_out
+from lorenzo_api.session_access import manages_planning_entry
 from lorenzo_api.stat_contents import attach_contents
 
 # No router-level gate: who may list, and which beings, is decided in the
@@ -282,6 +289,86 @@ async def get_being_sheet(
         template=template_summary(chosen, slugs) if chosen is not None else None,
         templates=[template_summary(t, slugs) for t in candidates],
     )
+
+
+class BeingSessionOut(BaseModel):
+    """A Session a being takes part in, and how the reader may say so (ADR 0531)."""
+
+    session_id: uuid.UUID
+    name: str
+    real_date: date | None
+    # `roster`: it was named among the characters who came; `scene`: a Scene of the Session
+    # tells of it. Either or both.
+    via: list[Literal["roster", "scene"]]
+
+
+@router.get("/{entity_id}/sessions")
+async def list_being_sessions(
+    tenant_id: Annotated[uuid.UUID, Depends(get_tenant_or_404)],
+    entity_id: uuid.UUID,
+    session: SessionDep,
+    user: CurrentUser,
+) -> list[BeingSessionOut]:
+    """The Sessions a being takes part in, from who came and from the Scenes told, and not from
+    what their texts say (ADR 0531). A Session is listed only when the reader may read it; a
+    reader who does not manage a Session sees a Scene's telling of the being only when the
+    Scene appearance and the telling are shared, as the Session's own references say."""
+    await require_tenant_participant(session, tenant_id=tenant_id, user=user)
+    await get_entity_or_404(session, entity_id, tenant_id)
+    if await session.get(Being, entity_id) is None:
+        raise EntityNotFoundError(detail=f"No being with id {entity_id} in tenant {tenant_id}")
+    await require_visible_entry(session, entity_id=entity_id, tenant_id=tenant_id, user_id=user.id)
+    vis = await resolve_information_visibility(session, user_id=user.id, tenant_id=tenant_id)
+    found: dict[uuid.UUID, set[str]] = {}
+    rosters = await session.scalars(
+        select(SessionCharacter.session_entity_id)
+        .join(Entity, Entity.id == SessionCharacter.session_entity_id)
+        .where(
+            SessionCharacter.tenant_id == tenant_id,
+            SessionCharacter.character_entity_id == entity_id,
+            visible_entry_clause(vis, SessionCharacter.session_entity_id),
+        )
+    )
+    for sid in rosters:
+        found.setdefault(sid, set()).add("roster")
+    told = await session.execute(
+        select(SceneAppearance.session_entity_id, SceneAppearance.is_shared, SceneBeing.is_shared)
+        .join(
+            SceneBeing,
+            (SceneBeing.scene_entity_id == SceneAppearance.scene_entity_id)
+            & (SceneBeing.tenant_id == SceneAppearance.tenant_id),
+        )
+        .where(
+            SceneAppearance.tenant_id == tenant_id,
+            SceneBeing.being_entity_id == entity_id,
+            visible_entry_clause(vis, SceneAppearance.session_entity_id),
+            visible_entry_clause(vis, SceneAppearance.entity_id),
+            visible_entry_clause(vis, SceneBeing.scene_entity_id),
+        )
+    )
+    managed: dict[uuid.UUID, bool] = {}
+    for sid, appearance_shared, being_shared in told:
+        if sid not in managed:
+            managed[sid] = await manages_planning_entry(session, tenant_id, sid, user.id)
+        if managed[sid] or (appearance_shared and being_shared):
+            found.setdefault(sid, set()).add("scene")
+    if not found:
+        return []
+    rows = await session.execute(
+        select(StorySession.entity_id, Entity.name, StorySession.real_date)
+        .join(Entity, Entity.id == StorySession.entity_id)
+        .where(StorySession.tenant_id == tenant_id, StorySession.entity_id.in_(found))
+        .order_by(StorySession.real_date.nulls_last(), Entity.name, StorySession.entity_id)
+    )
+    return [
+        BeingSessionOut(
+            session_id=sid,
+            name=name,
+            real_date=real_date,
+            via=sorted(found[sid]),  # type: ignore[arg-type]
+        )
+        for sid, name, real_date in rows
+    ]
 
 
 @router.delete("/{entity_id}", status_code=204)
