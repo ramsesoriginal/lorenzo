@@ -302,3 +302,12 @@ export async function getBacklinks(tenantId: string, entityId: string): Promise<
     ),
   );
 }
+
+/** The Sessions a being takes part in, as far as the viewer may read them (ADR 0531). */
+export async function getBeingSessions(tenantId: string, entityId: string) {
+  return unwrap(
+    await client.GET('/tenants/{tenant_id}/beings/{entity_id}/sessions', {
+      params: { path: { tenant_id: tenantId, entity_id: entityId } },
+    }),
+  );
+}

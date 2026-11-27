@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { groupAppearances } from './appears';
+import { groupAppearances, takingPart, viaText } from './appears';
 
 const link = (entity: string, name: string, kinds: string[], title: string) =>
   ({
@@ -38,5 +38,23 @@ describe('groupAppearances', () => {
 
   it('is empty when nothing links here', () => {
     expect(groupAppearances([])).toEqual({ sessions: [], scenes: [], others: [] });
+  });
+});
+
+describe('the Sessions a being takes part in', () => {
+  it('says how, in words', () => {
+    expect(viaText(['roster'])).toBe('came to it');
+    expect(viaText(['scene'])).toBe('a Scene tells of it');
+    expect(viaText(['roster', 'scene'])).toBe('came to it, and a Scene tells of it');
+  });
+
+  it('turns them into rows, as given', () => {
+    const rows = takingPart([
+      { session_id: 's1', name: 'At the wreck', real_date: null, via: ['roster'] },
+    ]);
+
+    expect(rows).toEqual([
+      { entityId: 's1', name: 'At the wreck', kinds: ['session'], titles: ['came to it'] },
+    ]);
   });
 });

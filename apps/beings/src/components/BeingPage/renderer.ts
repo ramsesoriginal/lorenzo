@@ -14,6 +14,8 @@ import { errorMessage } from '../../lib/errorMessage';
 import { DEFAULT_GM_WORDS, gmWordsOfBeing } from '../../lib/gmTitle';
 import { gmCampaignsIn, isTenantMember, listCampaigns, myBeingIds, viewerId } from '../../lib/me';
 import type { Person } from '../../lib/people';
+import { type Audience, audienceFor, type Who, whoOf, whoText } from '../../lib/seenBy';
+import { loadSeenBy, saveSeenBy } from '../../lib/seenByApi';
 import { currentShell } from '../../lib/shell';
 import { backTo, stepText, whoLabel } from '../../lib/statHistory';
 import { listStatSteps } from '../../lib/statSteps';
@@ -236,6 +238,62 @@ export function renderBeingPage(options: BeingPageOptions): RenderedBeingPage {
     );
   });
 
+  /** "Seen by" in the rail (ADR 0529): shown to those who may say who sees the being. */
+  async function showSeenBy(entityId: string, words: { title: string; plural: string }) {
+    const row = required<HTMLElement>(root, '[data-seen-by]');
+    const select = required<HTMLSelectElement>(root, '[data-seen-by-select]');
+    const hint = required<HTMLElement>(root, '[data-seen-by-hint]');
+    const loaded = await loadSeenBy(tenantId, entityId);
+
+    if (!loaded) return;
+
+    let { audience, version } = loaded;
+    const draw = () => {
+      const now = whoOf(audience);
+      const choices: Who[] = now === 'named' ? ['everyone', 'gm', 'named'] : ['everyone', 'gm'];
+
+      select.replaceChildren(
+        ...choices.map((who) => {
+          const option = document.createElement('option');
+
+          option.value = who;
+          option.textContent = whoText(who, words).label;
+          return option;
+        }),
+      );
+      select.value = now;
+      hint.textContent = whoText(now, words).hint;
+    };
+
+    draw();
+    row.hidden = false;
+    select.addEventListener('change', () => {
+      const wanted = audienceFor(select.value as Who, audience);
+
+      void (async () => {
+        select.disabled = true;
+        try {
+          version = await saveSeenBy(tenantId, entityId, wanted as Audience, version);
+          audience = wanted;
+          currentShell()?.toast({
+            kind: 'ok',
+            title: 'Saved',
+            text: whoText(whoOf(audience), words).hint,
+          });
+        } catch (error) {
+          currentShell()?.toast({
+            kind: 'error',
+            title: "Couldn't save who sees it",
+            text: errorMessage(error),
+          });
+        } finally {
+          select.disabled = false;
+          draw();
+        }
+      })();
+    });
+  }
+
   /** Who plays it and in which campaign, in the line under the name and in the rail. */
   function showPeople(people: readonly Person[]) {
     const names = people.map((person) => person.name);
@@ -325,6 +383,7 @@ export function renderBeingPage(options: BeingPageOptions): RenderedBeingPage {
       const words = inRepository ? DEFAULT_GM_WORDS : gmWordsOfBeing(character, campaigns);
 
       controls.setGmWord(words.title);
+      void showSeenBy(entityId, words);
       controls.allowEdit(canEdit, tenantId, entityId);
       // Who may write is known now: the numbers and tags can show their controls.
       redrawStats(current());

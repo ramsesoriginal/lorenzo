@@ -53,3 +53,27 @@ export function groupAppearances(links: readonly Backlink[]): Appearances {
 
   return result;
 }
+
+export type BeingSession = components['schemas']['BeingSessionOut'];
+
+/** How a being takes part in a Session, in words: who came, and the Scenes that tell of it. */
+export function viaText(via: readonly BeingSession['via'][number][]): string {
+  const came = via.includes('roster');
+  const told = via.includes('scene');
+
+  if (came && told) return 'came to it, and a Scene tells of it';
+  if (came) return 'came to it';
+  if (told) return 'a Scene tells of it';
+
+  return '';
+}
+
+/** The Sessions a being takes part in as rows of the page, in the order the API gave. */
+export function takingPart(sessions: readonly BeingSession[]): Appearance[] {
+  return sessions.map((session) => ({
+    entityId: session.session_id,
+    name: session.name,
+    kinds: ['session'],
+    titles: [viaText(session.via)],
+  }));
+}
