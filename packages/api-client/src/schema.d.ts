@@ -3700,6 +3700,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/tenants/{tenant_id}/calendars/{entity_id}/today": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Replace Today
+         * @description Sets the date the calendar is at now, or clears it with `null` (ADR 0530).
+         */
+        put: operations["replace_today"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/tenants/{tenant_id}/calendars/{entity_id}/years/{year}": {
         parameters: {
             query?: never;
@@ -4940,6 +4960,28 @@ export interface paths {
         };
         /** Event Access */
         get: operations["event_access"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/events/dated-days": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Dated Days
+         * @description The places of a calendar's year that Events are dated on, for the marks of a time filter's
+         *     strip. One read for the whole year, through the periods and the Events the reader may see, so a
+         *     reader is told nothing about an Event they cannot see (ADR 0442's rule, ADR 0530).
+         */
+        get: operations["dated_days"];
         put?: never;
         post?: never;
         delete?: never;
@@ -9180,6 +9222,7 @@ export interface components {
             /** Name */
             name: string;
             definition: components["schemas"]["CalendarDefinition-Output"];
+            today?: components["schemas"]["CalendarDate"] | null;
             /**
              * Updated At
              * Format: date-time
@@ -10580,6 +10623,19 @@ export interface components {
             role: string | null;
             /** Url */
             url: string | null;
+        };
+        /**
+         * DatedDayOut
+         * @description Where Events are dated in a year: a day of a segment, or a whole segment (`day` null), or the
+         *     whole year (`segment` null), and how many Events the reader sees dated there (ADR 0530).
+         */
+        DatedDayOut: {
+            /** Segment */
+            segment: string | null;
+            /** Day */
+            day: number | null;
+            /** Count */
+            count: number;
         };
         /** DatedEntryOut */
         DatedEntryOut: {
@@ -19822,6 +19878,10 @@ export interface components {
              * @default true
              */
             may_be_hidden_is_default: boolean;
+        };
+        /** TodayIn */
+        TodayIn: {
+            today: components["schemas"]["CalendarDate"] | null;
         };
         /**
          * UndeprecatedOut
@@ -34680,6 +34740,78 @@ export interface operations {
             };
         };
     };
+    replace_today: {
+        parameters: {
+            query?: never;
+            header?: {
+                "if-match"?: string | null;
+            };
+            path: {
+                tenant_id: string;
+                entity_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TodayIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CalendarOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
     get_calendar_year: {
         parameters: {
             query?: never;
@@ -40624,6 +40756,74 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["EventAccess"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    dated_days: {
+        parameters: {
+            query: {
+                calendar_id: string;
+                year: number;
+            };
+            header?: never;
+            path: {
+                tenant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DatedDayOut"][];
                 };
             };
             /** @description Validation Error */

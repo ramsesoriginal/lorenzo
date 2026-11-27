@@ -24,6 +24,8 @@ class Calendar(Base):
     entity_id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
     tenant_id: Mapped[TenantFk]
     definition: Mapped[dict[str, Any]] = mapped_column(JSONB)
+    # The date a table plays at, as {year, segment, day}: the calendar's own (ADR 0530).
+    today: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
     updated_at: Mapped[UpdatedAt]
     entity: Mapped[Entity] = relationship(
         foreign_keys="Calendar.entity_id", lazy="raise_on_sql", back_populates="calendar"
