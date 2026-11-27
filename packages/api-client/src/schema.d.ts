@@ -16402,9 +16402,9 @@ export interface components {
             /** Theme */
             theme?: ("system" | "light" | "dark") | null;
             /** Density */
-            density?: ("comfortable" | "compact") | null;
+            density?: ("comfortable" | "compact" | "dense") | null;
             /** Motion */
-            motion?: ("normal" | "reduced") | null;
+            motion?: ("system" | "reduced") | null;
         };
         /**
          * PrerequisitesIn
