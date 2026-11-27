@@ -30,7 +30,7 @@ The audit steps (H3, H4) write their findings here as tables, the way ADR 0524 a
 
 Read from ADR 0409 to 0527, the design's follow-ups and issues #1129 and #1020. Each is sorted by what stops it. The first group is done in the course of UI-H, as part of the audit steps named; the others wait for something and say for what.
 
-**Can be done in UI-H (nothing outside the web apps is needed)**
+### Can be done in UI-H (nothing outside the web apps is needed)
 
 | Point | From | Done in |
 | --- | --- | --- |
@@ -45,7 +45,7 @@ Read from ADR 0409 to 0527, the design's follow-ups and issues #1129 and #1020. 
 | "Groups that disagree" in Problems (Social), and an entry's page linked from other apps | 0527 | H3, once the maintainer says what "disagree" means; the links once a first app asks for one |
 | The new matrix control "New cells are" as its own select | 0527 | H3 |
 
-**Waits for an API**
+### Waits for an API
 
 | Point | From | Waits for |
 | --- | --- | --- |
@@ -57,7 +57,7 @@ Read from ADR 0409 to 0527, the design's follow-ups and issues #1129 and #1020. 
 | Undo of a hand over (Beings, Inventory) | 0524 | A way to take an item back that the API offers |
 | Inventory's pages (I6) | 0524 | Decided there, not scheduled |
 
-**Waits for art or a decision**
+### Waits for art or a decision
 
 | Point | From | Waits for |
 | --- | --- | --- |
