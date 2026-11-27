@@ -77,6 +77,8 @@ from lorenzo_api.routers.payloads import router as payloads_router
 from lorenzo_api.routers.personal_tokens import router as personal_tokens_router
 from lorenzo_api.routers.pictures import router as pictures_router
 from lorenzo_api.routers.players import router as players_router
+from lorenzo_api.routers.preferences import me_router as preferences_router
+from lorenzo_api.routers.preferences import saved_views_router
 from lorenzo_api.routers.public_repositories import router as public_repositories_router
 from lorenzo_api.routers.relationship_bulk import router as relationship_bulk_router
 from lorenzo_api.routers.relationship_through import router as relationship_through_router
@@ -237,6 +239,8 @@ def create_app() -> FastAPI:
     app.include_router(link_previews_router)
     app.include_router(entity_stats_router)
     app.include_router(entity_stat_changes_router)
+    app.include_router(preferences_router)
+    app.include_router(saved_views_router)
     app.include_router(computed_stats_router)
     app.include_router(groups_router)
     from lorenzo_api.routers.manuscripts import router as manuscripts_router

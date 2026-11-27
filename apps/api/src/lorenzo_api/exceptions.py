@@ -1579,6 +1579,14 @@ class InvalidCalendarDateError(UnprocessableProblem):
     title = "That calendar date is not available"
 
 
+class TooManySavedViewsError(UnprocessableProblem):
+    title = "Too many saved views"
+
+
+class SavedViewTooLargeError(UnprocessableProblem):
+    title = "That saved view is too large"
+
+
 class CalendarImportReviewRequiredError(ConflictProblem):
     title = "Review the calendar import before applying it"
 

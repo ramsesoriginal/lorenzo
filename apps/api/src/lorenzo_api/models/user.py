@@ -2,9 +2,10 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import ARRAY, ForeignKey, Text, text
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from lorenzo_api.db import Base, CreatedAt, UpdatedAt, UuidPk
@@ -75,6 +76,10 @@ class User(Base):
     bio: Mapped[str | None]
     locales: Mapped[list[str]] = mapped_column(ARRAY(Text), default=list)
     user_color: Mapped[str | None]
+    # ADR 0532 - how the web apps look for this person: {theme, density, motion}, each optional.
+    preferences: Mapped[dict[str, Any]] = mapped_column(
+        JSONB, server_default=text("'{}'::jsonb"), default=dict
+    )
     # ADR 0268 - the Authgear roles on the latest interactive token, kept so a personal access
     # token (which Authgear never sees) can carry the tenant-creator capability.
     last_seen_roles: Mapped[list[str]] = mapped_column(
