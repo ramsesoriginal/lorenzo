@@ -198,6 +198,60 @@ async def describe_rows(
     return dates, people
 
 
+class DatedDayOut(BaseModel):
+    """Where Events are dated in a year: a day of a segment, or a whole segment (`day` null), or the
+    whole year (`segment` null), and how many Events the reader sees dated there (ADR 0530)."""
+
+    segment: str | None
+    day: int | None
+    count: int
+
+
+@router.get("/dated-days")
+async def dated_days(
+    tenant_id: uuid.UUID,
+    session: SessionDep,
+    user: CurrentUser,
+    calendar_id: uuid.UUID,
+    year: Annotated[int, Query(ge=-1000000, le=1000000)],
+) -> list[DatedDayOut]:
+    """The places of a calendar's year that Events are dated on, for the marks of a time filter's
+    strip. One read for the whole year, through the periods and the Events the reader may see, so a
+    reader is told nothing about an Event they cannot see (ADR 0442's rule, ADR 0530)."""
+    await require_tenant_participant(session, tenant_id=tenant_id, user=user)
+    vis = await resolve_information_visibility(session, user_id=user.id, tenant_id=tenant_id)
+    definition = await session.scalar(
+        select(Calendar.definition).where(
+            Calendar.entity_id == calendar_id, Calendar.tenant_id == tenant_id
+        )
+    )
+    if definition is None:
+        raise EntityNotFoundError(detail="No such calendar in this library")
+    order = {s["key"]: i for i, s in enumerate(definition["segments"])}
+    rows = await session.execute(
+        select(
+            CalendarPeriod.segment,
+            CalendarPeriod.day,
+            func.count(func.distinct(EntryCalendarPeriod.entity_id)),
+        )
+        .join(CalendarPeriod, CalendarPeriod.entity_id == EntryCalendarPeriod.period_entity_id)
+        .join(StoryEvent, StoryEvent.entity_id == EntryCalendarPeriod.entity_id)
+        .where(
+            EntryCalendarPeriod.tenant_id == tenant_id,
+            CalendarPeriod.calendar_entity_id == calendar_id,
+            CalendarPeriod.year == year,
+            visible_entry_clause(vis, CalendarPeriod.entity_id),
+            visible_entry_clause(vis, StoryEvent.entity_id),
+        )
+        .group_by(CalendarPeriod.segment, CalendarPeriod.day)
+    )
+    # In the calendar's own order: the year, then each segment with its whole, then its days.
+    found = sorted(
+        rows, key=lambda r: (-1 if r[0] is None else order.get(r[0], len(order)), r[1] or 0)
+    )
+    return [DatedDayOut(segment=s, day=d, count=n) for s, d, n in found]
+
+
 @router.get("")
 async def browse_events(
     tenant_id: uuid.UUID,

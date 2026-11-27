@@ -9,7 +9,13 @@ from typing import Annotated, cast
 from fastapi import APIRouter, Depends, Header, Path, Query, Response
 from fastapi_pagination import Page
 from fastapi_pagination.ext.sqlalchemy import apaginate
-from lorenzo_calendar import CalendarDefinition, YearPreview, preview_year
+from lorenzo_calendar import (
+    CalendarDate,
+    CalendarDefinition,
+    YearPreview,
+    preview_year,
+    segment_for,
+)
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select
 
@@ -31,6 +37,7 @@ from lorenzo_api.exceptions import (
     AudiencePreconditionRequiredError,
     EntityNotFoundError,
     InformationManagementForbiddenError,
+    InvalidCalendarDateError,
 )
 from lorenzo_api.information_visibility import resolve_information_visibility
 from lorenzo_api.models import Calendar, Entity, EntityAudience, EntitySlug
@@ -57,7 +64,15 @@ class CalendarOut(BaseModel):
     entity_id: uuid.UUID
     name: str
     definition: CalendarDefinition
+    # The date the calendar is at now, or null where nobody has said (ADR 0530).
+    today: CalendarDate | None = None
     updated_at: datetime
+
+
+class TodayIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    # Null clears it.
+    today: CalendarDate | None
 
 
 class CalendarSummary(BaseModel):
@@ -101,6 +116,7 @@ def output(calendar: Calendar, entity: Entity, response: Response) -> CalendarOu
         entity_id=entity.id,
         name=entity.name,
         definition=CalendarDefinition.model_validate(calendar.definition),
+        today=CalendarDate.model_validate(calendar.today) if calendar.today else None,
         updated_at=calendar.updated_at,
     )
 
@@ -233,6 +249,12 @@ async def replace_definition(
 
     await validate_materialized_periods(session, tenant_id, entity_id, definition)
     value = definition.model_dump(mode="json")
+    if calendar.today is not None:
+        try:
+            segment_for(definition, CalendarDate.model_validate(calendar.today))
+        except ValueError:
+            # The new definition has no such day: the calendar says nothing of today until told.
+            calendar.today = None
     if calendar.definition != value:
         calendar.definition = value
         calendar.updated_at = datetime.now(UTC)
@@ -242,6 +264,50 @@ async def replace_definition(
         await set_tenant_rls_context(session, tenant_id)
         await session.refresh(calendar)
         await session.refresh(entity)
+    return output(calendar, entity, response)
+
+
+@router.put("/{entity_id}/today")
+async def replace_today(
+    tenant_id: uuid.UUID,
+    entity_id: uuid.UUID,
+    body: TodayIn,
+    session: SessionDep,
+    user: CurrentUser,
+    response: Response,
+    if_match: Annotated[str | None, Header()] = None,
+) -> CalendarOut:
+    """Sets the date the calendar is at now, or clears it with `null` (ADR 0530)."""
+    calendar, entity = await read_calendar(session, user, tenant_id, entity_id, lock=True)
+    await authorize_entity_write(session, entity_id=entity_id, tenant_id=tenant_id, user=user)
+    if if_match is None:
+        raise AudiencePreconditionRequiredError(
+            detail="Read the calendar and send its ETag as If-Match."
+        )
+    check_if_match(if_match, updated_at=calendar.updated_at)
+    value: dict[str, object] | None = None
+    if body.today is not None:
+        try:
+            segment_for(CalendarDefinition.model_validate(calendar.definition), body.today)
+        except ValueError:
+            raise InvalidCalendarDateError(
+                detail="This date does not exist in the calendar"
+            ) from None
+        value = body.today.model_dump(mode="json")
+    if calendar.today != value:
+        calendar.today = value
+        calendar.updated_at = datetime.now(UTC)
+        await record_activity(
+            session,
+            tenant_id=tenant_id,
+            actor_id=user.id,
+            action="calendar.today_set",
+            target_type="entity",
+            target_id=entity_id,
+        )
+        await session.commit()
+        await set_tenant_rls_context(session, tenant_id)
+        await session.refresh(calendar)
     return output(calendar, entity, response)
 
 
