@@ -61,7 +61,7 @@ async def test_a_being_is_in_the_sessions_it_came_to_and_the_scenes_that_tell_of
         t = w.tenant_id
         pia = await character_of(w, p)
         npc = (
-            await w.author.post(
+            await w.owner.post(
                 f"/tenants/{t}/entities", json={"name": "Brisk", "kinds": ["being"]}
             )
         ).json()["id"]
