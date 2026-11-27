@@ -14,7 +14,7 @@ const registry = {
   support_url: 'https://support.example/lorenzo',
 };
 
-async function page(options: { shell?: 'web'; lang?: 'en' | 'de' } = {}) {
+async function page(options: { lang?: 'en' | 'de' } = {}) {
   const container = await AstroContainer.create();
   const html = await container.renderToString(AppPage, {
     props: {
@@ -71,10 +71,8 @@ describe('legalLinks', () => {
   });
 });
 
-describe.each([
-  ['the web shell', { shell: 'web' as const }],
-  ['the old footer', {}],
-])('%s', (_name, options) => {
+describe('the web shell', () => {
+  const options = {};
   it('shows no legal link until the registry names one', async () => {
     const document = await page(options);
 

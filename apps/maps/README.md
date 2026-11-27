@@ -90,5 +90,5 @@ Deployed at <https://lorenzo-maps.pages.dev/> on Cloudflare Pages; [docs/operati
 The header, palette, apps sheet, status bar and account menu come from
 [`@lorenzo/app-shell`](../../packages/app-shell/README.md) over the shared brand
 ([ADR 0465](../../docs/adr/0465-maps-moves-into-the-web-shell.md));
-`src/layouts/Base.astro` sets `shell="web"`, picks the `list-detail` or `workspace` template (a
+`src/layouts/Base.astro` picks the `list-detail` or `workspace` template (a
 Map's page is a workspace) and names the product, its tabs (Maps and Locations) and its welcome text.

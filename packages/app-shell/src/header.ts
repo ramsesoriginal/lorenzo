@@ -109,8 +109,6 @@ export type Shell = {
   /** Hide the welcome and show the page. */
   reveal(): void;
 
-  // The next four draw only in the web shell (AppPage's `shell="web"`) and do nothing in the old header.
-
   /** The state strip: a message that needs attention, or null for none (it closes to nothing). */
   strip(state: StripState | null): void;
   /**
@@ -248,14 +246,9 @@ export function bindShell(options: ShellOptions): Shell | null {
   find(root, '[data-login]')?.addEventListener('click', () => options.onLogin());
   find(root, '[data-logout]')?.addEventListener('click', () => options.onLogout());
 
-  const web = root.hasAttribute('data-shell');
-  const toasts = web ? toastsFor(root) : null;
-  // The web shell's links are also in the phone's tab bar and the sheet, outside the header.
-  const links = [
-    ...(web ? document : root).querySelectorAll<HTMLAnchorElement>(
-      web ? 'a[data-path]' : 'nav a[data-path]',
-    ),
-  ];
+  const toasts = toastsFor(root);
+  // The shell's links are also in the phone's tab bar and the sheet, outside the header.
+  const links = [...document.querySelectorAll<HTMLAnchorElement>('a[data-path]')];
 
   const allowed = new Set<string>();
   let library: string | null = null;
@@ -678,14 +671,14 @@ export function bindShell(options: ShellOptions): Shell | null {
     },
 
     palette(options = {}) {
-      if (!web || palette) return;
+      if (palette) return;
 
       const navigate = options.navigate ?? ((url: string) => window.location.assign(url));
       const go = (target: string) => {
         if (target === 'home') navigate('/');
         else if (target === 'theme') {
-          // The classic header has a toggle. The web header's is a hidden placeholder, and there the
-          // Appearance dialog is the way, for a visitor who is not signed in as for anyone.
+          // The header's toggle is a hidden placeholder, and the Appearance dialog is the way, for a
+          // visitor who is not signed in as for anyone.
           const toggle = find<HTMLButtonElement>(root, '[data-theme-toggle]');
 
           if (toggle && !toggle.hidden) toggle.click();
@@ -825,7 +818,7 @@ export function bindShell(options: ShellOptions): Shell | null {
       return (
         toasts?.show(toastOptions) ?? {
           dismiss() {
-            // The old header has no place for messages.
+            // A page without the toast host has no place for messages.
           },
         }
       );

@@ -1,6 +1,6 @@
 # 0528 - UI-H: retiring the old frame, and auditing the apps
 
-Status: proposed, 2026-11-27, asked for by the maintainer ("Let's tackle UI-H", with a design and an implementation audit of every app as its last part). Slice UI-H of [RFC 0050](../rfcs/0050-the-web-interface.md). Nothing in it is built yet.
+Status: accepted, 2026-11-27 (H1 built, the rest decided and not built), asked for by the maintainer ("Let's tackle UI-H", with a design and an implementation audit of every app as its last part). Slice UI-H of [RFC 0050](../rfcs/0050-the-web-interface.md). Nothing in it is built yet.
 
 ## Context
 
@@ -28,6 +28,10 @@ UI-H is built in this order, each step its own small, tested pull request (or a 
 | H8 | **Extractions.** From H7's list, what is copied becomes packages, one pull request each, as ADR 0526 did: the Authgear sign-in glue, the app configuration, the last-library memory, the DOM helpers, the read cache, the status line. Each is a package with its own tests that the apps import, and the copies are deleted in the same pull request |
 
 The audit steps (H6, H7) write their findings here as tables, the way ADR 0524 and 0527 did. A finding that needs a decision from the maintainer is asked, not decided. H8 comes last so that the audits say what is really shared and not only what looks it.
+
+### H1, as built
+
+`AppPage` draws the web shell and nothing else: `SiteHeader.astro`, `SiteFooter.astro`, the `shell` prop and the branches of `bindShell` that served the old header are gone, and the eight apps no longer pass `shell="web"`. The tests of the old header are removed; the shell's own tests now render the one frame. The brand's `.site-header`, `.site-navigation` and `.brand-product` rules stay for now: the brand's static previews still draw with them, so H2 removes them together with the previews that use them. The `data-site-header` hook stays too, since the shell's own header carries it and the apps' tests and Writing's focus mode read it.
 
 ## Open points in the earlier UI ADRs
 

@@ -50,13 +50,13 @@ shell?.reveal(); // hide the welcome and show the page
 
 ## The web shell (opt-in)
 
-The web interface's shell ([ADR 0426](../../docs/adr/0426-the-web-shell-grows-in-app-shell-opt-in.md), [ADR 0410](../../docs/adr/0410-the-web-shell-header-navigation-and-status-bar.md)) is drawn by the same `AppPage`, when an app asks for it with `shell="web"`. Without the prop an app keeps the one-row header; each app moves over in its own slice and the old header goes when the last one has.
+The web interface's shell ([ADR 0426](../../docs/adr/0426-the-web-shell-grows-in-app-shell-opt-in.md), [ADR 0410](../../docs/adr/0410-the-web-shell-header-navigation-and-status-bar.md)) is what `AppPage` draws ([ADR 0528](../../docs/adr/0528-ui-h-retiring-the-old-frame-and-auditing-the-apps.md), UI-H, retired the older one-row header and its `shell` prop). Bench and Legal draw their own pages and use `AppPage` for nothing.
 
 ```astro
-<AppPage ... shell="web" version="1.2.0" legal={{ notice: '/legal/' }} nav={[{ label: 'Home', href: '/', icon: 'library' }, ...]}>
+<AppPage ... version="1.2.0" legal={{ notice: '/legal/' }} nav={[{ label: 'Home', href: '/', icon: 'library' }, ...]}>
 ```
 
-It draws a global bar over an app bar, the state strip, a status bar with the sync state, the app's own meta and the real date and time, the phone's tab bar (the first three links and a More button; the rest go in the sheet), and the sheet that "Apps and about" and "More" open. The same `bindShell` drives it, with four more calls that do nothing in the old header:
+It draws a global bar over an app bar, the state strip, a status bar with the sync state, the app's own meta and the real date and time, the phone's tab bar (the first three links and a More button; the rest go in the sheet), and the sheet that "Apps and about" and "More" open. The same `bindShell` drives it, with four calls that only it answers:
 
 ```ts
 shell?.apps(registry); // the sheet: every deployed app by job (Play, World, Build, You), from GET /app-links
@@ -98,7 +98,7 @@ The legal notice, the privacy policy and the support link ([ADR 0439](../../docs
 
 ([ADR 0412](../../docs/adr/0412-web-page-templates-and-saving.md), [ADR 0413](../../docs/adr/0413-web-states-and-the-mascots.md), [ADR 0427](../../docs/adr/0427-page-templates-states-and-saving-in-app-shell.md))
 
-- `<AppPage shell="web" template="reading">` gives the page the width of one of the seven templates (`list-detail`, `reading`, `form`, `editor`, `board`, `workspace`, `home`; `pageClass` and `defaultSaving` are the pure parts). Without `template` the page keeps `wrap`.
+- `<AppPage template="reading">` gives the page the width of one of the seven templates (`list-detail`, `reading`, `form`, `editor`, `board`, `workspace`, `home`; `pageClass` and `defaultSaving` are the pure parts). Without `template` the page keeps `wrap`.
 - `shell.state(host, { kind, noun?, actions? … })` puts a state in a region in place of its rows: `empty`, `empty-search`, `loading` (skeleton lines; `slow` says so), `error` (with a `code` for support), `partial`, `conflict`, `offline`. `shell.state(host, null)` clears it. The words are the design's; an app may give its own `title` and `text`. A state never says how many things the person cannot see.
 - `shell.pageState({ art, … })` replaces the page with a mascot: `page-not-found`, `no-access`, `offline-page`, `error-page`, `caught-up` and the empty pages have shared words; an app names its own `art` id and words for the rest. The image is `<brandingUrl>/mascots/ui_<id>.png`; until it is delivered a dashed placeholder with the alt text shows.
 

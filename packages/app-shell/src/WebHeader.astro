@@ -5,7 +5,7 @@ import spark from './assets/brand_mark.svg';
 import type { NavItem } from './pure';
 
 // The web shell's header (ADR 0410): a global bar over an app bar, and the state strip under both.
-// It carries the same data-* hooks as SiteHeader, so bindShell drives either.
+// bindShell drives it through its data-* hooks.
 interface Props {
   product: string;
   brandingUrl: string;
