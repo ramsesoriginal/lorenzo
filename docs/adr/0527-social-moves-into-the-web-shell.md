@@ -86,13 +86,13 @@ Filled in as each slice lands.
 
 After G10 the built app was checked item by item against [the design](../design/web/social/README.md) (SO1 to SO8 and the prototype's lists), against the old app on `main` and against [ADR 0408](0408-lorenzo-social-the-app.md). Every scenario of the old app's five specs is still there. What the audit found and what was done:
 
-**Lost or wrong, now fixed**
+### Lost or wrong, now fixed
 
 - **No way to switch library.** The Libraries page went and the shell's switcher was never fed. The shell now gets the person's libraries (and Home carries on to the last one used).
 - **Swapping a relationship's ends, or changing its direction, cleared its since and until.** The API replaces them with the rest; the page sent neither. It now sends what the relationship had. (The old app did the same.)
 - **Types and standings and Problems were tabs for everyone** (SO1 says a person who may not write sees Webs and Relationships). They now show for those who write.
 
-**In the design, missing, now built**
+### In the design, missing, now built
 
 - The relationships list narrows by type (and what inherits from it) and by an end, which may be a group.
 - The web's panel says what a relationship is: its type, who may read it, since and until, each standing with its scale and where it comes from (written in place, refused in words, with Undo), the chain it holds through; and for a group, its members apart. A row of the List view selects it in the panel and in the drawing.
@@ -100,7 +100,7 @@ After G10 the built app was checked item by item against [the design](../design/
 - A relationship's page sets and clears since and until, and shows, adds to and takes out of the chain it holds through.
 - The matrix reads as of the date lens and as read by; a relationship not known as of the Event is dotted and worded; a stat with no scale is drawn against the values in view and the legend says so.
 
-**In the design, still not built**
+### In the design, still not built
 
 - A webs-that-name-this-relationship list on a relationship's page (the API has no read for it).
 - Finding a relationship by standing (the list read has no such filter); sorting the matrix by group.
