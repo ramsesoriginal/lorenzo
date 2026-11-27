@@ -1,5 +1,6 @@
-import { pageState } from '@lorenzo/app-shell';
-import { fetchAllPages } from './api';
+import { savedViewStore } from '@lorenzo/api-client';
+import { mountSavedViews, pageState } from '@lorenzo/app-shell';
+import { client, fetchAllPages } from './api';
 import { BRANDING_CSS_URL } from './config';
 import { formDialog } from './dialog';
 import {
@@ -285,7 +286,29 @@ export async function mountRelationships() {
       atMost = most.input.value === '' ? null : Number(most.input.value);
       void load(true);
     });
-    listing.append(search, empties, list, status, more);
+    // Views of this list a person keeps by name, in their account (ADR 0532): the name, type,
+    // standing and range. The entry or group chosen is not kept: it is a pick, not a word.
+    const saved = mountSavedViews({
+      store: savedViewStore(client, tenant, 'social', 'relationships'),
+      current: () => ({
+        q: find.input.value.trim(),
+        type: ofType.input.value,
+        stat: byStanding.input.value,
+        least: least.input.value,
+        most: most.input.value,
+      }),
+      apply: (query) => {
+        find.input.value = typeof query.q === 'string' ? query.q : '';
+        ofType.input.value = typeof query.type === 'string' ? query.type : '';
+        byStanding.input.value = typeof query.stat === 'string' ? query.stat : '';
+        least.input.value = typeof query.least === 'string' ? query.least : '';
+        most.input.value = typeof query.most === 'string' ? query.most : '';
+        search.requestSubmit();
+      },
+      say: (text, failed) => say(status, text, failed),
+    });
+    listing.append(search, saved.element, empties, list, status, more);
+    void saved.refresh();
     view.append(listing);
 
     host.replaceChildren(view);

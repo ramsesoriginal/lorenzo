@@ -389,3 +389,45 @@ test('a row of the list says its type and its standing', async ({ browser }) => 
   await expect(row.getByText('Parent of', { exact: true })).toBeVisible();
   await expect(row.locator('.standing-num')).toHaveText('4');
 });
+
+test('a person saves the filters of the list as a view in their account, sets the list by it, and deletes it', async ({
+  browser,
+}) => {
+  const w = await world();
+  const mara = await w.person('Mara Quill');
+  const wren = await w.person('Wren Ashdown');
+  const dren = await w.person('Dren Holloway');
+  await w.tie('Mara knows Wren', mara.id, wren.id, true);
+  await w.tie('Dren knows Wren', dren.id, wren.id, true);
+  await w.tie('Dren and Mara quarrel', dren.id, mara.id, true);
+  const page = await signedIn(browser, w.subject);
+  await page.goto(`/relationships/?tenant=${w.tenant.id}`);
+  const list = page.getByRole('list', { name: 'Relationships' });
+  const form = page.getByRole('form', { name: 'Find relationships' });
+  const views = page.getByRole('combobox', { name: 'Saved views' });
+
+  await expect(list.getByRole('listitem')).toHaveCount(3);
+  await expect(views.locator('option').first()).toHaveText('None saved yet');
+
+  // Narrow by name, keep it under a name, then clear the filters.
+  await form.getByLabel('Find by name').fill('knows');
+  await form.getByRole('button', { name: 'Find', exact: true }).click();
+  await expect(list.getByRole('listitem')).toHaveCount(2);
+  await page.getByRole('button', { name: 'Save this view…' }).click();
+  await page.getByLabel('Name of the view').fill('Who knows whom');
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
+  await expect(page.getByText('Saved the view “Who knows whom”.')).toBeVisible();
+  await form.getByRole('button', { name: 'Clear the filters' }).click();
+  await expect(list.getByRole('listitem')).toHaveCount(3);
+
+  // The view is in the account: a new visit has it, and choosing it sets the list.
+  await page.reload();
+  await expect(list.getByRole('listitem')).toHaveCount(3);
+  await views.selectOption({ label: 'Who knows whom' });
+  await expect(form.getByLabel('Find by name')).toHaveValue('knows');
+  await expect(list.getByRole('listitem')).toHaveCount(2);
+
+  await page.getByRole('button', { name: 'Delete this view' }).click();
+  await expect(page.getByText('Deleted the view “Who knows whom”.')).toBeVisible();
+  await expect(views.locator('option').first()).toHaveText('None saved yet');
+});

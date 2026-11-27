@@ -55,6 +55,10 @@ The rail of a being has a **Seen by** select (Everyone, or the game masters only
 
 The day panel of a calendar has **Make this day today** and **Clear today** for those who may write the calendar; the day is marked in the grid with a ring and the word "today" (in its name for a screen reader). A calendar opens on the year it says it is in. The time filter (`@lorenzo/time-filter`) takes `today`: it marks it on the strip and offers **This month** (the whole segment today falls in; "This <name>" for a festival). The Events list of Calendars and the Event chooser of Social draw their ticks from one `dated-days` read of the year instead of reading every Event's dates, and both open on today's year. `segmentRange` and `marksOfDays` are pure and tested; `today.spec.ts` (Calendars) and `webs.spec.ts` (Social) drive it.
 
+### H4d, as built (saved views)
+
+`@lorenzo/app-shell` has `mountSavedViews`: a choice of the person's views of a list, "Save this view…" (an inline name field) and "Delete this view", for a page that says what its filters are now and how to set them again; the store is `savedViewStore(client, tenant, app, list)` from `@lorenzo/api-client`, over `…/saved-views` ([ADR 0532](0532-preferences-and-saved-views-in-the-account.md)). It is on **Social's Relationships** (the name, type, standing and range; the entry or group chosen is a pick and is not kept) and **Calendars' Events** (the name, the order and the stretch of a year). The Beings list keeps its way of looking (rows, cards, side by side) on the device as before, and Maps' lists have no filters to keep; either takes the same control if it gets filters.
+
 ## Open points in the earlier UI ADRs
 
 Read from ADR 0409 to 0527, the design's follow-ups and issues #1129 and #1020. The maintainer chose (2026-11-27) to pull the API and art work in as well, so most of what waited is now H3 to H5. What is still outside UI-H is the last table.

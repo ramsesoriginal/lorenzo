@@ -1,3 +1,5 @@
+import { savedViewStore } from '@lorenzo/api-client';
+import { mountSavedViews } from '@lorenzo/app-shell';
 import {
   createTimeFilter,
   marksOfDays,
@@ -291,6 +293,36 @@ export async function mount() {
     ),
   );
   filters.append(bar);
+  // The filters kept by name in the person's account (ADR 0532): the name, the order and the
+  // stretch of a calendar's year. Who took part and the causes followed are picks, not kept.
+  const saved = mountSavedViews({
+    store: savedViewStore(client, tenantId, 'calendars', 'events'),
+    current: () => ({
+      q: q.input.value.trim(),
+      sort: sort.input.value,
+      ...(range
+        ? { calendar: calendarId, year: yearField.input.value, from: range.from, to: range.to }
+        : {}),
+    }),
+    apply: (query) => {
+      q.input.value = typeof query.q === 'string' ? query.q : '';
+      sort.input.value = query.sort === 'order' && canReadEventOrder ? 'order' : 'name';
+      if (typeof query.calendar === 'string' && typeof query.from === 'number') {
+        calendarId = query.calendar;
+        calendarChoice.input.value = calendarId;
+        yearField.input.value = String(query.year ?? '');
+        range = { from: query.from, to: Number(query.to ?? query.from) };
+      } else {
+        range = null;
+      }
+      page = 1;
+      stripReady = drawStrip();
+      void load();
+    },
+    say: (text, failed) => (failed ? status.fail(text) : status.say(text)),
+  });
+  filters.append(saved.element);
+  void saved.refresh();
   async function drawStrip() {
     if (!calendarId) {
       timeHost.hidden = true;
