@@ -6,6 +6,7 @@ import Base from '../../layouts/Base.astro';
   <div id="social-matrix" class="stack"></div>
   <script>
     import { mountMatrix } from '../../lib/matrix-view';
-    document.addEventListener('astro:page-load', () => void mountMatrix());
+    // The matrix is a view of the web now; this address carries on to it.
+    mountMatrix();
   </script>
 </Base>

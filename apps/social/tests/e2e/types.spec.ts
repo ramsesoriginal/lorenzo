@@ -23,6 +23,7 @@ test('an Owner adds the starter, and a relationship reads in the words of its ty
 
   // A relationship of that type reads with the library's words.
   await page.goto(`/relationships/?tenant=${w.tenant.id}`);
+  await page.getByRole('button', { name: 'New relationship' }).first().click();
   const form = page.getByRole('form', { name: 'Make a relationship' });
   await form.getByLabel('First end: search by name').fill('Mara');
   await form.getByLabel('First end: results').selectOption({ label: mara.name });

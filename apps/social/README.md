@@ -8,8 +8,8 @@ goes through [`apps/api`](../api); the app holds no durable private cache and no
 
 ## What it does
 
-- Libraries first, then **Relationships**: a searchable list of what the person may see, and for those
-  who write relationships (Owners, Organizers, Authors and GMs, and a player for a being they control) a form that makes one from two ends,
+- **Webs** first (Home is the webs of the library you work in, with Continue, and a new web, rename and delete), then **Relationships**: a searchable list of what the person may see, and for those
+  who write relationships (Owners, Organizers, Authors and GMs, and a player for a being they control) a dialog that makes one from two ends,
   a direction, an optional type and an audience (restricted unless opened).
 - One relationship's page: the sentence that says it, what it is of, what it holds, and the changes a
   writer may make (swap the ends, one way or both, who may see it, delete).
@@ -23,8 +23,14 @@ goes through [`apps/api`](../api); the app holds no durable private cache and no
   drawn as a graph with circle, radial, stress, ForceAtlas2, manual or layered layouts by
   [`@lorenzo/graph-renderer`](../../packages/graph-renderer), and read through a calendar date or as an
   Event's participants read it.
-- **The matrix**: a web's entries on both sides with a standing in every cell, edited with the keyboard
-  and saved in batches.
+- **The matrix**: a view of the web (Graph, Matrix, List; Standings on a phone), its entries on both sides
+  with a standing in every cell (number, bar and word), edited where the cell is with the keyboard and saved
+  in batches.
+- **One web, one page**: the drawing fills the page with a vertical bar of switches (Labels, Focus, the date
+  lens, as read by, Types, Members, Connect, Notes) and a panel; the old `/matrix/` and `/webs/` addresses
+  carry on to it.
+- **Problems** for staff (chains whose ends do not meet, doubled relationships) and **an entry's page**
+  (`/entry/`): its relationships by type, with standings written in place, and a group's members.
 
 ## Running it
 

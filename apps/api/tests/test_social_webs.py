@@ -288,3 +288,36 @@ async def test_the_graph_reads_as_of_an_event_and_as_seen_by_a_being(raw_client,
         assert (await gm.get(base, params={"as_of": mara["id"]})).status_code == 404
     finally:
         await w.clean_up()
+
+
+async def test_the_webs_that_name_a_relationship_have_both_of_its_ends(
+    raw_client, fake_jwks_server
+):
+    w, _, _ = await world(raw_client, fake_jwks_server)
+    try:
+        t, gm, player = w.tenant_id, w.author, w.outsider
+        wren = await place(gm, t, "Wren", is_public=True)
+        mara = await place(gm, t, "Mara", is_public=True)
+        tomas = await place(gm, t, "Tomas", is_public=True)
+        tie = await made(gm, t, wren["id"], mara["id"], "Wren and Mara", is_public=True)
+        both = await web(gm, t, "Both ends", is_public=True)
+        one = await web(gm, t, "One end", is_public=True)
+        none = await web(gm, t, "Neither", is_public=True)
+        for the_web, ends in ((both, [wren, mara, tomas]), (one, [wren])):
+            added = await members(
+                gm, t, the_web["id"], {"set": [{"entry_id": e["id"]} for e in ends]}
+            )
+            assert added.status_code == 200, added.text
+        assert none["id"]
+
+        found = await gm.get(f"/tenants/{t}/social-webs", params={"names": tie["id"]})
+        assert found.status_code == 200, found.text
+        assert [row["name"] for row in found.json()["items"]] == ["Both ends"]
+        # Without the filter every web is listed, as before.
+        everything = await gm.get(f"/tenants/{t}/social-webs")
+        assert len(everything.json()["items"]) == 3
+        # A relationship that does not exist, or that the reader may not see, names no web.
+        unknown = await player.get(f"/tenants/{t}/social-webs", params={"names": str(uuid.uuid4())})
+        assert unknown.status_code == 200 and unknown.json()["items"] == []
+    finally:
+        await w.clean_up()

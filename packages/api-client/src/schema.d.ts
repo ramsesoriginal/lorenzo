@@ -37809,6 +37809,8 @@ export interface operations {
             query?: {
                 /** @description Case-insensitive substring match against the name. */
                 q?: string | null;
+                /** @description Only the webs that name this relationship: both of its ends are members. A relationship the reader may not see names none. */
+                names?: string | null;
                 page?: number;
                 size?: number;
             };

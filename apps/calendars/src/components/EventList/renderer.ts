@@ -1,4 +1,10 @@
-import { createTimeFilter, dayAt, type StripSegment } from '@lorenzo/time-filter';
+import {
+  createTimeFilter,
+  marksOf,
+  periodQuery,
+  type StripSegment,
+  stripOf,
+} from '@lorenzo/time-filter';
 import { rememberEntryAddress, tenantAddress } from '../../lib/addresses';
 import { client, fetchAllPages, unwrap } from '../../lib/api';
 import {
@@ -137,7 +143,6 @@ export async function mount() {
       // The time filter is the API's (ADR 0442): the Events dated in the strip's year, or in the range on
       // it, through dates the reader can see, applied before the page and the story order.
       await stripReady;
-      const ends = range ? [dayAt(strip, range.from), dayAt(strip, range.to)] : [];
       const response = await unwrap(
         await client.GET('/tenants/{tenant_id}/events', {
           params: {
@@ -150,16 +155,7 @@ export async function mount() {
               direction: direction.input.value as 'both' | 'ancestors' | 'descendants',
               page,
               size: 30,
-              ...(range && calendarId && strip.length
-                ? {
-                    dated_calendar_id: calendarId,
-                    dated_year: Number(yearField.input.value),
-                    dated_from_segment: ends[0]?.key,
-                    dated_from_day: ends[0]?.day,
-                    dated_to_segment: ends[1]?.key,
-                    dated_to_day: ends[1]?.day,
-                  }
-                : {}),
+              ...periodQuery(calendarId, Number(yearField.input.value), strip, range),
             },
           },
         }),
@@ -318,12 +314,7 @@ export async function mount() {
           params: { path: { tenant_id: tenantId, entity_id: calendarId, year } },
         }),
       );
-      strip = calculated.segments.map((x) => ({
-        key: x.key,
-        name: x.name,
-        days: x.days.length,
-        festival: x.month_ordinal === null,
-      }));
+      strip = stripOf(calculated.segments);
       // A tick for every day something is dated on, read from every Event the person can see.
       const everyone = await fetchAllPages(async (n) =>
         unwrap(
@@ -333,11 +324,11 @@ export async function mount() {
         ),
       );
       const metas = await Promise.all(everyone.map((e) => metaFor(e.entity_id)));
-      const marks: Array<[string, number]> = [];
-      for (const m of metas)
-        for (const d of m.dates)
-          if (d.calendar === calendarId && d.year === year && d.segment && d.day !== null)
-            marks.push([d.segment, d.day]);
+      const marks = marksOf(
+        metas.flatMap((m) => m.dates),
+        calendarId,
+        year,
+      );
       const filter = createTimeFilter({
         segments: strip,
         marks,

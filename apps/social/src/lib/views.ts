@@ -1,3 +1,7 @@
+import { pageState } from '@lorenzo/app-shell';
+import { fetchAllPages } from './api';
+import { BRANDING_CSS_URL } from './config';
+import { formDialog } from './dialog';
 import {
   actions,
   audienceBadge,
@@ -6,6 +10,7 @@ import {
   claim,
   el,
   empty,
+  entryHref,
   errorNotice,
   field,
   icon,
@@ -21,13 +26,14 @@ import {
   statusLine,
   submit,
 } from './dom';
-import { canManage, libraryName, myLibraries } from './names';
+import { listStats, readStanding, type StatDef } from './matrix-api';
+import { canManage, libraryName } from './names';
 import { notes } from './notes';
 import { endPicker, typePicker } from './pickers';
-import { start } from './sign-in';
-
+import { relationshipForm } from './relationship-form';
+import { timeAndChain } from './relationship-time';
+import { shellOf, start } from './sign-in';
 import {
-  createRelationship,
   deleteRelationship,
   listRelationships,
   readEntry,
@@ -35,46 +41,11 @@ import {
   replaceRelationship,
   setPublic,
 } from './social-api';
+import { standingMark } from './standing';
 import { readLibrary, readsOf } from './types-api';
-import { audienceWords, defaultName, directionWords, sentence } from './words';
+import { audienceWords, directionWords, sentence } from './words';
 
 const tenantOf = () => new URLSearchParams(location.search).get('tenant');
-
-/** Libraries first: a person opens Social from the library they are working in. */
-export async function mountHome() {
-  const host = document.querySelector<HTMLElement>('#social-home');
-  if (!host || !claim(host)) return;
-  const me = await start();
-  if (!me || !host.isConnected) return;
-  try {
-    host.replaceChildren(loading('Opening your libraries…'));
-    const libraries = await myLibraries();
-    const view = el('div', '', 'stack view');
-    view.append(
-      pageHead('Social', {
-        lede: 'Who knows whom: the relationships of your libraries, and how much each one counts.',
-      }),
-    );
-    if (libraries.length) {
-      const list = el('ul', '', 'list');
-      for (const library of libraries) {
-        const row = el('li');
-        const text = el('div', '', 'stack-tight grow');
-        text.append(
-          link(library.name, `/relationships/?${new URLSearchParams({ tenant: library.id })}`),
-        );
-        row.append(text, el('span', library.role, 'chip'));
-        list.append(row);
-      }
-      view.append(list);
-    } else {
-      view.append(empty('You are not in a library yet.'));
-    }
-    host.replaceChildren(view);
-  } catch (error) {
-    host.replaceChildren(errorNotice(error));
-  }
-}
 
 /** The relationships of one library, searchable, and a form to make one. */
 export async function mountRelationships() {
@@ -93,8 +64,13 @@ export async function mountRelationships() {
     const view = el('div', '', 'stack view');
     view.append(
       pageHead('Relationships', {
-        crumbs: [link('Libraries', '/')],
         lede: name ? `In ${name}.` : undefined,
+        actions: [
+          button('New relationship', () => makeRelationship(tenant, manage), {
+            variant: 'primary',
+            icon: 'add',
+          }),
+        ],
       }),
     );
 
@@ -103,8 +79,14 @@ export async function mountRelationships() {
     list.setAttribute('aria-label', 'Relationships');
     const status = statusLine();
     const more = el('div', '', 'row');
+    const empties = el('div');
     let page = 1;
     let query = '';
+    let typeId = '';
+    let endId = '';
+    let statId = '';
+    let atLeast: number | null = null;
+    let atMost: number | null = null;
     let total = 0;
     let shown = 0;
 
@@ -116,7 +98,29 @@ export async function mountRelationships() {
       }
       say(status, 'Reading the relationships…');
       try {
-        const result = await listRelationships(tenant, { page, q: query });
+        const asked = {
+          q: query,
+          ...(typeId ? { type: typeId } : {}),
+          ...(endId ? { end: endId } : {}),
+        };
+        // By standing: the list read has no such filter, so those that match are found here, whole.
+        const result = statId
+          ? await (async () => {
+              const [all, values] = await Promise.all([
+                fetchAllPages((p) => listRelationships(tenant, { page: p, ...asked })),
+                readStanding(tenant, statId),
+              ]);
+              const items = all.filter((r) => {
+                const v = values.get(r.id)?.value;
+                return (
+                  typeof v === 'number' &&
+                  (atLeast === null || v >= atLeast) &&
+                  (atMost === null || v <= atMost)
+                );
+              });
+              return { items, total: items.length };
+            })()
+          : await listRelationships(tenant, { page, ...asked });
         total = result.total ?? result.items.length;
         for (const row of result.items) {
           const item = el('li');
@@ -142,13 +146,33 @@ export async function mountRelationships() {
           list.append(item);
         }
         shown += result.items.length;
+        const nothing = total === 0 && !query;
+        empties.replaceChildren();
+        if (nothing) {
+          empties.append(
+            pageState(BRANDING_CSS_URL, {
+              art: 'empty-relationships',
+              alt: 'Illustration: empty-relationships. No relationships yet',
+              level: 2,
+              title: 'There are no relationships you can see yet.',
+              text: 'A relationship ties two beings or groups, and says how much it counts.',
+              actions: [
+                {
+                  label: 'New relationship',
+                  primary: true,
+                  run: () => void makeRelationship(tenant, manage),
+                },
+              ],
+            }),
+          );
+        }
         say(
           status,
-          total === 0
-            ? query
+          nothing
+            ? ''
+            : total === 0
               ? 'No relationship has that in its name.'
-              : 'There are no relationships you can see yet.'
-            : `Showing ${shown} of ${total}.`,
+              : `Showing ${shown} of ${total}.`,
         );
         more.replaceChildren();
         if (shown < total) {
@@ -164,83 +188,92 @@ export async function mountRelationships() {
       }
     };
 
-    const search = el('form', '', 'row');
+    // Find by name, and narrow by a type (and what inherits from it) or by an end: a being, or a group.
+    const search = el('form', '', 'stack-tight');
+    search.setAttribute('aria-label', 'Find relationships');
     const find = field('Find by name');
     find.input.type = 'search';
-    search.append(find.label, submit('Find', 'secondary'));
+    const ofType = typePicker(tenant, 'Of the type');
+    const withEnd = endPicker(tenant, 'With the entry or group');
+    const narrow = el('div', '', 'row');
+    narrow.append(
+      submit('Find', 'secondary'),
+      button('Clear the filters', () => {
+        for (const input of search.querySelectorAll<HTMLInputElement>('input')) input.value = '';
+        for (const results of search.querySelectorAll<HTMLSelectElement>('select')) {
+          results.hidden = true;
+        }
+        query = '';
+        typeId = '';
+        endId = '';
+        statId = '';
+        atLeast = null;
+        atMost = null;
+        byStanding.input.value = '';
+        void load(true);
+      }),
+    );
+    // By a standing: those with a value, and between two numbers if they are given.
+    const numbers = (await listStats(tenant).catch((): StatDef[] => [])).filter(
+      (x) => x.value_type === 'int',
+    );
+    const byStanding = select('Having the standing', [
+      ['', 'Any'],
+      ...numbers.map((x): [string, string] => [x.id, x.name]),
+    ]);
+    const least = field('At least', '', 'number');
+    const most = field('At most', '', 'number');
+    const range = el('div', '', 'row');
+    range.append(least.label, most.label);
+    search.append(
+      find.label,
+      ofType.label,
+      withEnd.label,
+      ...(numbers.length ? [byStanding.label, range] : []),
+      narrow,
+    );
     search.addEventListener('submit', (event) => {
       event.preventDefault();
       query = find.input.value.trim();
+      typeId = ofType.value() ?? '';
+      endId = withEnd.value() ?? '';
+      statId = byStanding.input.value;
+      atLeast = least.input.value === '' ? null : Number(least.input.value);
+      atMost = most.input.value === '' ? null : Number(most.input.value);
       void load(true);
     });
-    listing.append(sectionHead('All relationships', { actions: [] }), search, list, status, more);
+    listing.append(
+      sectionHead('All relationships', { actions: [] }),
+      search,
+      empties,
+      list,
+      status,
+      more,
+    );
     view.append(listing);
 
-    view.append(creator(tenant, manage));
     host.replaceChildren(view);
     await load(true);
+    // The palette's "New relationship…" lands here with the form open.
+    if (new URLSearchParams(location.search).get('new') === '1')
+      void makeRelationship(tenant, manage);
   } catch (error) {
     host.replaceChildren(errorNotice(error));
   }
 }
 
-/** The form that makes a relationship: two ends, how it goes, what it is, and who may see it. */
-function creator(tenant: string, manage: boolean) {
-  const section = el('section', '', 'stack');
-  section.append(sectionHead('Make a relationship'));
-  const form = el('form', '', 'stack');
-  form.setAttribute('aria-label', 'Make a relationship');
-  const first = endPicker(tenant, 'First end', () => second.value());
-  const second = endPicker(tenant, 'Second end', () => first.value());
-  const kind = typePicker(tenant, 'Type of relationship (optional)');
-  const direction = select('How it goes', [
-    ['both', 'Both ways'],
-    ['one', 'From the first end to the second'],
-  ]);
-  const named = field('Name (optional)');
-  const visible = field('Everyone in the library may see it', '', 'checkbox');
-  const status = statusLine();
-  form.append(
-    first.label,
-    second.label,
-    direction.label,
-    kind.label,
-    named.label,
-    ...(manage
-      ? [visible.label]
-      : [
-          el(
-            'p',
-            'A relationship you make is for a being of yours and the GMs: it starts restricted and you cannot open it.',
-            'status-text',
-          ),
-        ]),
-    actions(submit('Make the relationship')),
-    status,
-  );
-  form.addEventListener('submit', (event) => {
-    event.preventDefault();
-    const a = first.value();
-    const b = second.value();
-    if (!a || !b) {
-      say(status, 'Choose both ends first.', true);
-      return;
-    }
-    say(status, 'Making the relationship…');
-    const type = kind.value();
-    void createRelationship(tenant, {
-      name: named.input.value.trim() || defaultName(first.name(), second.name(), kind.name()),
-      end_a: a,
-      end_b: b,
-      one_way: direction.input.value === 'one',
-      prototypes: type ? [type] : [],
-      is_public: manage && visible.input.checked,
-    })
-      .then((made) => location.assign(relationshipHref(tenant, made.id)))
-      .catch((error) => say(status, message(error), true));
+/** The form that makes a relationship, in a dialog; the new relationship's page opens after. */
+function makeRelationship(tenant: string, manage: boolean) {
+  const form = relationshipForm(tenant, manage);
+  return formDialog({
+    title: 'Make a relationship',
+    submit: 'Make the relationship',
+    fields: form.fields,
+    async run() {
+      const made = await form.submit();
+      location.assign(relationshipHref(tenant, made.id));
+    },
   });
-  section.append(form);
-  return section;
 }
 
 /** One relationship: who it ties and how, what it is, what it holds, and who may see it. */
@@ -259,7 +292,7 @@ export async function mountRelationship() {
   const draw = async () => {
     try {
       host.replaceChildren(loading('Opening the relationship…'));
-      const [{ relationship, version }, entry, manage] = await Promise.all([
+      const [{ relationship, version }, entry, _manage] = await Promise.all([
         readRelationship(tenant, id),
         readEntry(tenant, id),
         canManage(tenant),
@@ -288,10 +321,7 @@ export async function mountRelationship() {
       }
       view.append(
         pageHead(relationship.name, {
-          crumbs: [
-            link('Libraries', '/'),
-            link('Relationships', `/relationships/?${new URLSearchParams({ tenant })}`),
-          ],
+          crumbs: [link('Relationships', `/relationships/?${new URLSearchParams({ tenant })}`)],
           lede: sentence(ends, type),
           meta,
         }),
@@ -306,19 +336,36 @@ export async function mountRelationship() {
             ? `Of the type ${entry.prototypes.map((p) => p.name).join(', ')}.`
             : 'It has no type yet.',
         ),
+        el('h2', 'Its ends', 'group-title'),
       );
+      const endsList = el('ul', '', 'list');
+      endsList.setAttribute('aria-label', 'Its ends');
+      for (const end of [relationship.end_a, relationship.end_b]) {
+        const item = el('li');
+        item.append(link(end.name, entryHref(tenant, end.id)));
+        endsList.append(item);
+      }
+      about.body.append(endsList);
       view.append(about.root);
 
       const stats = card();
       stats.body.append(el('h2', 'What it holds', 'group-title'));
       if (entry.stats.length) {
+        const scales = new Map(
+          (await listStats(tenant).catch((): StatDef[] => [])).map((def) => [def.id, def] as const),
+        );
         const rows = el('ul', '', 'list');
+        rows.setAttribute('aria-label', 'Standings');
         for (const stat of entry.stats) {
           const row = el('li');
+          const def = scales.get(stat.stat_definition_id);
           row.append(
             el('span', stat.name, 'grow'),
-            el('span', String(stat.value), 'chip'),
-            el('span', stat.own ? 'its own' : 'inherited', 'status-text'),
+            standingMark(
+              stat.value,
+              { min: def?.min_value ?? null, max: def?.max_value ?? null },
+              stat.own ? 'direct' : 'inherited',
+            ),
           );
           rows.append(row);
         }
@@ -327,6 +374,9 @@ export async function mountRelationship() {
         stats.body.append(empty('It holds no standings.'));
       }
       view.append(stats.root);
+      view.append(
+        ...(await timeAndChain(tenant, id, version, relationship, relationship.can_edit, draw)),
+      );
       view.append(notes(tenant, id));
 
       if (relationship.can_edit) view.append(manager(tenant, id, version, relationship, draw));
@@ -348,8 +398,12 @@ function manager(
 ) {
   const panel = card();
   const status = statusLine();
+  const limits = {
+    starts_at: relationship.starts_at?.id ?? null,
+    ends_at: relationship.ends_at?.id ?? null,
+  };
   const changeEnds = (body: { end_a: string; end_b: string; one_way: boolean }) => async () => {
-    await replaceRelationship(tenant, id, version, body);
+    await replaceRelationship(tenant, id, version, { ...body, ...limits });
     await redraw();
   };
   const buttons = [
@@ -385,7 +439,13 @@ function manager(
     button(
       'Delete it',
       async () => {
-        if (!confirm(`Delete “${relationship.name}”? This cannot be undone.`)) return;
+        const yes = await shellOf()?.confirm({
+          title: `Delete “${relationship.name}”?`,
+          body: 'The relationship and its notes go. The two entries stay as they are.',
+          confirm: 'Delete it',
+          danger: true,
+        });
+        if (!yes) return;
         await deleteRelationship(tenant, id, version);
         location.assign(`/relationships/?${new URLSearchParams({ tenant })}`);
       },

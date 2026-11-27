@@ -204,24 +204,207 @@
   }
 }
 
-/* The drawing of a web: it fills a box of a definite height, and fits a phone's width. */
-.graph-host {
-  height: 30rem;
-  min-height: 18rem;
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-control);
+/* A web (SO2, SO6, SO7): the drawing fills the page, its controls float over it as a vertical bar
+   of switches, and a panel slides in beside it. The workspace takes back the page's own padding. */
+.web-workspace {
+  position: relative;
+  flex: 1;
+  min-height: max(32rem, calc(100dvh - 6.5rem));
   overflow: hidden;
 }
 
-@media (max-width: 720px) {
-  .graph-host {
-    height: 24rem;
+.web-stage {
+  position: absolute;
+  inset: 0;
+  overflow: auto;
+}
+
+@media (min-width: 721px) {
+  .web-workspace[data-panel="open"] .web-stage {
+    inset-inline-end: min(26rem, 100%);
   }
 }
 
-/* What is selected in the drawing is marked in the list that says the same in words. */
-.list > li[aria-current="true"] {
+.web-pane {
+  block-size: 100%;
+}
+
+.web-pane[hidden] {
+  display: none;
+}
+
+.web-pane--list,
+.web-pane--matrix {
+  padding: var(--space-5) var(--space-4);
+  /* The title card floats over the top left, and the bar over the right; these views start below
+     the one and stop short of the other. */
+  padding-block-start: 11rem;
+  padding-inline-end: 12rem;
+}
+
+.graph-host {
+  block-size: 100%;
+  min-block-size: 18rem;
+}
+
+.web-float {
+  position: absolute;
+  z-index: 2;
+  /* What floats does not take the clicks on the drawing beside it: only what is on it does. */
+  pointer-events: none;
+}
+
+.web-float > * {
+  pointer-events: auto;
+}
+
+.web-float--head {
+  inset-block-start: var(--space-3);
+  inset-inline-start: var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  inline-size: min(24rem, calc(100% - 2 * var(--space-3)));
+}
+
+.web-title {
+  margin: 0;
+}
+
+/* The views that are read down a page need less of the title card: its words are shorter. */
+.web-workspace:not([data-view="graph"]) .web-title-card p,
+.web-workspace:not([data-view="graph"]) .web-title-card .row-tight:last-child {
+  display: none;
+}
+.web-workspace:not([data-view="graph"]) .web-title {
+  font-size: var(--fs-heading);
+}
+
+.web-float--bar {
+  inset-block-start: var(--space-3);
+  inset-inline-end: var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  align-items: stretch;
+}
+
+.web-workspace[data-panel="open"] .web-float--bar {
+  inset-inline-end: calc(min(26rem, 100%) + var(--space-3));
+}
+
+.web-chip {
+  justify-content: flex-start;
+}
+
+.web-chip[aria-pressed="true"] {
   background: var(--fill-soft);
+  border-color: var(--action);
+}
+
+.web-float--zoom {
+  inset-block-end: var(--space-3);
+  inset-inline-end: var(--space-3);
+  display: flex;
+  gap: var(--space-2);
+}
+
+.web-workspace[data-panel="open"] .web-float--zoom {
+  inset-inline-end: calc(min(26rem, 100%) + var(--space-3));
+}
+
+.web-float--legend {
+  inset-block-end: var(--space-3);
+  inset-inline-start: var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.web-panel {
+  position: absolute;
+  z-index: 4;
+  inset-block: 0;
+  inset-inline-end: 0;
+  inline-size: min(26rem, 100%);
+  padding: var(--space-3);
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.web-panel[hidden] {
+  display: none;
+}
+
+/* The legend is the drawing's; the other views do not show it. */
+.web-workspace:not([data-view="graph"]) .web-float--legend {
+  display: none;
+}
+
+/* A phone: the page flows. The head, the view, the bar and the panel follow one another, so nothing
+   floats over what is read, and the drawing is read in full at its own height. */
+@media (max-width: 720px) {
+  .web-workspace {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+    min-height: 0;
+    overflow: visible;
+  }
+
+  .web-stage {
+    position: relative;
+    inset: auto;
+    overflow: visible;
+    order: 1;
+  }
+
+  .web-float {
+    position: static;
+    pointer-events: auto;
+  }
+
+  .web-float--head {
+    order: 0;
+    inline-size: auto;
+  }
+
+  .web-float--bar {
+    order: 2;
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+
+  .web-float--zoom {
+    order: 3;
+  }
+
+  .web-float--legend {
+    order: 4;
+    display: none;
+  }
+
+  .web-panel {
+    position: static;
+    order: 5;
+    inline-size: auto;
+    overflow: visible;
+  }
+
+  .web-pane {
+    block-size: auto;
+  }
+
+  .web-pane--list,
+  .web-pane--matrix {
+    padding: 0;
+  }
+
+  .graph-host {
+    block-size: 24rem;
+  }
 }
 
 /* The matrix: a grid that holds only the cells in view (ADR 0408). Sizes match the constants in
@@ -302,6 +485,15 @@
 
 .matrix-data.is-inherited {
   border-style: dashed;
+}
+
+.matrix-rowhead[aria-current="true"] {
+  background: var(--fill-soft);
+}
+
+.matrix-data.is-unknown {
+  outline: 1px dotted var(--text-secondary);
+  outline-offset: -3px;
 }
 
 .matrix-data.is-pending {

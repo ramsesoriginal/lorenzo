@@ -166,3 +166,165 @@ test('on a phone one entry has its standings as a list with the same save', asyn
   );
   expect(overflow).toBeLessThanOrEqual(0);
 });
+
+test('the matrix is a view of the web: marks and a legend, a second click edits, Tab moves along', async ({
+  browser,
+}) => {
+  const w = await world();
+  const honor = await standing(w, 'Honor', { min: -10, max: 10 });
+  const mara = await w.entry('Mara Quill');
+  const wren = await w.entry('Wren Ashdown');
+  const dren = await w.entry('Dren Holloway');
+  const bond = await w.tie('Open bond', mara.id, wren.id, true);
+  await ok(
+    w.gm.PUT('/tenants/{tenant_id}/entities/{entity_id}/stats/{stat_definition_id}', {
+      params: { path: { ...w.path, entity_id: bond.id, stat_definition_id: honor.id } },
+      body: { value: -4, acquire_group: true },
+    }),
+  );
+  const court = await courtOf(w, [mara.id, wren.id, dren.id]);
+  const page = await signedIn(browser, w.subject);
+  await page.goto(`/web/?tenant=${w.tenant.id}&id=${court.id}`);
+  await page.getByRole('group', { name: 'View' }).getByRole('button', { name: 'Matrix' }).click();
+  expect(page.url()).toContain('view=matrix');
+  const grid = page.getByRole('grid', { name: 'Relationship matrix' });
+  await expect(grid).toBeVisible();
+  await page.getByRole('combobox', { name: /^Standing/ }).selectOption(honor.id);
+
+  // A number, a quiet bar on the scale (hatched below zero), and a legend that says so.
+  const cell = grid.getByRole('gridcell', { name: /^Mara Quill to Wren Ashdown, -4/ });
+  await expect(cell.locator('.standing-num')).toHaveText('-4');
+  await expect(cell.locator('.standing-bar i.neg')).toHaveCount(1);
+  await expect(page.getByRole('group', { name: 'What the cells show' })).toBeVisible();
+
+  // A first click selects, a second edits where the cell is; Tab saves the draft and moves right.
+  const empty = grid.getByRole('gridcell', { name: /^Mara Quill to Dren Holloway, none/ });
+  await empty.click();
+  await expect(grid.getByRole('textbox')).toHaveCount(0);
+  await empty.click();
+  await page.keyboard.type('3');
+  await page.keyboard.press('Tab');
+  await expect(
+    grid.getByRole('gridcell', { name: /^Mara Quill to Dren Holloway, 3, not saved/ }),
+  ).toBeVisible();
+
+  // The old address carries on to the same view.
+  await page.goto(`/matrix/?tenant=${w.tenant.id}&id=${court.id}`);
+  await expect(page).toHaveURL(/\/web\/\?.*view=matrix/);
+  await expect(page.getByRole('grid', { name: 'Relationship matrix' })).toBeVisible();
+});
+
+test('clearing a standing asks once in the shell and leaves a draft that can be undone', async ({
+  browser,
+}) => {
+  const w = await world();
+  const honor = await standing(w, 'Honor', { min: -10, max: 10 });
+  const mara = await w.entry('Mara Quill');
+  const wren = await w.entry('Wren Ashdown');
+  const bond = await w.tie('Open bond', mara.id, wren.id, true);
+  await ok(
+    w.gm.PUT('/tenants/{tenant_id}/entities/{entity_id}/stats/{stat_definition_id}', {
+      params: { path: { ...w.path, entity_id: bond.id, stat_definition_id: honor.id } },
+      body: { value: 5, acquire_group: true },
+    }),
+  );
+  const court = await courtOf(w, [mara.id, wren.id]);
+  const page = await signedIn(browser, w.subject);
+  await page.goto(`/web/?tenant=${w.tenant.id}&id=${court.id}&view=matrix`);
+  await page.getByRole('combobox', { name: /^Standing/ }).selectOption(honor.id);
+  const grid = page.getByRole('grid', { name: 'Relationship matrix' });
+  await grid.getByRole('gridcell', { name: /^Mara Quill to Wren Ashdown, 5/ }).focus();
+  await page.keyboard.press('Delete');
+  await expect(page.getByRole('dialog').getByText('Clear this standing?')).toBeVisible();
+  await page.getByRole('button', { name: 'Clear it' }).click();
+  await expect(
+    grid.getByRole('gridcell', { name: /^Mara Quill to Wren Ashdown, cleared, not saved/ }),
+  ).toBeVisible();
+});
+
+test('the matrix reads as of an Event: an unknown relationship is dotted and worded, and a stat with no scale says so', async ({
+  browser,
+}) => {
+  const w = await world();
+  const trust = await standing(w, 'Trust');
+  const mara = await w.entry('Mara Quill');
+  const wren = await w.entry('Wren Ashdown');
+  const dren = await w.entry('Dren Holloway');
+  const event = async (name: string) =>
+    ok(
+      w.gm.POST('/tenants/{tenant_id}/entities', {
+        params: { path: w.path },
+        body: { name, kinds: ['event'], parents: [] },
+      }),
+    );
+  const wedding = await event('The wedding');
+  const war = await event('The war');
+  // No order is recorded between the two Events, so what starts at one is unknown as of the other.
+  await ok(
+    w.gm.POST('/tenants/{tenant_id}/relationships', {
+      params: { path: w.path },
+      body: {
+        name: 'Rivals after the war',
+        end_a: mara.id,
+        end_b: wren.id,
+        one_way: false,
+        is_public: true,
+        starts_at: war.id,
+      },
+    }),
+  );
+  const bond = await w.tie('Always friends', wren.id, dren.id, true);
+  for (const [entity, value] of [[bond.id, 3]] as const) {
+    await ok(
+      w.gm.PUT('/tenants/{tenant_id}/entities/{entity_id}/stats/{stat_definition_id}', {
+        params: { path: { ...w.path, entity_id: entity, stat_definition_id: trust.id } },
+        body: { value, acquire_group: true },
+      }),
+    );
+  }
+  const court = await courtOf(w, [mara.id, wren.id, dren.id]);
+  const page = await signedIn(browser, w.subject);
+  await page.goto(`/web/?tenant=${w.tenant.id}&id=${court.id}&view=matrix&as_of=${wedding.id}`);
+  await page.getByRole('combobox', { name: /^Standing/ }).selectOption(trust.id);
+  const grid = page.getByRole('grid', { name: 'Relationship matrix' });
+  await expect(
+    grid.getByRole('gridcell', { name: /^Mara Quill to Wren Ashdown, unknown as of The wedding/ }),
+  ).toBeVisible();
+  await expect(grid.locator('.matrix-data.is-unknown').first()).toBeVisible();
+  await expect(
+    page.getByText(/Trust has no scale, so it is scaled to the values in view/),
+  ).toBeVisible();
+});
+
+test('the matrix marks what was selected in the drawing, and can be ordered by group', async ({
+  browser,
+}) => {
+  const w = await world();
+  const mara = await w.person('Mara Quill');
+  const wren = await w.person('Wren Ashdown');
+  const dren = await w.person('Dren Holloway');
+  const court = await w.group('The Court', wren.id);
+  await ok(
+    w.gm.PUT('/tenants/{tenant_id}/groups/{group_entity_id}/members/{character_entity_id}', {
+      params: { path: { ...w.path, group_entity_id: court.id, character_entity_id: dren.id } },
+    }),
+  );
+  await w.tie('Mara knows Wren', mara.id, wren.id, true);
+  const web = await courtOf(w, [mara.id, wren.id, dren.id]);
+  const page = await signedIn(browser, w.subject);
+  await page.goto(`/web/?tenant=${w.tenant.id}&id=${web.id}`);
+  const drawing = page.getByRole('group', { name: 'The court' });
+  await drawing.getByRole('button', { name: 'Mara Quill' }).focus();
+  await page.keyboard.press('Space');
+  await page.getByRole('group', { name: 'View' }).getByRole('button', { name: 'Matrix' }).click();
+  const grid = page.getByRole('grid', { name: 'Relationship matrix' });
+  await expect(grid.getByRole('rowheader', { name: 'Mara Quill' })).toHaveAttribute(
+    'aria-current',
+    'true',
+  );
+
+  // By group: the members of the group come first, then the others.
+  await page.getByRole('combobox', { name: /^Order/ }).selectOption('group');
+  await expect(grid.getByRole('rowheader').first()).toHaveText('Dren Holloway');
+  await expect(grid.getByRole('rowheader').last()).toHaveText('Mara Quill');
+});

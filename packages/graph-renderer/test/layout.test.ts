@@ -165,3 +165,22 @@ describe('layout', () => {
     expect(dangling.primitives.filter((p) => p.role === 'edge')).toHaveLength(0);
   });
 });
+
+describe('a faded edge', () => {
+  it('is drawn faded, with its arrow, and the others are not', () => {
+    const faded = {
+      ...model,
+      edges: model.edges.map((e, i) => (i === 0 ? { ...e, dim: true, directed: true } : e)),
+    };
+    const scene = layout(faded, view({ layout: 'circle' }));
+    const first = model.edges[0]?.id;
+    const dimOf = (id: string) => {
+      const found = scene.primitives.find((p) => p.id === id);
+      return found && 'dim' in found ? found.dim : undefined;
+    };
+    expect(dimOf(`edge:${first}`)).toBe(true);
+    expect(dimOf(`arrow:${first}`)).toBe(true);
+    const other = model.edges[1]?.id;
+    expect(dimOf(`edge:${other}`)).toBe(false);
+  });
+});

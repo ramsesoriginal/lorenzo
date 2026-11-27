@@ -6,7 +6,10 @@ import {
   layout,
   moveAlongEdges,
   neighbours,
+  nodeWorld,
+  nudge,
   panBy,
+  pinch,
   samplePath,
   toWorld,
   ZOOM,
@@ -105,5 +108,73 @@ describe('moving along edges', () => {
     for (const id of reached) expect(neighbours(model, 'wren')).toContain(id);
     expect(moveAlongEdges(scene, model, 'loner', 'ArrowUp')).toBeNull();
     expect(moveAlongEdges(scene, model, 'ghost', 'ArrowUp')).toBeNull();
+  });
+});
+
+describe('placing by hand and pinching', () => {
+  const scene = layout(model, view({ layout: 'manual' }));
+  const disc = (id: string) => {
+    const found = scene.primitives.find((p) => p.id === `node:${id}`);
+    if (found?.kind !== 'circle') throw new Error('missing node');
+    return found;
+  };
+
+  it('knows where a node is in the units a placement is written in, and none for an absent one', () => {
+    const mara = disc('mara');
+    expect(nodeWorld(scene, 'mara')).toEqual(toWorld(scene, { x: mara.cx, y: mara.cy }));
+    expect(nodeWorld(scene, 'nobody')).toBeNull();
+  });
+
+  it('moves a node by some pixels and says where it now is', () => {
+    const start = view({ layout: 'manual' });
+    const moved = nudge(scene, start, 'mara', 30, -10);
+    const mara = disc('mara');
+    expect(moved?.at).toEqual(toWorld(scene, { x: mara.cx + 30, y: mara.cy - 10 }));
+    expect(moved?.view.positions?.mara).toEqual(moved?.at);
+    expect(nudge(scene, start, 'nobody', 1, 1)).toBeNull();
+  });
+
+  it('zooms by how far two fingers moved apart, and pans by how far their middle moved', () => {
+    const start = view();
+    const out = pinch(
+      start,
+      [
+        { x: 100, y: 100 },
+        { x: 200, y: 100 },
+      ],
+      [
+        { x: 50, y: 100 },
+        { x: 250, y: 100 },
+      ],
+    );
+    expect(out.zoom).toBeCloseTo(2, 5);
+    // The middle did not move, so what was under it stays under it.
+    const same = pinch(
+      start,
+      [
+        { x: 100, y: 100 },
+        { x: 200, y: 100 },
+      ],
+      [
+        { x: 100, y: 100 },
+        { x: 200, y: 100 },
+      ],
+    );
+    expect(same.zoom).toBe(1);
+    expect(same.pan).toEqual({ x: 0, y: 0 });
+    // Both fingers moved right: the drawing follows them.
+    const dragged = pinch(
+      start,
+      [
+        { x: 100, y: 100 },
+        { x: 200, y: 100 },
+      ],
+      [
+        { x: 130, y: 110 },
+        { x: 230, y: 110 },
+      ],
+    );
+    expect(dragged.zoom).toBe(1);
+    expect(dragged.pan).toEqual({ x: 30, y: 10 });
   });
 });

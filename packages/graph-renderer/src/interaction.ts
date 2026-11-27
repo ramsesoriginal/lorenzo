@@ -48,6 +48,48 @@ export function toWorld(scene: Scene, at: Point): Point {
   };
 }
 
+/** Where a node is, in the units a layout uses (what a hand placement is written in), or none. */
+export function nodeWorld(scene: Scene, nodeId: string): Point | null {
+  for (const p of scene.primitives) {
+    if (p.kind === 'circle' && p.source.id === nodeId) return toWorld(scene, { x: p.cx, y: p.cy });
+  }
+  return null;
+}
+
+/** The view with a node moved by a number of screen pixels, and where it now is; none if not drawn. */
+export function nudge(
+  scene: Scene,
+  view: GraphView,
+  nodeId: string,
+  dx: number,
+  dy: number,
+): { view: GraphView; at: Point } | null {
+  for (const p of scene.primitives) {
+    if (p.kind === 'circle' && p.source.id === nodeId) {
+      const at = toWorld(scene, { x: p.cx + dx, y: p.cy + dy });
+      return { view: { ...view, positions: { ...view.positions, [nodeId]: at } }, at };
+    }
+  }
+  return null;
+}
+
+/**
+ * Two fingers moving: zooms by how much their distance changed, about where they are, and pans by how
+ * far their middle moved, so what was between the fingers stays between them.
+ */
+export function pinch(
+  view: GraphView,
+  from: readonly [Point, Point],
+  to: readonly [Point, Point],
+): GraphView {
+  const distance = (a: Point, b: Point) => Math.hypot(a.x - b.x, a.y - b.y) || 1;
+  const middle = (a: Point, b: Point): Point => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
+  const before = middle(from[0], from[1]);
+  const after = middle(to[0], to[1]);
+  const zoomed = zoomAt(view, distance(to[0], to[1]) / distance(from[0], from[1]), before);
+  return panBy(zoomed, after.x - before.x, after.y - before.y);
+}
+
 export function neighbours(model: GraphModel, id: string): string[] {
   const out = new Set<string>();
   for (const e of model.edges) {

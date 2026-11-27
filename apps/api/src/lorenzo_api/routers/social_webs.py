@@ -15,7 +15,7 @@ from fastapi import APIRouter, Depends, Header, Query, Response
 from fastapi_pagination import Page
 from fastapi_pagination.ext.sqlalchemy import apaginate
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
-from sqlalchemy import Select, delete, exists, or_, select
+from sqlalchemy import Select, delete, exists, false, or_, select
 from sqlalchemy.orm import aliased
 
 from lorenzo_api.activity_log import record_activity
@@ -57,6 +57,7 @@ from lorenzo_api.routers.relationships import (
     build_rows,
     visible_event_ids,
 )
+from lorenzo_api.routers.relationships import _read as read_relationship
 from lorenzo_api.schemas.common import Slug
 from lorenzo_api.social_webs import (
     MAX_BULK_ROWS,
@@ -385,6 +386,13 @@ async def list_social_webs(
     q: Annotated[
         str | None, Query(description="Case-insensitive substring match against the name.")
     ] = None,
+    names: Annotated[
+        uuid.UUID | None,
+        Query(
+            description="Only the webs that name this relationship: both of its ends are members. "
+            "A relationship the reader may not see names none."
+        ),
+    ] = None,
 ) -> Page[SocialWebOut]:
     """The webs the reader may see, by name then id."""
     vis = await standing(session, user, tenant_id)
@@ -398,6 +406,22 @@ async def list_social_webs(
     )
     if q is not None:
         stmt = stmt.where(Entity.name.icontains(q, autoescape=True))
+    if names is not None:
+        # The reader sees the relationship with both ends, or it names no web for them.
+        try:
+            _, ties = await read_relationship(session, vis, tenant_id, names)
+        except EntityNotFoundError:
+            stmt = stmt.where(false())
+        else:
+            first, second = aliased(SocialWebEntry), aliased(SocialWebEntry)
+            stmt = stmt.where(
+                exists().where(
+                    first.web_entity_id == Entity.id, first.entry_entity_id == ties.end_a
+                ),
+                exists().where(
+                    second.web_entity_id == Entity.id, second.entry_entity_id == ties.end_b
+                ),
+            )
 
     async def rows(found: Any) -> list[SocialWebOut]:
         manage = manages(vis)

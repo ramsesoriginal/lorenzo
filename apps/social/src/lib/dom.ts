@@ -261,3 +261,8 @@ export function claim(host: HTMLElement) {
   host.dataset.claimed = '1';
   return true;
 }
+
+/** The social page of one entry: its relationships by type, and a group's members. */
+export function entryHref(tenant: string, id: string) {
+  return `/entry/?${new URLSearchParams({ tenant, id })}`;
+}

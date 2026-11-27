@@ -55,6 +55,11 @@
   fill: var(--action-surface);
 }
 
+.gr-edge.is-dim,
+.gr-arrow.is-dim {
+  opacity: 0.3;
+}
+
 .gr-node.is-dim {
   opacity: 0.45;
 }

@@ -29,7 +29,7 @@ const { tabs, rest } = splitTabs(nav, 3);
 <div class="shell-bottom">
   <div class="save-bar" data-shell-savebar></div>
   <div class="toast-region" data-shell-toasts role="region" aria-label="Messages"></div>
-  <div class="shell-status" data-shell-status>
+  <div class="shell-status" data-shell-status role="region" aria-label="Status">
     <span class="sync" data-shell-sync data-kind="synced" hidden>
       <svg class="icon" aria-hidden="true">
         <use href={`${icons}#icon-select-item`} data-shell-sync-icon></use>
