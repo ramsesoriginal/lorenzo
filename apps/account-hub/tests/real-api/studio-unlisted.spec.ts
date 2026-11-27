@@ -107,7 +107,12 @@ test('an Owner leaves a public repository off Discover and a library still opens
     'Nothing found. Try another word, or remove a filter.',
   );
   await expect(results(guest.page)).toHaveCount(0);
+  // The tags on offer are the hub's cached facets (lib/cache.ts: held fresh for 15 s, and a write
+  // by someone else does not empty this guest's cache), unlike the listing, which is always asked
+  // for. A run quick enough to be back within 15 s of the guest's first look would be shown the
+  // tag it saw then, so the guest reloads, which asks again for everything.
   await guest.page.goto('/discover/');
+  await guest.page.reload();
   await expect(tagChoice(guest.page).locator('option', { hasText: `tag-${tag}` })).toHaveCount(0);
   const facets = await ok(visitor.api.GET('/discover/facets'));
 
