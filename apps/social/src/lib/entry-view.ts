@@ -1,6 +1,8 @@
 import { client, fetchAllPages, unwrap } from './api';
+import { formDialog } from './dialog';
 import {
   audienceBadge,
+  button,
   claim,
   el,
   empty,
@@ -20,7 +22,8 @@ import {
 } from './dom';
 import { parseInput } from './matrix';
 import { limitsOf, listStats, readStanding, type StatDef } from './matrix-api';
-import { libraryName } from './names';
+import { canManage, libraryName } from './names';
+import { relationshipForm } from './relationship-form';
 import { start } from './sign-in';
 import { type listRelationships, readEntry } from './social-api';
 import { standingMark } from './standing';
@@ -62,7 +65,7 @@ export async function mountEntry() {
   if (!me || !host.isConnected) return;
   try {
     host.replaceChildren(loading('Opening the entry…'));
-    const [entry, name, stats, types, all, members] = await Promise.all([
+    const [entry, name, stats, types, all, members, manage] = await Promise.all([
       readEntry(tenant, id),
       libraryName(tenant),
       listStats(tenant),
@@ -74,19 +77,39 @@ export async function mountEntry() {
           cache: 'no-cache',
         }),
       ).catch(() => []),
+      canManage(tenant),
     ]);
     const numbers = stats.filter((s) => s.value_type === 'int');
     let stat: StatDef | undefined = numbers[0];
     let values = stat ? await readStanding(tenant, stat.id) : new Map();
 
-    const view = el('div', '', 'stack view');
+    const view = el('div', '', 'stack view view-narrow');
     view.append(
       pageHead(entry.name, {
-        crumbs: [link('Relationships', `/relationships/?${new URLSearchParams({ tenant })}`)],
+        crumbs: [link('Back to the webs', `/webs/?${new URLSearchParams({ tenant })}`)],
+        actions: [
+          button(
+            'New relationship',
+            () => {
+              const form = relationshipForm(tenant, manage, { first: { id, name: entry.name } });
+              return formDialog({
+                title: 'Make a relationship',
+                submit: 'Make the relationship',
+                fields: form.fields,
+                async run() {
+                  const made = await form.submit();
+                  location.assign(relationshipHref(tenant, made.id));
+                },
+              });
+            },
+            { variant: 'primary', icon: 'add' },
+          ),
+        ],
         lede: name
           ? `${entry.name}’s relationships in ${name}, as you may see them.`
           : 'Its relationships, as you may see them.',
         meta: [
+          metaLine('social', `${entry.kinds.join(', ')} · social page`),
           metaLine(
             'kind-relationship',
             `${all.length} ${all.length === 1 ? 'relationship' : 'relationships'}`,

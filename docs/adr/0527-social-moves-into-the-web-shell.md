@@ -79,7 +79,7 @@ Filled in as each slice lands.
 | The lenses (SO4) | G6 | Built (the Event is chosen with the shared time filter and the story-ordered list, see the audit below): "As of an Event" and "As read by" are switches in the bar (on says so; a second press clears; off opens their controls), each with a line saying what is on and a Clear; what the date lens leaves out is counted with a "List them" switch that lists them and draws them faded; an unknown relationship is dotted in the graph and "Unknown as of the Event" in the list. |
 | The matrix in the web (SO3, SO8) | G7 | Built: Matrix is a view of the web (`?view=matrix`), and `/matrix/` carries on to it; a standing shows its number, a quiet bar on the stat's scale (hatched below zero) and, when inherited, a word, with a legend; a first click selects and a second edits where the cell is, Tab saves the draft and moves right, Enter down, Escape cancels, typing starts an edit; drafts, the save bar, the conflict cell and the presence mode are as built; on a phone the view is called Standings and is one entry's standings as a list. Drafts are not kept if a lens or the members change and the web is drawn again (the save bar says how many there are). Delete still asks with the browser's own prompt: G10 |
 | Problems | G8 | Built for what the API can say: staff see chains whose ends do not meet (the API's `relationship-problems`, the one kind it reports) and doubled relationships (worked out here from the relationships the reader may see: the same ends, either way round for a two-way one); a library with none says so with the `caught-up` mascot, and a player gets one sentence. "Groups that disagree" is not built: nothing says what it means yet, and the API does not report it |
-| An entry's social page | G9 | Built at `/entry/?tenant=&id=`: its relationships grouped by type (one read a type), each with the other end, With, To or From, who may read it and its standing, written in place by those who manage relationships (inside the scale, refused in words); a group's members apart; reached from a relationship's page and from a selected entry's panel in a web. Not built: the palette entry, and an entry in another app linking here (no app asks yet) |
+| An entry's social page | G9 | Built at `/entry/?tenant=&id=`: its relationships grouped by type (one read a type), each with the other end, With, To or From, who may read it and its standing, written in place by those who manage relationships (inside the scale, refused in words); a group's members apart; reached from a relationship's page and from a selected entry's panel in a web. The palette finds any entry and opens its page. Not built: an entry in another app linking here (no app asks yet) |
 | Phone, tablet, audits | G10 | Built: on a phone the web page flows (head, view, bar, drawing, panel one after another) instead of floating; the legend belongs to the drawing only; one audit spec visits every page on desktop, phone and tablet: axe in both themes (with the panel, Members and Connect open), nothing scrolling sideways, and every button, select and field at least 44px on a phone; the matrix's Delete asks in the shell and not in the browser |
 
 ## Audit against the design and the old app (2026-11-26)
@@ -110,9 +110,18 @@ After G10 the built app was checked item by item against [the design](../design/
 - The palette (Ctrl or Cmd K) and the go-to keys are fed: Webs, Relationships, Types and standings, Problems, New web, New relationship, and any being or group, which opens its page. The app had never called the shell's palette.
 - A relationship's page lists the webs that name it: the webs list read gained `names=<relationship>` (webs with both ends as members; a relationship the reader may not see names none), and the API client was regenerated.
 
+### Built after a second audit against the design's own screens
+
+- A web on the Webs home is a card: a small drawing, its name, "N entries · M relationships", who may read it and a menu (Rename, Delete); Continue is the same card.
+- Every standing the library has is read on a relationship, in its page and in the web's panel: its value as a number, a bar and a word, its scale (or that it has none and is shaded across the visible range), where an inherited value comes from, and for those who may write a field to set it where it is read, even when it has no value yet, refused outside the scale, with Undo (which clears a value that was new).
+- A row of the relationships list says its type and its standing; the filters are one wrapped row (name, type, an end, a standing and the numbers it lies between).
+- An entry's page has New relationship (this entry as the first end), "Back to the webs", and says what the entry is.
+- The matrix marks a standing that holds through others as derived, as the design does.
+- On a web, Members sits beside the view switch, and the layout and Connect with the zoom; the legend draws a sample of each line; the Types switch says how many types the web is limited to.
+
 ### In the design, still not built
 
-- "Groups that disagree" in Problems: nothing defines it. Doubled relationships are worked out in the page, not reported by the API.
+- "Groups that disagree" in Problems: the design's example is a relationship that says an entry is a member of a group the group does not hold, which depends on what a library's types mean (no type is built in), so nothing defines it yet. Doubled relationships are worked out in the page, not reported by the API.
 - Links to an entry's page from other apps: none asks for one yet.
 
 ## Consequences

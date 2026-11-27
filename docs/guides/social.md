@@ -52,6 +52,15 @@ It holds only the cells in view, is keyboard first (arrows, Enter or F2, typing 
 saves in batches. An empty cell given a value makes a restricted relationship; a cell that two relationships fill is a
 conflict. On a phone one entry's standings are a list.
 
+## Finding your way
+
+The app has the tabs **Webs**, **Relationships**, **Types and standings** and **Problems**; the last two are for those who write relationships. Home is the webs of the library you work in, with the one you opened last offered as Continue; the library switcher in the header changes library. Ctrl or Cmd K opens the palette, which goes to a page, makes a web or a relationship, or finds any being or group and opens its page.
+
+- **A web is one page** with three views, Graph, Matrix and List, that share its members, its lenses and its selection. The graph fills the page and a bar of switches sits over it: Labels, Groups (outlines), Steps (only what is a step or two from the selection), Focus (dims all but the selection and what it touches), the date lens ("As of an Event", chosen from the Events in story order and the time filter), "As read by", the types it is limited to, Drawing (layout, seed, theme and which standing shows on the lines), Members and Notes. Selecting an entry or a relationship opens a panel on it: for a relationship its type, standings (each set where it is read), since and until and the chain it holds through. Connect makes a relationship without leaving the page. A line is solid when stated, dashed when it holds through others and dotted when it is not known as of the Event; a lens says what it has on, and clears it.
+- **A relationship's page** says who it ties and how, sets every standing the library has, since and until, the chain it holds through, who may read it, and which webs name it. Swapping its ends or its direction keeps its time.
+- **An entry's page** groups the entry's relationships by type, with the other end and which way each goes, and sets their standings in place; a group's members are listed apart.
+- **Problems** lists the doubled relationships and the chains whose ends do not meet.
+
 ## The starter
 
 An empty library is offered a **starter** set of types and standings on the types screen: five standings with their

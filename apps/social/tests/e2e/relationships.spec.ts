@@ -316,3 +316,76 @@ test('a relationship page lists the webs that have both of its ends', async ({ b
       .getByRole('link', { name: 'The court' }),
   ).toBeVisible();
 });
+
+test('every standing of the library is read on a relationship, and one with no value is set where it is read', async ({
+  browser,
+}) => {
+  const w = await world();
+  await standing(w, 'Honor', { min: -10, max: 10 });
+  await standing(w, 'Faith');
+  const mara = await w.entry('Mara Quill');
+  const wren = await w.entry('Wren Ashdown');
+  const tie = await w.tie('Mara knows Wren', mara.id, wren.id, true);
+  const page = await signedIn(browser, w.subject);
+  await page.goto(`/relationship/?tenant=${w.tenant.id}&id=${tie.id}`);
+  const rows = page.getByRole('list', { name: 'Standings of this relationship' });
+  await expect(rows.getByText('Scale -10 to 10. No value.')).toBeVisible();
+  await expect(
+    rows.getByText('No scale set; shaded across the visible range. No value.'),
+  ).toBeVisible();
+
+  // Setting one that has no value yet; refused outside its scale; Undo takes it away again.
+  const honor = page.getByLabel('Honor of Mara knows Wren');
+  await honor.fill('40');
+  await honor.press('Tab');
+  await expect(page.getByText('40 is above the scale (up to 10).')).toBeVisible();
+  await honor.fill('7');
+  await honor.press('Tab');
+  await expect(page.getByText('Honor of Mara knows Wren is 7')).toBeVisible();
+  await page.reload();
+  await expect(page.getByLabel('Honor of Mara knows Wren')).toHaveValue('7');
+  await page.getByLabel('Honor of Mara knows Wren').fill('3');
+  await page.getByLabel('Honor of Mara knows Wren').press('Tab');
+  await page.getByRole('button', { name: 'Undo' }).click();
+  await expect(page.getByLabel('Honor of Mara knows Wren')).toHaveValue('7');
+});
+
+test('a row of the list says its type and its standing', async ({ browser }) => {
+  const w = await world();
+  const honor = await standing(w, 'Honor', { min: -10, max: 10 });
+  const mara = await w.entry('Mara Quill');
+  const wren = await w.entry('Wren Ashdown');
+  const parent = await ok(
+    w.gm.POST('/tenants/{tenant_id}/entities', {
+      params: { path: w.path },
+      body: { name: 'Parent of', kinds: [], parents: [] },
+    }),
+  );
+  const tie = await ok(
+    w.gm.POST('/tenants/{tenant_id}/relationships', {
+      params: { path: w.path },
+      body: {
+        name: 'Mara is the parent of Wren',
+        end_a: mara.id,
+        end_b: wren.id,
+        one_way: true,
+        is_public: true,
+        prototypes: [parent.id],
+      },
+    }),
+  );
+  await ok(
+    w.gm.PUT('/tenants/{tenant_id}/entities/{entity_id}/stats/{stat_definition_id}', {
+      params: { path: { ...w.path, entity_id: tie.id, stat_definition_id: honor.id } },
+      body: { value: 4, acquire_group: true },
+    }),
+  );
+  const page = await signedIn(browser, w.subject);
+  await page.goto(`/relationships/?tenant=${w.tenant.id}`);
+  const row = page
+    .getByRole('list', { name: 'Relationships' })
+    .getByRole('listitem')
+    .filter({ hasText: 'Mara is the parent of Wren' });
+  await expect(row.getByText('Parent of', { exact: true })).toBeVisible();
+  await expect(row.locator('.standing-num')).toHaveText('4');
+});

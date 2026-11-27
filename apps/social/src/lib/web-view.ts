@@ -576,7 +576,7 @@ export async function mountWeb() {
         [['', 'None'], ...numbers.map((x): [string, string] => [x.id, x.name])],
         shown?.id ?? '',
       );
-      controls.body.append(layout.label, seeded.label, themes.label, shownSelect.label);
+      controls.body.append(seeded.label, themes.label, shownSelect.label);
       if (manage) {
         const state = { version };
         controls.body.append(
@@ -745,38 +745,28 @@ export async function mountWeb() {
         node.setAttribute('aria-pressed', 'false');
         return node;
       };
-      bar.append(
-        labelsChip,
-        groupsChip,
-        stepsChip,
-        focusChip,
-        tabChip('drawing', 'Drawing', 'settings'),
-        lensChip('As of an Event', 'kind-clock', Boolean(lens.asOf), () => {
-          lens.asOf = null;
-        }),
-        lensChip('As read by', 'eye', Boolean(lens.asSeenBy), () => {
-          lens.asSeenBy = null;
-        }),
-        ...(manage ? [tabChip('types', 'Types', 'filter')] : []),
-        ...(manage
-          ? [
-              chip('Members', 'kind-being', () => {
-                void openMembers({
-                  tenant,
-                  id,
-                  selected:
-                    selected?.kind === 'node'
-                      ? {
-                          id: selected.id,
-                          name: model.nodes.find((n) => n.id === selected?.id)?.name ?? '',
-                        }
-                      : null,
-                  changed: draw,
-                });
-              }),
-            ]
-          : []),
-        chip('Connect', 'kind-relationship', () => {
+      // Members sits beside the view switch, and Connect with the zoom: where the design puts them.
+      const membersButton = button(
+        'Members',
+        () => {
+          void openMembers({
+            tenant,
+            id,
+            selected:
+              selected?.kind === 'node'
+                ? {
+                    id: selected.id,
+                    name: model.nodes.find((n) => n.id === selected?.id)?.name ?? '',
+                  }
+                : null,
+            changed: draw,
+          });
+        },
+        { variant: 'secondary', icon: 'kind-being' },
+      );
+      const connectButton = button(
+        'Connect',
+        () => {
           const form = relationshipForm(tenant, manage);
           void formDialog({
             title: 'Connect two entries',
@@ -797,7 +787,30 @@ export async function mountWeb() {
               await draw();
             },
           });
+        },
+        { variant: 'secondary', icon: 'kind-relationship' },
+      );
+      bar.append(
+        labelsChip,
+        groupsChip,
+        stepsChip,
+        focusChip,
+        tabChip('drawing', 'Drawing', 'settings'),
+        lensChip('As of an Event', 'kind-clock', Boolean(lens.asOf), () => {
+          lens.asOf = null;
         }),
+        lensChip('As read by', 'eye', Boolean(lens.asSeenBy), () => {
+          lens.asSeenBy = null;
+        }),
+        ...(manage
+          ? [
+              tabChip(
+                'types',
+                web.types.length ? `Types: ${web.types.length}` : 'Types: all',
+                'filter',
+              ),
+            ]
+          : []),
         tabChip('notes', 'Notes', 'kind-fact'),
       );
 
@@ -805,15 +818,24 @@ export async function mountWeb() {
         button('Zoom in', () => drawing?.zoomIn()),
         button('Zoom out', () => drawing?.zoomOut()),
         button('Fit', () => drawing?.fit()),
+        layout.label,
+        connectButton,
       );
 
       // The legend says what a line is (identity.md section 18).
       const legend = el('div', '', 'graph-legend');
-      legend.append(
-        el('span', 'Solid: direct'),
-        el('span', 'Dashed: through others'),
-        el('span', 'Dotted: unknown'),
-      );
+      for (const [kind, words] of [
+        ['solid', 'direct'],
+        ['dashed', 'derived, through others'],
+        ['dotted', 'unknown'],
+        ['arrow', 'direction'],
+      ] as const) {
+        const item = el('span');
+        const sample = el('i', '', `legend-line legend-${kind}`);
+        sample.setAttribute('aria-hidden', 'true');
+        item.append(sample, document.createTextNode(words));
+        legend.append(item);
+      }
       floatLegend.prepend(legend);
 
       // Graph, Matrix and List are three views of one web (SO2); the view is in the address. On a
@@ -880,7 +902,7 @@ export async function mountWeb() {
         switcher.append(b);
       }
       floatHead.append(el('div', '', 'row-tight'));
-      floatHead.lastElementChild?.append(switcher);
+      floatHead.lastElementChild?.append(switcher, ...(manage ? [membersButton] : []));
       showView(wanted);
       host.replaceChildren(view);
       if (panelTab) openTab(panelTab as Tab);

@@ -11,9 +11,14 @@ import { defaultName } from './words';
  * optionally a standing. `submit` makes it and says in words what it refused; the ends are told
  * apart before anything is written.
  */
-export function relationshipForm(tenant: string, manage: boolean) {
+export function relationshipForm(
+  tenant: string,
+  manage: boolean,
+  start: { first?: { id: string; name: string } } = {},
+) {
   const first = endPicker(tenant, 'First end', () => second.value());
   const second = endPicker(tenant, 'Second end', () => first.value());
+  if (start.first) first.set?.(start.first);
   const kind = typePicker(tenant, 'Type of relationship (optional)');
   const direction = select('How it goes', [
     ['both', 'Both ways'],

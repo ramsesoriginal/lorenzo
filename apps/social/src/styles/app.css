@@ -516,3 +516,96 @@
   width: 100%;
   min-width: 0;
 }
+
+/* A web as a card (SO1): its drawing, its name and what it holds. */
+.web-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(16rem, 100%), 1fr));
+  gap: var(--space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.web-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-card);
+  background: var(--surface-default);
+}
+
+.web-card-title {
+  margin: 0;
+  font-size: var(--fs-sub);
+}
+
+.web-thumb {
+  block-size: 8rem;
+  border-radius: var(--radius-control);
+  background: var(--surface-muted);
+  overflow: hidden;
+  pointer-events: none;
+}
+
+/* The filters of a list: one wrapped row, each field as wide as it needs (SO3). */
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  align-items: flex-end;
+}
+
+.filters > .field,
+.filters > label {
+  flex: 1 1 12rem;
+  min-inline-size: 0;
+}
+
+.filters-actions {
+  flex: 0 0 auto;
+}
+
+/* The line samples of the graph's legend: what solid, dashed, dotted and an arrow look like (SO7). */
+.legend-line {
+  display: inline-block;
+  inline-size: 1.6rem;
+  block-size: 0;
+  border-block-start: 2px solid currentColor;
+}
+
+.legend-dashed {
+  border-block-start-style: dashed;
+}
+
+.legend-dotted {
+  border-block-start-style: dotted;
+}
+
+.legend-arrow {
+  position: relative;
+}
+
+.legend-arrow::after {
+  content: "";
+  position: absolute;
+  inset-inline-end: 0;
+  inset-block-start: -5px;
+  border-inline-start: 7px solid currentColor;
+  border-block: 4px solid transparent;
+}
+
+/* The pages that are read down a column: a relationship, an entry, the types, the problems (SO3). */
+.view-narrow {
+  max-inline-size: 48rem;
+  margin-inline: auto;
+}
+
+/* A standing written in a row of a list is a small number field at the right, not a full line. */
+.list > li > .matrix-input {
+  flex: none;
+  inline-size: 6rem;
+  text-align: end;
+}
