@@ -20,6 +20,7 @@ env:
 jobs:
   release-please:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     outputs:
       pr: ${{ steps.release.outputs.pr }}
     steps:
@@ -42,6 +43,7 @@ jobs:
     needs: release-please
     if: needs.release-please.outputs.pr != ''
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
         with:
