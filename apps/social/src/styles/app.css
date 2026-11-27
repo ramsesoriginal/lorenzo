@@ -602,3 +602,10 @@
   max-inline-size: 48rem;
   margin-inline: auto;
 }
+
+/* A standing written in a row of a list is a small number field at the right, not a full line. */
+.list > li > .matrix-input {
+  flex: none;
+  inline-size: 6rem;
+  text-align: end;
+}
