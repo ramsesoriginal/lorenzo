@@ -116,3 +116,31 @@ export function initials(label: string | undefined): string {
 
   return letters.join('').toUpperCase() || '·';
 }
+
+/** What a person chose, as the account keeps it: each part is there only when it was chosen. */
+export type AppearancePrefs = { theme?: ThemeChoice; density?: Density; motion?: Motion };
+
+/** The account's words as choices; anything it does not say, or says unknown, is left out. */
+export function prefsFromAccount(raw: unknown): AppearancePrefs {
+  if (typeof raw !== 'object' || raw === null) return {};
+
+  const { theme, density, motion } = raw as Record<string, unknown>;
+  const prefs: AppearancePrefs = {};
+
+  if (theme === 'system' || theme === 'light' || theme === 'dark') prefs.theme = theme;
+  if (density === 'comfortable' || density === 'compact' || density === 'dense') {
+    prefs.density = density;
+  }
+  if (motion === 'system' || motion === 'reduced') prefs.motion = motion;
+
+  return prefs;
+}
+
+/** Whether a choice differs from what every device starts with. */
+export function isCustom(prefs: AppearancePrefs): boolean {
+  return (
+    (prefs.theme ?? 'system') !== 'system' ||
+    (prefs.density ?? 'comfortable') !== 'comfortable' ||
+    (prefs.motion ?? 'system') !== 'system'
+  );
+}

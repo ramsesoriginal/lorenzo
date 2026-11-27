@@ -2,6 +2,7 @@ import createClient, { type Client, type Middleware } from 'openapi-fetch';
 import { z } from 'zod';
 import type { components, paths } from './schema';
 
+export { accountPreferences } from './preferences';
 export type { components, paths } from './schema';
 
 /** One of apps/api's response or request schemas, by name: `Schema<'ItemInstanceOut'>`. */

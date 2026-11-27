@@ -1,4 +1,4 @@
-import { getAppLinks } from '@lorenzo/api-client';
+import { accountPreferences, getAppLinks } from '@lorenzo/api-client';
 import { bindShell } from '@lorenzo/app-shell';
 import { tenantNamed } from './addresses';
 import { client, fetchAllPages, MAX_PAGE_SIZE, unwrap } from './api';
@@ -22,6 +22,7 @@ export function currentShell(): Shell | null {
 export async function startShell(): Promise<void> {
   const shell = bindShell({
     themeKey: 'lorenzo:beings:theme',
+    preferences: accountPreferences(client),
     onLogin() {
       void login();
     },

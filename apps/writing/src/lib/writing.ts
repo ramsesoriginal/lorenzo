@@ -1,4 +1,4 @@
-import { getAppLinks } from '@lorenzo/api-client';
+import { accountPreferences, getAppLinks } from '@lorenzo/api-client';
 import { bindShell, confirmDialog, openMenu } from '@lorenzo/app-shell';
 import {
   type BundleReceipt,
@@ -88,6 +88,7 @@ export async function start() {
 
   const shell = bindShell({
     themeKey: 'lorenzo:writing:theme',
+    preferences: accountPreferences(client),
 
     onLogin: () => {
       sessionStorage.setItem('lorenzo:writing:return', location.pathname + location.search);

@@ -1,3 +1,4 @@
+import { accountPreferences } from '@lorenzo/api-client';
 import { bindShell } from '@lorenzo/app-shell';
 import { rememberTenantAddress, tenantAddress } from './addresses';
 import { client, fetchAllPages, unwrap } from './api';
@@ -55,6 +56,7 @@ export async function start(): Promise<Session | null> {
   calendarReads.suspend();
   const shell = bindShell({
     themeKey: 'lorenzo:calendars:theme',
+    preferences: accountPreferences(client),
     onLogin() {
       sessionStorage.setItem('lorenzo:calendars:return', location.pathname + location.search);
       void login().catch((e) => shell?.status(message(e), 'error'));

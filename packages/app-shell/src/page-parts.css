@@ -5,7 +5,6 @@
  * which holds only what is its own.
  */
 
-
 /* A page is a stack of ruled sections with room between them. The brand's bare <section> adds a
    bottom margin of its own, which the stack's gap already supplies. */
 .stack.view {

@@ -4,6 +4,7 @@
 // then applies. SiteHead applies the same choices before first paint.
 
 import {
+  type AppearancePrefs,
   type Density,
   densityOf,
   initialTheme,
@@ -83,4 +84,16 @@ export function applyAppearance(themeKey: string): void {
   dark()?.addEventListener?.('change', () => {
     if (readThemeChoice(themeKey) === 'system') setThemeChoice(themeKey, 'system');
   });
+}
+
+/** What this device has chosen, all three parts. */
+export function readChoices(themeKey: string): Required<AppearancePrefs> {
+  return { theme: readThemeChoice(themeKey), density: readDensity(), motion: readMotion() };
+}
+
+/** Applies and keeps the parts the account named, on this device. */
+export function applyChoices(themeKey: string, prefs: AppearancePrefs): void {
+  if (prefs.theme !== undefined) setThemeChoice(themeKey, prefs.theme);
+  if (prefs.density !== undefined) setDensity(prefs.density);
+  if (prefs.motion !== undefined) setMotion(prefs.motion);
 }

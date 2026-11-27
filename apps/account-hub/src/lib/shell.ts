@@ -2,8 +2,9 @@
 // on every page. It is what the old site header did - who is signed in, which pages this person has,
 // the unread count - handed to @lorenzo/app-shell.
 
-import { getAppLinks } from '@lorenzo/api-client';
+import { accountPreferences, getAppLinks } from '@lorenzo/api-client';
 import { bindShell, type Shell } from '@lorenzo/app-shell';
+import { client } from './api';
 import { getUserInfo, isAuthConfigured, isAuthenticated, login, logout } from './auth';
 import { API_BASE_URL, RECENT_KEY, THEME_KEY } from './config';
 import { showsDiscover } from './discover';
@@ -134,6 +135,7 @@ export function currentShell(): Shell | null {
 export async function startShell(): Promise<void> {
   const shell = bindShell({
     themeKey: THEME_KEY,
+    preferences: accountPreferences(client),
     onLogin: () => void login(),
     onLogout: () => void logout(),
   });

@@ -113,3 +113,7 @@ The legal notice, the privacy policy and the support link ([ADR 0439](../../docs
 ### Links that need something
 
 A `NavItem` may carry `requires: 'signed-in'` (any name the app uses): the link is rendered hidden and stays hidden until `shell.allow('signed-in')` is called, so a page that has nothing for someone is not offered to them (the account hub's navigation). `AppPage`'s `welcome` is optional: without it the page is shown at once, for an app whose pages say their own loading.
+
+## Appearance in the account
+
+`bindShell({ preferences: { load, save } })` keeps a person's theme, density and motion in their account as well as on the device ([ADR 0532](../../docs/adr/0532-preferences-and-saved-views-in-the-account.md), [ADR 0528](../../docs/adr/0528-ui-h-retiring-the-old-frame-and-auditing-the-apps.md) H4b). Once `account({ state: 'signed-in' })` is called, what the account names is applied; a change in the Appearance dialog is saved back. `accountPreferences(client)` in `@lorenzo/api-client` is the usual pair. Without `preferences` nothing changes: the device's choice is the only one.

@@ -104,7 +104,11 @@ function segmented<T extends string>(
   return group;
 }
 
-export function mountAppearance(themeKey: string): { open(): void } {
+export function mountAppearance(
+  themeKey: string,
+  options: { onChange?(): void; remembered?: string } = {},
+): { open(): void } {
+  const changed = options.onChange ?? (() => {});
   const dialog = document.createElement('dialog');
   const body = document.createElement('div');
   const done = document.createElement('button');
@@ -137,14 +141,20 @@ export function mountAppearance(themeKey: string): { open(): void } {
           'Theme',
           THEMES,
           () => readThemeChoice(themeKey),
-          (value) => setThemeChoice(themeKey, value),
+          (value) => {
+            setThemeChoice(themeKey, value);
+            changed();
+          },
         ),
       ];
 
       if (densityOffered()) {
         parts.push(
           text('div', 'field-label', 'Density of lists and tables'),
-          segmented('Density of lists and tables', DENSITY_CHOICES, readDensity, setDensity),
+          segmented('Density of lists and tables', DENSITY_CHOICES, readDensity, (value) => {
+            setDensity(value);
+            changed();
+          }),
           text(
             'p',
             'caption',
@@ -155,8 +165,11 @@ export function mountAppearance(themeKey: string): { open(): void } {
 
       parts.push(
         text('div', 'field-label', 'Motion'),
-        segmented('Motion', MOTIONS, readMotion, setMotion),
-        text('p', 'caption', 'Remembered on this device.'),
+        segmented('Motion', MOTIONS, readMotion, (value) => {
+          setMotion(value);
+          changed();
+        }),
+        text('p', 'caption', options.remembered ?? 'Remembered on this device.'),
       );
       body.replaceChildren(...parts);
       openDialog(dialog);

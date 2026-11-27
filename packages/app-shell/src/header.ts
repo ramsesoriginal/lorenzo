@@ -1,4 +1,4 @@
-import { applyAppearance } from './appearance';
+import { applyAppearance, applyChoices, readChoices } from './appearance';
 import { mountAppearance } from './appearance-ui';
 import { APP_INFO, type AppRegistry, appsByJob } from './apps';
 import { type Autosave, createAutosave } from './autosave';
@@ -9,7 +9,17 @@ import { bindLegalLinks } from './legal';
 import { type MenuItem, openMenu } from './menu';
 import type { PaletteItem } from './palette';
 import { mountPalette, type PaletteUi, type PaletteUiOptions } from './palette-ui';
-import { clockLocale, clockText, initials, isCurrentPage, navHref, timeText } from './pure';
+import {
+  type AppearancePrefs,
+  clockLocale,
+  clockText,
+  initials,
+  isCurrentPage,
+  isCustom,
+  navHref,
+  prefsFromAccount,
+  timeText,
+} from './pure';
 import { changesText, createSaveBar, type SaveBar, type SaveBarHandlers } from './save-bar';
 import { readSingleKeys, writeSingleKeys } from './settings';
 import { mountShortcuts } from './shortcuts-ui';
@@ -35,6 +45,15 @@ export type ShellOptions = {
    * it, or null for nothing. Signing out then asks first (ADR 0416).
    */
   unsent?(): string[] | null;
+  /**
+   * Where a signed-in person's appearance is kept in their account (ADR 0532). Without it the
+   * device's own choice is the only one, as before. Once signed in, what the account names is
+   * applied to this device; a change in Appearance is sent back.
+   */
+  preferences?: {
+    load(): Promise<unknown>;
+    save(prefs: AppearancePrefs): Promise<void>;
+  };
 };
 
 export type StatusTone = 'info' | 'error';
@@ -348,13 +367,23 @@ export function bindShell(options: ShellOptions): Shell | null {
   let hub: string | null = null;
   let shortcutsUi: { open(): void } | null = null;
   let appearanceUi: { open(): void } | null = null;
+  let accountSignedIn = false;
+  let preferencesLoaded = false;
   const sprite = root.dataset.sprite ?? '';
   const mac = /Mac|iPhone|iPad/.test(navigator.platform);
   const paletteKeys = mac ? '⌘ K' : 'Ctrl K';
 
   // The Appearance dialog, made when first needed, by the account menu.
   function appearance(): { open(): void } {
-    appearanceUi ??= mountAppearance(options.themeKey);
+    appearanceUi ??= mountAppearance(options.themeKey, {
+      ...(options.preferences
+        ? { remembered: 'Remembered on this device, and in your account when you are signed in.' }
+        : {}),
+      onChange: () => {
+        if (accountSignedIn)
+          void options.preferences?.save(readChoices(options.themeKey)).catch(() => {});
+      },
+    });
 
     return appearanceUi;
   }
@@ -504,6 +533,23 @@ export function bindShell(options: ShellOptions): Shell | null {
         label.textContent = state.label ? `Signed in as ${state.label}` : '';
       }
       if (state.state === 'signed-in') {
+        accountSignedIn = true;
+        if (options.preferences && !preferencesLoaded) {
+          preferencesLoaded = true;
+          // The account's choice, where it names one, is this person's everywhere; a first sign-in
+          // with nothing there sends this device's choice up instead (ADR 0532).
+          void options.preferences
+            .load()
+            .then((raw) => {
+              const named = prefsFromAccount(raw);
+
+              if (Object.keys(named).length > 0) applyChoices(options.themeKey, named);
+              else if (isCustom(readChoices(options.themeKey))) {
+                return options.preferences?.save(readChoices(options.themeKey));
+              }
+            })
+            .catch(() => {});
+        }
         accountLabel = state.label;
         accountName = state.name;
         const letters = find<HTMLElement>(root, '[data-shell-initials]');

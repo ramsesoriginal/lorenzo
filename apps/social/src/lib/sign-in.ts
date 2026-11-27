@@ -1,4 +1,4 @@
-import { getAppLinks } from '@lorenzo/api-client';
+import { accountPreferences, getAppLinks } from '@lorenzo/api-client';
 import { bindShell } from '@lorenzo/app-shell';
 import { client, unwrap } from './api';
 import { isAuthConfigured, isAuthenticated, login, logout } from './auth';
@@ -16,6 +16,7 @@ export const shellOf = () => bound;
 export async function start() {
   const shell = bindShell({
     themeKey: 'lorenzo:social:theme',
+    preferences: accountPreferences(client),
     onLogin() {
       sessionStorage.setItem('lorenzo:social:return', location.pathname + location.search);
       void login().catch((error) => shell?.status(message(error), 'error'));

@@ -867,6 +867,94 @@ describe('the account menu', () => {
       expect(window.localStorage.getItem('lorenzo:motion')).toBeNull();
     });
 
+    describe('in the account (ADR 0532)', () => {
+      const settle = async () => {
+        await Promise.resolve();
+        await Promise.resolve();
+        await Promise.resolve();
+      };
+
+      /** A load that answers when the test says, so the device can be set in between. */
+      const later = () => {
+        let answer: (value: unknown) => void = () => {};
+        const load = vi.fn(() => new Promise<unknown>((resolve) => (answer = resolve)));
+
+        return { load, answer: (value: unknown) => answer(value) };
+      };
+
+      it('applies what the account names once signed in, and keeps the device’s where it says nothing', async () => {
+        const { load, answer } = later();
+
+        await signedIn({ preferences: { load, save: vi.fn(async () => {}) } });
+        window.localStorage.setItem('lorenzo:density', 'compact');
+        answer({ theme: 'dark', motion: 'reduced', other: 1 });
+        await settle();
+
+        expect(load).toHaveBeenCalledTimes(1);
+        expect(document.documentElement.dataset.theme).toBe('dark');
+        expect(document.documentElement.dataset.motion).toBe('reduced');
+        expect(window.localStorage.getItem('lorenzo:density')).toBe('compact');
+      });
+
+      it('sends the device’s choice up when the account has none, and nothing when it is the default', async () => {
+        const save = vi.fn(async () => {});
+        const first = later();
+
+        await signedIn({ preferences: { load: first.load, save } });
+        window.localStorage.setItem('lorenzo:density', 'dense');
+        first.answer({});
+        await settle();
+        expect(save).toHaveBeenCalledWith({ theme: 'system', density: 'dense', motion: 'system' });
+
+        save.mockClear();
+        window.localStorage.removeItem('lorenzo:density');
+        const second = later();
+
+        await signedIn({ preferences: { load: second.load, save } });
+        second.answer({});
+        await settle();
+        expect(save).not.toHaveBeenCalled();
+      });
+
+      it('sends a change made in Appearance to the account, and carries on if that fails', async () => {
+        const save = vi.fn(async () => {
+          throw new Error('offline');
+        });
+        const { button } = await signedIn({ preferences: { load: async () => ({}), save } });
+
+        await settle();
+        button.click();
+        items()
+          .find((item) => item.textContent?.includes('Appearance'))
+          ?.click();
+        vi.advanceTimersByTime(10);
+        const dialog = document.querySelector('dialog.appearance') as HTMLDialogElement;
+
+        (
+          [...dialog.querySelectorAll<HTMLElement>('[aria-label="Theme"] button')].find(
+            (b) => b.textContent === 'Dark',
+          ) as HTMLElement
+        ).click();
+        await settle();
+
+        expect(save).toHaveBeenCalledWith({
+          theme: 'dark',
+          density: 'comfortable',
+          motion: 'system',
+        });
+        // Kept on the device all the same.
+        expect(document.documentElement.dataset.theme).toBe('dark');
+        expect(dialog.textContent).toContain('your account');
+      });
+
+      it('does nothing with the account for an app that asks for none', async () => {
+        const { button } = await signedIn();
+
+        button.click();
+        expect(document.documentElement.dataset.theme).toBeDefined();
+      });
+    });
+
     it('shows what was kept the next time, and a page starts with it', async () => {
       const { dialog } = await open(() =>
         window.localStorage.setItem('lorenzo:density', 'compact'),
