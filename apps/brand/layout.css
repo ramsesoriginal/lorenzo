@@ -21,67 +21,6 @@ body {
   min-height: 100vh;
 }
 
-.site-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3);
-  padding: var(--space-3) var(--space-4);
-  border-bottom: 1px solid var(--border-subtle);
-}
-
-/* A text wordmark (no logo asset shipped in this package) sized to sit
-   correctly in a compact header, rather than at its unconstrained
-   context-dependent default (identity.md §5.3's .display is deliberately
-   size-agnostic everywhere else). */
-.site-header .display {
-  font-size: 20px;
-}
-
-/* Header nav - a bare <a> in a bare <nav> would otherwise render as
-   default underlined link-blue text crammed against the wordmark, with no
-   visual weight or way to show which page is current. Same treatment as
-   .sidebar below, so the two page shells read as one system. */
-/* Desktop: restore original navigation appearance */
-@media (min-width: 721px) {
-  .site-navigation {
-    display: contents;
-  }
-
-  .site-navigation > summary {
-    display: none;
-  }
-
-  .site-navigation::details-content {
-    content-visibility: visible;
-  }
-}
-
-.site-header nav {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-}
-
-.site-header nav a {
-  font-size: 14px;
-  color: var(--text-secondary);
-  text-decoration: none;
-  padding: var(--space-1) var(--space-2);
-  border-radius: var(--radius-control);
-}
-
-.site-header nav a:hover {
-  background: var(--fill-soft);
-  color: var(--text-primary);
-}
-
-.site-header nav a[aria-current="page"] {
-  background: var(--fill-soft);
-  color: var(--text-primary);
-  font-weight: 600;
-}
-
 .brand {
   display: inline-flex;
   align-items: center;
@@ -130,12 +69,6 @@ body {
   }
 }
 
-/* The product's own name beside the lockup ("Calendars"). */
-.brand-product {
-  color: var(--text-secondary);
-  font-size: 18px;
-}
-
 /* A link at the very top of the page that jumps past the header to the
    content; invisible until the keyboard reaches it (WCAG 2.4.1). */
 .skip-link {
@@ -178,7 +111,7 @@ main {
 /* A bare <footer> gets a sensible default treatment - a quiet divider
    above secondary, muted page-level information. A sibling of <main>,
    not nested inside .wrap, so its own border/background span the full
-   page width the same way .site-header's do - put its actual text in a
+   page width the way a header's does - put its actual text in a
    nested .wrap (see preview/*.html) so it still lines up with the
    content column above it. */
 footer {
@@ -342,31 +275,11 @@ body:has(.full-width) {
    cannot fit on one row, and side-by-side columns. Type does not shrink (§15.5) and nothing is hidden
    to make room. */
 @media (max-width: 720px) {
-  .site-header {
-    flex-wrap: wrap;
-    padding: var(--space-2) var(--space-3);
-  }
-
   /* Wider than the viewport minus the gutters at 320px, so it gives way
      rather than overflowing; §4.7's 220px minimum is for the lockup at
      rest, and the spark alone is the compact form (§12.2). */
   .brand-mark {
     max-width: 100%;
-  }
-
-  .site-navigation {
-    position: relative;
-  }
-
-  /* An open menu takes its own line under the header row and is as wide as the
-     page, no wider: a fixed 100vw would run past the gutters. */
-  .site-navigation[open] {
-    flex-basis: 100%;
-  }
-
-  .site-navigation nav {
-    flex-direction: column;
-    align-items: stretch;
   }
 
   .row.v-mobile {
