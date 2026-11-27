@@ -411,3 +411,9 @@
   inline-size: 6rem;
   text-align: end;
 }
+
+/* A list's saved views, under its filters (ADR 0532). */
+.saved-views {
+  align-items: end;
+  gap: var(--space-2) var(--space-3);
+}

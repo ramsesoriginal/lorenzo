@@ -55,6 +55,8 @@ export type { RetryReadOptions } from './retry';
 export { backoffMs, retryRead } from './retry';
 export type { SaveBar, SaveBarHandlers } from './save-bar';
 export { changesText } from './save-bar';
+export type { SavedViewsOptions, ViewRecord, ViewStore } from './saved-views';
+export { mountSavedViews, viewNameOf } from './saved-views';
 export type {
   MascotId,
   PageStateSpec,
