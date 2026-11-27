@@ -16,7 +16,7 @@ const nav = [
   { label: 'Export', href: '/export/' },
 ];
 
-async function render(shell?: 'web') {
+async function render() {
   const container = await AstroContainer.create();
   const props = {
     title: 'Calendars — Lorenzo',
@@ -26,9 +26,9 @@ async function render(shell?: 'web') {
     nav,
     path: 'apps/calendars',
     welcome: { title: 'Calendars', text: 'Time in your world.', status: 'Opening…' },
-    ...(shell
-      ? { shell, icon: 'kind-calendar', version: '1.2.0', legal: { notice: '/legal/' } }
-      : {}),
+    icon: 'kind-calendar',
+    version: '1.2.0',
+    legal: { notice: '/legal/' },
   };
 
   return container.renderToString(AppPage, { props, slots: { default: '<p>The page</p>' } });
@@ -85,30 +85,9 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-describe('the old header is still the default', () => {
-  it('draws the one-row header and no web shell', async () => {
-    const html = await render();
-
-    expect(html).toContain('data-site-header');
-    expect(html).not.toContain('data-shell-status');
-    expect(html).not.toContain('shell-container');
-  });
-
-  it('does nothing when the web-shell calls are made on it', async () => {
-    const shell = mount(await render());
-
-    expect(() => {
-      shell.strip({ kind: 'offline', text: 'x' });
-      shell.statusBar({ sync: 'waiting' });
-      shell.apps({ apps: {} });
-      shell.notifications({ count: 1, href: '/n' });
-    }).not.toThrow();
-  });
-});
-
 describe('the web shell', () => {
   it('draws a global bar, an app bar, a status bar, a tab bar and the sheet', async () => {
-    const html = await render('web');
+    const html = await render();
 
     for (const hook of [
       'shell-container',
@@ -124,7 +103,7 @@ describe('the web shell', () => {
   });
 
   it('is one row, with the app icon beside its name, until the library switcher is shown', async () => {
-    const shell = mount(await render('web'));
+    const shell = mount(await render());
     const header = document.querySelector('[data-site-header]') as HTMLElement;
 
     expect(header.dataset.tiers).toBe('one');
@@ -149,7 +128,7 @@ describe('the web shell', () => {
   });
 
   it('puts the first three links in the tab bar and the rest in the sheet', async () => {
-    mount(await render('web'));
+    mount(await render());
 
     const bar = [...document.querySelectorAll('[data-shell-tabbar] a')].map((a) =>
       a.textContent?.trim(),
@@ -163,7 +142,7 @@ describe('the web shell', () => {
   });
 
   it('marks the current page in the app bar, the tab bar and the sheet', async () => {
-    const shell = mount(await render('web'), '/settings/');
+    const shell = mount(await render(), '/settings/');
 
     shell.library('my library');
     const current = [...document.querySelectorAll('[aria-current="page"]')].map((a) =>
@@ -180,7 +159,7 @@ describe('the web shell', () => {
   });
 
   it('shows the real date and time, and keeps it', async () => {
-    mount(await render('web'));
+    mount(await render());
 
     const clock = document.querySelector('[data-shell-clock]') as HTMLTimeElement;
 
@@ -201,7 +180,7 @@ describe('a tab that owns other pages', () => {
 
 describe('binding again, as an app with a client router does on every page', () => {
   it('lets go of what the first page held on the document and the window', async () => {
-    const html = await render('web');
+    const html = await render();
 
     mount(html);
 
@@ -222,7 +201,7 @@ describe('binding again, as an app with a client router does on every page', () 
 
 describe('the state strip', () => {
   it('opens with words and an action, and closes to nothing', async () => {
-    const shell = mount(await render('web'));
+    const shell = mount(await render());
     const strip = document.querySelector('[data-shell-strip]') as HTMLElement;
     const run = vi.fn();
 
@@ -245,7 +224,7 @@ describe('the state strip', () => {
 
 describe('the status bar', () => {
   it('says the sync state with a word and an icon, and the app’s own meta', async () => {
-    const shell = mount(await render('web'));
+    const shell = mount(await render());
 
     // Nothing is claimed until the app says something.
     expect((document.querySelector('[data-shell-sync]') as HTMLElement).hidden).toBe(true);
@@ -265,7 +244,7 @@ describe('the status bar', () => {
   });
 
   it('says when it last synced, as "Synced 19:40"', async () => {
-    const shell = mount(await render('web'));
+    const shell = mount(await render());
 
     shell.statusBar({ sync: 'synced', syncedAt: new Date(2026, 10, 6, 19, 40) });
     expect(document.querySelector('[data-shell-sync-text]')?.textContent).toBe('Synced 19:40');
@@ -282,7 +261,7 @@ describe('the apps sheet', () => {
   };
 
   it('lists the deployed apps by job and marks the one the person is in', async () => {
-    const shell = mount(await render('web'));
+    const shell = mount(await render());
 
     shell.apps(registry);
     const links = [...document.querySelectorAll('[data-shell-apps] a')] as HTMLAnchorElement[];
@@ -301,7 +280,7 @@ describe('the apps sheet', () => {
   });
 
   it('opens docked over the status bar above a phone, without dimming, and Escape or a press outside closes it', async () => {
-    mount(await render('web'));
+    mount(await render());
 
     const sheet = document.querySelector('[data-shell-sheet]') as HTMLDialogElement;
     const button = document.querySelector('.shell-status [data-shell-open-sheet]') as HTMLElement;
@@ -333,7 +312,7 @@ describe('the apps sheet', () => {
 
   it('is a modal sheet on a phone, opened from More, and closes with the fade', async () => {
     phone = true;
-    mount(await render('web'));
+    mount(await render());
 
     const sheet = document.querySelector('[data-shell-sheet]') as HTMLDialogElement;
     const more = document.querySelector('.shell-tabbar [data-shell-open-sheet]') as HTMLElement;
@@ -351,7 +330,7 @@ describe('the apps sheet', () => {
   });
 
   it('names the source, the product, its version, the licence and the date, and the legal page it was given', async () => {
-    mount(await render('web'));
+    mount(await render());
 
     const sheet = document.querySelector('[data-shell-sheet]');
     const notice = sheet?.querySelector<HTMLAnchorElement>('[data-shell-link="notice"] a');
@@ -369,7 +348,7 @@ describe('the apps sheet', () => {
   });
 
   it('draws an icon beside each app and a check on the one the person is in', async () => {
-    const shell = mount(await render('web'));
+    const shell = mount(await render());
 
     shell.apps(registry);
 
@@ -387,7 +366,7 @@ describe('the apps sheet', () => {
 
 describe('the notifications bell', () => {
   it('is hidden until an app has somewhere to send it', async () => {
-    const shell = mount(await render('web'));
+    const shell = mount(await render());
     const bell = document.querySelector('[data-shell-bell]') as HTMLAnchorElement;
 
     expect(bell.hidden).toBe(true);
@@ -422,7 +401,7 @@ describe('the palette and the keys', () => {
   }
 
   async function open() {
-    const shell = mount(await render('web'));
+    const shell = mount(await render());
     const assign = vi.fn();
     const run = vi.fn();
 
@@ -436,7 +415,7 @@ describe('the palette and the keys', () => {
   }
 
   it('does nothing until an app asks for it, and the buttons stay hidden', async () => {
-    mount(await render('web'));
+    mount(await render());
 
     expect(press('k', { ctrlKey: true }).defaultPrevented).toBe(false);
     expect((document.querySelector('[data-shell-open-palette]') as HTMLElement).hidden).toBe(true);
@@ -505,7 +484,7 @@ describe('the palette and the keys', () => {
   });
 
   it('asks an app for entries as the person types, and ignores a late answer to an older query', async () => {
-    const shell = mount(await render('web'));
+    const shell = mount(await render());
     let resolveFirst: (items: never[]) => void = () => {};
     const entries = vi
       .fn()
@@ -581,7 +560,7 @@ describe('the palette and the keys', () => {
 
 describe('toasts', () => {
   async function shellWithToasts() {
-    return mount(await render('web'));
+    return mount(await render());
   }
 
   const cards = () => [...document.querySelectorAll<HTMLElement>('.toast-card')];
@@ -645,13 +624,6 @@ describe('toasts', () => {
     ]);
   });
 
-  it('does nothing in the old header', async () => {
-    const shell = mount(await render());
-
-    expect(() => shell.toast({ title: 'Saved' })).not.toThrow();
-    expect(document.querySelector('.toast-card')).toBeNull();
-  });
-
   it('the timer holds, and starts again from the full time', () => {
     const done = vi.fn();
     const timer = createToastTimer(10_000, done);
@@ -671,7 +643,7 @@ describe('toasts', () => {
 
 describe('confirmations', () => {
   it('resolves true on the button and false on Cancel, naming what it does', async () => {
-    const shell = mount(await render('web'));
+    const shell = mount(await render());
     const yes = shell.confirm({
       title: 'Delete 12 entries?',
       body: 'They are gone.',
@@ -694,7 +666,7 @@ describe('confirmations', () => {
   });
 
   it('keeps the button off until the name is typed, with the reason beside it', async () => {
-    const shell = mount(await render('web'));
+    const shell = mount(await render());
     const result = shell.confirm({
       title: 'Delete the library?',
       body: 'All of it.',
@@ -755,7 +727,7 @@ describe('the account menu', () => {
     );
 
   async function signedIn(extra: Partial<ShellOptions> = {}) {
-    const html = await render('web');
+    const html = await render();
     const onLogout = vi.fn();
     const shell = mount(html, '/', { onLogout, ...extra });
 
@@ -795,7 +767,7 @@ describe('the account menu', () => {
   });
 
   it('takes the letters from the display name once it is known, not from the address', async () => {
-    const html = await render('web');
+    const html = await render();
     const shell = mount(html);
     const button = document.querySelector('[data-shell-account-button]') as HTMLButtonElement;
 
@@ -806,7 +778,7 @@ describe('the account menu', () => {
   });
 
   it('puts the name over the address, and the unread count beside Notifications', async () => {
-    const html = await render('web');
+    const html = await render();
     const shell = mount(html);
 
     shell.account({ state: 'signed-in', label: 'mara.quill@example.com', name: 'Mara Quill' });
@@ -991,7 +963,7 @@ describe('the account menu', () => {
 });
 
 describe('templates and states', () => {
-  it('gives the page the width of its template, only in the web shell', async () => {
+  it('gives the page the width of its template', async () => {
     const container = await AstroContainer.create();
     const props = {
       title: 'T',
@@ -1004,15 +976,14 @@ describe('templates and states', () => {
     const render2 = (extra: Record<string, unknown>) =>
       container.renderToString(AppPage, { props: { ...props, ...extra }, slots: { default: 'x' } });
 
-    expect(await render2({ shell: 'web', template: 'reading' })).toContain(
+    expect(await render2({ template: 'reading' })).toContain(
       'shell-page shell-page--reading stack',
     );
-    expect(await render2({ shell: 'web' })).toContain('class="wrap stack"');
-    expect(await render2({ template: 'reading' })).not.toContain('shell-page--reading');
+    expect(await render2({})).toContain('class="wrap stack"');
   });
 
   it('puts a region state where the rows were, and clears it', async () => {
-    const shell = mount(await render('web'));
+    const shell = mount(await render());
     const host = document.createElement('div');
     const retry = vi.fn();
 
@@ -1034,7 +1005,7 @@ describe('templates and states', () => {
   });
 
   it('draws a loading state as skeleton lines, and says when it is slow', async () => {
-    const shell = mount(await render('web'));
+    const shell = mount(await render());
     const host = document.createElement('div');
 
     shell.state(host, { kind: 'loading', noun: 'entries' });
@@ -1046,7 +1017,7 @@ describe('templates and states', () => {
   });
 
   it('words the empty, partial and offline regions from the design, and never counts what is hidden', async () => {
-    const shell = mount(await render('web'));
+    const shell = mount(await render());
     const host = document.createElement('div');
 
     shell.state(host, { kind: 'empty', noun: 'entries' });
@@ -1060,7 +1031,7 @@ describe('templates and states', () => {
   });
 
   it('replaces the page with a mascot state, and falls back to a placeholder when the image is missing', async () => {
-    const shell = mount(await render('web'));
+    const shell = mount(await render());
 
     shell.pageState({ art: 'no-access', link: { label: 'Go to Home', href: '/' } });
     const page = document.querySelector('[data-page]') as HTMLElement;
@@ -1082,7 +1053,7 @@ describe('templates and states', () => {
   });
 
   it("takes its own words for an app's own page state", async () => {
-    const shell = mount(await render('web'));
+    const shell = mount(await render());
 
     shell.pageState({
       art: 'empty-beings',
@@ -1101,7 +1072,7 @@ describe('saving', () => {
   const buttons = () => [...bar().querySelectorAll('button')];
 
   it('opens on a change, counts, and closes at none', async () => {
-    const shell = mount(await render('web'));
+    const shell = mount(await render());
     const sb = shell.saveBar({ save: () => {}, discard: () => {} });
 
     expect(bar().hasAttribute('data-open')).toBe(false);
@@ -1114,7 +1085,7 @@ describe('saving', () => {
   });
 
   it('rewrites its buttons only when the number of changes changes', async () => {
-    const shell = mount(await render('web'));
+    const shell = mount(await render());
     const sb = shell.saveBar({ save: () => {}, discard: () => {} });
 
     sb.set(1);
@@ -1128,7 +1099,7 @@ describe('saving', () => {
   });
 
   it('saves once while it is saving, and discards', async () => {
-    const shell = mount(await render('web'));
+    const shell = mount(await render());
     const discard = vi.fn();
     let finish = () => {};
     const save = vi.fn(() => new Promise<void>((resolve) => (finish = resolve)));
@@ -1147,7 +1118,7 @@ describe('saving', () => {
   });
 
   it('keeps the changes and says so when a save fails, with a way to try again', async () => {
-    const shell = mount(await render('web'));
+    const shell = mount(await render());
     const save = vi.fn().mockRejectedValueOnce(new Error('no')).mockResolvedValue(undefined);
     const sb = shell.saveBar({ save, discard: () => {} });
 
@@ -1164,7 +1135,7 @@ describe('saving', () => {
   });
 
   it('asks before leaving the page with changes, and not without', async () => {
-    const shell = mount(await render('web'));
+    const shell = mount(await render());
     const sb = shell.saveBar({ save: () => {}, discard: () => {} });
     const leave = () => {
       const event = new dom.window.Event('beforeunload', { cancelable: true });
@@ -1183,7 +1154,7 @@ describe('saving', () => {
 
   it('signing out with unsaved changes says so and asks first', async () => {
     const onLogout = vi.fn();
-    const shell = mount(await render('web'), '/', { onLogout });
+    const shell = mount(await render(), '/', { onLogout });
 
     shell.account({ state: 'signed-in', label: 'mara@example.com' });
     shell.saveBar({ save: () => {}, discard: () => {} }).set(2);
@@ -1197,7 +1168,7 @@ describe('saving', () => {
   });
 
   it('draws the autosave indicator into the host the app gives', async () => {
-    const shell = mount(await render('web'));
+    const shell = mount(await render());
     const host = document.createElement('span');
     const auto = shell.autosave(host);
 
@@ -1276,7 +1247,7 @@ describe('gated links and a page with no welcome', () => {
 
 describe('a page state inside a page', () => {
   it('uses an h2 when it stands inside a page that has its own heading', async () => {
-    const shell = mount(await render('web'));
+    const shell = mount(await render());
 
     shell.pageState({ art: 'device-connected', title: 'Connected', level: 2 });
     expect(document.querySelector('.page-state h2')?.textContent).toBe('Connected');
